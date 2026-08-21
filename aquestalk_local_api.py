@@ -214,6 +214,10 @@ def _load_aquestalk1(voice_name):
         )
 
     lib = ctypes.CDLL(str(lib_path))
+    lib.AquesTalk_SetDevKey.argtypes = [ctypes.c_char_p]
+    lib.AquesTalk_SetDevKey.restype = ctypes.c_int
+    lib.AquesTalk_SetUsrKey.argtypes = [ctypes.c_char_p]
+    lib.AquesTalk_SetUsrKey.restype = ctypes.c_int
     lib.AquesTalk_Synthe_Utf8.argtypes = [
         ctypes.c_char_p,
         ctypes.c_int,
@@ -221,6 +225,19 @@ def _load_aquestalk1(voice_name):
     ]
     lib.AquesTalk_Synthe_Utf8.restype = ctypes.POINTER(ctypes.c_ubyte)
     lib.AquesTalk_FreeWave.argtypes = [ctypes.POINTER(ctypes.c_ubyte)]
+
+    dev_key = os.environ.get(DEV_KEY_ENV)
+    if dev_key:
+        result = lib.AquesTalk_SetDevKey(dev_key.encode("utf-8"))
+        if result != 0:
+            raise AquesTalkError(f"{DEV_KEY_ENV} is set, but AquesTalk1 rejected the key")
+
+    user_key = os.environ.get(USER_KEY_ENV) or os.environ.get(LICENSE_KEY_ENV)
+    if user_key:
+        result = lib.AquesTalk_SetUsrKey(user_key.encode("utf-8"))
+        if result != 0:
+            raise AquesTalkError(f"{USER_KEY_ENV} is set, but AquesTalk1 rejected the key")
+
     AQUESTALK1_LIBRARIES[voice_name] = (lib, lib_path)
     return AQUESTALK1_LIBRARIES[voice_name]
 

@@ -1,5 +1,6 @@
 import csv
 import os
+import re
 from pathlib import Path
 
 import requests
@@ -15,11 +16,36 @@ AUDIO_DIR = BASE_DIR / "audios"
 KEYNOTE_EXPORT_DIR = SLIDES_DIR / "交換夫婦（22話目）"
 KEYNOTE_EXPORT_PREFIX = "交換夫婦（22話目）"
 REFERENCE_CSV = BASE_DIR / "交換夫婦22話-台本.csv"
+AQUESTALK1_UNSUPPORTED_CHARS = re.compile(r"[「」『』（）()［］\[\]【】…]")
 
 def _percent_to_scale(value, default=100):
     if value in (None, ""):
         value = default
     return float(value) / 100
+
+
+def _text_for_synthesis(row):
+    text = row.get("text") or row.get("kana_reading") or ""
+    if os.environ.get("AQUESTALK_ENGINE", "aquestalk1").lower() == "aquestalk1":
+        text = AQUESTALK1_UNSUPPORTED_CHARS.sub("", text)
+        text = re.sub(r"\s+", "", text)
+    return text
+
+
+def _raise_for_api_error(response, slide_num, text):
+    if response.ok:
+        return
+
+    detail = response.text
+    try:
+        detail = response.json().get("detail", detail)
+    except ValueError:
+        pass
+
+    raise RuntimeError(
+        f"スライド {slide_num} の音声合成に失敗しました: {detail}\n"
+        f"合成テキスト: {text}"
+    ) from None
 
 
 def load_script_rows(csv_path):
@@ -55,10 +81,13 @@ def generate_audios_from_rows(rows):
     for index, row in enumerate(rows, start=1):
         slide_num = row.get("slide_num") or index
         char_name = row["character"]
-        text = row["text"]
+        text = _text_for_synthesis(row)
         voice_type = row.get("voice_type", "f1")
         speed_scale = _percent_to_scale(row.get("speed"))
         pitch_scale = _percent_to_scale(row.get("pitch"))
+
+        if not text:
+            raise RuntimeError(f"スライド {slide_num} の text/kana_reading が空です。")
 
         speaker = voice_type or "f1"
 
@@ -69,7 +98,7 @@ def generate_audios_from_rows(rows):
             params={"text": text, "speaker": speaker},
             timeout=60,
         )
-        res_query.raise_for_status()
+        _raise_for_api_error(res_query, slide_num, text)
         query_data = res_query.json()
         query_data["speedScale"] = speed_scale
         query_data["pitchScale"] = pitch_scale
@@ -80,7 +109,7 @@ def generate_audios_from_rows(rows):
             json=query_data,
             timeout=60,
         )
-        res_synth.raise_for_status()
+        _raise_for_api_error(res_synth, slide_num, text)
 
         audio_path = AUDIO_DIR / f"slide_{slide_num}.wav"
         with open(audio_path, "wb") as audio_file:
