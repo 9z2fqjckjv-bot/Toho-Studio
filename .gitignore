@@ -1,3 +1,24 @@
 .env
 license.pdf
 slides/交換夫婦（22話目）.mov
+
+# Python/runtime artifacts
+__pycache__/
+*.py[cod]
+.venv/
+
+# Generated media
+audios/
+output.mp4
+temp_audio.m4a
+
+# Local credentials and logs
+client_secret*.json
+log*.txt
+.DS_Store
+
+# Saved web page references
+ゆっくりボイスメーカー.html
+ゆっくりボイスメーカー_files/
+ゆっくりボイスメーカー.html
+ゆっくりボイスメーカー_files/

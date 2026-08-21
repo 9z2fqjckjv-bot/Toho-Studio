@@ -16,20 +16,93 @@ AUDIO_DIR = BASE_DIR / "audios"
 KEYNOTE_EXPORT_DIR = SLIDES_DIR / "交換夫婦（22話目）"
 KEYNOTE_EXPORT_PREFIX = "交換夫婦（22話目）"
 REFERENCE_CSV = BASE_DIR / "交換夫婦22話-台本.csv"
+VOICE_SETTINGS_CSV = BASE_DIR / "ボイス設定.csv"
 AQUESTALK1_UNSUPPORTED_CHARS = re.compile(r"[「」『』（）()［］\[\]【】…]")
+CHARACTER_VOICE_ALIASES = {
+    "レミリア": "れみりあ",
+    "フラン": "ふらん",
+    "霊夢": "れいむ",
+    "魔理沙": "まりさ",
+    "咲夜": "さくや",
+    "パチュリー": "ぱちゅりー",
+}
+
+
+def _normalize_percent(value, default=100):
+    if value in (None, ""):
+        return str(default)
+    return str(value).replace("～", "-").split("-")[0].strip()
 
 def _percent_to_scale(value, default=100):
     if value in (None, ""):
         value = default
+    value = _normalize_percent(value, default)
     return float(value) / 100
 
 
+def _is_legacy_roman_phoneme_sequence(text):
+    if not text:
+        return False
+    return bool(re.fullmatch(r"[A-Za-z0-9 ._-]+", text))
+
+
 def _text_for_synthesis(row):
-    text = row.get("text") or row.get("kana_reading") or ""
+    phoneme_sequence = row.get("phoneme_sequence") or ""
+    if _is_legacy_roman_phoneme_sequence(phoneme_sequence):
+        phoneme_sequence = ""
+
+    text = phoneme_sequence or row.get("text") or row.get("kana_reading") or ""
     if os.environ.get("AQUESTALK_ENGINE", "aquestalk1").lower() == "aquestalk1":
         text = AQUESTALK1_UNSUPPORTED_CHARS.sub("", text)
         text = re.sub(r"\s+", "", text)
     return text
+
+
+def _load_voice_settings(csv_path=VOICE_SETTINGS_CSV):
+    if not csv_path.exists():
+        return {}
+
+    with open(csv_path, "r", encoding="utf-8") as f:
+        rows = csv.DictReader(f)
+        return {
+            row["キャラクター名"]: {
+                "voice_type": row.get("声質", ""),
+                "speed": _normalize_percent(row.get("速度")),
+                "pitch": _normalize_percent(row.get("音程")),
+            }
+            for row in rows
+            if row.get("キャラクター名")
+        }
+
+
+def _voice_settings_for_character(character, settings):
+    keys = [character, CHARACTER_VOICE_ALIASES.get(character, "")]
+    for key in keys:
+        if key and key in settings:
+            return settings[key]
+    return None
+
+
+def apply_voice_settings(rows, settings=None):
+    settings = settings if settings is not None else _load_voice_settings()
+    if not settings:
+        return rows
+
+    for row in rows:
+        setting = _voice_settings_for_character(row.get("character", ""), settings)
+        if not setting:
+            continue
+
+        for source_key, row_key in (
+            ("voice_type", "voice_type"),
+            ("speed", "speed"),
+            ("pitch", "pitch"),
+        ):
+            value = setting.get(source_key)
+            if value:
+                row[row_key] = value
+
+    return rows
 
 
 def _raise_for_api_error(response, slide_num, text):
@@ -59,7 +132,7 @@ def load_script_rows(csv_path):
             for row, reference_row in zip(rows, reference_rows):
                 row["slide_num"] = reference_row["slide_num"]
 
-    return rows
+    return apply_voice_settings(rows)
 
 
 def _slide_image_path(slide_num):
