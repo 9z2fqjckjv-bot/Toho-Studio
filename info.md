@@ -1,272 +1,327 @@
-これまでのご相談内容を踏まえ、**Keynoteでのスライド作成後から、ゆっくりボイス作成、動画合成、YouTube非公開投稿までを完全自動化するための構築ガイド**を作成しました。
+# Toho-Project-Second-Story 運用メモ
 
-この構築を行えば、手動でのWeb操作やFinal Cut Proでのタイムライン調整が不要になり、コマンドひとつで100枚以上のスライド動画を一括作成・投稿できるようになります。
+このプロジェクトは、Keynote で作成した東方Project二次創作スライドを、AquesTalk 音声付きの動画に変換し、YouTube へ限定公開アップロードするための自動化環境です。
 
----
-
-## 全体システム構成図
-
-```
-[Keynoteスライド作成]
-       │ (1) PNG画像として一括書き出し
-       ▼
- [スライド画像群] (slide_001.png ...) + [台本ファイル] (script.csv)
-       │
-       ├─► (2) Pythonスクリプト実行 (`auto_pipeline.py`)
-       │      │
-       │      ├─► ① 台本からゆっくりボイス（キャラ別/ボイス種別）を一括自動生成
-       │      ├─► ② 画像と音声をピッタリの尺で結合（MoviePy / FFmpeg）
-       │      └─► ③ 完成したMP4をYouTubeへ非公開（限定公開）アップロード
-       ▼
- [YouTube投稿完了]
-
-```
-
----
-
-## 準備編：環境構築
-
-Macの「ターミナル」を開き、必要なツールのセットアップを行います。
-
-### 1. Pythonライブラリのインストール
-
-ターミナルで以下のコマンドを実行します。
+Mac のターミナルでは、必ずプロジェクト直下へ移動してから作業します。
 
 ```bash
-pip install moviepy requests google-api-python-client google-auth-httplib2 google-auth-oauthlib
-
+cd "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story"
 ```
 
-### 2. 音声合成エンジンの準備（VOICEVOX または AquesTalk）
-
-手軽かつ高品質に「女性1」「女性2」「中性」などの声を生成するため、無料の音声合成エンジン **VOICEVOX**（またはAquesTalkのローカルAPI）をMacにインストールしてバックグラウンドで起動しておきます。
-
----
-
-## 実践編：ファイルの作成と設定
-
-作業用フォルダ（例: `slide_video_project`）を作成し、その中に以下のファイル・フォルダを配置します。
+## 現在のフォルダ構成
 
 ```text
-slide_video_project/
-├── auto_pipeline.py       # 自動化メインスクリプト
-├── script.csv             # 台本ファイル
-├── client_secret.json     # YouTube API用認証鍵（GCPからダウンロード）
-├── slides/                # Keynoteから書き出したPNG画像を入れるフォルダ
-└── audios/                # 生成された音声が自動保存されるフォルダ
-
+Toho-Project-Second-Story/
+├── .env                               # AquesTalk ライセンスとエンジン設定
+├── .gitignore
+├── README.md
+├── info.md                            # この運用メモ
+├── auto_pipeline.py                   # 音声生成、動画生成、YouTube投稿のメイン処理
+├── aquestalk_local_api.py             # VOICEVOX風のローカルAquesTalk API
+├── keynote_telop_to_csv.py            # KeynoteファイルからテロップCSVを抽出
+├── script.csv                         # auto_pipeline.py が読む台本CSV
+├── 交換夫婦22話-台本.csv              # 作品別の台本CSV
+├── ボイス設定.csv                    # キャラクター別の声質、速度、音程設定
+├── client_secret.json                 # YouTube API OAuth クライアント設定
+├── client_secret.json.example
+├── license.pdf                        # AquesTalk ライセンス資料
+├── aquestalk/
+│   ├── README.md
+│   └── libAquesTalk10.dylib           # AquesTalk10 Mac用ライブラリ
+├── aquestalk1/
+│   ├── README.md
+│   └── libAquesTalk1-*.dylib          # AquesTalk1 Mac用ライブラリを配置
+├── slides/
+│   ├── .gitkeep
+│   └── 交換夫婦（22話目）.key          # Keynote元ファイル
+└── audios/
+    └── .gitkeep                       # 生成されたwavの保存先
 ```
 
-### 1. 台本ファイル（`script.csv`）の作成
+## 全体の流れ
 
-スライド番号、読み上げるテキスト、そしてキャラクター（声の種類）を指定します。
-
-```csv
-slide_num,character,text
-1,霊夢,こんにちは！今回は〇〇について解説するよ。
-2,魔理沙,よろしくぜ。まずはこのポイントから見ていこう。
-3,案内役（中性）,ここが一番重要な部分になります。
-
+```text
+Keynoteファイル
+    │
+    ├─ keynote_telop_to_csv.py
+    │      └─ テロップ、話者、声質、速度、音程をCSV化
+    │
+    ├─ KeynoteからPNGを書き出し
+    │      └─ slides/slide_1.png, slides/slide_2.png ...
+    │
+    ├─ aquestalk_local_api.py
+    │      └─ http://localhost:50021 で音声合成APIを起動
+    │
+    └─ auto_pipeline.py
+           ├─ script.csv から audios/slide_*.wav を生成
+           ├─ slides/ と audios/ を結合して output.mp4 を生成
+           └─ output.mp4 を YouTube へ限定公開アップロード
 ```
 
----
+## 初回セットアップ
 
-### 2. メインスクリプト（`auto_pipeline.py`）の作成
+### 1. Python仮想環境を作成
 
-以下のコードをコピーして `auto_pipeline.py` として保存します。
+macOS では `python` ではなく `python3` を使うのが安全です。
 
-```python
-import os
-import csv
-import requests
-from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-from google_auth_oauthlib.flow import InstalledAppFlow
-
-# ==========================================
-# 設定: キャラクター・ボイスプロファイル定義
-# ==========================================
-# VOICEVOX等の話者ID（Speaker ID）マッピング
-# 女性1(f1相当)=2, 女性2(f2相当)=3, 中性(d_1相当)=8 など
-VOICE_PROFILES = {
-    "霊夢": {"speaker_id": 2, "speed": 1.0},
-    "魔理沙": {"speaker_id": 3, "speed": 1.05},
-    "案内役（中性）": {"speaker_id": 8, "speed": 1.0},
-    "ナレーション（ロボ）": {"speaker_id": 13, "speed": 1.1}
-}
-
-# ==========================================
-# 1. 音声の一括生成処理
-# ==========================================
-def generate_audios_from_csv(csv_path):
-    print("--- [Step 1] 音声の自動生成を開始 ---")
-    os.makedirs("audios", exist_ok=True)
-    
-    with open(csv_path, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            slide_num = row['slide_num']
-            char_name = row['character']
-            text = row['text']
-            
-            profile = VOICE_PROFILES.get(char_name, {"speaker_id": 2, "speed": 1.0})
-            speaker_id = profile["speaker_id"]
-            
-            # VOICEVOX APIへのリクエスト (localhost:50021)
-            base_url = "http://localhost:50021"
-            
-            # クエリ作成
-            res_query = requests.post(f"{base_url}/audio_query", params={"text": text, "speaker": speaker_id})
-            query_data = res_query.json()
-            query_data["speedScale"] = profile["speed"]
-            
-            # 音声波形生成
-            res_synth = requests.post(f"{base_url}/synthesis", params={"speaker": speaker_id}, json=query_data)
-            
-            audio_path = f"audios/slide_{slide_num}.wav"
-            with open(audio_path, 'wb') as audio_file:
-                audio_file.write(res_synth.content)
-                
-            print(f"スライド {slide_num} ({char_name}): 音声作成完了")
-
-# ==========================================
-# 2. 画像と音声を結合して動画化 (FCP代替)
-# ==========================================
-def render_video_from_slides(slide_count, output_mp4="output.mp4"):
-    print("\n--- [Step 2] 動画の自動結合・レンダリングを開始 ---")
-    clips = []
-    
-    for i in range(1, slide_count + 1):
-        img_path = f"slides/slide_{i}.png"  # Keynoteから書き出した画像
-        audio_path = f"audios/slide_{i}.wav"
-        
-        if not os.path.exists(img_path) or not os.path.exists(audio_path):
-            print(f"エラー: スライド {i} の画像または音声が見つかりません。")
-            continue
-            
-        audio_clip = AudioFileClip(audio_path)
-        # 音声の尺に合わせて画像の表示時間をピッタリ自動調整
-        img_clip = ImageClip(img_path).set_duration(audio_clip.duration).set_audio(audio_clip)
-        clips.append(img_clip)
-
-    final_clip = concatenate_videoclips(clips, method="compose")
-    final_clip.write_videofile(output_mp4, fps=24, codec="libx264", audio_codec="aac")
-    print(f"動画の生成が完了しました: {output_mp4}")
-    return output_mp4
-
-# ==========================================
-# 3. YouTubeへの非公開（限定公開）自動投稿
-# ==========================================
-def upload_to_youtube(video_path, title="【自動生成】スライド解説動画"):
-    print("\n--- [Step 3] YouTubeへ投稿を開始 ---")
-    SCOPES = ['https://www.googleapis.com/auth/youtube.upload']
-    
-    flow = InstalledAppFlow.from_client_secrets_file('client_secret.json', SCOPES)
-    credentials = flow.run_local_server(port=0)
-    youtube = build('youtube', 'v3', credentials=credentials)
-
-    body = {
-        'snippet': {
-            'title': title,
-            'description': '自動処理パイプラインにより投稿された動画です。',
-            'categoryId': '27' # 教育・ノウハウ
-        },
-        'status': {
-            'privacyStatus': 'unlisted' # 'unlisted' (限定公開) または 'private' (非公開)
-        }
-    }
-
-    media = MediaFileUpload(video_path, chunksize=-1, resumable=True)
-    request = youtube.videos().insert(part='snippet,status', body=body, media_body=media)
-    
-    response = request.execute()
-    print(f"アップロード完了！ 動画ID: https://youtu.be/{response.get('id')}")
-
-# ==========================================
-# パイプライン実行
-# ==========================================
-if __name__ == "__main__":
-    CSV_FILE = "script.csv"
-    
-    # 1. 音声生成
-    generate_audios_from_csv(CSV_FILE)
-    
-    # 台本行数をカウントしてスライド枚数を自動取得
-    with open(CSV_FILE, 'r', encoding='utf-8') as f:
-        slide_count = sum(1 for _ in f) - 1
-        
-    # 2. 動画合成
-    mp4_file = render_video_from_slides(slide_count)
-    
-    # 3. YouTube投稿
-    upload_to_youtube(mp4_file)
-
-```
-
----
-
-## 運用編：日常の作成ルーティン
-
-設定完了後は、動画作成時の作業が以下の3ステップのみに短縮されます。
-
-1. **Keynoteでスライド作成** ➔ `ファイル` ＞ `書き出し先` ＞ `イメージ` で `slides/` フォルダへPNG保存。
-2. **`script.csv` に台本を入力**（スライド番号・キャラ名・テロップ）。
-3. **ターミナルでスクリプトを実行**:
 ```bash
-python auto_pipeline.py
-
+cd "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story"
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install --upgrade pip
 ```
 
+以後、新しいターミナルを開いたときは次のコマンドで仮想環境を有効化します。
 
+```bash
+cd "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story"
+source .venv/bin/activate
+```
 
-処理が完了すると、自動的にYouTube上に限定公開（非公開）動画としてアップロードされます。
+### 2. 必要ライブラリをインストール
 
-はい、**APIを使わず、Web上のChatGPTなどの通常チャット画面（ブラウザ）から直接指示してCSVを作成する方法**もあります。
+```bash
+python3 -m pip install \
+  moviepy \
+  requests \
+  google-api-python-client \
+  google-auth-httplib2 \
+  google-auth-oauthlib \
+  keynote-parser \
+  PyYAML
+```
 
-スライド画像（PNG）をチャット画面にアップロードしてプロンプト（指示文）を入力すれば、AIが画面内のテキストを読み取って台本データ（CSV形式）を出力してくれます。
+MoviePy が内部で使う FFmpeg が見つからない場合は、Homebrew で入れます。
 
----
+```bash
+brew install ffmpeg
+```
 
-### 通常チャットで実行する手順
+### 3. AquesTalk1 の設定
 
-1. **スライド画像をアップロードする**
-* Keynoteから書き出したスライド画像（PNG）を、チャットの添付ボタン（＋マーク）やドラッグ＆ドロップでアップロードします。
-* ※一度に複数の画像をまとめて選択してアップロードできます。
+`.env` を開き、AquesTalk1 を使う設定になっていることを確認します。
 
+```bash
+open -e .env
+```
 
-2. **以下のプロンプト（指示文）を入力して送信する**
-
-#### プロンプト（コピーしてそのままお使いいただけます）
+`.env` には次の値を設定します。既にライセンス値が入っている場合は消さないでください。
 
 ```text
-添付したスライド画像（ファイル名順）のテロップや主要な解説テキストを読み取り、以下の条件に従って台本データを作成してください。
-
-【条件】
-1. 出力はコードブロック内に「CSV形式」のみで出力してください。
-2. ヘッダー行は「slide_num,character,text」としてください。
-3. character（話者）は、テキストの口調や内容に合わせて「霊夢」「魔理沙」「案内役（中性）」のいずれかを自動で割り当ててください。
-4. textには改行を含めず、読み上げ用の1文として出力してください。
-
-【出力フォーマット例】
-slide_num,character,text
-1,霊夢,こんにちは！今回は〇〇について解説するよ。
-2,魔理沙,よろしくぜ。まずはこのポイントから見ていこう。
-3,案内役（中性）,ここが一番重要な部分になります。
-
+AQUESTALK_LICENSE_ID=...
+AQUESTALK_USER_KEY=...
+AQUESTALK_ENGINE=aquestalk1
+AQUESTALK1_LIB_DIR=aquestalk1
 ```
 
-3. **出力されたCSVテキストを保存する**
-* チャット上にコードブロック形式でCSVデータが生成されます。
-* 右上の「コピー」ボタンを押し、テキストエディタ（メモ帳やTextEdit等）に貼り付けて `script.csv` という名前で保存します。
+AquesTalk1 Mac のDMGを開き、声種ごとの `.dylib` を `aquestalk1/` にコピーします。
 
+```bash
+mkdir -p aquestalk1
+cp "/Volumes/AquesTalk1/"**/libAquesTalk1-*.dylib aquestalk1/
+ls aquestalk1/libAquesTalk1-*.dylib
+```
 
+AquesTalk1 は漢字かな混じり文ではなく、かな表記の音声記号列を入力します。`script.csv` の `text` は、ひらがな、カタカナ、句読点、AquesTalk用の音声記号で書いてください。
 
----
+AquesTalk10 に戻したい場合だけ、`.env` を次のように変更します。
 
-### メリットと注意点
+```text
+AQUESTALK_ENGINE=aquestalk10
+```
 
-* **メリット**: APIキーの発行やPythonでの画像解析処理を組む必要がなく、ブラウザだけで完結します。
-* **注意点**: 100枚などの大量のスライド画像を一度にアップロードすると、一度のチャットで扱える画像数や出力文字数の上限に達する場合があります。その場合は**10〜20枚ずつ分けてアップロード**して指示するのがスムーズです。
+### 4. YouTube API の設定
 
-生成された `script.csv` さえ保存できれば、あとは先ほど構築した `auto_pipeline.py` を実行するだけで、音声生成からYouTube非公開投稿までを自動で行えます。
+YouTube へアップロードする場合は、Google Cloud Console で YouTube Data API v3 を有効化し、OAuth クライアントの JSON を `client_secret.json` としてプロジェクト直下に置きます。
+
+初回アップロード時はブラウザが開き、Google アカウントでの認可が求められます。
+
+## 日常運用
+
+### 1. KeynoteからテロップCSVを作る
+
+Keynoteファイルから下部テロップを抽出して `script.csv` を作ります。
+
+```bash
+python3 keynote_telop_to_csv.py "slides/交換夫婦（22話目）.key" -o script.csv
+```
+
+作品別に保存したい場合は、出力先を変えます。
+
+```bash
+python3 keynote_telop_to_csv.py "slides/交換夫婦（22話目）.key" -o "交換夫婦22話-台本.csv"
+cp "交換夫婦22話-台本.csv" script.csv
+```
+
+`script.csv` は `auto_pipeline.py` が読む固定ファイル名です。
+
+主な列は次の通りです。
+
+| 列名 | 内容 |
+| --- | --- |
+| `slide_num` | スライド番号。省略時はCSVの行順が使われます。 |
+| `character` | 話者名。ログ表示や確認用です。 |
+| `text` | 読み上げる本文です。 |
+| `voice_type` | `f1`、`f2`、`中性`、`jgr` などの声質です。 |
+| `speed` | 速度です。`100` が標準です。 |
+| `pitch` | 音程です。`100` が標準です。 |
+
+### 2. Keynoteから画像を書き出す
+
+Keynote で次の操作を行います。
+
+```text
+ファイル > 書き出す > イメージ > PNG
+```
+
+書き出し先は `slides/` にします。
+
+`auto_pipeline.py` は次のファイル名を探します。
+
+```text
+slides/slide_1.png
+slides/slide_2.png
+slides/slide_3.png
+...
+```
+
+Keynote の書き出し名が `交換夫婦（22話目）.001.png` のようになる場合は、`slide_1.png`、`slide_2.png` の形式にリネームしてください。
+
+### 3. AquesTalkローカルAPIを起動
+
+ターミナルを1つ開き、プロジェクト直下で API サーバーを起動します。
+
+```bash
+cd "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story"
+source .venv/bin/activate
+python3 aquestalk_local_api.py
+```
+
+起動できたら、別のターミナルで確認します。
+
+```bash
+curl http://127.0.0.1:50021/health
+```
+
+`"status": "ok"` が返れば準備完了です。
+
+### 4. 自動パイプラインを実行
+
+AquesTalk API を起動したまま、別のターミナルで実行します。
+
+```bash
+cd "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story"
+source .venv/bin/activate
+python3 auto_pipeline.py
+```
+
+処理内容は次の通りです。
+
+1. `script.csv` を読み込む
+2. `audios/slide_*.wav` を生成する
+3. `slides/slide_*.png` と音声を結合する
+4. `output.mp4` を生成する
+5. YouTube へ限定公開でアップロードする
+
+## よく使う確認コマンド
+
+現在の場所を確認します。
+
+```bash
+pwd
+```
+
+プロジェクト直下のファイルを確認します。
+
+```bash
+ls
+```
+
+スライド画像が正しい名前で存在するか確認します。
+
+```bash
+ls slides/slide_*.png
+```
+
+生成済み音声を確認します。
+
+```bash
+ls audios/slide_*.wav
+```
+
+CSVの先頭を確認します。
+
+```bash
+head -n 5 script.csv
+```
+
+## トラブル対応
+
+### `python: command not found` と出る
+
+Mac では `python3` を使います。
+
+```bash
+python3 auto_pipeline.py
+```
+
+### `ModuleNotFoundError` が出る
+
+仮想環境が有効化されていないか、ライブラリが未インストールです。
+
+```bash
+source .venv/bin/activate
+python3 -m pip install moviepy requests google-api-python-client google-auth-httplib2 google-auth-oauthlib keynote-parser PyYAML
+```
+
+### `Connection refused` または `localhost:50021` に接続できない
+
+`aquestalk_local_api.py` が起動していません。別ターミナルで起動してください。
+
+```bash
+python3 aquestalk_local_api.py
+```
+
+### `slides/slide_1.png` が見つからない
+
+Keynote から PNG を書き出したあと、ファイル名を `slide_1.png`、`slide_2.png` の形式に揃えてください。
+
+### 動画だけ作りたい、YouTube投稿はしたくない
+
+現在の `auto_pipeline.py` は、通常はYouTube投稿をスキップします。
+
+投稿する場合だけ、次のように `UPLOAD_TO_YOUTUBE=1` を付けて実行します。
+
+```bash
+UPLOAD_TO_YOUTUBE=1 python3 auto_pipeline.py
+```
+
+### AquesTalk1 のライブラリが見つからない
+
+`AquesTalk1 library for voice 'f1' not found` と出る場合は、`aquestalk1/` に `.dylib` がありません。
+
+```bash
+ls aquestalk1/libAquesTalk1-*.dylib
+```
+
+最低限、`script.csv` の `voice_type` に対応するファイルが必要です。
+
+```text
+f1  -> aquestalk1/libAquesTalk1-f1.dylib
+f2  -> aquestalk1/libAquesTalk1-f2.dylib
+jgr -> aquestalk1/libAquesTalk1-jgr.dylib
+```
+
+### CSVをブラウザ版ChatGPTで作りたい
+
+Keynote から書き出したスライド画像を ChatGPT に添付し、次のように依頼します。
+
+```text
+添付したスライド画像をファイル名順に読み取り、読み上げ用CSVを作成してください。
+出力はCSVのみ。
+ヘッダーは character,text,voice_type,speed,pitch としてください。
+voice_type は f1、f2、中性、jgr のいずれかを選んでください。
+speed と pitch は標準を100として設定してください。
+```
+
+出力されたCSVを `script.csv` として保存すれば、`auto_pipeline.py` で利用できます。

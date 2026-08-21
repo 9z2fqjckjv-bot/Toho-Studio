@@ -10,8 +10,10 @@ from urllib.parse import parse_qs, urlparse
 
 
 BASE_DIR = Path(__file__).resolve().parent
-AQUESTALK_DIR = BASE_DIR / "aquestalk"
-AQUESTALK_LIB = AQUESTALK_DIR / "libAquesTalk10.dylib"
+AQUESTALK_ENGINE = "aquestalk1"
+AQUESTALK10_DIR = BASE_DIR / "aquestalk"
+AQUESTALK10_LIB = AQUESTALK10_DIR / "libAquesTalk10.dylib"
+AQUESTALK1_DIR = BASE_DIR / "aquestalk1"
 DEFAULT_PLAYER = Path("/Applications/AquesTalkPlayer.app/Contents/MacOS/AquesTalkPlayer")
 KANJI_PATTERN = re.compile(r"[一-龯々〆ヵヶ]")
 LICENSE_ID_ENV = "AQUESTALK_LICENSE_ID"
@@ -59,12 +61,53 @@ VOICE_PRESETS = {
     13: {"voice": Voice(2, 110, 100, 90, 70, 80, 100), "player_preset": "機械"},
 }
 
+VOICE_TYPE_TO_SPEAKER = {
+    "f1": 2,
+    "女性1": 2,
+    "f2": 3,
+    "女性2": 3,
+    "中性": 8,
+    "d_1": 8,
+    "男性": 8,
+    "jgr": 13,
+    "ロボ": 13,
+}
 
-def _load_aquestalk():
-    if not AQUESTALK_LIB.exists():
-        raise AquesTalkError(f"AquesTalk library not found: {AQUESTALK_LIB}")
+AQUESTALK1_SPEAKER_TO_VOICE = {
+    2: "f1",
+    3: "f2",
+    8: "m1",
+    13: "jgr",
+}
 
-    lib = ctypes.CDLL(str(AQUESTALK_LIB))
+AQUESTALK1_VOICES = [
+    "f1",
+    "f2",
+    "f3",
+    "imd1",
+    "jgr",
+    "r1",
+    "dvd",
+    "m1",
+    "m2",
+]
+
+AQUESTALK1_VOICE_ALIASES = {
+    "女性1": "f1",
+    "女性2": "f2",
+    "中性": "imd1",
+    "男性": "m1",
+    "ロボ": "jgr",
+}
+
+AQUESTALK1_LIBRARIES = {}
+
+
+def _load_aquestalk10():
+    if not AQUESTALK10_LIB.exists():
+        raise AquesTalkError(f"AquesTalk10 library not found: {AQUESTALK10_LIB}")
+
+    lib = ctypes.CDLL(str(AQUESTALK10_LIB))
     lib.AquesTalk_SetDevKey.argtypes = [ctypes.c_char_p]
     lib.AquesTalk_SetDevKey.restype = ctypes.c_int
     lib.AquesTalk_SetUsrKey.argtypes = [ctypes.c_char_p]
@@ -93,7 +136,8 @@ def _load_aquestalk():
 
 
 _load_dotenv()
-AQUESTALK = _load_aquestalk()
+AQUESTALK_ENGINE = os.environ.get("AQUESTALK_ENGINE", "aquestalk1").lower()
+AQUESTALK10 = _load_aquestalk10() if AQUESTALK_ENGINE == "aquestalk10" else None
 
 
 def _license_status():
@@ -115,18 +159,102 @@ def _player_path():
     return None
 
 
-def _voice_for_speaker(speaker, speed_scale):
+def _clamp_voice_value(value):
+    return max(50, min(300, round(value)))
+
+
+def _resolve_speaker(speaker):
+    if isinstance(speaker, str) and not speaker.isdecimal():
+        return VOICE_TYPE_TO_SPEAKER.get(speaker, 2)
+    return int(speaker)
+
+
+def _request_speaker(speaker):
+    if AQUESTALK_ENGINE == "aquestalk1":
+        return speaker
+    return _resolve_speaker(speaker)
+
+
+def _resolve_aquestalk1_voice(speaker):
+    if isinstance(speaker, str) and not speaker.isdecimal():
+        return AQUESTALK1_VOICE_ALIASES.get(speaker, speaker).lower()
+    return AQUESTALK1_SPEAKER_TO_VOICE.get(int(speaker), os.environ.get("AQUESTALK1_DEFAULT_VOICE", "f1"))
+
+
+def _aquestalk1_library_candidates(voice_name):
+    configured_path = os.environ.get("AQUESTALK1_LIB_PATH")
+    if configured_path:
+        path = Path(configured_path).expanduser()
+        yield path if path.is_absolute() else BASE_DIR / path
+
+    configured_dir = Path(os.environ.get("AQUESTALK1_LIB_DIR", str(AQUESTALK1_DIR))).expanduser()
+    if not configured_dir.is_absolute():
+        configured_dir = BASE_DIR / configured_dir
+    filenames = [
+        f"libAquesTalk1-{voice_name}.dylib",
+        "libAquesTalk1.dylib",
+        "libAquesTalk.dylib",
+    ]
+    for filename in filenames:
+        yield configured_dir / filename
+        yield configured_dir / voice_name / filename
+
+
+def _load_aquestalk1(voice_name):
+    if voice_name in AQUESTALK1_LIBRARIES:
+        return AQUESTALK1_LIBRARIES[voice_name]
+
+    lib_path = next((path for path in _aquestalk1_library_candidates(voice_name) if path.exists()), None)
+    if lib_path is None:
+        candidates = ", ".join(str(path) for path in _aquestalk1_library_candidates(voice_name))
+        raise AquesTalkError(
+            f"AquesTalk1 library for voice '{voice_name}' not found. "
+            f"Put libAquesTalk1-{voice_name}.dylib under {AQUESTALK1_DIR} "
+            f"or set AQUESTALK1_LIB_PATH/AQUESTALK1_LIB_DIR. Searched: {candidates}"
+        )
+
+    lib = ctypes.CDLL(str(lib_path))
+    lib.AquesTalk_Synthe_Utf8.argtypes = [
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.POINTER(ctypes.c_int),
+    ]
+    lib.AquesTalk_Synthe_Utf8.restype = ctypes.POINTER(ctypes.c_ubyte)
+    lib.AquesTalk_FreeWave.argtypes = [ctypes.POINTER(ctypes.c_ubyte)]
+    AQUESTALK1_LIBRARIES[voice_name] = (lib, lib_path)
+    return AQUESTALK1_LIBRARIES[voice_name]
+
+
+def _voice_for_speaker(speaker, speed_scale, pitch_scale):
     preset = VOICE_PRESETS.get(speaker, VOICE_PRESETS[2])
     voice = Voice(
         preset["voice"].bas,
-        max(50, min(300, round(preset["voice"].spd * speed_scale))),
+        _clamp_voice_value(preset["voice"].spd * speed_scale),
         preset["voice"].vol,
-        preset["voice"].pit,
+        _clamp_voice_value(preset["voice"].pit * pitch_scale),
         preset["voice"].acc,
         preset["voice"].lmd,
         preset["voice"].fsc,
     )
     return voice, preset["player_preset"]
+
+
+def _synthesize_aquestalk1(text, speaker, speed_scale):
+    if KANJI_PATTERN.search(text):
+        raise AquesTalkError("AquesTalk1 requires kana phonetic text. Convert script.csv text to kana before synthesis.")
+
+    voice_name = _resolve_aquestalk1_voice(speaker)
+    lib, _lib_path = _load_aquestalk1(voice_name)
+    speed = _clamp_voice_value(100 * speed_scale)
+    size = ctypes.c_int()
+    wav = lib.AquesTalk_Synthe_Utf8(text.encode("utf-8"), speed, ctypes.byref(size))
+    if not wav:
+        raise AquesTalkError(f"AquesTalk1 synthesis failed with error code {size.value}")
+
+    try:
+        return ctypes.string_at(wav, size.value)
+    finally:
+        lib.AquesTalk_FreeWave(wav)
 
 
 def _synthesize_with_player(text, preset_name, output_path):
@@ -149,8 +277,9 @@ def _synthesize_with_player(text, preset_name, output_path):
     return output_path.read_bytes()
 
 
-def synthesize_wav(text, speaker=2, speed_scale=1.0):
-    voice, player_preset = _voice_for_speaker(speaker, speed_scale)
+def _synthesize_aquestalk10(text, speaker=2, speed_scale=1.0, pitch_scale=1.0):
+    speaker = _resolve_speaker(speaker)
+    voice, player_preset = _voice_for_speaker(speaker, speed_scale, pitch_scale)
 
     if KANJI_PATTERN.search(text):
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
@@ -161,7 +290,7 @@ def synthesize_wav(text, speaker=2, speed_scale=1.0):
             tmp_path.unlink(missing_ok=True)
 
     size = ctypes.c_int()
-    wav = AQUESTALK.AquesTalk_Synthe_Utf8(
+    wav = AQUESTALK10.AquesTalk_Synthe_Utf8(
         ctypes.byref(voice),
         text.encode("utf-8"),
         ctypes.byref(size),
@@ -172,7 +301,15 @@ def synthesize_wav(text, speaker=2, speed_scale=1.0):
     try:
         return ctypes.string_at(wav, size.value)
     finally:
-        AQUESTALK.AquesTalk_FreeWave(wav)
+        AQUESTALK10.AquesTalk_FreeWave(wav)
+
+
+def synthesize_wav(text, speaker=2, speed_scale=1.0, pitch_scale=1.0):
+    if AQUESTALK_ENGINE == "aquestalk1":
+        return _synthesize_aquestalk1(text, speaker, speed_scale)
+    if AQUESTALK_ENGINE == "aquestalk10":
+        return _synthesize_aquestalk10(text, speaker, speed_scale, pitch_scale)
+    raise AquesTalkError("AQUESTALK_ENGINE must be 'aquestalk1' or 'aquestalk10'")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -207,13 +344,16 @@ class Handler(BaseHTTPRequestHandler):
                 200,
                 {
                     "status": "ok",
-                    "engine": "AquesTalk10",
+                    "engine": AQUESTALK_ENGINE,
                     "license": _license_status(),
                 },
             )
             return
         if parsed.path == "/speakers":
-            self._send_json(200, {"speakers": sorted(VOICE_PRESETS)})
+            if AQUESTALK_ENGINE == "aquestalk1":
+                self._send_json(200, {"speakers": sorted(AQUESTALK1_SPEAKER_TO_VOICE), "voices": AQUESTALK1_VOICES})
+            else:
+                self._send_json(200, {"speakers": sorted(VOICE_PRESETS)})
             return
         self._send_json(404, {"detail": "not found"})
 
@@ -224,13 +364,14 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if parsed.path == "/audio_query":
                 text = params.get("text", [""])[0]
-                speaker = int(params.get("speaker", ["2"])[0])
+                speaker = _request_speaker(params.get("speaker", ["2"])[0])
                 self._send_json(
                     200,
                     {
                         "text": text,
                         "speaker": speaker,
                         "speedScale": 1.0,
+                        "pitchScale": 1.0,
                     },
                 )
                 return
@@ -238,17 +379,19 @@ class Handler(BaseHTTPRequestHandler):
             if parsed.path == "/synthesis":
                 body = self._read_json()
                 text = body.get("text", "")
-                speaker = int(params.get("speaker", [body.get("speaker", 2)])[0])
+                speaker = _request_speaker(params.get("speaker", [body.get("speaker", 2)])[0])
                 speed_scale = float(body.get("speedScale", 1.0))
-                self._send_wav(synthesize_wav(text, speaker, speed_scale))
+                pitch_scale = float(body.get("pitchScale", 1.0))
+                self._send_wav(synthesize_wav(text, speaker, speed_scale, pitch_scale))
                 return
 
             if parsed.path == "/synthesize":
                 body = self._read_json()
                 text = body.get("text", "")
-                speaker = int(body.get("speaker", 2))
+                speaker = _request_speaker(body.get("speaker", 2))
                 speed_scale = float(body.get("speedScale", 1.0))
-                self._send_wav(synthesize_wav(text, speaker, speed_scale))
+                pitch_scale = float(body.get("pitchScale", 1.0))
+                self._send_wav(synthesize_wav(text, speaker, speed_scale, pitch_scale))
                 return
         except Exception as exc:
             self._send_json(400, {"detail": str(exc)})
@@ -262,7 +405,11 @@ def main():
     port = int(os.environ.get("AQUESTALK_API_PORT", "50021"))
     server = ThreadingHTTPServer((host, port), Handler)
     print(f"AquesTalk local API listening on http://{host}:{port}")
-    print(f"AquesTalk10 dylib: {AQUESTALK_LIB}")
+    print(f"Engine: {AQUESTALK_ENGINE}")
+    if AQUESTALK_ENGINE == "aquestalk10":
+        print(f"AquesTalk10 dylib: {AQUESTALK10_LIB}")
+    else:
+        print(f"AquesTalk1 dylib dir: {os.environ.get('AQUESTALK1_LIB_DIR', str(AQUESTALK1_DIR))}")
     print(f"License ID: {_license_status()['license_id']}")
     print(f"Usage license key: {_license_status()['user_key']}")
     print(f"Development license key: {_license_status()['dev_key']}")

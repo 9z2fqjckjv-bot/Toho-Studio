@@ -1,0 +1,2 @@
+[console_scripts]
+keynote-parser = keynote_parser.command_line:main
