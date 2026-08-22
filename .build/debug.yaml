@@ -1,0 +1,81 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "PackageStructure": ["<PackageStructure>"]
+  "TohoMovieStudio-arm64-apple-macosx-debug.exe": ["<TohoMovieStudio-arm64-apple-macosx-debug.exe>"]
+  "TohoMovieStudio-arm64-apple-macosx-debug.module": ["<TohoMovieStudio-arm64-apple-macosx-debug.module>"]
+  "main": ["<TohoMovieStudio-arm64-apple-macosx-debug.exe>","<TohoMovieStudio-arm64-apple-macosx-debug.module>"]
+  "test": ["<TohoMovieStudio-arm64-apple-macosx-debug.exe>","<TohoMovieStudio-arm64-apple-macosx-debug.module>"]
+default: "main"
+nodes:
+  "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/Sources/TohoMovieStudio/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio":
+    is-mutated: true
+commands:
+  "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio-entitlement.plist":
+    tool: write-auxiliary-file
+    inputs: ["<entitlement-plist>","<com.apple.security.get-task-allow>"]
+    outputs: ["/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio-entitlement.plist"]
+    description: "Write auxiliary file /Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio-entitlement.plist"
+
+  "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/Sources/TohoMovieStudio/TohoMovieStudioApp.swift"]
+    outputs: ["/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.build/sources"]
+    description: "Write auxiliary file /Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.build/sources"
+
+  "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.build/TohoMovieStudioApp.swift.o"]
+    outputs: ["/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.product/Objects.LinkFileList"
+
+  "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/Library/Developer/CommandLineTools/usr/bin/swiftc"]
+    outputs: ["/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt"
+
+  "<TohoMovieStudio-arm64-apple-macosx-debug.exe>":
+    tool: phony
+    inputs: ["<TohoMovieStudio-arm64-apple-macosx-debug.exe-CodeSigning>"]
+    outputs: ["<TohoMovieStudio-arm64-apple-macosx-debug.exe>"]
+
+  "<TohoMovieStudio-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs: ["/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.build/TohoMovieStudioApp.swift.o","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/Modules/TohoMovieStudio.swiftmodule"]
+    outputs: ["<TohoMovieStudio-arm64-apple-macosx-debug.module>"]
+
+  "C.TohoMovieStudio-arm64-apple-macosx-debug.exe":
+    tool: shell
+    inputs: ["/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.build/TohoMovieStudioApp.swift.o","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.product/Objects.LinkFileList"]
+    outputs: ["/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio"]
+    description: "Linking ./.build/arm64-apple-macosx/debug/TohoMovieStudio"
+    args: ["/Library/Developer/CommandLineTools/usr/bin/swiftc","-L","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug","-o","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio","-module-name","TohoMovieStudio","-Xlinker","-no_warn_duplicate_libraries","-emit-executable","-Xlinker","-alias","-Xlinker","_TohoMovieStudio_main","-Xlinker","_main","-Xlinker","-rpath","-Xlinker","@loader_path","@/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.product/Objects.LinkFileList","-Xlinker","-rpath","-Xlinker","/Library/Developer/CommandLineTools/usr/lib/swift-6.2/macosx","-target","arm64-apple-macosx14.0","-Xlinker","-add_ast_path","-Xlinker","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/Modules/TohoMovieStudio.swiftmodule","-I","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-L","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-plugin-path","/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing","-sdk","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-g"]
+
+  "C.TohoMovieStudio-arm64-apple-macosx-debug.exe-entitlements":
+    tool: shell
+    inputs: ["/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio-entitlement.plist"]
+    outputs: ["<TohoMovieStudio-arm64-apple-macosx-debug.exe-CodeSigning>"]
+    description: "Applying debug entitlements to ./.build/arm64-apple-macosx/debug/TohoMovieStudio"
+    args: ["codesign","--force","--sign","-","--entitlements","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio-entitlement.plist","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio"]
+
+  "C.TohoMovieStudio-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs: ["/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/Sources/TohoMovieStudio/TohoMovieStudioApp.swift","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.build/sources"]
+    outputs: ["/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.build/TohoMovieStudioApp.swift.o","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/Modules/TohoMovieStudio.swiftmodule"]
+    description: "Compiling Swift Module 'TohoMovieStudio' (1 sources)"
+    args: ["/Library/Developer/CommandLineTools/usr/bin/swiftc","-module-name","TohoMovieStudio","-emit-dependencies","-emit-module","-emit-module-path","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/Modules/TohoMovieStudio.swiftmodule","-output-file-map","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.build/output-file-map.json","-incremental","-c","@/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.build/sources","-I","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-j6","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-Xfrontend","-entry-point-function-name","-Xfrontend","TohoMovieStudio_main","-parse-as-library","-color-diagnostics","-swift-version","6","-I","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-L","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-plugin-path","/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing","-sdk","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-g","-Xcc","-isysroot","-Xcc","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-Xcc","-fPIC","-Xcc","-g","-package-name","toho_project_second_story"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/Sources/TohoMovieStudio/","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/Package.swift","/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+

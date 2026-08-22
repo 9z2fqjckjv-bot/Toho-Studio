@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.build/primary.swiftdeps"
+  },
+  "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/Sources/TohoMovieStudio/TohoMovieStudioApp.swift": {
+    "dependencies": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.build/TohoMovieStudioApp.d",
+    "object": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.build/TohoMovieStudioApp.swift.o",
+    "swiftmodule": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.build/TohoMovieStudioApp~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.build/TohoMovieStudioApp.swiftdeps",
+    "diagnostics": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/.build/arm64-apple-macosx/debug/TohoMovieStudio.build/TohoMovieStudioApp.dia"
+  }
+}
