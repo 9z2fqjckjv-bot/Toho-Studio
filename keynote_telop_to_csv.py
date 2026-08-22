@@ -30,6 +30,28 @@ except ImportError as exc:
 
 DEFAULT_PROJECT_DIR = Path("/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story")
 TEXT_ONLY_BACKGROUND_NAMES = {"preview.jpg", "preview-web.jpg", "preview-micro.jpg"}
+NOTE_KEYWORDS = ("note", "notes", "speaker", "presenter")
+NOTE_TEXT_KEYS = {"text", "plainText", "string", "content", "contents"}
+NOTE_SEPARATOR = chr(30)
+KEYNOTE_NOTES_APPLESCRIPT = """
+on run argv
+    set keynotePath to POSIX file (item 1 of argv)
+    tell application "Keynote"
+        open keynotePath
+        set targetDocument to front document
+        set noteTexts to {}
+        repeat with currentSlide in slides of targetDocument
+            try
+                set end of noteTexts to (presenter notes of currentSlide as text)
+            on error
+                set end of noteTexts to ""
+            end try
+        end repeat
+    end tell
+    set AppleScript's text item delimiters to (ASCII character 30)
+    return noteTexts as text
+end run
+"""
 
 VOICE_ALIASES = {
     "レミリア": "れみりあ",
@@ -238,10 +260,99 @@ def geometry_from_shape(shape: dict[str, Any]) -> dict[str, float]:
     }
 
 
-def extract_slide(index_dir: Path, slide_id: str, style_colors: dict[str, str]) -> tuple[list[dict[str, Any]], set[str]]:
+def normalize_keynote_text(parts: list[str]) -> str:
+    cleaned = []
+    for part in parts:
+        text = part.replace("\uFFFC", "").strip()
+        if text:
+            cleaned.append(text)
+    return re.sub(r"\s+", " ", " ".join(cleaned)).strip()
+
+
+def text_from_value(value: Any) -> str:
+    if isinstance(value, str):
+        return normalize_keynote_text([value])
+    if isinstance(value, list):
+        return normalize_keynote_text([item for item in value if isinstance(item, str)])
+    return ""
+
+
+def collect_text_fields(value: Any) -> list[str]:
+    texts: list[str] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if key in NOTE_TEXT_KEYS:
+                text = text_from_value(child)
+                if text:
+                    texts.append(text)
+            elif isinstance(child, (dict, list)):
+                texts.extend(collect_text_fields(child))
+    elif isinstance(value, list):
+        for child in value:
+            texts.extend(collect_text_fields(child))
+    return texts
+
+
+def looks_like_note_container(key: str | None, value: Any) -> bool:
+    key_text = (key or "").lower()
+    if any(keyword in key_text for keyword in NOTE_KEYWORDS):
+        return True
+    if isinstance(value, dict):
+        pbtype = str(value.get("_pbtype", "")).lower()
+        return "note" in pbtype or "speaker" in pbtype or "presenter" in pbtype
+    return False
+
+
+def extract_notes_from_value(value: Any, key: str | None = None) -> list[str]:
+    notes: list[str] = []
+    if looks_like_note_container(key, value):
+        direct_text = text_from_value(value)
+        if direct_text:
+            notes.append(direct_text)
+        notes.extend(collect_text_fields(value))
+
+    if isinstance(value, dict):
+        for child_key, child_value in value.items():
+            notes.extend(extract_notes_from_value(child_value, child_key))
+    elif isinstance(value, list):
+        for child in value:
+            notes.extend(extract_notes_from_value(child, key))
+
+    unique_notes: list[str] = []
+    seen: set[str] = set()
+    for note in notes:
+        if note and note not in seen:
+            seen.add(note)
+            unique_notes.append(note)
+    return unique_notes
+
+
+def read_keynote_app_notes(input_key: Path) -> list[str]:
+    result = subprocess.run(
+        ["osascript", "-e", KEYNOTE_NOTES_APPLESCRIPT, str(input_key)],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        print(f"warning: Keynote presenter notes could not be read: {detail}", file=sys.stderr)
+        return []
+    return [normalize_keynote_text([note]) for note in result.stdout.rstrip("\n").split(NOTE_SEPARATOR)]
+
+
+def note_for_slide(notes: list[str], slide_num: int) -> str:
+    index = slide_num - 1
+    if 0 <= index < len(notes):
+        return notes[index]
+    return ""
+
+
+def extract_slide(index_dir: Path, slide_id: str, style_colors: dict[str, str]) -> tuple[list[dict[str, Any]], set[str], str]:
     data = load_yaml(slide_yaml_path(index_dir, slide_id))
     storage_geometry: dict[str, dict[str, float]] = {}
     asset_refs: set[str] = set()
+    notes_text = normalize_keynote_text(extract_notes_from_value(data))
 
     for key, value in walk_values(data):
         if key in {"dataIdentifier", "identifier"} and isinstance(value, str) and value.isdigit():
@@ -268,7 +379,7 @@ def extract_slide(index_dir: Path, slide_id: str, style_colors: dict[str, str]) 
             raw_texts = [text for text in obj.get("text", []) if isinstance(text, str) and text != "\uFFFC"]
             if not raw_texts:
                 continue
-            text = re.sub(r"\s+", " ", " ".join(raw_texts)).replace("\uFFFC", "").strip()
+            text = normalize_keynote_text(raw_texts)
             if not text or text in seen:
                 continue
             seen.add(text)
@@ -291,7 +402,7 @@ def extract_slide(index_dir: Path, slide_id: str, style_colors: dict[str, str]) 
                 }
             )
 
-    return text_items, asset_refs
+    return text_items, asset_refs, notes_text
 
 
 def is_body_text(text: str) -> bool:
@@ -370,6 +481,29 @@ def sanitize_text(text: str, redact_explicit: bool) -> str:
     return text
 
 
+def script_text_from_notes(
+    args: argparse.Namespace,
+    input_key: Path,
+    slide_num: int,
+    yaml_notes_text: str,
+    keynote_app_notes: list[str] | None,
+) -> tuple[str, str, list[str] | None]:
+    if not args.prefer_notes:
+        return "", "", keynote_app_notes
+
+    if args.notes_source in {"auto", "yaml"} and yaml_notes_text:
+        return yaml_notes_text, "notes", keynote_app_notes
+
+    if args.notes_source in {"auto", "keynote-app"}:
+        if keynote_app_notes is None:
+            keynote_app_notes = read_keynote_app_notes(input_key)
+        app_notes_text = note_for_slide(keynote_app_notes, slide_num)
+        if app_notes_text:
+            return app_notes_text, "notes", keynote_app_notes
+
+    return "", "", keynote_app_notes
+
+
 def extract_to_csv(args: argparse.Namespace) -> int:
     input_key = Path(args.input_key).expanduser().resolve()
     output_csv = Path(args.output).expanduser().resolve()
@@ -384,10 +518,11 @@ def extract_to_csv(args: argparse.Namespace) -> int:
         assets = build_asset_map(index_dir)
         style_colors = build_style_color_map(index_dir)
         voices = load_voice_map(voice_csv)
+        keynote_app_notes: list[str] | None = None
         rows: list[dict[str, Any]] = []
 
         for slide_num, slide_id in enumerate(slide_order(index_dir), start=1):
-            text_items, refs = extract_slide(index_dir, slide_id, style_colors)
+            text_items, refs, yaml_notes_text = extract_slide(index_dir, slide_id, style_colors)
             asset_names = sorted({assets[ref] for ref in refs if ref in assets})
             if args.skip_text_only and is_text_only(asset_names):
                 continue
@@ -400,9 +535,18 @@ def extract_to_csv(args: argparse.Namespace) -> int:
             if not telop_items:
                 continue
 
-            text = " ".join(item["text"] for item in telop_items).strip()
+            telop_text = " ".join(item["text"] for item in telop_items).strip()
+            notes_text, text_source, keynote_app_notes = script_text_from_notes(
+                args,
+                input_key,
+                slide_num,
+                yaml_notes_text,
+                keynote_app_notes,
+            )
+            text = notes_text or telop_text
+            text_source = text_source or "telop"
             text_color = next((item["text_color"] for item in telop_items if item["text_color"]), "")
-            character = infer_character(text, text_color, asset_names)
+            character = infer_character(telop_text, text_color, asset_names)
             voice_key = VOICE_ALIASES.get(character, character)
             voice = voices.get(voice_key, {"voice": "", "speed": "", "pitch": ""})
             first_item = telop_items[0]
@@ -414,6 +558,7 @@ def extract_to_csv(args: argparse.Namespace) -> int:
                     "character": character,
                     "text_color": text_color,
                     "text": sanitize_text(text, args.redact_explicit),
+                    "text_source": text_source,
                     "voice_type": voice["voice"],
                     "speed": voice["speed"],
                     "pitch": voice["pitch"],
@@ -435,6 +580,7 @@ def extract_to_csv(args: argparse.Namespace) -> int:
                 "character",
                 "text_color",
                 "text",
+                "text_source",
                 "voice_type",
                 "speed",
                 "pitch",
@@ -468,6 +614,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-assets", type=int, default=8, help="Maximum referenced asset names to include")
     parser.add_argument("--include-text-only", dest="skip_text_only", action="store_false", help="Do not skip text-only slides")
     parser.add_argument("--all-text", dest="telop_only", action="store_false", help="Extract all slide text, not only bottom telops")
+    parser.add_argument(
+        "--prefer-notes",
+        action="store_true",
+        help="Use speaker notes as script text when present, while keeping telop/image character detection",
+    )
+    parser.add_argument(
+        "--notes-source",
+        choices=("auto", "yaml", "keynote-app"),
+        default="auto",
+        help="Where to read notes from. auto tries unpacked YAML, then the Keynote app.",
+    )
     parser.add_argument(
         "--no-redact-explicit",
         dest="redact_explicit",
