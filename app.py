@@ -15,8 +15,8 @@ import webbrowser
 import threading
 import time
 import subprocess
-import socket
-from urllib.parse import urlparse
+import urllib.error
+import urllib.request
 
 from src.core.crash_reporter import get_crash_reporter
 from src.core.project_manager import get_project_manager
@@ -52,16 +52,15 @@ def start_auto_backup_timer(interval_sec: int = 600):
 
 
 def wait_until_ready(url: str, timeout: float = 15.0) -> bool:
-    """HTTP サーバが応答するまで待つ（bind 直後の接続拒否を避ける）"""
-    parsed = urlparse(url)
-    host = parsed.hostname or "127.0.0.1"
-    port = parsed.port or 80
+    """HTTP 応答が返るまで待つ。TCP だけだと serve_forever 前に Chrome が空応答になる。"""
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
-            with socket.create_connection((host, port), timeout=0.4):
-                return True
-        except OSError:
+            urllib.request.urlopen(url, timeout=0.5)
+            return True
+        except urllib.error.HTTPError:
+            return True
+        except (OSError, urllib.error.URLError):
             time.sleep(0.1)
     return False
 
