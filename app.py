@@ -15,6 +15,8 @@ import webbrowser
 import threading
 import time
 import subprocess
+import socket
+from urllib.parse import urlparse
 
 from src.core.crash_reporter import get_crash_reporter
 from src.core.project_manager import get_project_manager
@@ -22,6 +24,13 @@ from src.core.tts_engine import get_tts_engine
 from src.server import run_server
 
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
+
+CHROME_BINARIES = [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+]
 
 
 def start_auto_backup_timer(interval_sec: int = 600):
@@ -42,24 +51,48 @@ def start_auto_backup_timer(interval_sec: int = 600):
     t.start()
 
 
+def wait_until_ready(url: str, timeout: float = 15.0) -> bool:
+    """HTTP サーバが応答するまで待つ（bind 直後の接続拒否を避ける）"""
+    parsed = urlparse(url)
+    host = parsed.hostname or "127.0.0.1"
+    port = parsed.port or 80
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=0.4):
+                return True
+        except OSError:
+            time.sleep(0.1)
+    return False
+
+
 def launch_native_window(url: str):
-    time.sleep(0.8)
-    chrome_paths = [
-        "/Applications/Google Chrome.app",
-        "/Applications/Brave Browser.app",
-        "/Applications/Microsoft Edge.app"
-    ]
-    for app in chrome_paths:
-        if os.path.exists(app):
+    """
+    Mac 上でブラウザのアドレスバー等を非表示にし、
+    独立したネイティブアプリウィンドウとして起動。
+    Chrome 系はバイナリを直接呼び、open --args がフラグを落とす問題を避ける。
+    """
+    if not wait_until_ready(url):
+        print(f"[WARN] サーバの起動確認がタイムアウトしました。手動で開いてください: {url}")
+
+    for binary in CHROME_BINARIES:
+        if os.path.isfile(binary):
             try:
-                subprocess.Popen(["open", "-n", "-a", app, "--args", f"--app={url}", "--window-size=1440,900"])
+                subprocess.Popen(
+                    [binary, f"--app={url}", "--window-size=1440,900"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
                 return
             except Exception:
                 pass
+
     webbrowser.open(url)
 
 
 def main():
+    # 1. クラッシュレポーターの初期化 (要件14)
     reporter = get_crash_reporter()
     reporter.log_activity("Application Startup", {"args": sys.argv})
 
@@ -69,19 +102,22 @@ def main():
     parser.add_argument("--backup-interval", type=int, default=600, help="自動バックアップ間隔(秒, デフォルト600秒=10分)")
 
     args = parser.parse_args()
+
+    # 2. 自動バックアップタイマーの開始 (要件7)
     start_auto_backup_timer(args.backup_interval)
+
+    # 3. 音声合成エンジンのプリロード
     get_tts_engine()
 
-    port = args.port
-    url = f"http://localhost:{port}"
+    def on_ready(url: str):
+        if not args.no_browser:
+            threading.Thread(target=launch_native_window, args=(url,), daemon=True).start()
 
-    if not args.no_browser:
-        threading.Thread(target=launch_native_window, args=(url,), daemon=True).start()
-
+    # 4. サーバー開始（bind 成功後に on_ready でウィンドウを開く）
     try:
-        run_server(port)
+        run_server(args.port, on_ready=on_ready)
     except Exception as e:
-        reporter.generate_report("Fatal Server Exception", str(e), {"port": port})
+        reporter.generate_report("Fatal Server Exception", str(e), {"port": args.port})
         raise
 
 
