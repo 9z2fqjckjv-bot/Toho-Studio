@@ -1,37 +1,74 @@
-# Toho-Project-Second-Story
+# 東方Projectムービーメーカー (Toho Project Movie Maker)
 
-Mac のターミナルから、Drive 同期フォルダ内の Python アプリを起動するためのリポジトリです。
+Mac環境で軽快・安定して動作する、東方Project二次創作のための本格動画編集ソフトウェアです。
 
-対象:
+Keynote、PowerPoint、ゆっくりMovieMaker (YMM3/YMM4) からスライド・テロップを自動抽出し、AquesTalk1 による高音質音声合成、Final Cut Pro ライクなマルチトラックタイムライン編集、FCPXML出力、MP4/MOV動画書き出し、YouTube非公開投稿までをワンストップで実現します。
 
-- `app.py`（東方Projectムービーメーカー）
-- `psd_studio_app.py`
+---
 
-本体のソースは GitHub ではなく、Google Drive for Desktop の次の場所にあります。
+## ✨ 主な特徴
 
-`パソコン` → `マイ Mac` → `ZSSD` → `GitHub` → `repository` → `Toho-Project-Second-Story`
+- **🎯 直感的な3ステップワークフロー**:
+  1. **新規作成または開く**: Keynote (`.key`), PowerPoint (`.pptx`), YMM (`.ymmp`), 既存プロジェクト (`.tpmproj`), または空の新規プロジェクトから開始。
+  2. **データ読み込み & 台本自動生成**: テロップ枠の文章を優先抽出し、話者（操夢、霊夢、魔理沙、フラン等）を自動判定して音声記号列へ高速変換。
+  3. **Final Cut Pro 風スタジオ編集**: プレビュー、インスペクタ、ポップアップ詳細校正、マルチトラックタイムライン（映像・ボイス・SE・BGM）。
+- **🎙️ AquesTalk1 高音質音声合成エンジン**:
+  - 東方固有名詞辞書＋Janome形態素解析＋英語/略語辞書による誤読防止。
+  - 44.1kHzステレオEQ高音質補正 & エコー効果。
+  - ライセンスキー（ライセンスID, 使用キー, 開発キー）の登録・プロジェクト内保存に対応。
+- **🔍 ポップアップ詳細校正モーダル**:
+  - セリフと音声記号列を大画面で1つ1つ丁寧に確認・試聴・再生成可能。
+- **🎬 多彩なエクスポート機能**:
+  - **MP4 / QuickTime MOV** 動画レンダリング（ffmpeg 高速エンコード）。
+  - **Final Cut Pro (FCPXML 1.9)** 出力（静止画・ボイストラック・字幕タイトルの完全構造化）。
+  - **YouTube 直接エクスポート**（非公開動画としてのダイレクトアップロード投稿）。
+- **🛡️ 堅牢な外部ストレージ保護 & 10分おき自動バックアップ**:
+  - 元ファイルをコピーせず直接参照（ストレージ容量圧迫を防止）。
+  - 外部SSDが突然切断されてもプロジェクトデータ破損を防止し、安全なローカルキャッシュから瞬時復元。
+- **📋 クラッシュログ & 自動レポート生成**:
+  - 万が一のクラッシュ時にもスタックトレースと直前操作ログを自動記録。
+- **🌐 オフライン完全動作**:
+  - YouTube投稿機能を除き、すべての機能をオフラインで利用可能。
 
-## 起動
+---
 
-ターミナル:
+## 🚀 起動方法
 
-```sh
-cd /path/to/Toho-Project-Second-Story
-python3 launch.py
+### 前提環境
+- **macOS** (Apple Silicon / Intel)
+- **Python 3.9+**
+- **ffmpeg**
+
+### 起動コマンド
+```bash
+python3 app.py
 ```
 
-または:
+起動すると、Macの独立したネイティブアプリウィンドウが自動的に開き、操作画面が表示されます。
 
-```sh
-sh launch.sh
+詳細な操作ガイドは [使い方.md](使い方.md) をご覧ください。
+
+Mac ターミナル起動は `python3 launch.py` または `sh launch.sh`。詳細は [LAUNCH.md](LAUNCH.md) を参照。
+
+---
+
+## 📁 ディレクトリ構成
+
+```text
+Toho-Project-Second-Story/
+├── app.py                      # メインエントリーポイント (起動・バックアップタイマー・クラッシュトラップ)
+├── launch.py / launch.sh        # Mac ターミナル起動
+├── README.md                   # ソフトウェア概要
+├── 使い方.md                    # 完全操作説明書・マニュアル
+├── src/
+│   ├── server.py
+│   ├── core/
+│   └── web/
+└── vendor/
 ```
 
-パスを明示する場合:
+---
 
-```sh
-python3 launch.py --project "$HOME/ZSSD/GitHub/repository/Toho-Project-Second-Story"
-```
+## 📄 ライセンス
 
-環境変数 `TOHO_PROJECT_ROOT` でも指定できます。プロジェクトに `.venv` があれば、その中の Python を使います。
-
-`psd_studio_app.py` がまだフォルダに無い場合は `app.py` だけ起動し、見つからなかった旨を表示します。
+本ソフトウェア内の音声合成機能には、株式会社アクエストの「AquesTalk1 Mac Ver 2.0」および「AqKanji2Koe」が組み込まれています。商用利用または二次利用にあたっては適切なライセンスを取得のうえご利用ください。
