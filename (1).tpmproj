@@ -1,0 +1,4334 @@
+{
+  "format_version": "1.0",
+  "project_name": "(1)",
+  "source_type": "keynote",
+  "source_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/(1).key",
+  "project_file_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/(1).tpmproj",
+  "series_name": "彷徨う二人",
+  "created_at": "2026-09-01 19:04:20",
+  "updated_at": "2026-09-01 19:58:46",
+  "license_info": {
+    "usr_license_id": "",
+    "user_key": "",
+    "dev_license_id": "",
+    "dev_key": ""
+  },
+  "settings": {
+    "padding_delay": 0.5,
+    "auto_backup_enabled": true,
+    "auto_backup_interval_min": 10,
+    "quality_enhance": true,
+    "effect": "none"
+  },
+  "scenes": [
+    {
+      "slide_index": 1,
+      "text": "ぼくが、りょうしんとけんかわかれして、そのままいえでしてから、はやすうかげつ、ぐんまとながののけんきょうにあるとうげのみちをあるいていたとき。",
+      "notes": "（操夢）ぼくが、りょうしんとけんかわかれして、そのままいえでしてから、はやすうかげつ、ぐんまとながののけんきょうにあるとうげのみちをあるいていたとき。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ボクガ、リョウシントケンカワカレシテ、ソノママイエデシテカラ、ワヤスウカゲツ、グンマトナガノノケンキョウニアルトウゲノミチヲアルイテイタトキ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "タイトル",
+      "template_info": {
+        "layout_name": "タイトル",
+        "is_section_header": true,
+        "section_title": "\"3"
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "僕が、両親と喧嘩別れして、そのまま家出してから、はや数ヶ月、群馬と長野の県境にある峠の道を歩いていたとき…",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "タイトル",
+          "is_section_header": true,
+          "section_title": "\"3"
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: タイトル (セクション見出し: はい)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 9.866099773242631,
+      "audio_file": "slide_001.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).001.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": false,
+      "is_skipped": false,
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_001.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 2,
+      "text": "びゅんびゅんとぼくのよこをすれちがうたいこうしゃをよけながら、つきあかりだけのほどうもないくらいよみちをあるく。",
+      "notes": "（操夢）びゅんびゅんとぼくのよこをすれちがうたいこうしゃをよけながら、つきあかりだけのほどうもないくらいよみちをあるく。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ビュンビュントボクノヨコオスレチガウタイコウシャヲヨケナガラ、ツキアカリダケノホドウモナイクライヨミチオアルク。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "ビュンビュンと僕の横をすれ違う対向車を避けながら、\n月明かりだけの歩道もない暗い夜道を歩く。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 6.935328798185941,
+      "audio_file": "slide_002.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).002.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_002.wav",
+      "_cacheBuster": 1788259804852,
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": false,
+      "is_skipped": false
+    },
+    {
+      "slide_index": 3,
+      "text": "ぼくはただひたすらに、そのとうげみちをかるいざわにむけてあるきつづける。",
+      "notes": "（操夢）ぼくはただひたすらに、そのとうげみちをかるいざわにむけてあるきつづける。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ボクワタダヒタスラニ、ソノトウゲミチオカルイザワニムケテアルキツズケル。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "僕はただひたすらに、その峠道を軽井沢に向けて歩き続ける。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 5.028707482993197,
+      "audio_file": "slide_003.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).003.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": false,
+      "is_skipped": false,
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_003.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 4,
+      "text": "すると、くるまのきゅうぶれーきおんが、ぼくのみみをしげきする。",
+      "notes": "（操夢）すると、くるまのきゅうぶれーきおんが、ぼくのみみをしげきする。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "スルト、クルマノキュウブレーキオンガ、ボクノミミオシゲキスル。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "すると、車の急ブレーキ音が、僕の耳を刺激する。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 4.353492063492063,
+      "audio_file": "slide_004.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).004.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_004.wav",
+      "_cacheBuster": 1788259804852,
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": false,
+      "is_skipped": false
+    },
+    {
+      "slide_index": 5,
+      "text": "ぼくはそのおとがしたほうがくにめをむける。",
+      "notes": "（操夢）ぼくはそのおとがしたほうがくにめをむける。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ボクワソノオトガシタホウガクニメオムケル。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "僕はその音がした方角に目を向ける。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 2.7720861678004534,
+      "audio_file": "slide_005.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).005.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_005.wav",
+      "_cacheBuster": 1788259804852,
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": false,
+      "is_skipped": false
+    },
+    {
+      "slide_index": 6,
+      "text": "そこには、こちらをみつめるしせんがあった。",
+      "notes": "（操夢）そこには、こちらをみつめるしせんがあった。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ソコニワ、コチラオミツメルシセンガアッタ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "そこには、こちらを見つめる視線があった。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 2.9529478458049887,
+      "audio_file": "slide_006.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).006.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_006.wav",
+      "_cacheBuster": 1788259804852,
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": false,
+      "is_skipped": false
+    },
+    {
+      "slide_index": 7,
+      "text": "",
+      "notes": "",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": "東方Project二次創作作品　powerd by zuyasi ※絶賛コメント"
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "東方Project二次創作作品　powerd by zuyasi ※絶賛コメント募集中！",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": "東方Project二次創作作品　powerd by zuyasi ※絶賛コメント"
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 6.266961451247165,
+      "audio_file": "slide_007.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).007.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": false,
+      "sound_effects": [],
+      "no_voice": true,
+      "is_skipped": true,
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "audio_path": null,
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 8,
+      "text": "「ん。」ぼくはふとめがさめると、そこははいきょびるのいっしつだった。",
+      "notes": "（操夢）「ん。」ぼくはふとめがさめると、そこははいきょびるのいっしつだった。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ン。ボクワフトメガサメルト、ソコワワイキョビルノイッシツダッタ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「ん…」僕はふと目が覚めると、そこは廃墟ビルの一室だった。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 4.710453514739229,
+      "audio_file": "slide_008.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).008.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": false,
+      "is_skipped": false,
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_008.wav",
+      "_cacheBuster": 1788259930197
+    },
+    {
+      "slide_index": 9,
+      "text": "ふととなりにだれかのけはいをかんじ、そちらをふりむく。",
+      "notes": "（操夢）ふととなりにだれかのけはいをかんじ、そちらをふりむく。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "フトトナリニダレカノケハイオカンジ、ソチラオフリムク。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "ふと隣に誰かの気配を感じ、そちらを振り向く。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 3.7929478458049886,
+      "audio_file": "slide_009.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).009.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_009.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 10,
+      "text": "「あっ、めがさめたんだ、、おはよう。」",
+      "notes": "（フラン）「あっ、めがさめたんだ、、おはよう。」",
+      "character": "フラン",
+      "voice": "jgr",
+      "speed": 100,
+      "pitch": 100,
+      "phonemes": "アッ、メガサメタンダ、オハヨウ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "フラン",
+            "image_name": "フラン_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「あっ、目が覚めたんだ…、おはよう。」",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【フラン】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 2.529501133786848,
+      "audio_file": "slide_010.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).010.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_010.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 11,
+      "text": "「おはよう。」ぼくはとりあえず、そうかえす。",
+      "notes": "（操夢）「おはよう。」ぼくはとりあえず、そうかえす。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "オハヨウ。ボクワトリアエズ、ソウカエス。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「おはよう…」僕はとりあえず、そう返す。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 3.2203401360544217,
+      "audio_file": "slide_011.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).011.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_011.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 12,
+      "text": "「そういえば、なまえはなんていうの？」わたしは、めのまえでこちらをみるかれにきく。",
+      "notes": "（フラン）「そういえば、なまえはなんていうの？」わたしは、めのまえでこちらをみるかれにきく。",
+      "character": "フラン",
+      "voice": "jgr",
+      "speed": 100,
+      "pitch": 100,
+      "phonemes": "ソウイエバ、ナマエワナンテイウノワタシワ、メノマエデコチラオミルカレニキク。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "フラン",
+            "image_name": "フラン_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「そういえば、名前はなんていうの？」\n私は、目の前でこちらを見る彼に聞く。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【フラン】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 5.224512471655329,
+      "audio_file": "slide_012.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).012.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_012.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 13,
+      "text": "「なまえは、わすれた。」",
+      "notes": "（操夢）「なまえは…わすれた…」",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ナマエワ、ワスレタ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「名前は…忘れた…」",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 1.5338095238095237,
+      "audio_file": "slide_013.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).013.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": false,
+      "is_skipped": false,
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_013.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 14,
+      "text": "「そうなんだ。、じゃあわたしは『ふらん』ってよんで。」",
+      "notes": "（フラン）「そうなんだ。、じゃあわたしは『ふらん』ってよんで。」",
+      "character": "フラン",
+      "voice": "jgr",
+      "speed": 100,
+      "pitch": 100,
+      "phonemes": "ソウナンダ。、ジャアワタシワフランッテヨンデ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "フラン",
+            "image_name": "フラン_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「そうなんだ…、じゃあ私は『フラン』って呼んで。」",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【フラン】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 3.3470068027210886,
+      "audio_file": "slide_014.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).014.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": false,
+      "is_skipped": false,
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_014.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 15,
+      "text": "「わかった、それでここは、」",
+      "notes": "（操夢）「わかった、それでここは、」",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ワカッタ、ソレデココワ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「分かった、それでここは…」",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 1.8373015873015872,
+      "audio_file": "slide_015.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).015.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_015.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 16,
+      "text": "「ここは。はいびる、だよ。わたしがきのうみつけて、あなたがきぜつしたあと、ここまではこんできた。」",
+      "notes": "（フラン）「ここは。はいびる、だよ。わたしがきのうみつけて、あなたがきぜつしたあと、ここまではこんできた。」",
+      "character": "フラン",
+      "voice": "jgr",
+      "speed": 100,
+      "pitch": 100,
+      "phonemes": "ココワ。ワイビル、ダヨ。ワタシガキノウミツケテ、アナタガキゼツシタアト、ココマデハコンデキタ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "フラン",
+            "image_name": "フラン_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「ここは…廃ビル、だよ。私が昨日見つけて、\nあなたが気絶した後、ここまで運んできた。」",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【フラン】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 7.979501133786848,
+      "audio_file": "slide_016.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).016.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_016.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 17,
+      "text": "「そう。」",
+      "notes": "（操夢）「そう。」",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ソウ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「そう…」",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 0.37174603174603177,
+      "audio_file": "slide_017.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).017.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_017.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 18,
+      "text": "「すると、そとからぱとかーがこのびるにむかってはしってくるのがみえる。「ふらん、どこかかくれられるばしょはある。」",
+      "notes": "（操夢）「すると、そとからぱとかーがこのびるにむかってはしってくるのがみえる。「ふらん、どこかかくれられるばしょはある。」",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "スルト、ソトカラパトカーガコノビルニムカッテハシッテクルノガミエル。フラン、ドコカカクレラレルバショワアル。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "フラン",
+            "image_name": "フラン_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "すると、外からパトカーがこのビルに向かって走ってくるのが見える。「フラン、どこか隠れられる場所はある？」",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【フラン】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 7.814036281179138,
+      "audio_file": "slide_018.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).018.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": false,
+      "is_skipped": false,
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_018.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 19,
+      "text": "「かくれられるばしょなら、あるよ。」",
+      "notes": "（フラン）「かくれられるばしょなら、あるよ。」",
+      "character": "フラン",
+      "voice": "jgr",
+      "speed": 100,
+      "pitch": 100,
+      "phonemes": "カクレラレルバショナラ、アルヨ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "フラン",
+            "image_name": "フラン_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「隠れられる場所なら…あるよ。」",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【フラン】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 2.099501133786848,
+      "audio_file": "slide_019.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).019.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_019.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 20,
+      "text": "ぼくはそれからかのじょのあんないにそって、みをひそめると、けいさつがびるからでていくまで、けはいをけすようにして、やりすごす。",
+      "notes": "（操夢）ぼくはそれからかのじょのあんないにそって、みをひそめると、けいさつがびるからでていくまで、けはいをけすようにして、やりすごす。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ボクワソレカラカノジョノアンナイニソッテ、ミオヒソメルト、ケイサツガビルカラデテイクマデ、ケハイオケスヨウニシテ、ヤリスゴス。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "セクション",
+      "template_info": {
+        "layout_name": "セクション",
+        "is_section_header": true,
+        "section_title": "\"3"
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "僕はそれから彼女の案内に沿って、身を潜めると、警察がビルから出ていくまで、気配を消すようにして、やり過ごす。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "セクション",
+          "is_section_header": true,
+          "section_title": "\"3"
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: セクション (セクション見出し: はい)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 9.08968253968254,
+      "audio_file": "slide_020.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).020.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_020.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 21,
+      "text": "",
+      "notes": "",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": "しばらく経って…"
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": false,
+          "text": "",
+          "shape_name": null,
+          "animations": []
+        },
+        "texts": [
+          {
+            "text": "しばらく経って…\nしばらく経って…",
+            "type": "body",
+            "animations": []
+          }
+        ],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": "しばらく経って…"
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": false,
+      "audio_duration": 1.0577324263038548,
+      "audio_file": "slide_021.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).021.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": false,
+      "sound_effects": [],
+      "no_voice": true,
+      "is_skipped": true,
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "audio_path": null,
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 22,
+      "text": "ぼくたちがなんとかやりすごすと、ふらんがはなしはじめる。",
+      "notes": "（操夢）ぼくたちがなんとかやりすごすと、ふらんがはなしはじめる。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ボクタチガナントカヤリスゴスト、フランガハナシハジメル。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "僕たちがなんとかやり過ごすと、フランが話し始める。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 4.044784580498866,
+      "audio_file": "slide_022.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).022.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": false,
+      "is_skipped": false,
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_022.wav",
+      "_cacheBuster": 1788259907625
+    },
+    {
+      "slide_index": 23,
+      "text": "「ねぇ、そとにでない。」",
+      "notes": "（フラン）「ねぇ、そとにでない。」",
+      "character": "フラン",
+      "voice": "jgr",
+      "speed": 100,
+      "pitch": 100,
+      "phonemes": "ネー、ソトニデナイ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "フラン",
+            "image_name": "フラン_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「ねぇ、外に出ない？」",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【フラン】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 1.5270068027210884,
+      "audio_file": "slide_023.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).023.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_023.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 24,
+      "text": "「そとにでたところで、ぼくたちがすごせるばしょは。」",
+      "notes": "（操夢）「そとにでたところで、ぼくたちがすごせるばしょは。」",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ソトニデタトコロデ、ボクタチガスゴセルバショワ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「外に出たところで、僕たちが過ごせる場所は…」",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 3.4050113378684808,
+      "audio_file": "slide_024.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).024.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_024.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 25,
+      "text": "「そんなのきにしなくてだいじょうぶだよ。」わたしはそういいかれをそとにつれだす。",
+      "notes": "（フラン）「そんなのきにしなくてだいじょうぶだよ。」わたしはそういいかれをそとにつれだす。",
+      "character": "フラン",
+      "voice": "jgr",
+      "speed": 100,
+      "pitch": 100,
+      "phonemes": "ソンナノキニシナクテダイジョウブダヨ。ワタシワソウイイカレオソトニツレダス。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "フラン",
+            "image_name": "フラン_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「そんなの気にしなくて大丈夫だよ。」\n私はそう言い彼を外に連れ出す。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【フラン】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 5.339501133786848,
+      "audio_file": "slide_025.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).025.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_025.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 26,
+      "text": "「ぼくはかのじょにつれだされるかたちでそとにでると、だんだんとおなかがすいてくる。」",
+      "notes": "（操夢）「ぼくはかのじょにつれだされるかたちでそとにでると、だんだんとおなかがすいてくる。」",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ボクワカノジョニツレダサレルカタチデソトニデルト、ダンダントオナカガスイテクル。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "僕は彼女に連れ出される形で外に出ると、\nだんだんとお腹が空いてくる。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 5.420884353741497,
+      "audio_file": "slide_026.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).026.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_026.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 27,
+      "text": "「そして、ふとぽっけにてをつっこむと、すまほをとりだす。」",
+      "notes": "（操夢）「そして、ふとぽっけにてをつっこむと、すまほをとりだす。」",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ソシテ、フトポッケニテオツッコムト、スマホオトリダス。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "そして、ふとポッケに手を突っ込むと、スマホを取り出す。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 4.148049886621315,
+      "audio_file": "slide_027.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).027.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_027.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 28,
+      "text": "「そのてにあるきかいは、なんのきかい？」",
+      "notes": "（フラン）「そのてにあるきかいは、なんのきかい？」",
+      "character": "フラン",
+      "voice": "jgr",
+      "speed": 100,
+      "pitch": 100,
+      "phonemes": "ソノテニアルキカイワ、ナンノキカイ",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "フラン",
+            "image_name": "フラン_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「その手にある機械は、何の機械？」",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【フラン】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 2.5645124716553287,
+      "audio_file": "slide_028.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).028.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_028.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 29,
+      "text": "「これは、すまーとふぉんですよ。」ぼくはそういいながら、ここにくるまでしょっていたばっくをさがす。",
+      "notes": "（操夢）「これは、すまーとふぉんですよ。」ぼくはそういいながら、ここにくるまでしょっていたばっくをさがす。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "コレワ、スマートフォンデスヨ。ボクワソウイイナガラ、ココニクルマデショッテイタバックヲサガス。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「これは、スマートフォンですよ。」\n僕はそう言いながら、ここにくるまで背負っていたバックを探す。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 6.74,
+      "audio_file": "slide_029.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).029.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_029.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 30,
+      "text": "そして、ばっぐがこうばんにあることをしり、ふらんにしせんをいちどあわせてから、こうばんにむかう。",
+      "notes": "（操夢）そして、ばっぐがこうばんにあることをしり、ふらんにしせんをいちどあわせてから、こうばんにむかう。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ソシテ、バッグガコウバンニアルコトヲシリ、フランニシセンオイチドアワセテカラ、コウバンニムカウ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "そして、バッグが交番にあることを知り、フランに視線を一度合わせてから、交番に向かう。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 6.677845804988662,
+      "audio_file": "slide_030.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).030.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_030.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 31,
+      "text": "ぼくは、こうばんにくると、ふらんにすこしまつようにいい、なかにはいる。",
+      "notes": "（操夢）ぼくは、こうばんにくると、ふらんにすこしまつようにいい、なかにはいる。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ボクワ、コウバンニクルト、フランニスコシマツヨウニイイ、ナカニワイル。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "セクション",
+      "template_info": {
+        "layout_name": "セクション",
+        "is_section_header": true,
+        "section_title": "\"3"
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "僕は、交番に来ると、フランに少し待つように言い、中に入る。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "セクション",
+          "is_section_header": true,
+          "section_title": "\"3"
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: セクション (セクション見出し: はい)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 5.118934240362812,
+      "audio_file": "slide_031.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).031.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_031.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 32,
+      "text": "彼が交番から出ると",
+      "notes": "",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "カレガコウバンカラデルト",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": "彼が交番から出ると"
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": false,
+          "text": "",
+          "shape_name": null,
+          "animations": []
+        },
+        "texts": [
+          {
+            "text": "彼が交番から出ると\n彼が交番から出ると",
+            "type": "body",
+            "animations": []
+          }
+        ],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": "彼が交番から出ると"
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": false,
+      "audio_duration": 1.6255555555555556,
+      "audio_file": "slide_032.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).032.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": false,
+      "sound_effects": [],
+      "no_voice": true,
+      "is_skipped": true,
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_032.wav",
+      "_cacheBuster": 1788259882972,
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0
+    },
+    {
+      "slide_index": 33,
+      "text": "こうばんないにはだれもおらず、おもっていたよりもかんたんにばっくをとりもどす。「ところで、これからどうしますか？」",
+      "notes": "（操夢）こうばんないにはだれもおらず、おもっていたよりもかんたんにばっくをとりもどす。「ところで、これからどうしますか？」",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "コウバンナイニワダレモオラズ、オモッテイタヨリモカンタンニバックオトリモドス。トコロデ、コレカラドウシマスカ",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "交番内には誰もおらず、思っていたより簡単にバックを取り戻す。\n「ところで、これからどうしますか？」",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 7.8721768707483,
+      "audio_file": "slide_033.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).033.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_033.wav",
+      "_cacheBuster": 1788259889830,
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": false,
+      "is_skipped": false
+    },
+    {
+      "slide_index": 34,
+      "text": "「わたしはべつにどこでもいいよ。」",
+      "notes": "（フラン）「わたしはべつにどこでもいいよ。」",
+      "character": "フラン",
+      "voice": "jgr",
+      "speed": 100,
+      "pitch": 100,
+      "phonemes": "ワタシワベツニドコデモイイヨ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "フラン",
+            "image_name": "フラン_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「私は別にどこでもいいよ。」",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【フラン】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 1.939501133786848,
+      "audio_file": "slide_034.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).034.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "no_voice": false,
+      "is_skipped": false,
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_034.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 35,
+      "text": "「そうですか、それならとりあえずえきにむかいましょう。」ぼくはそういい、かのじょとえきまであるいていく。",
+      "notes": "（操夢）「そうですか、それならとりあえずえきにむかいましょう。」ぼくはそういい、かのじょとえきまであるいていく。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ソウデスカ、ソレナラトリアエズエキニムカイマショウ。ボクワソウイイ、カノジョトエキマデアルイテイク。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "セクション",
+      "template_info": {
+        "layout_name": "セクション",
+        "is_section_header": true,
+        "section_title": "\"3"
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「そうですか、それならとりあえず駅に向かいましょう。」\n僕はそう言い、彼女と駅まで歩いていく。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "セクション",
+          "is_section_header": true,
+          "section_title": "\"3"
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: セクション (セクション見出し: はい)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 6.9733786848072565,
+      "audio_file": "slide_035.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).035.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_035.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 36,
+      "text": "",
+      "notes": "",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": "二人が駅に入ると…"
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": false,
+          "text": "",
+          "shape_name": null,
+          "animations": []
+        },
+        "texts": [
+          {
+            "text": "二人が駅に入ると…\n二人が駅に入ると…",
+            "type": "body",
+            "animations": []
+          }
+        ],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": "二人が駅に入ると…"
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": false,
+      "audio_duration": 1.548390022675737,
+      "audio_file": "slide_036.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).036.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": false,
+      "sound_effects": [],
+      "no_voice": true,
+      "is_skipped": true,
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "audio_path": null,
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 37,
+      "text": "ぼくたちはそれから、えきこうないのかふぇですこしおそめのちょうしょくをとる。そのあいまにぴーしーをひらくと、めーるがきていた。",
+      "notes": "（操夢）ぼくたちはそれから、えきこうないのかふぇですこしおそめのちょうしょくをとる。そのあいまにぴーしーをひらくと、めーるがきていた。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ボクタチワソレカラ、エキコウナイノカフェデスコシオソメノチョウショクヲトル。ソノアイマニピーシーオヒラクト、メールガキテイタ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "僕たちはそれから、駅構内のカフェで少し遅めの朝食をとる。\nその合間にPCを開くと、メールが来ていた。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 8.781201814058957,
+      "audio_file": "slide_037.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).037.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "no_voice": false,
+      "is_skipped": false,
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_037.wav",
+      "_cacheBuster": 1788259872526
+    },
+    {
+      "slide_index": 38,
+      "text": "ぼくがそのめーるをよむと、それはていけいしているじぎょうぬしさんのきょてんにきてほしいというめーるだった。",
+      "notes": "（操夢）ぼくがそのめーるをよむと、それはていけいしているじぎょうぬしさんのきょてんにきてほしいというめーるだった。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ボクガソノメールオヨムト、ソレワテイケイシテイルジギョウヌシサンノキョテンニキテホシイトイウメールダッタ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "僕がそのメールを読むと、それは提携している事業主さんの拠点に来て欲しいというメールだった。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 6.7175056689342405,
+      "audio_file": "slide_038.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).038.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_038.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 39,
+      "text": "ぼくが、そのめーるにいまからむかいますと、へんしんをかえすと、あいしーかーどにふたりぶんのうんちんをたちゃーじする。",
+      "notes": "（操夢）ぼくが、そのめーるにいまからむかいますと、へんしんをかえすと、あいしーかーどにふたりぶんのうんちんをたちゃーじする。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ボクガ、ソノメールニイマカラムカイマスト、ヘンシンオカエスト、アイシーカードニフタリブンノウンチンオタチャージスル。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "僕が、そのメールに今から向かいますと、返信を返すと、ICカードに二人分の運賃をチャージする。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 7.92718820861678,
+      "audio_file": "slide_039.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).039.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_039.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 40,
+      "text": "「ふらんさん、これからいっしょににいがたにいきませんか？」",
+      "notes": "（操夢）「ふらんさん、これからいっしょににいがたにいきませんか？」",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "フランサン、コレカライッショニニイガタニイキマセンカ",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "フラン",
+            "image_name": "フラン_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「フランさん、これから一緒に新潟に行きませんか？」",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【フラン】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 3.51578231292517,
+      "audio_file": "slide_040.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).040.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": false,
+      "is_skipped": false,
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_040.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 41,
+      "text": "「にいがたってなに？」",
+      "notes": "（フラン）「にいがたってなに？」",
+      "character": "フラン",
+      "voice": "jgr",
+      "speed": 100,
+      "pitch": 100,
+      "phonemes": "ニイガタッテナニ",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "フラン",
+            "image_name": "フラン_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「新潟って何？」",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【フラン】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 1.1970068027210885,
+      "audio_file": "slide_041.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).041.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_041.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 42,
+      "text": "「いけばわかりますよ。」ぼくはそういうと、かいけいをすませ、かのじょとともにかふぇをでる。",
+      "notes": "（操夢）「いけばわかりますよ。」ぼくはそういうと、かいけいをすませ、かのじょとともにかふぇをでる。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "イケバワカリマスヨ。ボクワソウイウト、カイケイオスマセ、カノジョトトモニカフェヲデル。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "セクション",
+      "template_info": {
+        "layout_name": "セクション",
+        "is_section_header": true,
+        "section_title": "\"3"
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "「行けばわかりますよ。」\n僕はそういうと、会計を済ませ、彼女と共にカフェを出る。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "セクション",
+          "is_section_header": true,
+          "section_title": "\"3"
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: セクション (セクション見出し: はい)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 6.278934240362812,
+      "audio_file": "slide_042.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).042.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_042.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 43,
+      "text": "",
+      "notes": "",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": "二人は新幹線に揺られて…"
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": false,
+          "text": "",
+          "shape_name": null,
+          "animations": []
+        },
+        "texts": [
+          {
+            "text": "二人は新幹線に揺られて…\n二人は新幹線に揺られて…",
+            "type": "body",
+            "animations": []
+          }
+        ],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": "二人は新幹線に揺られて…"
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": false,
+      "audio_duration": 2.015328798185941,
+      "audio_file": "slide_043.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).043.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": false,
+      "sound_effects": [],
+      "no_voice": true,
+      "is_skipped": true,
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "audio_path": null,
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 44,
+      "text": "ぼくたちはしんかんせんにのりこみ、していせきにすわると、かのじょはしんかんせんにゆられるのがここちいいのか、ねむりについていた。",
+      "notes": "（操夢）ぼくたちはしんかんせんにのりこみ、していせきにすわると、かのじょはしんかんせんにゆられるのがここちいいのか、ねむりについていた。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ボクタチワシンカンセンニノリコミ、シテイセキニスワルト、カノジョハシンカンセンニユラレルノガココチイイノカ、ネムリニツイテイタ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "僕たちは新幹線に乗り込み、指定席に座ると、彼女は新幹線にゆられるのが心地いいのか、眠りについていた。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 8.971315192743765,
+      "audio_file": "slide_044.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).044.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": false,
+      "is_skipped": false,
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_044.wav",
+      "_cacheBuster": 1788259846974
+    },
+    {
+      "slide_index": 45,
+      "text": "ぼくは、かのじょのねがおとしゃそうをときおりながめながら、ぴーしーをさわる。",
+      "notes": "（操夢）ぼくは、かのじょのねがおとしゃおうをときおりながめながら、ぴーしーをさわる。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ボクワ、カノジョノネガオトシャソウヲトキオリナガメナガラ、ピーシーオサワル。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "僕は、彼女の寝顔と車窓を時折眺めながら、PCを触る。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 5.058390022675737,
+      "audio_file": "slide_045.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).045.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": false,
+      "is_skipped": false,
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_045.wav",
+      "_cacheBuster": 1788259804852
+    },
+    {
+      "slide_index": 46,
+      "text": "そして、きりよくさぎょうをおえると、ぴーしーをとじ、かのじょのねがおとしゃそうをゆっくりとながめるのだった。",
+      "notes": "（操夢）そして、きりよくさぎょうをおえると、ぴーしーをとじ、かのじょのねがおとしゃそうをながめるのだった。",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "ソシテ、キリヨクサギョウオオエルト、ピーシーオトジ、カノジョノネガオトシャソウヲユックリトナガメルノダッタ。",
+      "extra_delay": 0,
+      "transition_delay": 0.5,
+      "transition_duration": 1,
+      "transition_effect": "no transition effect",
+      "transition_automatic": false,
+      "template_name": "写真",
+      "template_info": {
+        "layout_name": "写真",
+        "is_section_header": false,
+        "section_title": ""
+      },
+      "slide_objects": {
+        "characters": [
+          {
+            "name": "操夢",
+            "image_name": "操夢_立ち絵",
+            "image_path": "",
+            "animations": [],
+            "has_movement": false,
+            "status": "静止画 (立ち絵表示)",
+            "duration": 0
+          }
+        ],
+        "telop": {
+          "detected": true,
+          "text": "そして、キリ良く作業を終えると、\nPCを閉じ、彼女の寝顔と車窓をゆっくりと眺めるのだった。",
+          "shape_name": "テロップ枠",
+          "animations": []
+        },
+        "texts": [],
+        "shapes": [],
+        "template": {
+          "layout_name": "写真",
+          "is_section_header": false,
+          "section_title": ""
+        }
+      },
+      "duration_priority_info": {
+        "applied_mode": "anim_auto",
+        "applied_duration": 1.5,
+        "note_duration": null,
+        "anim_duration": 1.5,
+        "reason": "スライド上のキャラクター・図形アニメーション時間(1.5秒)を自動適用"
+      },
+      "builds": [],
+      "target_duration": null,
+      "is_animation_sync": false,
+      "has_animation": false,
+      "animated_objects": [],
+      "animation_details": {
+        "presenter_notes": [],
+        "transitions": [],
+        "builds": [],
+        "images": [],
+        "characters": [
+          "【操夢】立ち絵 - 静止画 (立ち絵表示)"
+        ],
+        "background": [],
+        "shapes": [],
+        "texts": [],
+        "template": [
+          "レイアウト: 写真 (セクション見出し: いいえ)"
+        ]
+      },
+      "character_images": "",
+      "bg_images": [],
+      "telop_frame_detected": true,
+      "audio_duration": 7.256326530612245,
+      "audio_file": "slide_046.wav",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/スライド画像/(1)/(1).046.jpeg",
+      "video_clip_path": null,
+      "animation_path": null,
+      "video_start_time": 0,
+      "video_duration": null,
+      "animation_duration": null,
+      "is_enabled": true,
+      "sound_effects": [],
+      "effect": "none",
+      "quality_enhance": true,
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": false,
+      "is_skipped": false,
+      "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/音声/(1)/slide_046.wav",
+      "_cacheBuster": 1788259804852
+    }
+  ],
+  "media_library": [
+    {
+      "name": "(1).key",
+      "path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/彷徨う二人/(1).key",
+      "type": "keynote"
+    }
+  ],
+  "timeline": {
+    "bgm": null,
+    "global_effects": [],
+    "sound_effects": [
+      {
+        "id": "se_1788258671692",
+        "name": "車通過1",
+        "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/動画用/音楽/効果音/車通過1.mp3",
+        "start_scene_index": 1,
+        "end_scene_index": 1,
+        "volume": 1,
+        "speed": 1,
+        "loop": true,
+        "reverse": false
+      },
+      {
+        "id": "se_1788258703178",
+        "name": "スーパーカー通過",
+        "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/動画用/音楽/効果音/スーパーカー通過.mp3",
+        "start_scene_index": 2,
+        "end_scene_index": 2,
+        "volume": 1,
+        "speed": 1,
+        "loop": true,
+        "reverse": false
+      },
+      {
+        "id": "se_1788258730792",
+        "name": "バイク通過1",
+        "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/動画用/音楽/効果音/バイク通過1.mp3",
+        "start_scene_index": 3,
+        "end_scene_index": 3,
+        "volume": 1,
+        "speed": 1,
+        "loop": true,
+        "reverse": false
+      },
+      {
+        "id": "se_1788258767646",
+        "name": "車の急ブレーキ1",
+        "audio_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/動画用/音楽/効果音/車の急ブレーキ1.mp3",
+        "start_scene_index": 4,
+        "end_scene_index": 4,
+        "volume": 1,
+        "speed": 1,
+        "loop": false,
+        "reverse": false
+      }
+    ]
+  }
+}
