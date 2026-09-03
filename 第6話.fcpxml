@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.9">
+  <resources>
+    <format id="r1" name="FFVideoFormat1080p30" frameDuration="100/3000s" width="1920" height="1080"/>
+    <asset id="r_img_10" name="第6話.001.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.001.jpeg"/>
+    </asset>
+    <asset id="r_audio_11" name="slide_002.wav" start="0s" duration="9400/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_002.wav"/>
+    </asset>
+    <asset id="r_img_12" name="第6話.002.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.002.jpeg"/>
+    </asset>
+    <asset id="r_audio_13" name="slide_003.wav" start="0s" duration="4500/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_003.wav"/>
+    </asset>
+    <asset id="r_img_14" name="第6話.003.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.003.jpeg"/>
+    </asset>
+    <asset id="r_audio_15" name="slide_004.wav" start="0s" duration="8900/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_004.wav"/>
+    </asset>
+    <asset id="r_img_16" name="第6話.004.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.004.jpeg"/>
+    </asset>
+    <asset id="r_audio_17" name="slide_005.wav" start="0s" duration="12900/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_005.wav"/>
+    </asset>
+    <asset id="r_img_18" name="第6話.005.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.005.jpeg"/>
+    </asset>
+    <asset id="r_audio_19" name="slide_006.wav" start="0s" duration="9600/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_006.wav"/>
+    </asset>
+    <asset id="r_img_20" name="第6話.006.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.006.jpeg"/>
+    </asset>
+    <asset id="r_audio_21" name="slide_007.wav" start="0s" duration="30300/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_007.wav"/>
+    </asset>
+    <asset id="r_img_22" name="第6話.007.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.007.jpeg"/>
+    </asset>
+    <asset id="r_audio_23" name="slide_008.wav" start="0s" duration="30800/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_008.wav"/>
+    </asset>
+    <asset id="r_img_24" name="第6話.008.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.008.jpeg"/>
+    </asset>
+    <asset id="r_audio_25" name="slide_009.wav" start="0s" duration="11500/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_009.wav"/>
+    </asset>
+    <asset id="r_img_26" name="第6話.009.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.009.jpeg"/>
+    </asset>
+    <asset id="r_audio_27" name="slide_010.wav" start="0s" duration="28300/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_010.wav"/>
+    </asset>
+    <asset id="r_img_28" name="第6話.010.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.010.jpeg"/>
+    </asset>
+    <asset id="r_audio_29" name="slide_011.wav" start="0s" duration="30000/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_011.wav"/>
+    </asset>
+    <asset id="r_img_30" name="第6話.011.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.011.jpeg"/>
+    </asset>
+    <asset id="r_audio_31" name="slide_012.wav" start="0s" duration="26600/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_012.wav"/>
+    </asset>
+    <asset id="r_img_32" name="第6話.012.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.012.jpeg"/>
+    </asset>
+    <asset id="r_audio_33" name="slide_013.wav" start="0s" duration="27700/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_013.wav"/>
+    </asset>
+    <asset id="r_img_34" name="第6話.013.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.013.jpeg"/>
+    </asset>
+    <asset id="r_audio_35" name="slide_014.wav" start="0s" duration="26500/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_014.wav"/>
+    </asset>
+    <asset id="r_img_36" name="第6話.014.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.014.jpeg"/>
+    </asset>
+    <asset id="r_audio_37" name="slide_015.wav" start="0s" duration="33100/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_015.wav"/>
+    </asset>
+    <asset id="r_img_38" name="第6話.015.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.015.jpeg"/>
+    </asset>
+    <asset id="r_audio_39" name="slide_016.wav" start="0s" duration="6700/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_016.wav"/>
+    </asset>
+    <asset id="r_img_40" name="第6話.016.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.016.jpeg"/>
+    </asset>
+    <asset id="r_audio_41" name="slide_017.wav" start="0s" duration="4400/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_017.wav"/>
+    </asset>
+    <asset id="r_img_42" name="第6話.017.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.017.jpeg"/>
+    </asset>
+    <asset id="r_audio_43" name="slide_018.wav" start="0s" duration="30700/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_018.wav"/>
+    </asset>
+    <asset id="r_img_44" name="第6話.018.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.018.jpeg"/>
+    </asset>
+    <asset id="r_audio_45" name="slide_019.wav" start="0s" duration="29600/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_019.wav"/>
+    </asset>
+    <asset id="r_img_46" name="第6話.019.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.019.jpeg"/>
+    </asset>
+    <asset id="r_audio_47" name="slide_020.wav" start="0s" duration="31100/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_020.wav"/>
+    </asset>
+    <asset id="r_img_48" name="第6話.020.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.020.jpeg"/>
+    </asset>
+    <asset id="r_audio_49" name="slide_021.wav" start="0s" duration="28700/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_021.wav"/>
+    </asset>
+    <asset id="r_img_50" name="第6話.021.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.021.jpeg"/>
+    </asset>
+    <asset id="r_audio_51" name="slide_022.wav" start="0s" duration="30000/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_022.wav"/>
+    </asset>
+    <asset id="r_img_52" name="第6話.022.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.022.jpeg"/>
+    </asset>
+    <asset id="r_audio_53" name="slide_023.wav" start="0s" duration="27600/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_023.wav"/>
+    </asset>
+    <asset id="r_img_54" name="第6話.023.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.023.jpeg"/>
+    </asset>
+    <asset id="r_audio_55" name="slide_024.wav" start="0s" duration="10200/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_024.wav"/>
+    </asset>
+    <asset id="r_img_56" name="第6話.024.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.024.jpeg"/>
+    </asset>
+    <asset id="r_audio_57" name="slide_025.wav" start="0s" duration="24300/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_025.wav"/>
+    </asset>
+    <asset id="r_img_58" name="第6話.025.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.025.jpeg"/>
+    </asset>
+    <asset id="r_audio_59" name="slide_026.wav" start="0s" duration="3400/3000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E9%9F%B3%E5%A3%B0/%E7%AC%AC6%E8%A9%B1/slide_026.wav"/>
+    </asset>
+    <asset id="r_img_60" name="第6話.026.jpeg" start="0s" duration="10000/100s" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E5%B9%BC%E3%81%8D%E6%97%A5%E3%81%AE%E5%A4%A2/%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%89%E7%94%BB%E5%83%8F/%E7%AC%AC6%E8%A9%B1/%E7%AC%AC6%E8%A9%B1.026.jpeg"/>
+    </asset>
+  </resources>
+  <event name="東方Projectムービーメーカー">
+    <project name="第6話">
+      <sequence format="r1" duration="531400/3000s" tcStart="0s" tcFormat="NDF">
+        <spine>
+          <video ref="r_img_10" name="スライド 1 (操夢)" duration="3000/3000s" start="0s"/>
+          <video ref="r_img_12" name="スライド 2 (紫)" duration="9400/3000s" start="0s">
+            <audio ref="r_audio_11" name="slide_002.wav" offset="0s" duration="9400/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_14" name="スライド 3 (霊夢)" duration="4500/3000s" start="0s">
+            <audio ref="r_audio_13" name="slide_003.wav" offset="0s" duration="4500/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_16" name="スライド 4 (紫)" duration="8900/3000s" start="0s">
+            <audio ref="r_audio_15" name="slide_004.wav" offset="0s" duration="8900/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_18" name="スライド 5 (霊夢)" duration="12900/3000s" start="0s">
+            <audio ref="r_audio_17" name="slide_005.wav" offset="0s" duration="12900/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_20" name="スライド 6 (紫)" duration="9600/3000s" start="0s">
+            <audio ref="r_audio_19" name="slide_006.wav" offset="0s" duration="9600/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_22" name="スライド 7 (紫)" duration="30300/3000s" start="0s">
+            <audio ref="r_audio_21" name="slide_007.wav" offset="0s" duration="30300/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_24" name="スライド 8 (紫)" duration="30800/3000s" start="0s">
+            <audio ref="r_audio_23" name="slide_008.wav" offset="0s" duration="30800/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_26" name="スライド 9 (紫)" duration="11500/3000s" start="0s">
+            <audio ref="r_audio_25" name="slide_009.wav" offset="0s" duration="11500/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_28" name="スライド 10 (紫)" duration="28300/3000s" start="0s">
+            <audio ref="r_audio_27" name="slide_010.wav" offset="0s" duration="28300/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_30" name="スライド 11 (紫)" duration="30000/3000s" start="0s">
+            <audio ref="r_audio_29" name="slide_011.wav" offset="0s" duration="30000/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_32" name="スライド 12 (紫)" duration="26600/3000s" start="0s">
+            <audio ref="r_audio_31" name="slide_012.wav" offset="0s" duration="26600/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_34" name="スライド 13 (紫)" duration="27700/3000s" start="0s">
+            <audio ref="r_audio_33" name="slide_013.wav" offset="0s" duration="27700/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_36" name="スライド 14 (紫)" duration="26500/3000s" start="0s">
+            <audio ref="r_audio_35" name="slide_014.wav" offset="0s" duration="26500/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_38" name="スライド 15 (紫)" duration="33100/3000s" start="0s">
+            <audio ref="r_audio_37" name="slide_015.wav" offset="0s" duration="33100/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_40" name="スライド 16 (紫)" duration="6700/3000s" start="0s">
+            <audio ref="r_audio_39" name="slide_016.wav" offset="0s" duration="6700/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_42" name="スライド 17 (霊夢)" duration="4400/3000s" start="0s">
+            <audio ref="r_audio_41" name="slide_017.wav" offset="0s" duration="4400/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_44" name="スライド 18 (紫)" duration="30700/3000s" start="0s">
+            <audio ref="r_audio_43" name="slide_018.wav" offset="0s" duration="30700/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_46" name="スライド 19 (紫)" duration="29600/3000s" start="0s">
+            <audio ref="r_audio_45" name="slide_019.wav" offset="0s" duration="29600/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_48" name="スライド 20 (紫)" duration="31100/3000s" start="0s">
+            <audio ref="r_audio_47" name="slide_020.wav" offset="0s" duration="31100/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_50" name="スライド 21 (紫)" duration="28700/3000s" start="0s">
+            <audio ref="r_audio_49" name="slide_021.wav" offset="0s" duration="28700/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_52" name="スライド 22 (紫)" duration="30000/3000s" start="0s">
+            <audio ref="r_audio_51" name="slide_022.wav" offset="0s" duration="30000/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_54" name="スライド 23 (紫)" duration="27600/3000s" start="0s">
+            <audio ref="r_audio_53" name="slide_023.wav" offset="0s" duration="27600/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_56" name="スライド 24 (紫)" duration="10200/3000s" start="0s">
+            <audio ref="r_audio_55" name="slide_024.wav" offset="0s" duration="10200/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_58" name="スライド 25 (霊夢)" duration="24300/3000s" start="0s">
+            <audio ref="r_audio_57" name="slide_025.wav" offset="0s" duration="24300/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+          <video ref="r_img_60" name="スライド 26 (操夢)" duration="15000/3000s" start="0s">
+            <audio ref="r_audio_59" name="slide_026.wav" offset="0s" duration="3400/3000s" start="0s" lane="-1" role="dialogue"/>
+          </video>
+        </spine>
+      </sequence>
+    </project>
+  </event>
+</fcpxml>

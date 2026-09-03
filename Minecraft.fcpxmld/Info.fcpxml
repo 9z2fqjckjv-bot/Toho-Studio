@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+
+<fcpxml version="1.14">
+    <resources>
+        <format id="r1" name="FFVideoFormat3840x2160p60" frameDuration="100/6000s" width="3840" height="2160" colorSpace="1-1-1 (Rec. 709)"/>
+        <asset id="r2" name="画面収録 2026-08-26 18.41.07" uid="1E30E0CB8FDEC472DBAF41FB894C1B93" start="0s" duration="720107/600s" hasVideo="1" format="r3" videoSources="1">
+            <media-rep kind="original-media" sig="1E30E0CB8FDEC472DBAF41FB894C1B93" src="file:///Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/%E7%94%BB%E9%9D%A2%E5%8F%8E%E9%8C%B2%202026-08-26%2018.41.07.mov">
+                <bookmark>Ym9va8gEAAAAAAUQQAAAAJ/Me54QdmUwLKkRqEEoihXEDTRY29LF35vXTXnWKMiwAAAAAAAAAAAAAAAAAAAAAKgDAAAgAAAAAQIAAJRzKAFKFg0IAMAuMh4IY3Nys0kUr//Ixkb6qdNpYvG0BAAAAAMDAAAAGAAoBwAAAAEBAABWb2x1bWVzAAQAAAABAQAAWlNTRAYAAAABAQAAR2l0SHViAAAKAAAAAQEAAHJlcG9zaXRvcnkAABkAAAABAQAAVG9oby1Qcm9qZWN0LVNlY29uZC1TdG9yeQAAACQAAAABAQAA55S76Z2i5Y+O6YyyIDIwMjYtMDgtMjYgMTguNDEuMDcubW92GAAAAAEGAAA4AAAASAAAAFQAAABkAAAAeAAAAJwAAAAIAAAABAMAAApIAAAAAAAACAAAAAQDAAACAAAAAAAAAAgAAAAEAwAAhQQMAAAAAAAIAAAABAMAAIYEDAAAAAAACAAAAAQDAABvug4AAAAAAAgAAAAEAwAAEVMTAAAAAAAYAAAAAQYAAOgAAAD4AAAACAEAABgBAAAoAQAAOAEAAAgAAAAABAAAQcgfeHMMj0oYAAAAAQIAAAEAAAAAAAAADwAAAAAAAAAAAAAAAAAAAAAAAAABBQAABAAAAAMDAAAFAAAABAAAAAMDAAAEAAAAFQAAAAEJAABmaWxlOi8vL1ZvbHVtZXMvWlNTRC8AAAAIAAAABAMAAABgfyN1AAAACAAAAAAEAABBx/elGDcI0CQAAAABAQAAMTgxMDhFMkItMDFEMy00NTZELUJBNTAtNTE4MjZFQ0VDQjQxGAAAAAECAAABAQAAAQAAAO8TAAABAAAAAAAAAAAAAAANAAAAAQEAAC9Wb2x1bWVzL1pTU0QAAAAIAAAAAQkAAGZpbGU6Ly8vDAAAAAEBAABNYWNpbnRvc2ggSEQIAAAABAMAAACggFh0AAAACAAAAAAEAABBx9+ALwAAACQAAAABAQAAMTVBOUQ0MTEtRTU5QS00MzVDLUEwMzgtQkNFNzhFMDFENjU5GAAAAAECAACBAAAAAQAAAO8TAAABAAAAAAAAAAAAAAABAAAAAQEAAC8AAABgAAAA/v///wDwAAAAAAAABwAAAAIgAADsAgAAAAAAAAUgAABcAgAAAAAAABAgAABsAgAAAAAAABEgAACgAgAAAAAAABIgAACAAgAAAAAAABMgAACQAgAAAAAAACAgAADMAgAAAAAAAAQAAAADAwAAAPAAAAQAAAADAwAAAAAAAAQAAAADAwAAAQAAABwAAAABBgAAYAMAAGwDAAB4AwAAbAMAAGwDAABsAwAAbAMAANgAAAD+////AQAAAPgCAAARAAAABBAAAMgAAAAAAAAABRAAAEgBAAAAAAAAEBAAAHgBAAAAAAAAQBAAAGgBAAAAAAAAVBAAAKABAAAAAAAAVRAAAKwBAAAAAAAAVhAAAJgBAAAAAAAAACAAAIQDAAAAAAAAAiAAAEQCAAAAAAAABSAAALgBAAAAAAAAECAAAEgAAAAAAAAAESAAAPgBAAAAAAAAEiAAANgBAAAAAAAAEyAAAOgBAAAAAAAAICAAACQCAAAAAAAAENAAACwAAAAAAAAAhPAAAAQAAAAAAAAA</bookmark>
+            </media-rep>
+            <metadata>
+                <md key="com.apple.proapps.studio.rawToLogConversion" value="0"/>
+                <md key="com.apple.proapps.spotlight.kMDItemProfileName" value="HD（1-1-1）"/>
+                <md key="com.apple.proapps.studio.cameraISO" value="0"/>
+                <md key="com.apple.proapps.studio.cameraColorTemperature" value="0"/>
+                <md key="com.apple.proapps.spotlight.kMDItemCodecs">
+                    <array>
+                        <string>H.264</string>
+                    </array>
+                </md>
+                <md key="com.apple.proapps.mio.ingestDate" value="2026-08-26 19:16:14 +0900"/>
+            </metadata>
+        </asset>
+        <format id="r3" frameDuration="10/600s" width="2816" height="1762" colorSpace="1-1-1 (Rec. 709)"/>
+    </resources>
+    <library location="file:///Volumes/ZSSD/FinalCutPro%E3%83%A9%E3%82%A4%E3%83%95%E3%82%99%E3%83%A9%E3%83%AA/Minecraft.fcpbundle/">
+        <event name="2026-08-10" uid="F8FED2F2-C648-4646-A96B-99FEA56515C4">
+            <project name="Minecraft" uid="DAAEAA11-201D-4079-B073-7E51437EDD01" modDate="2026-08-26 19:16:38 +0900">
+                <sequence format="r1" duration="720100/600s" tcStart="0s" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+                    <spine>
+                        <asset-clip ref="r2" offset="0s" name="画面収録 2026-08-26 18.41.07" duration="720100/600s" format="r3" tcFormat="NDF"/>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+        <smart-collection name="プロジェクト" match="all">
+            <match-clip rule="is" type="project"/>
+        </smart-collection>
+        <smart-collection name="すべてのビデオ" match="any">
+            <match-media rule="is" type="videoOnly"/>
+            <match-media rule="is" type="videoWithAudio"/>
+        </smart-collection>
+        <smart-collection name="オーディオのみ" match="all">
+            <match-media rule="is" type="audioOnly"/>
+        </smart-collection>
+        <smart-collection name="静止画" match="all">
+            <match-media rule="is" type="stills"/>
+        </smart-collection>
+        <smart-collection name="よく使う項目" match="all">
+            <match-ratings value="favorites"/>
+        </smart-collection>
+        <smart-collection name="解析がありません" match="all">
+            <match-analysis-type rule="isMissing" value="any"/>
+        </smart-collection>
+    </library>
+</fcpxml>

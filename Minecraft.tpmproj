@@ -1,0 +1,57 @@
+{
+  "format_version": "1.0",
+  "project_name": "Minecraft",
+  "source_type": "fcpxml",
+  "source_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/Minecraft.fcpxmld/Info.fcpxml",
+  "project_file_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/Minecraft.tpmproj",
+  "series_name": "交換夫婦",
+  "created_at": "2026-08-26 19:17:59",
+  "updated_at": "2026-08-26 19:18:18",
+  "license_info": {
+    "usr_license_id": "",
+    "user_key": "",
+    "dev_license_id": "",
+    "dev_key": ""
+  },
+  "settings": {
+    "padding_delay": 0.5,
+    "auto_backup_enabled": true,
+    "auto_backup_interval_min": 10,
+    "quality_enhance": true,
+    "effect": "none"
+  },
+  "scenes": [
+    {
+      "slide_index": 1,
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "text": "",
+      "phonemes": "",
+      "image_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/画面収録 2026-08-26 18.41.07.mov",
+      "audio_path": null,
+      "audio_duration": 1200.1666666666667,
+      "extra_delay": 0,
+      "quality_enhance": true,
+      "effect": "none",
+      "sound_effect": null,
+      "se_offset": 0,
+      "no_voice": true,
+      "is_skipped": true,
+      "is_enabled": true,
+      "sound_effects": []
+    }
+  ],
+  "media_library": [
+    {
+      "name": "Info.fcpxml",
+      "path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/Minecraft.fcpxmld/Info.fcpxml",
+      "type": "fcpxml"
+    }
+  ],
+  "timeline": {
+    "bgm": null,
+    "global_effects": []
+  }
+}

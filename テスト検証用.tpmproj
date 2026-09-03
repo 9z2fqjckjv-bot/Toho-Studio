@@ -1,0 +1,48 @@
+{
+  "format_version": "1.0",
+  "project_name": "テスト検証用",
+  "source_type": "blank",
+  "source_path": "",
+  "project_file_path": "/Volumes/ZSSD/GitHub/repository/Toho-Project-Second-Story/テスト検証用.tpmproj",
+  "created_at": "2026-08-25 08:48:00",
+  "updated_at": "2026-08-25 08:48:00",
+  "license_info": {
+    "usr_license_id": "",
+    "user_key": "",
+    "dev_license_id": "",
+    "dev_key": ""
+  },
+  "settings": {
+    "padding_delay": 0.5,
+    "auto_backup_enabled": true,
+    "auto_backup_interval_min": 10,
+    "quality_enhance": true,
+    "effect": "none"
+  },
+  "scenes": [
+    {
+      "slide_index": 1,
+      "text": "新しいセリフ",
+      "notes": "",
+      "character": "操夢",
+      "voice": "imd1",
+      "speed": 100,
+      "pitch": 115,
+      "phonemes": "アタラシイセリフ",
+      "extra_delay": 0.5,
+      "transition_delay": 0.0,
+      "audio_duration": 1.5,
+      "audio_file": "slide_001.wav",
+      "image_path": null,
+      "audio_path": null,
+      "video_clip_path": null,
+      "animation_path": null,
+      "is_enabled": true
+    }
+  ],
+  "media_library": [],
+  "timeline": {
+    "bgm": null,
+    "global_effects": []
+  }
+}

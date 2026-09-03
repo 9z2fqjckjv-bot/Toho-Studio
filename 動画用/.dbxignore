@@ -1,0 +1,23 @@
+# dbxignore v4
+# こんにちは、このファイルは、お使いのパソコンで生成された同期不要のファイルを同期しないように、Dropbox が作成したものです。
+# 詳しくはこちらをご覧ください：https://help.dropbox.com/installs-integrations/sync-uploads/external-drive
+# 
+.dropbox.device
+.localized
+.volumeicon.icns
+.fseventsd
+.spotlight-v100
+.documentrevisions-v100
+.temporaryitems
+.trashes
+.com.apple.timemachine.donotpresent
+system volume information
+$recycle.bin
+filehistory
+toolkit
+.dbxignore
+**/*.paper
+**/*.gdoc
+**/*.gsheet
+**/*.gslides
+**/._*
