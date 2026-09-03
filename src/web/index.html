@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>東方Projectムービーメーカー (Mac版)</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-dark">
+  <div id="app">
+
+    <!-- ========================================== -->
+    <!-- 画面1: 新規作成または読み込み画面 (Screen 1) -->
+    <!-- ========================================== -->
+    <section id="screen-welcome" class="screen active">
+      <div class="welcome-header">
+        <span class="app-brand">東方Projectムービーメーカー</span>
+      </div>
+      <div class="welcome-container">
+        <h1 class="welcome-title">新規作成または開く...</h1>
+
+        <div class="welcome-menu-list">
+          <!-- Keynote -->
+          <div class="menu-item-row">
+            <button class="btn-bubble-action" onclick="App.openFileBrowser('keynote')">Keynote...</button>
+            <div class="speech-bubble">
+              <span class="bubble-arrow"></span>
+              ファイルブラウザが開き既存のKeynoteファイルを読み込みます。
+            </div>
+          </div>
+
+          <!-- PowerPoint -->
+          <div class="menu-item-row">
+            <button class="btn-bubble-action" onclick="App.openFileBrowser('pptx')">PowerPoint...</button>
+            <div class="speech-bubble">
+              <span class="bubble-arrow"></span>
+              PowerPoint (.pptx) ファイルを読み込み、自動でシーン変換します。
+            </div>
+          </div>
+
+          <!-- FinalCut -->
+          <div class="menu-item-row">
+            <button class="btn-bubble-action" onclick="App.openFileBrowser('fcpxml')">FinalCutライブラリ...</button>
+            <div class="speech-bubble">
+              <span class="bubble-arrow"></span>
+              ファイルブラウザが開き既存のFinalCutライブラリ(FCPXML)を読み込みます。
+            </div>
+          </div>
+
+          <!-- YMM -->
+          <div class="menu-item-row">
+            <button class="btn-bubble-action" onclick="App.openFileBrowser('ymm')">YMM...</button>
+            <div class="speech-bubble">
+              <span class="bubble-arrow"></span>
+              ファイルブラウザが開き外部ソフトのゆっくりムービーメーカー(Windowsソフト)から読み込みます。
+            </div>
+          </div>
+
+          <!-- 既存のファイル -->
+          <div class="menu-item-row">
+            <button class="btn-bubble-action" onclick="App.openFileBrowser('project')">既存のファイル...</button>
+            <div class="speech-bubble">
+              <span class="bubble-arrow"></span>
+              ファイルブラウザが開き、このソフトで作成している編集ファイルを読み込み続きから始めます。
+            </div>
+          </div>
+
+          <!-- 新規作成 -->
+          <div class="menu-item-row">
+            <button class="btn-bubble-action btn-new" onclick="App.createBlankProject()">空のプロジェクト新規作成</button>
+            <div class="speech-bubble">
+              <span class="bubble-arrow"></span>
+              何も読み込まずに空の新規編集ファイルを作成して編集を開始します。
+            </div>
+          </div>
+        </div>
+
+        <div class="welcome-footer-actions">
+          <button class="btn-text-secondary" onclick="App.openBackupsModal()">🔄 自動バックアップ一覧から復元</button>
+          <button class="btn-text-secondary" onclick="App.openCrashReportsModal()">📋 クラッシュレポート確認</button>
+          <button class="btn-text-secondary" onclick="App.openLicenseModal()">🔑 ライセンス設定</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- 画面2: データ読み込み画面 (Screen 2)        -->
+    <!-- ========================================== -->
+    <section id="screen-loading" class="screen">
+      <div class="loading-header">
+        <span class="app-brand">東方Projectムービーメーカー</span>
+      </div>
+
+      <div class="loading-modal-wrapper">
+        <div class="loading-card">
+          <h2 class="loading-title">データを読み込み中です...</h2>
+          <div class="loading-file-name" id="loading-file-label">[ファイル名]を読み込み中です...</div>
+
+          <!-- プログレスバー -->
+          <div class="loading-progress-container">
+            <div class="loading-progress-fill" id="loading-progress-bar" style="width: 0%;"></div>
+          </div>
+
+          <div class="loading-stats-row">
+            <span id="loading-size-label">0 KB 中、0 KB 読み込み済み (0%)</span>
+          </div>
+          <div class="loading-stats-row">
+            <span id="loading-time-label">残り時間: 算出中...、完了予定: --:--</span>
+          </div>
+
+          <!-- チェックボックス群 -->
+          <div class="loading-options-list">
+            <div class="option-row">
+              <label class="checkbox-label">
+                <input type="checkbox" id="chk-auto-open" checked>
+                読み込み終了時に、自動で編集画面を表示
+              </label>
+              <div class="option-tooltip">これを選択すると自動で編集画面が開きます。チェックしない場合はソフトがバックグラウンドで実行されます。</div>
+            </div>
+
+            <div class="option-row">
+              <label class="checkbox-label">
+                <input type="checkbox" id="chk-notify" checked>
+                読み込み終了時に、通知する
+              </label>
+              <div class="option-tooltip">読み込み終了時に通知します。選択しない場合は通知は出ません。</div>
+            </div>
+
+            <div class="option-row">
+              <label class="checkbox-label">
+                <input type="checkbox" id="chk-log-report">
+                ログレポートを作成する
+              </label>
+              <div class="option-tooltip">これを選択すると、読み込み状況やエラーを示したデバッグ用レポートを作成します。</div>
+            </div>
+
+            <div class="option-row">
+              <label class="checkbox-label">
+                <input type="checkbox" id="chk-save-prompt">
+                編集ファイルの保存先の指定画面を開く
+              </label>
+              <div class="option-tooltip">これを選択すると、編集ファイルの保存のためにファイルブラウザで保存後に編集画面が出ます。</div>
+            </div>
+
+            <div class="option-row">
+              <label class="checkbox-label">
+                <input type="checkbox" id="chk-auto-backup" checked>
+                編集ファイルのバックアップを取る
+              </label>
+              <div class="option-tooltip">これを選択すると、編集ファイルを10分おきに、バックアップとして自動保存します。</div>
+            </div>
+          </div>
+
+          <!-- ヘルプリンク -->
+          <div class="loading-help-box">
+            <div class="help-link" onclick="App.showHelpDoc('time')">❓ 読み込みに想定よりも時間がかかる場合は..</div>
+            <div class="help-link" onclick="App.showHelpDoc('error')">❓ 読み込みの際にエラーが出力された場合は..</div>
+            <div class="help-link" onclick="App.showHelpDoc('corrupt')">❓ データが正常に読み込まれない場合は...</div>
+          </div>
+
+          <!-- 中止ボタン -->
+          <div class="loading-action-area">
+            <button class="btn-cancel-loading" onclick="App.cancelLoading()">読み込みを中止...</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- 画面3: 編集画面 (Screen 3 - Final Cut Pro風) -->
+    <!-- ========================================== -->
+    <section id="screen-editor" class="screen">
+      <!-- トップナビゲーションバー -->
+      <header class="editor-navbar">
+        <div class="nav-left" style="display: flex; align-items: center; gap: 8px;">
+          <button class="btn-nav-home" onclick="App.confirmGoHome()" title="ホームに戻る">🏠</button>
+          <span class="app-brand-small">東方Projectムービーメーカー</span>
+          <span class="project-tag" id="nav-project-name">未保存プロジェクト</span>
+          <div class="undo-redo-group" style="display: flex; gap: 4px; margin-left: 10px;">
+            <button class="btn-xs" id="btn-undo" onclick="App.undo()" title="元に戻す (Cmd+Z / Ctrl+Z)" style="padding: 3px 8px; font-weight: 700;">↶ 戻す</button>
+            <button class="btn-xs" id="btn-redo" onclick="App.redo()" title="やり直す (Cmd+Shift+Z / Cmd+Y)" style="padding: 3px 8px; font-weight: 700;">↷ やり直す</button>
+          </div>
+        </div>
+
+        <div class="nav-right">
+          <button class="btn-nav-action" onclick="App.createBlankProject()" title="空のプロジェクトを新規作成">📄 新規</button>
+          <button class="btn-nav-action" onclick="App.openFileBrowser('project')" title="既存の編集プロジェクト (.tpmproj / .json) を開く">📂 開く</button>
+          <button class="btn-nav-pill status-btn" onclick="App.openExportStatusModal()">
+            <span class="status-dot"></span> ステータス
+          </button>
+          <button class="btn-nav-pill" onclick="App.openBackupsModal()" title="10分おきに自動保存された最新10枠（最大100分前）からプロジェクトを巻き戻し・復元します">🛡️ バックアップ(10枠)</button>
+          <button class="btn-nav-pill" onclick="App.openLicenseModal()">🔑 ライセンス</button>
+          <button class="btn-nav-action" onclick="App.openFileBrowser('add_media')">読み込み</button>
+          <button class="btn-nav-action" onclick="App.saveCurrentProject()">保存する</button>
+          <button class="btn-nav-action btn-primary" onclick="App.openExportDialog()">書き出し</button>
+        </div>
+      </header>
+
+      <!-- メイン作業エリア (3ペイン構成) -->
+      <div class="editor-main-body">
+        <!-- 左ペイン: メディアライブラリ & ファイルブラウザ -->
+        <aside class="pane-left">
+          <div class="pane-tab-header">
+            <button class="tab-btn active" onclick="App.switchLeftTab('scenes')">抽出データ</button>
+            <button class="tab-btn" onclick="App.switchLeftTab('browser')">ファイルブラウザ</button>
+            <button class="tab-btn" onclick="App.switchLeftTab('docs')">情報・ヘルプ</button>
+          </div>
+
+          <!-- タブ1: 抽出データ一覧 -->
+          <div id="tab-content-scenes" class="tab-pane active">
+            <div class="pane-section-header">
+              <span>抽出スライド一覧</span>
+              <span class="count-badge" id="extracted-scenes-count">0</span>
+            </div>
+            <!-- シーン複数選択ツールバー -->
+            <div class="scene-selection-toolbar" style="flex-wrap: wrap; gap: 4px;">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="chk-select-all-scenes" onchange="App.onToggleSelectAllScenes(this.checked)">
+                <span>全選択 / 解除</span>
+              </label>
+              <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                <span id="selected-scenes-count-text" style="color: #aaa; font-size: 11px;">0件選択</span>
+                <button class="btn-xs btn-primary" onclick="App.regenerateAllMedia()" title="セリフやボイス設定を保持したまま、画像・動画・音声を一括で再生成します" style="padding: 3px 8px; font-weight: 700; background: linear-gradient(135deg, #8e44ad, #2980b9); border: none; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.25);">✨ 3素材一括再生成</button>
+                <button class="btn-xs btn-success" onclick="App.refreshMediaFromKeynote()" title="セリフ本文・音声記号列・キャラクター・効果音・BGM・生成済み音声をすべて完全保持したまま、Keynoteから最新のスライド画像とアニメーション動画を再取得し、アニメーションの有無を自動判別して最適同期します" style="padding: 3px 8px; font-weight: 700; background: linear-gradient(135deg, #27ae60, #2980b9); border: none; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.25);">🔄 画像・動画のスマート再同期 (自動判別)</button>
+              </div>
+            </div>
+            <div class="media-grid" id="extracted-media-list">
+              <!-- JSで動的生成 -->
+            </div>
+          </div>
+
+          <!-- タブ2: ファイルブラウザ (動画用 / SE / BGM 等) -->
+          <div id="tab-content-browser" class="tab-pane">
+            <div class="browser-nav-bar">
+              <button class="btn-sm" onclick="App.browseParentDir()">⬆ 親フォルダ</button>
+              <span class="current-path-text" id="browser-current-path">/</span>
+            </div>
+            <div class="browser-file-list" id="browser-items-list">
+              <!-- JSで動的生成 -->
+            </div>
+          </div>
+
+          <!-- タブ3: ドキュメント・情報 -->
+          <div id="tab-content-docs" class="tab-pane">
+            <div class="doc-container">
+              <h3>東方Projectムービーメーカーについて</h3>
+              <p>MacBook Neo に最適化された超軽量・ネイティブ動画作成ソフトです。</p>
+              <ul class="doc-list">
+                <li><a href="#" onclick="App.showHelpDoc('manual')">📖 基本的な操作手順</a></li>
+                <li><a href="#" onclick="App.showHelpDoc('license')">🔑 ライセンス認証について</a></li>
+                <li><a href="#" onclick="App.showHelpDoc('keynote')">🎞️ Keynote連携とテロップ抽出</a></li>
+                <li><a href="#" onclick="App.showHelpDoc('fcpxml')">🎬 Final Cut Pro (FCPXML) 書き出し</a></li>
+                <li><a href="#" onclick="App.showHelpDoc('backup')">🛡️ 自動バックアップと外部ストレージ保護</a></li>
+              </ul>
+            </div>
+          </div>
+        </aside>
+
+        <!-- 中央上ペイン: プレビューモニター -->
+        <main class="pane-center">
+          <div class="preview-stage-container" id="preview-stage-container">
+            <div class="preview-aspect-box" id="preview-aspect-box">
+              <div id="preview-screen" class="preview-screen" ondblclick="App.toggleFullscreenPreview()">
+                <!-- 映像/画像プレビュー (ダブルバッファリング: タイムラグ0秒・完全シームレス切り替え) -->
+                <div id="preview-media-container" style="position: relative; width: 100%; height: 100%; overflow: hidden;">
+                  <img id="preview-image" class="preview-media-layer" src="" alt="スライド画像" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: none; z-index: 1;">
+                  <img id="preview-image-b" class="preview-media-layer" src="" alt="スライド画像(裏バッファ)" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: none; z-index: 1;">
+                  <video id="preview-video" class="preview-media-layer" preload="auto" playsinline muted style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: none; z-index: 2;"></video>
+                  <video id="preview-video-b" class="preview-media-layer" preload="auto" playsinline muted style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: none; z-index: 2;"></video>
+                </div>
+                <!-- テロップ字幕オーバーレイ (スライドにセリフが乗っている場合は非表示可能) -->
+                <div id="preview-telop-overlay" class="telop-overlay" style="display: none; z-index: 10;">
+                  <span id="preview-telop-text">ここにテロップが表示されます</span>
+                </div>
+                <!-- 全画面モード時用 フローティング・コントロールバー -->
+                <div id="fullscreen-controls" class="fullscreen-controls">
+                  <button class="btn-ctrl-fs" onclick="App.jumpPrevScene()" title="前のシーン (←)">⏮</button>
+                  <button class="btn-ctrl-fs play-btn" id="btn-fs-play-pause" onclick="App.togglePlay()" title="再生 / 一時停止 (Space)">▶</button>
+                  <button class="btn-ctrl-fs" onclick="App.jumpNextScene()" title="次のシーン (→)">⏭</button>
+                  <div class="fs-time-display" id="fs-time-display">00:00.0 / 00:00.0</div>
+                  <input type="range" id="fs-seekbar" class="seek-slider fs-seek-slider" min="0" max="100" value="0" step="0.05" oninput="App.onSeekbarInput(this.value)" onchange="App.onSeekbarChange(this.value)">
+                  <button class="btn-ctrl-fs" onclick="App.toggleTelopOverlay()" id="btn-fs-toggle-telop" title="字幕オーバーレイ表示切替 (C)">💬 字幕</button>
+                  <button class="btn-ctrl-fs btn-exit-fs" onclick="App.toggleFullscreenPreview()" title="全画面プレビューを解除 (Esc / F)">✕ 解除</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- プレビューコントロールバー -->
+          <div class="preview-controls">
+            <button class="btn-ctrl" onclick="App.jumpPrevScene()" title="前のシーン (←)">⏮</button>
+            <button class="btn-ctrl play-btn" id="btn-play-pause" onclick="App.togglePlay()" title="再生 / 一時停止 (Space)">▶</button>
+            <button class="btn-ctrl" onclick="App.jumpNextScene()" title="次のシーン (→)">⏭</button>
+            <div class="time-display" id="preview-time-display">00:00.0 / 00:00.0</div>
+            <input type="range" id="preview-seekbar" class="seek-slider" min="0" max="100" value="0" step="0.05" oninput="App.onSeekbarInput(this.value)" onchange="App.onSeekbarChange(this.value)">
+            <button class="btn-ctrl" onclick="App.toggleLoop()" id="btn-loop" title="ループ再生">🔁</button>
+            <button class="btn-ctrl" onclick="App.toggleTelopOverlay()" id="btn-toggle-telop" title="字幕オーバーレイ表示切替">💬 字幕</button>
+            <button class="btn-ctrl" onclick="App.toggleFullscreenPreview()" id="btn-fullscreen" title="全画面プレビュー (F)">⛶ 全画面</button>
+          </div>
+        </main>
+
+        <!-- 右ペイン: インスペクタ & シーン詳細編集 -->
+        <aside class="pane-right">
+          <div class="pane-section-header">
+            <span id="inspector-title">選択中のファイル情報・詳細編集</span>
+            <button class="btn-sm btn-accent" onclick="App.openPopupEditor()" title="大きなポップアップで視認性高く校正">🔍 ポップアップ校正</button>
+          </div>
+
+          <div class="inspector-scroll-body" id="inspector-content">
+            <div class="empty-selection-msg" id="inspector-empty">タイムラインまたは左ペインからシーンを選択してください</div>
+
+            <div id="inspector-form" style="display: none;">
+              <!-- シーン基本情報 -->
+              <div class="form-group">
+                <div class="scene-header-badge" style="display: flex; flex-direction: column; gap: 6px; align-items: stretch;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span class="badge-idx" id="insp-scene-idx">Scene 1</span>
+                      <span class="badge-template" id="insp-template-badge" style="font-size: 11px; background: #2c3e50; color: #a5d8ff; padding: 2px 7px; border-radius: 4px; border: 1px solid #34495e;">📋 テンプレート: 標準</span>
+                    </div>
+                    <div style="display: flex; gap: 4px;">
+                      <button class="btn-xs" onclick="App.replaceSingleSceneImage()" title="このスライドの画像ファイルのみを差し替えます" style="padding: 2px 6px;">🖼️ 差替</button>
+                      <button class="btn-xs btn-danger" onclick="App.deleteImageAndShiftNext()" title="セリフや音声は残したまま、このスライド画像を削除し、後続のスライド画像を1つずつ手前に繰り上げます" style="padding: 2px 6px;">❌ 画像削除(繰上げ)</button>
+                    </div>
+                  </div>
+                  <label class="switch-inline skip-toggle-label" title="このスライドではゆっくり音声を生成・発声せず、スライド画像のみ表示します">
+                    <input type="checkbox" id="insp-skip-checkbox" onchange="App.onToggleCurrentSceneSkip(this.checked)">
+                    <span>🔇 音声不要 (ボイスなし)</span>
+                  </label>
+                  <!-- スライド走査オブジェクト & キャラクターステータス パネル -->
+                  <div id="insp-scanned-objects-panel" style="display: none; background: #181b22; border: 1px solid #323846; border-radius: 6px; padding: 8px 10px; margin-top: 4px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #7dd3fc; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2a3140; padding-bottom: 4px;">
+                      <span>🔍 スライド走査 & キャラクターステータス</span>
+                      <span id="insp-obj-priority-tag" style="font-size: 10px; padding: 1px 6px; border-radius: 3px; background: #1e3a8a; color: #93c5fd; font-weight: 600;">尺判定: 完了</span>
+                    </div>
+                    <!-- 走査された全オブジェクト情報 -->
+                    <div id="insp-scanned-objects-body" style="display: flex; flex-direction: column; gap: 4px;"></div>
+                  </div>
+                  <!-- 全オブジェクト アニメーション検出詳細表示 -->
+                  <div id="insp-anim-details" style="display: none; background: #1a1d24; border: 1px solid #3d4251; border-radius: 6px; padding: 6px 8px; margin-top: 4px;"></div>
+                </div>
+              </div>
+
+              <!-- キャラクター選択 & テンプレート -->
+              <div class="form-row-grid">
+                <div class="form-group">
+                  <label>話者キャラクター</label>
+                  <select id="insp-character-select" class="form-control" onchange="App.onCharacterSelect(this.value)">
+                    <!-- 動的追加 -->
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>📋 ボイステンプレート</label>
+                  <select id="insp-template-select" class="form-control" onchange="App.onTemplateSelect(this.value)">
+                    <!-- 動的追加 -->
+                  </select>
+                </div>
+              </div>
+
+              <!-- セリフ・テロップ本文 (漢字仮名交じり文) -->
+              <div class="form-group">
+                <div class="label-with-action">
+                  <label>テロップ / セリフ文章 (漢字仮名交じり文)</label>
+                  <button class="btn-xs" onclick="App.insertSeMarkerAtCursor('insp-text')" title="カーソル位置に [SE] マーカーを挿入し、その言葉が流れた瞬間に効果音を鳴らします">🔔 カーソル位置にSE挿入</button>
+                </div>
+                <textarea id="insp-text" class="form-control" rows="3" placeholder="セリフを入力... 例: えっ！[SE]本当なの？" oninput="App.onTextFieldChange(this.value)"></textarea>
+              </div>
+
+              <!-- 音声記号列 -->
+              <div class="form-group">
+                <div class="label-with-action">
+                  <label>音声記号列 (AquesTalk記号列)</label>
+                  <div style="display: flex; gap: 4px;">
+                    <button class="btn-xs" onclick="App.reconvertCurrentKanji2Koe(false)" title="アクセント付きで高精度変換">🔄 通常変換</button>
+                    <button class="btn-xs" onclick="App.reconvertCurrentKanji2Koe(true)" title="平坦な棒読みで変換">🤖 棒読み</button>
+                  </div>
+                </div>
+                <input type="text" id="insp-phonemes" class="form-control" placeholder="音声記号列..." oninput="App.onCurrentSceneFieldChange('phonemes', this.value)">
+              </div>
+
+              <!-- ボイスパラメータ (声種・速度・音程) -->
+              <div class="form-row-grid">
+                <div class="form-group">
+                  <label>声種</label>
+                  <select id="insp-voice-type" class="form-control" onchange="App.onCurrentSceneFieldChange('voice', this.value)">
+                    <option value="f1">女声1 (f1: 霊夢/レミリア/咲夜)</option>
+                    <option value="f2">女声2 (f2: 魔理沙/こいし/パチュリー)</option>
+                    <option value="f3">女声3 (f3: 脱力系)</option>
+                    <option value="imd1">中性 (imd1: 操夢/ナレーション)</option>
+                    <option value="m1">男声1 (m1: 霖之助)</option>
+                    <option value="m2">男声2 (m2: 低音男性)</option>
+                    <option value="jgr">機械1 (jgr: さとり/フラン/にとり)</option>
+                    <option value="dvd">機械2 (dvd: デイブ)</option>
+                    <option value="r1">ロボット (r1)</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label>話速: <span id="insp-speed-val">100%</span></label>
+                  <input type="range" id="insp-speed" min="50" max="300" value="100" class="range-slider" oninput="App.onSpeedChange(this.value)">
+                </div>
+
+                <div class="form-group">
+                  <label>音程: <span id="insp-pitch-val">100%</span></label>
+                  <input type="range" id="insp-pitch" min="50" max="200" value="100" class="range-slider" oninput="App.onPitchChange(this.value)">
+                </div>
+              </div>
+
+              <!-- 音声効果 (エコー等) & 音質改善 -->
+              <div class="form-row-grid">
+                <div class="form-group">
+                  <label>✨ 効果 (エフェクト)</label>
+                  <select id="insp-effect-select" class="form-control" onchange="App.onCurrentSceneFieldChange('effect', this.value)">
+                    <option value="none">なし (標準)</option>
+                    <option value="echo">エコー (反響)</option>
+                    <option value="reverb">リバーブ (空間)</option>
+                    <option value="radio">無線・電話風</option>
+                    <option value="robot">ロボット風</option>
+                    <option value="lowboost">低音強調</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>🎧 音質改善</label>
+                  <select id="insp-quality-select" class="form-control" onchange="App.onCurrentSceneFieldChange('quality_enhance', this.value === '1')">
+                    <option value="1">有効 (44.1kHz 高音質)</option>
+                    <option value="0">無効 (8kHz 原音/ゆくも風)</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- 効果音 (SE) 複数重ね・スタック管理 -->
+              <div class="form-group" style="margin-top: 4px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <label style="font-weight: 700; margin: 0;">🔔 効果音 (SE) 重ねがけ設定</label>
+                  <button type="button" class="btn-sm btn-secondary" onclick="App.addSceneSeItem()" style="padding: 2px 8px; font-size: 11px;">➕ 効果音を追加</button>
+                </div>
+                <div id="insp-se-list-container" style="display: flex; flex-direction: column; gap: 8px;">
+                  <!-- App.renderInspectorSeList() で動的描画 -->
+                </div>
+              </div>
+
+              <!-- 音声プレビュー & 個別再生成 & 保存 -->
+              <div class="audio-action-box">
+                <div class="audio-status-text">
+                  <span>音声時間: <b id="insp-duration-val">0.00 秒</b></span>
+                </div>
+                <div class="audio-btn-group">
+                  <button class="btn-sm btn-secondary" onclick="App.previewCurrentVoice()">🔊 試聴</button>
+                  <button class="btn-sm btn-primary" onclick="App.regenerateCurrentVoice()">🎙️ 音声を再生成</button>
+                  <button class="btn-sm" onclick="App.downloadCurrentVoice()" title="単体WAV音声をダウンロード">💾 保存</button>
+                </div>
+              </div>
+
+              <!-- 余白時間 (トランジションディレイ) -->
+              <div class="form-group">
+                <label>スライド余白 / アニメーション待機時間 (秒)</label>
+                <input type="number" id="insp-extra-delay" class="form-control" min="0" max="10" step="0.1" value="0.0" onchange="App.onCurrentSceneFieldChange('extra_delay', parseFloat(this.value))">
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- 下ペイン: マルチトラックタイムライン -->
+      <footer class="editor-timeline-pane">
+        <!-- タイムラインツールバー -->
+        <div class="timeline-toolbar">
+          <div class="tl-tools-left" style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+            <span class="tl-title">タイムライン</span>
+            <button class="btn-xs" onclick="App.cutSelectedScene()" title="選択中のシーンをカット (Cmd+X / Ctrl+X)" style="padding: 2px 6px;">✂️ カット</button>
+            <button class="btn-xs" onclick="App.copySelectedScene()" title="選択中のシーンをコピー (Cmd+C / Ctrl+C)" style="padding: 2px 6px;">📄 コピー</button>
+            <button class="btn-xs" onclick="App.pasteScene()" title="コピーしたシーンを現在位置の直後にペースト (Cmd+V / Ctrl+V)" style="padding: 2px 6px;">📋 貼付</button>
+            <span style="color: #555; margin: 0 2px;">|</span>
+            <button class="btn-xs" onclick="App.addNewBlankScene()" title="新しい空シーンを挿入">➕ シーン追加</button>
+            <button class="btn-xs btn-accent" onclick="App.deleteImageAndShiftNext()" title="セリフや音声は残したまま、画像のみを削除して後続の画像を1つずつ手前に繰り上げます">🖼️❌ 画像削除(繰上げ)</button>
+            <button class="btn-xs btn-danger" onclick="App.deleteSelectedScene()" title="現在選択中のシーンをタイムラインから丸ごと削除します">🗑️ シーン全体削除</button>
+            <span style="color: #555; margin: 0 2px;">|</span>
+            <button class="btn-xs" onclick="App.setMarkerIn()" title="現在のシーンを開始点(In点)としてマーク (Iキー)" style="padding: 2px 6px; background: #1b4965; border-color: #62b6cb;">📍 In点</button>
+            <button class="btn-xs" onclick="App.setMarkerOut()" title="現在のシーンを終了点(Out点)としてマーク (Oキー)" style="padding: 2px 6px; background: #1b4965; border-color: #62b6cb;">📍 Out点</button>
+            <button class="btn-xs btn-secondary" onclick="App.openAddSpanSeFromMarkers()" title="マークされたIn点〜Out点の範囲に連続効果音(SE)を追加します" style="padding: 2px 8px; font-weight: 700; background: #2b3a4a; border-color: #3d5a80;">🔔 範囲SE追加</button>
+            <button class="btn-xs btn-secondary" onclick="App.openBgmModal()" title="タイムライン全体のBGMを設定します" style="padding: 2px 8px; font-weight: 700; background: #3a2b4a; border-color: #6b3d80;">🎵 BGM設定</button>
+            <span style="color: #555; margin: 0 2px;">|</span>
+            <button class="btn-xs" onclick="App.regenerateSelectedVoices()" title="チェックしたシーンのみ音声を再生成します">⚡ 選択音声再生成</button>
+            <span style="color: #555; margin: 0 2px;">|</span>
+            <button class="btn-xs btn-primary" onclick="App.regenerateAllMedia()" title="既存のボイス設定を保持したまま、画像・動画・音声をすべて再生成・再同期します">✨ 3素材一括再生成 (動画・音声・画像)</button>
+            <button class="btn-xs" onclick="App.regenerateVideosOnly()" title="Keynote/動画ソースからアニメーションクリップを再切り出しします">🎬 動画再生成</button>
+            <button class="btn-xs" onclick="App.generateAllVoices()" title="既存のボイス設定を保持したまま、すべての音声を再生成します">🎙️ 音声再生成</button>
+            <button class="btn-xs" onclick="App.refreshSlideImagesOnly()" title="画像フォルダ/Keynoteから最新の画像を再取得します">🖼️ 画像再生成</button>
+            <span style="color: #555; margin: 0 2px;">|</span>
+            <button class="btn-xs btn-accent" onclick="App.fixTimelinePreviewSync()" title="ディスク上の実ファイルから正確な秒数を再取得し、タイムラインとプレビューのズレを完全に修正します">🔧 ズレ修正・全同期</button>
+          </div>
+          <div class="tl-tools-right">
+            <span class="tl-info-label" id="timeline-summary-text">全 0 シーン | 総再生時間: 00:00</span>
+            <label class="tl-zoom-label">ズーム: </label>
+            <input type="range" id="tl-zoom-slider" min="50" max="200" value="100" class="zoom-slider" oninput="App.onTimelineZoom(this.value)">
+          </div>
+        </div>
+
+        <!-- トラックコンテナ -->
+        <div class="timeline-tracks-scroll" id="timeline-scroll-area">
+          <!-- 再生位置を示す縦線 (Playhead) -->
+          <div id="timeline-playhead" class="timeline-playhead" style="display: none;"></div>
+          <!-- In/Out マーカー選択範囲ハイライト -->
+          <div id="timeline-marker-range" class="timeline-marker-range" style="display: none;"></div>
+
+          <div class="timeline-ruler" id="timeline-ruler">
+            <!-- 目盛り動的描画 -->
+          </div>
+
+          <!-- トラック1: スライド/映像 -->
+          <div class="timeline-track" id="track-video">
+            <div class="track-header"><span class="track-tag">🎬 スライド/映像</span></div>
+            <div class="track-body" id="track-video-clips">
+              <!-- クリップ動的描画 -->
+            </div>
+          </div>
+
+          <!-- トラック2: ボイストラック -->
+          <div class="timeline-track" id="track-voice">
+            <div class="track-header"><span class="track-tag">🗣️ ボイス</span></div>
+            <div class="track-body" id="track-voice-clips">
+              <!-- クリップ動的描画 -->
+            </div>
+          </div>
+
+          <!-- トラック3: 効果音 (SE) トラック -->
+          <div class="timeline-track" id="track-se">
+            <div class="track-header"><span class="track-tag">🔔 効果音 (SE)</span></div>
+            <div class="track-body track-body-span" id="track-se-clips">
+              <!-- クリップ動的描画 -->
+            </div>
+          </div>
+
+          <!-- トラック4: BGM トラック -->
+          <div class="timeline-track" id="track-bgm">
+            <div class="track-header"><span class="track-tag">🎵 BGM</span></div>
+            <div class="track-body track-body-span" id="track-bgm-clips">
+              <!-- BGMクリップ -->
+            </div>
+          </div>
+        </div>
+      </footer>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- ポップアップ校正モーダル (要件3: 視認性向上)   -->
+    <!-- ========================================== -->
+    <div id="modal-popup-editor" class="modal-overlay">
+      <div class="modal-card modal-large">
+        <div class="modal-header">
+          <h3 id="popup-editor-title">🔍 セリフ・ボイス詳細校正ポップアップ</h3>
+          <button class="modal-close" onclick="App.closePopupEditor()">✕</button>
+        </div>
+
+        <div class="modal-body popup-editor-grid">
+          <!-- 左側: スライド画像プレビュー -->
+          <div class="popup-slide-preview-col">
+            <div class="form-group">
+              <label class="large-label">🖼️ スライド画像</label>
+              <div class="popup-slide-img-box">
+                <img id="popup-slide-img" src="" alt="スライドプレビュー" style="display: none;">
+                <div id="popup-slide-noimg" class="popup-no-img">スライド画像なし</div>
+              </div>
+              <div class="form-group" style="margin-top: 10px;">
+                <label class="switch-inline skip-toggle-label-large" title="このスライドではゆっくり音声を生成・発声せず、スライド画像のみ表示します">
+                  <input type="checkbox" id="popup-skip-checkbox" onchange="App.onPopupToggleSkip(this.checked)">
+                  <span>🔇 音声不要 (このスライドはボイスなし)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- 中央: セリフと記号列の拡大編集 -->
+          <div class="popup-center-col">
+            <div class="form-group">
+              <div class="label-with-action">
+                <label class="large-label">📝 セリフ本文 (漢字仮名交じり文)</label>
+                <button class="btn-xs" onclick="App.insertSeMarkerAtCursor('popup-text')" title="カーソル位置に [SE] マーカーを挿入し、その言葉が流れた瞬間に効果音を鳴らします">🔔 カーソル位置にSE挿入</button>
+              </div>
+              <textarea id="popup-text" class="large-textarea" rows="4" placeholder="セリフを入力... 例: えっ！[SE]本当なの？"></textarea>
+            </div>
+
+            <div class="form-group">
+              <div class="label-with-action">
+                <label class="large-label">🔤 音声記号列</label>
+                <div style="display: flex; gap: 6px;">
+                  <button class="btn-sm" onclick="App.popupReconvertKanji2Koe(false)" title="アクセント付きで高精度変換">🔄 音声記号列に変換</button>
+                  <button class="btn-sm" onclick="App.popupReconvertKanji2Koe(true)" title="平坦な棒読みで変換">🤖 棒読みで変換</button>
+                </div>
+              </div>
+              <textarea id="popup-phonemes" class="large-textarea code-font" rows="3" placeholder="音声記号列..."></textarea>
+            </div>
+          </div>
+
+          <!-- 右側: ボイス設定と試聴 -->
+          <div class="popup-right-col">
+            <!-- キャラクター選択 & テンプレート -->
+            <div class="form-row-grid">
+              <div class="form-group">
+                <label>話者キャラクター</label>
+                <select id="popup-character" class="form-control" onchange="App.popupOnCharacterChange(this.value)">
+                  <!-- キャラ一覧 -->
+                </select>
+              </div>
+              <div class="form-group">
+                <label>📋 テンプレート</label>
+                <select id="popup-template-select" class="form-control" onchange="App.popupOnTemplateSelect(this.value)">
+                  <!-- テンプレート一覧 -->
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>声種</label>
+              <select id="popup-voice" class="form-control">
+                <option value="f1">女声1 (f1)</option>
+                <option value="f2">女声2 (f2)</option>
+                <option value="f3">女声3 (f3)</option>
+                <option value="imd1">中性 (imd1)</option>
+                <option value="m1">男声1 (m1)</option>
+                <option value="m2">男声2 (m2)</option>
+                <option value="jgr">機械1 (jgr)</option>
+                <option value="dvd">機械2 (dvd)</option>
+                <option value="r1">ロボット (r1)</option>
+              </select>
+            </div>
+
+            <div class="form-row-grid">
+              <div class="form-group">
+                <label>話速: <span id="popup-speed-val">100%</span></label>
+                <input type="range" id="popup-speed" min="50" max="300" value="100" class="range-slider" oninput="document.getElementById('popup-speed-val').innerText = this.value + '%'">
+              </div>
+              <div class="form-group">
+                <label>音程: <span id="popup-pitch-val">100%</span></label>
+                <input type="range" id="popup-pitch" min="50" max="200" value="100" class="range-slider" oninput="document.getElementById('popup-pitch-val').innerText = this.value + '%'">
+              </div>
+            </div>
+
+            <!-- 音声効果 (エコー等) & 音質改善 -->
+            <div class="form-row-grid">
+              <div class="form-group">
+                <label>✨ 効果 (エフェクト)</label>
+                <select id="popup-effect-select" class="form-control">
+                  <option value="none">なし (標準)</option>
+                  <option value="echo">エコー (反響)</option>
+                  <option value="reverb">リバーブ (空間)</option>
+                  <option value="radio">無線・電話風</option>
+                  <option value="robot">ロボット風</option>
+                  <option value="lowboost">低音強調</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>🎧 音質改善</label>
+                <select id="popup-quality-select" class="form-control">
+                  <option value="1">有効 (44.1kHz 高音質)</option>
+                  <option value="0">無効 (8kHz 原音/ゆくも風)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- アニメーション待機時間 & 効果音 (SE) & SEタイミング -->
+            <div class="form-group">
+              <label>⏱️ アニメーション待機 / 余白時間 (秒)</label>
+              <input type="number" id="popup-extra-delay" class="form-control" min="0" max="10" step="0.1" value="0.0">
+            </div>
+
+            <div class="form-row-grid">
+              <div class="form-group">
+                <label>🔔 効果音 (SE)</label>
+                <select id="popup-se-select" class="form-control">
+                  <option value="">(効果音なし)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>⏱️ SE開始遅延 (秒)</label>
+                <input type="number" id="popup-se-offset" class="form-control" min="0" max="30" step="0.1" value="0.0">
+              </div>
+            </div>
+
+            <div class="popup-audio-box">
+              <button class="btn-large btn-secondary" onclick="App.popupPreviewVoice()">🔊 リアルタイム試聴</button>
+              <button class="btn-large btn-primary" onclick="App.popupApplyAndRegenerate()">🎙️ 音声を再生成して適用</button>
+              <button class="btn-large" onclick="App.popupDownloadVoice()" title="単体WAV音声をダウンロード">💾 音声を保存</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <div class="nav-prev-next">
+            <button class="btn-sm" onclick="App.popupJumpScene(-1)">⬅ 前のセリフへ</button>
+            <span id="popup-nav-counter">1 / 10</span>
+            <button class="btn-sm" onclick="App.popupJumpScene(1)">次のセリフへ ➡</button>
+          </div>
+          <button class="btn-primary" onclick="App.closePopupEditor()">校正完了・閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- ライセンス認証モーダル (要件18)             -->
+    <!-- ========================================== -->
+    <div id="modal-license" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>🔑 AquesTalk1 ライセンス認証</h3>
+          <button class="modal-close" onclick="App.closeLicenseModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="desc-text">
+            音声合成エンジン (AquesTalk1) の正規ライセンスキーを入力してください。<br>
+            入力されたキーは認証に使用され、編集ファイルと共に安全に保存されます。
+          </p>
+
+          <div class="license-section-box">
+            <h4 class="license-sec-title">📦 使用ライセンス (商用・コンテンツ向け)</h4>
+            <div class="form-group">
+              <label>使用ライセンスID</label>
+              <input type="text" id="lic-input-user-id" class="form-control" placeholder="例: AQALCNTUSR19082619">
+            </div>
+            <div class="form-group">
+              <label>使用ライセンスキー</label>
+              <input type="text" id="lic-input-user-key" class="form-control" placeholder="例: 6670-0EB8-B7A1-40C2">
+            </div>
+          </div>
+
+          <div class="license-section-box" style="margin-top: 12px;">
+            <h4 class="license-sec-title">🛠️ 開発ライセンス (個人利用・開発用)</h4>
+            <div class="form-group">
+              <label>開発ライセンスID</label>
+              <input type="text" id="lic-input-dev-id" class="form-control" placeholder="例: AQALCNTUSR19082619">
+            </div>
+            <div class="form-group">
+              <label>開発ライセンスキー</label>
+              <input type="text" id="lic-input-dev-key" class="form-control" placeholder="例: C3B6-B0BA-1864-0C20">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="App.closeLicenseModal()">キャンセル</button>
+          <button class="btn-primary" onclick="App.saveLicenseKeys()">認証・キーを保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 書き出しダイアログ & ステータスモーダル      -->
+    <!-- ========================================== -->
+    <div id="modal-export" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>🎬 動画・プロジェクトの書き出し</h3>
+          <button class="modal-close" onclick="App.closeExportDialog()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="export-options-grid">
+            <!-- MP4 -->
+            <div class="export-card" onclick="App.startExport('mp4')">
+              <div class="export-icon">📹</div>
+              <h4>MP4 動画 (.mp4)</h4>
+              <p>汎用性の高い高画質MP4動画として書き出します。</p>
+            </div>
+
+            <!-- MOV -->
+            <div class="export-card" onclick="App.startExport('mov')">
+              <div class="export-icon">🎥</div>
+              <h4>Apple QuickTime (.mov)</h4>
+              <p>Mac / ProRes 向けの高品質MOV動画として書き出します。</p>
+            </div>
+
+            <!-- FinalCut -->
+            <div class="export-card" onclick="App.startExport('fcpxml')">
+              <div class="export-icon">✂️</div>
+              <h4>Final Cut Pro (FCPXML)</h4>
+              <p>Final Cut Pro で編集可能なシーケンス・アセットを出力します。</p>
+            </div>
+
+            <!-- YouTube (要件16) -->
+            <div class="export-card" onclick="App.openYouTubeExportModal()">
+              <div class="export-icon">▶️</div>
+              <h4>YouTube 直接エクスポート</h4>
+              <p>YouTube に「非公開動画」として直接アップロード投稿します。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 書き出し進捗・ステータスモーダル (要件13) -->
+    <div id="modal-export-status" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>📊 書き出し状況ステータス</h3>
+          <button class="modal-close" onclick="App.closeExportStatusModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="status-stage-label" id="exp-status-stage">準備完了</div>
+          <div class="loading-progress-container">
+            <div class="loading-progress-fill" id="exp-status-bar" style="width: 0%;"></div>
+          </div>
+          <div class="loading-stats-row">
+            <span id="exp-status-percent">進捗: 0%</span>
+            <span id="exp-status-time">残り時間: --</span>
+          </div>
+          <div id="exp-status-result" class="export-result-box" style="display: none;"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-primary" onclick="App.closeExportStatusModal()">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 汎用 長時間処理ステータスモーダル (画像/動画再生成、音声一括再生成など) -->
+    <div id="modal-task-progress" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="task-progress-title">⏳ 処理中...</h3>
+          <button class="modal-close" onclick="App.closeTaskProgressModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="status-stage-label" id="task-progress-stage" style="font-weight: 700; color: #fff; font-size: 14px; margin-bottom: 8px;">準備中...</div>
+          <div class="loading-progress-container" style="background: #1e222d; height: 16px; border-radius: 8px; overflow: hidden; border: 1px solid #3d4251; margin-bottom: 8px;">
+            <div class="loading-progress-fill" id="task-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #3498db, #2ecc71); transition: width 0.3s ease;"></div>
+          </div>
+          <div class="loading-stats-row" style="display: flex; justify-content: space-between; font-size: 12px; color: #aaa;">
+            <span id="task-progress-percent">進捗: 0%</span>
+            <span id="task-progress-detail">詳細: --</span>
+          </div>
+          <div id="task-progress-result" class="export-result-box" style="display: none; margin-top: 12px; padding: 10px; background: #252830; border-radius: 6px; font-size: 12px;"></div>
+        </div>
+        <div class="modal-footer" id="task-progress-footer" style="display: none;">
+          <button class="btn-primary" onclick="App.closeTaskProgressModal()">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ファイルブラウザ選択モーダル -->
+    <div id="modal-file-picker" class="modal-overlay">
+      <div class="modal-card modal-large">
+        <div class="modal-header">
+          <h3 id="picker-title">ファイルを選択</h3>
+          <button class="modal-close" onclick="App.closeFilePicker()">✕</button>
+        </div>
+        <div class="modal-body">
+          <!-- クイックジャンプバー -->
+          <div class="browser-quick-bar" id="picker-quick-locations" style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #333;">
+            <!-- JSで動的生成 -->
+          </div>
+          <div class="browser-nav-bar">
+            <button class="btn-sm" onclick="App.pickerBrowseParent()">⬆ 親フォルダ</button>
+            <span class="current-path-text" id="picker-current-path">/</span>
+            <span id="picker-filter-info" style="font-size: 11px; color: #64ffda; margin-left: auto;"></span>
+          </div>
+          <div class="browser-file-list" id="picker-items-list">
+            <!-- 動的生成 -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 全画面ドラッグ＆ドロップ案内オーバーレイ -->
+    <div id="drag-drop-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(10, 15, 25, 0.88); z-index: 9999; border: 4px dashed #64ffda; justify-content: center; align-items: center; pointer-events: none;">
+      <div style="text-align: center; color: #fff;">
+        <div style="font-size: 48px; margin-bottom: 12px;">📂 ⬇️</div>
+        <h2 style="color: #64ffda; margin-bottom: 8px;">ファイルをドロップして読み込み</h2>
+        <p style="font-size: 14px; color: #ccc;">.key / .pptx / .tpmproj / .json / .ymmp / .fcpxml を自動判別して開きます</p>
+      </div>
+    </div>
+
+    <!-- ヘルプ・トラブルシューティングモーダル -->
+    <div id="modal-help-doc" class="modal-overlay">
+      <div class="modal-card modal-large">
+        <div class="modal-header">
+          <h3 id="help-modal-title">ヘルプ・トラブルシューティング</h3>
+          <button class="modal-close" onclick="App.closeHelpModal()">✕</button>
+        </div>
+        <div class="modal-body doc-modal-body" id="help-modal-content">
+          <!-- JSで動的セット -->
+        </div>
+        <div class="modal-footer">
+          <button class="btn-primary" onclick="App.closeHelpModal()">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- バックアップ履歴・巻き戻しモーダル (最大10枠 / 100分) -->
+    <div id="modal-backups" class="modal-overlay">
+      <div class="modal-card modal-large">
+        <div class="modal-header">
+          <h3>🛡️ 自動バックアップ履歴 (最大10枠 / 最大100分巻き戻し)</h3>
+          <button class="modal-close" onclick="App.closeBackupsModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div style="margin-bottom: 12px; font-size: 13px; color: #bbb; line-height: 1.5;">
+            プロジェクトは10分おきに自動保存され、最新10世代（最大100分前）のスナップショットが安全に保持されます。<br>
+            誤ったシーン削除や変更があった場合、過去の時点を選択してワンクリックで時間を巻き戻し（復元）できます。
+          </div>
+          <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+            <button class="btn-sm btn-primary" onclick="App.backupNow()">⚡ 今すぐ手動バックアップを保存</button>
+          </div>
+          <div id="backups-list-container" class="browser-file-list" style="max-height: 360px; overflow-y: auto;">
+            <!-- JSで動的生成 -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="App.closeBackupsModal()">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 複数シーン連続効果音 (SE) 設定モーダル -->
+    <div id="modal-span-se" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="span-se-modal-title">🔔 複数シーン連続効果音 (SE) の設定</h3>
+          <button class="modal-close" onclick="App.closeSpanSeModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="span-se-id" value="">
+          <div class="form-group">
+            <label>効果音 (SE) 音源</label>
+            <div style="display: flex; gap: 6px;">
+              <select id="span-se-select" class="form-control">
+                <!-- 動的追加 -->
+              </select>
+              <button class="btn-sm btn-secondary" onclick="App.previewSpanSeModalSound()">🔊 試聴</button>
+            </div>
+          </div>
+          <div class="form-row-grid">
+            <div class="form-group">
+              <label>開始シーン番号</label>
+              <input type="number" id="span-se-start-scene" class="form-control" min="1" value="1">
+            </div>
+            <div class="form-group">
+              <label>終了シーン番号 (ここまで連続再生)</label>
+              <input type="number" id="span-se-end-scene" class="form-control" min="1" value="1">
+            </div>
+          </div>
+          <div class="form-row-grid">
+            <div class="form-group">
+              <label>音量 (<span id="span-se-vol-val">100%</span>)</label>
+              <input type="range" id="span-se-volume" min="0" max="200" value="100" class="range-slider" oninput="document.getElementById('span-se-vol-val').innerText = this.value + '%'">
+            </div>
+            <div class="form-group">
+              <label>再生速度 (<span id="span-se-spd-val">1.0x</span>)</label>
+              <input type="range" id="span-se-speed" min="50" max="200" value="100" step="5" class="range-slider" oninput="document.getElementById('span-se-spd-val').innerText = (this.value / 100).toFixed(2) + 'x'">
+            </div>
+          </div>
+          <div class="form-row-grid">
+            <div class="form-group">
+              <label>再生ループ</label>
+              <label class="switch-inline" style="margin-top: 4px;">
+                <input type="checkbox" id="span-se-loop">
+                <span>区間内ループ再生</span>
+              </label>
+            </div>
+            <div class="form-group">
+              <label>逆再生 (Reverse)</label>
+              <label class="switch-inline" style="margin-top: 4px;">
+                <input type="checkbox" id="span-se-reverse">
+                <span>🔄 逆再生で鳴らす</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: space-between;">
+          <button class="btn-danger" id="btn-span-se-delete" onclick="App.deleteSpanSeClip()" style="display: none;">🗑️ 削除</button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-secondary" onclick="App.closeSpanSeModal()">キャンセル</button>
+            <button class="btn-primary" onclick="App.saveSpanSeClip()">💾 設定を保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BGM 設定モーダル -->
+    <div id="modal-bgm" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>🎵 タイムライン BGM の設定</h3>
+          <button class="modal-close" onclick="App.closeBgmModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>BGM 音源ファイル</label>
+            <div style="display: flex; gap: 6px;">
+              <select id="bgm-select-file" class="form-control">
+                <!-- 動的追加 -->
+              </select>
+              <button class="btn-sm btn-secondary" onclick="App.previewBgmModalSound()">🔊 試聴</button>
+            </div>
+          </div>
+          <div class="form-row-grid">
+            <div class="form-group">
+              <label>BGM 音量 (<span id="bgm-vol-val">25%</span>)</label>
+              <input type="range" id="bgm-volume" min="0" max="100" value="25" class="range-slider" oninput="document.getElementById('bgm-vol-val').innerText = this.value + '%'">
+            </div>
+            <div class="form-group">
+              <label>BGM 再生速度 (<span id="bgm-spd-val">1.0x</span>)</label>
+              <input type="range" id="bgm-speed" min="50" max="200" value="100" step="5" class="range-slider" oninput="document.getElementById('bgm-spd-val').innerText = (this.value / 100).toFixed(2) + 'x'">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>ループ再生</label>
+            <label class="switch-inline" style="margin-top: 4px;">
+              <input type="checkbox" id="bgm-loop" checked>
+              <span>動画全体でループ再生</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: space-between;">
+          <button class="btn-danger" onclick="App.clearBgm()">🗑️ BGM解除</button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-secondary" onclick="App.closeBgmModal()">キャンセル</button>
+            <button class="btn-primary" onclick="App.saveBgmSettings()">💾 BGMを適用</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
