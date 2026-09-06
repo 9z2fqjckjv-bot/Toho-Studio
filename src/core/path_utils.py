@@ -2,7 +2,10 @@ import os
 
 # Dedicated app data roots (edit / backup / export / log / program)
 CHAR_STUDIO_DIRNAME = "東方キャラ立ち絵スタジオ"
-MOVIE_MAKER_DIRNAME = "東方ムービーメーカ"
+# Finder / SSD 上の実フォルダ名（末尾の長音あり）
+MOVIE_MAKER_DIRNAME = "東方ムービーメーカー"
+# 旧表記（長音なし）も互換参照する
+MOVIE_MAKER_DIRNAME_ALIASES = ("東方ムービーメーカー", "東方ムービーメーカ")
 
 
 def get_project_root() -> str:
@@ -23,7 +26,34 @@ def get_char_studio_root(root_dir: str = None) -> str:
 
 
 def get_movie_maker_root(root_dir: str = None) -> str:
+    if root_dir is None:
+        root_dir = get_project_root()
+    for name in MOVIE_MAKER_DIRNAME_ALIASES:
+        path = os.path.join(root_dir, name)
+        if os.path.isdir(path):
+            return path
     return get_app_data_root(MOVIE_MAKER_DIRNAME, root_dir)
+
+
+def resolve_license_file(root_dir: str = None) -> str:
+    """Find AquesTalk license.txt after folder reorganization."""
+    if root_dir is None:
+        root_dir = get_project_root()
+    env = os.environ.get("TOHO_LICENSE_FILE") or os.environ.get("AQUESTALK_LICENSE_FILE")
+    candidates = []
+    if env:
+        candidates.append(os.path.expanduser(env))
+    candidates.extend([
+        os.path.join(root_dir, "license.txt"),
+        os.path.join(root_dir, "documents", "license.txt"),
+        os.path.join(get_movie_maker_root(root_dir), "license.txt"),
+        os.path.join(get_movie_maker_root(root_dir), "program", "license.txt"),
+        os.path.join(get_char_studio_root(root_dir), "license.txt"),
+    ])
+    for path in candidates:
+        if path and os.path.isfile(path):
+            return path
+    return os.path.join(root_dir, "documents", "license.txt")
 
 
 def get_app_subdir(app_dirname: str, sub: str, root_dir: str = None) -> str:
@@ -36,6 +66,8 @@ def get_app_subdir(app_dirname: str, sub: str, root_dir: str = None) -> str:
 
 def ensure_app_layout(root_dir: str = None) -> dict:
     """Create both apps' standard folder trees and return paths."""
+    if root_dir is None:
+        root_dir = get_project_root()
     layout = {}
     for app in (CHAR_STUDIO_DIRNAME, MOVIE_MAKER_DIRNAME):
         layout[app] = {}
@@ -52,15 +84,12 @@ def get_series_dir(project_name: str, root_dir: str = None) -> str:
     if not project_name:
         return os.path.join(root_dir, "交換夫婦")
 
-    # Check if a directory matching the project_name prefix exists
     try:
         for item in os.listdir(root_dir):
             d = os.path.join(root_dir, item)
             if os.path.isdir(d) and not item.startswith('.'):
                 if project_name.startswith(item):
                     return d
-
-                # Or if it contains a key file matching project_name
                 if os.path.exists(os.path.join(d, f"{project_name}.key")) or os.path.exists(os.path.join(d, f"{project_name}.keynote")):
                     return d
     except Exception:
