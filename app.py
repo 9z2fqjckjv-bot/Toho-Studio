@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 """
 東方Projectムービーメーカー (Mac版)
-メインエントリーポイント
-- macOS ネイティブ動画編集アプリモード / ブラウザモード
-- クラッシュ検出 & レポート自動保存 (要件14)
-- 10分おき自動バックアップタイマー (要件7)
-- Keynote / PowerPoint / YMM4 / Final Cut Pro 連携
+- bind 成功後にブラウザを自動オープン (auto-open-after-bind)
+- 東方ムービーメーカ / 東方キャラ立ち絵スタジオ データフォルダ確保
 """
 
 import os
@@ -24,6 +21,11 @@ from src.core.tts_engine import get_tts_engine
 from src import server as server_mod
 from src.server import run_server
 
+try:
+    from src.core.path_utils import ensure_app_layout
+except Exception:
+    ensure_app_layout = None
+
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 
 CHROME_BINARIES = [
@@ -35,7 +37,6 @@ CHROME_BINARIES = [
 
 
 def start_auto_backup_timer(interval_sec: int = 600):
-    """10分おきに安全なローカル一時バックアップをバックグラウンド実行 (要件7)"""
     def _backup_loop():
         pm = get_project_manager()
         while True:
@@ -47,13 +48,10 @@ def start_auto_backup_timer(interval_sec: int = 600):
                         print(f"[AUTO-BACKUP] 10分定期バックアップ保存完了: {os.path.basename(saved_path)}")
             except Exception as e:
                 print(f"[WARN] Auto backup error: {e}")
-
-    t = threading.Thread(target=_backup_loop, daemon=True)
-    t.start()
+    threading.Thread(target=_backup_loop, daemon=True).start()
 
 
 def wait_until_ready(url: str, timeout: float = 15.0) -> bool:
-    """HTTP 応答が返るまで待つ。TCP だけだと serve_forever 前に Chrome が空応答になる。"""
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -67,14 +65,8 @@ def wait_until_ready(url: str, timeout: float = 15.0) -> bool:
 
 
 def launch_native_window(url: str):
-    """
-    Mac 上でブラウザのアドレスバー等を非表示にし、
-    独立したネイティブアプリウィンドウとして起動。
-    Chrome 系はバイナリを直接呼び、open --args がフラグを落とす問題を避ける。
-    """
     if not wait_until_ready(url):
-        print(f"[WARN] サーバの起動確認がタイムアウトしました。手動で開いてください: {url}")
-
+        print(f"[WARN] サーバ起動確認タイムアウト: {url}")
     for binary in CHROME_BINARIES:
         if os.path.isfile(binary):
             try:
@@ -87,7 +79,6 @@ def launch_native_window(url: str):
                 return
             except Exception:
                 pass
-
     webbrowser.open(url)
 
 
@@ -110,27 +101,27 @@ def install_open_after_bind():
 
 
 def main():
-    # 1. クラッシュレポーターの初期化 (要件14)
     reporter = get_crash_reporter()
     reporter.log_activity("Application Startup", {"args": sys.argv})
 
-    parser = argparse.ArgumentParser(description="東方Projectムービーメーカー (Mac版)")
-    parser.add_argument("--port", type=int, default=8080, help="サーバーのポート番号 (デフォルト: 8080)")
-    parser.add_argument("--no-browser", action="store_true", help="起動時にウィンドウを自動で開かない")
-    parser.add_argument("--backup-interval", type=int, default=600, help="自動バックアップ間隔(秒, デフォルト600秒=10分)")
+    if ensure_app_layout:
+        try:
+            ensure_app_layout(PROJECT_ROOT)
+        except Exception as e:
+            print(f"[WARN] ensure_app_layout: {e}")
 
+    parser = argparse.ArgumentParser(description="東方Projectムービーメーカー (Mac版)")
+    parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument("--backup-interval", type=int, default=600)
     args = parser.parse_args()
 
-    # 2. 自動バックアップタイマーの開始 (要件7)
     start_auto_backup_timer(args.backup_interval)
-
-    # 3. 音声合成エンジンのプリロード
     get_tts_engine()
 
     if not args.no_browser:
         install_open_after_bind()
 
-    # 4. サーバー開始（bind 成功後にウィンドウを開く）
     try:
         run_server(args.port)
     except Exception as e:
