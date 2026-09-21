@@ -5,9 +5,9 @@ struct SidebarView: View {
         case movieMaker = "ムービーメーカー"
         case characterStudio = "キャラ立ち絵スタジオ"
         case soundEditor = "サウンドエディタ"
-        
+
         var id: String { self.rawValue }
-        
+
         var icon: String {
             switch self {
             case .movieMaker: return "film"
@@ -16,9 +16,9 @@ struct SidebarView: View {
             }
         }
     }
-    
+
     @State private var selectedTool: Tool? = .movieMaker
-    
+
     var body: some View {
         NavigationSplitView {
             List(selection: $selectedTool) {
@@ -44,5 +44,6 @@ struct SidebarView: View {
                     .foregroundColor(.secondary)
             }
         }
+        .frame(minWidth: 1100, minHeight: 760)
     }
 }
