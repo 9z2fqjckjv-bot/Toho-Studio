@@ -284,12 +284,18 @@ enum MovieExporter {
         let frames = max(1, Int(ceil(segmentDur * Double(quality.fps))))
 
         // 走査で得た animationMeta をプレビューと同じレシピで焼き込む
-        let recipe = SlideAnimationKit.primarySlideRecipe(
+        // 背景フィルタはスライド／背景向けレシピがあるときだけ。キャラバウンスは overlay 側。
+        let slideRecipes = SlideAnimationKit.parseRecipes(from: scene.animationMeta).filter { $0.target == .slide }
+        let recipe = slideRecipes.first ?? SlideAnimationKit.primarySlideRecipe(
             from: scene.animationMeta,
-            forceWhenAnimated: scene.hasAnimation
+            forceWhenAnimated: false
         )
+        let bakeBackgroundMotion: Bool = {
+            if let r = recipe, r.target == .slide, r.kind != .bounce { return true }
+            return false
+        }()
         let videoFilter = SlideAnimationKit.ffmpegVideoFilter(
-            recipe: scene.hasAnimation ? recipe : nil,
+            recipe: bakeBackgroundMotion ? recipe : nil,
             width: quality.width,
             height: quality.height,
             fps: quality.fps,
@@ -319,8 +325,15 @@ enum MovieExporter {
                 
                 let charHeight = max(100, Int(Double(quality.height) * 0.88))
                 let charAnimToken = (scene.characterAnimation ?? "").lowercased()
-                let wantsCharBounce = charAnimToken.contains("バウンス") || charAnimToken.contains("bounce") || charAnimToken.contains("呼吸") || charAnimToken.isEmpty
-                let overlayY = wantsCharBounce ? "H-h+14*sin(2*PI*t*2)" : "H-h"
+                let wantsCharBounce = charAnimToken.contains("バウンス") || charAnimToken.contains("bounce") || charAnimToken.contains("呼吸") || charAnimToken.contains("揺れ")
+                let bounceHz: Double = {
+                    if wantsCharBounce, let raw = scene.characterAnimation {
+                        let recipe = SlideAnimationKit.classify(token: raw)
+                        return SlideAnimationKit.bounceFrequencyHz(recipe: recipe)
+                    }
+                    return 1.73
+                }()
+                let overlayY = wantsCharBounce ? "H-h+16*sin(2*PI*t*\(String(format: "%.3f", bounceHz)))" : "H-h"
                 videoFilterGraph = "[\(bgStream):v]\(videoFilter)[bg];[\(charStream):v]scale=-1:\(charHeight)[char];[bg][char]overlay=(W-w)/2:\(overlayY):format=auto[basev]"
                 videoFilterGraph += Self.telopFilterSuffix(scene: scene, inputLabel: "basev", outputLabel: "vout")
             } else {
@@ -342,8 +355,15 @@ enum MovieExporter {
                 nextStreamIdx += 1
                 let charHeight = max(100, Int(Double(quality.height) * 0.88))
                 let charAnimToken = (scene.characterAnimation ?? "").lowercased()
-                let wantsCharBounce = charAnimToken.contains("バウンス") || charAnimToken.contains("bounce") || charAnimToken.contains("呼吸") || charAnimToken.isEmpty
-                let overlayY = wantsCharBounce ? "H-h+14*sin(2*PI*t*2)" : "H-h"
+                let wantsCharBounce = charAnimToken.contains("バウンス") || charAnimToken.contains("bounce") || charAnimToken.contains("呼吸") || charAnimToken.contains("揺れ")
+                let bounceHz: Double = {
+                    if wantsCharBounce, let raw = scene.characterAnimation {
+                        let recipe = SlideAnimationKit.classify(token: raw)
+                        return SlideAnimationKit.bounceFrequencyHz(recipe: recipe)
+                    }
+                    return 1.73
+                }()
+                let overlayY = wantsCharBounce ? "H-h+16*sin(2*PI*t*\(String(format: "%.3f", bounceHz)))" : "H-h"
                 videoFilterGraph = "[\(bgStream):v]null[bg];[\(charStream):v]scale=-1:\(charHeight)[char];[bg][char]overlay=(W-w)/2:\(overlayY):format=auto[basev]"
                 videoFilterGraph += Self.telopFilterSuffix(scene: scene, inputLabel: "basev", outputLabel: "vout")
             } else {
