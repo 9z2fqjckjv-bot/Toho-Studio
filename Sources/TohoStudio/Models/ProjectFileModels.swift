@@ -1678,12 +1678,28 @@ public enum FileFormatParser {
             let meta = parseNoteMeta(note: note)
             
             var combinedAnimMeta = meta.animMeta ?? ""
+            var charAnimFromBuilds: String? = nil
             for build in builds {
                 if !build.isEmpty {
-                    if combinedAnimMeta.isEmpty {
-                        combinedAnimMeta = build
-                    } else {
-                        combinedAnimMeta += ", " + build
+                    let lower = build.lowercased()
+                    let isBounce = build.contains("バウンス") || lower.contains("bounce") || build.contains("呼吸") || build.contains("アクション") || lower.contains("action")
+                    if isBounce && charAnimFromBuilds == nil {
+                        // GUI「ビルドの順番」行にアクション名が出る場合はキャラへ
+                        let recipe = SlideAnimationKit.classify(token: build)
+                        if recipe.bounceCount == 25, let dur = SlideAnimationKit.extractDurationSeconds(from: build) ?? meta.duration, dur > 0.5 {
+                            let count = max(1, Int((dur * 1.73).rounded()))
+                            charAnimFromBuilds = "バウンス (\(String(format: "%.1f", dur))秒, \(count)回)"
+                        } else if build.contains("バウンス") || lower.contains("bounce") {
+                            charAnimFromBuilds = build
+                        } else {
+                            charAnimFromBuilds = "バウンス"
+                        }
+                    } else if !isBounce {
+                        if combinedAnimMeta.isEmpty {
+                            combinedAnimMeta = build
+                        } else {
+                            combinedAnimMeta += ", " + build
+                        }
                     }
                 }
             }
@@ -1694,7 +1710,7 @@ public enum FileFormatParser {
                 meta: combinedAnimMeta.isEmpty ? nil : combinedAnimMeta,
                 noteDuration: meta.duration,
                 buildCount: builds.count
-            )
+            ) ?? SlideAnimationKit.extractDurationSeconds(from: charAnimFromBuilds ?? "")
             let item = SlideItemData(
                 title: (p["title"] as? String) ?? "スライド \(idx + 1)",
                 noteScript: script,
@@ -1702,7 +1718,8 @@ public enum FileFormatParser {
                 speakerCharacter: meta.speaker,
                 pureScriptText: script,
                 animationMeta: combinedAnimMeta.isEmpty ? nil : combinedAnimMeta,
-                animationDuration: estimatedAnimDur
+                animationDuration: estimatedAnimDur,
+                characterAnimation: charAnimFromBuilds
             )
             result.append(item)
         }
