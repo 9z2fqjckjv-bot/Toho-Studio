@@ -1033,38 +1033,73 @@ public enum FileFormatParser {
                 }
             } catch(e) {}
             
-            // 4: キャラクター画像に紐付くビルドアニメーションをピンポイントで取得
-            // buildItems() を走査し、画像オブジェクト（image型）に対応するものだけを取り出す
-            // imageBuilds: { fileName: { effect, duration } } の形で収集
+            // 4: 画像に紐付くビルド＋アクション（バウンス等）を取得
+            // Keynoteの buildItems() には Build In/Out と Action が混在する。
+            // Action（強調・バウンス）を優先し、duration / bounceCount も拾う。
             var imageBuilds = {};
+            var textBuilds = [];
             try {
                 var builds = s.buildItems();
                 for (var b = 0; b < builds.length; b++) {
                     try {
                         var bld = builds[b];
-                        // buildOrder, buildType, effect, delay などのプロパティを取得
-                        var bProps = bld.properties();
+                        var bProps = {};
+                        try { bProps = bld.properties(); } catch(e) { bProps = {}; }
                         var effect = "";
                         var duration = 0.0;
                         var delay = 0.0;
-                        try { effect = bProps.buildEffect || bProps.transitionEffect || ""; } catch(e) {}
-                        try { duration = bProps.duration || 0.0; } catch(e) {}
-                        try { delay = bProps.delay || 0.0; } catch(e) {}
-                        
-                        // このビルドが紐付くオブジェクトを特定（image型のみ対象）
+                        var buildType = "";
+                        var bounceCount = 0;
+                        try { effect = String(bProps.buildEffect || bProps.transitionEffect || bProps.effect || ""); } catch(e) {}
+                        try { duration = Number(bProps.duration || bProps.buildDuration || 0.0); } catch(e) {}
+                        try { delay = Number(bProps.delay || bProps.buildDelay || 0.0); } catch(e) {}
+                        try { buildType = String(bProps.buildType || bProps.type || bProps.actionType || ""); } catch(e) {}
+                        try { if (!effect) effect = String(bld.buildEffect()); } catch(e) {}
+                        try { if (!duration) duration = Number(bld.duration()); } catch(e) {}
+                        try { if (!delay) delay = Number(bld.delay()); } catch(e) {}
+                        try { if (!buildType) buildType = String(bld.buildType()); } catch(e) {}
+                        try {
+                            var bc = bProps.bounceCount || bProps.numberOfBounces || bProps.bounces || bProps.repeatCount;
+                            if (bc) bounceCount = Number(bc);
+                        } catch(e) {}
+                        var blob = (String(effect) + " " + String(buildType)).toLowerCase();
+                        var isAction = /action|アクション|emphasis|bounce|バウンス|呼吸/.test(blob)
+                            || (duration >= 3.0 && /move|opacity|scale|rotate|pulse|jiggle|wiggle/.test(blob));
+                        if (!effect && isAction) effect = "バウンス";
                         try {
                             var target = bld.object();
-                            // object がimage型かどうかを判定: fileNameプロパティが存在すれば画像
                             var targetFn = null;
                             try { targetFn = target.fileName(); } catch(e) {}
                             if (targetFn && imgNames.indexOf(targetFn) >= 0) {
-                                // 画像ファイルに対するビルドアニメーションを記録
-                                // 同じ画像に複数ビルドがある場合は最大durationを採用
-                                if (!imageBuilds[targetFn]) {
-                                    imageBuilds[targetFn] = { effect: effect, duration: duration, delay: delay };
-                                } else if (duration > imageBuilds[targetFn].duration) {
-                                    imageBuilds[targetFn].duration = duration;
-                                    imageBuilds[targetFn].effect = effect;
+                                if (!bounceCount && duration > 0.5 && (/bounce|バウンス/.test(blob) || isAction)) {
+                                    bounceCount = Math.max(1, Math.round(duration * 1.73));
+                                }
+                                var score = duration + (isAction ? 1000 : 0) + (/bounce|バウンス/.test(blob) ? 500 : 0);
+                                var prev = imageBuilds[targetFn];
+                                if (!prev || score >= (prev.score || 0)) {
+                                    imageBuilds[targetFn] = {
+                                        effect: effect || (isAction ? "バウンス" : "アニメーション"),
+                                        duration: duration,
+                                        delay: delay,
+                                        buildType: buildType,
+                                        isAction: !!isAction,
+                                        bounceCount: bounceCount,
+                                        score: score
+                                    };
+                                }
+                            } else {
+                                // テキスト／図形向けビルド
+                                var ttxt = "";
+                                try { ttxt = String(target.objectText() || ""); } catch(e) {}
+                                if (ttxt || !targetFn) {
+                                    textBuilds.push({
+                                        effect: effect || "",
+                                        duration: duration,
+                                        delay: delay,
+                                        buildType: buildType,
+                                        isAction: !!isAction,
+                                        text: ttxt.substring(0, 40)
+                                    });
                                 }
                             }
                         } catch(e) {}
@@ -1121,6 +1156,7 @@ public enum FileFormatParser {
                 notes: script,
                 images: imgNames,
                 imageBuilds: imageBuilds,
+                textBuilds: textBuilds,
                 texts: allTexts,
                 trEffect: trEffect,
                 trDuration: trDuration
@@ -1304,38 +1340,98 @@ public enum FileFormatParser {
                     bgResolvedPath = exportedImgPath
                 }
                 
-                // 2. 背景画像のアニメーション（スライド全体のケンバーンズ - 背景固有）
-                let bgAnim = "ゆっくりズームイン（Ken Burns）"
+                let textBuilds = (item["textBuilds"] as? [[String: Any]]) ?? []
                 
-                // 4. キャラクター画像のアニメーション
-                // ★ JXAが取得したbuildItemsから、キャラクター画像ファイル名をキーに直接参照する
-                // ノートテキスト(meta.animMeta)は一切使わず、Keynoteのビルドアニメーションのみを参照
-                let charAnim: String = {
-                    guard let charName = charImageName,
-                          let buildInfo = imageBuilds[charName] else {
-                        // キャラクター画像にビルドアニメーションがない場合のデフォルト
-                        return "キャラクター呼吸・動的バウンス"
-                    }
-                    let effect = (buildInfo["effect"] as? String) ?? ""
-                    let duration = (buildInfo["duration"] as? Double) ?? 0.0
-                    let delay = (buildInfo["delay"] as? Double) ?? 0.0
-                    if duration > 0 {
-                        // Keynoteのビルドアニメーション情報を文字列として返す
-                        let effectLabel = effect.isEmpty ? "アニメーション" : effect
-                        if delay > 0 {
-                            return "\(effectLabel) (\(String(format: "%.1f", duration))秒, 遅延\(String(format: "%.1f", delay))秒)"
-                        } else {
-                            return "\(effectLabel) (\(String(format: "%.1f", duration))秒)"
+                // 2. 背景アニメ: Keynoteに背景向け効果があるときだけ（無ければ静止）
+                let bgAnim: String? = {
+                    for imgName in imgList {
+                        let lower = imgName.lowercased()
+                        let isLikelyBg = lower.contains("茶の間") || lower.contains("背景") || lower.contains(".pxd") || lower.contains("部屋") || lower.contains("空") || lower.contains("室内") || lower.contains("bg")
+                        guard isLikelyBg, let info = imageBuilds[imgName] else { continue }
+                        let effect = (info["effect"] as? String) ?? ""
+                        let isAction = (info["isAction"] as? Bool) ?? false
+                        // 背景にバウンスは稀。Ken Burns / ズーム / パンのみ採用
+                        let blob = (effect + " " + String(describing: info["buildType"] ?? "")).lowercased()
+                        if blob.contains("ken") || blob.contains("ズーム") || blob.contains("zoom") || blob.contains("パン") || blob.contains("pan") || blob.contains("ドリフト") {
+                            let dur = (info["duration"] as? Double) ?? 0
+                            if dur > 0 { return "\(effect.isEmpty ? "Ken Burns" : effect) (\(String(format: "%.1f", dur))秒)" }
+                            return effect.isEmpty ? "ゆっくりズームイン（Ken Burns）" : effect
                         }
-                    } else if !effect.isEmpty {
-                        return effect
-                    } else {
-                        return "キャラクター呼吸・動的バウンス"
+                        if !isAction && !effect.isEmpty { return effect }
                     }
+                    return nil
                 }()
                 
-                // 5. オブジェクト（テキストや図形など）
+                // 4. キャラクター: Action（バウンス等）を優先して characterAnimation に載せる
+                // ノート推測は使わない。アクションが無ければ nil（無理にデフォルトバウンスしない）
+                let charAnim: String? = {
+                    // キャラ候補: 解決済み名 → 非背景画像で action があるもの
+                    var candidates: [(String, [String: Any])] = []
+                    if let charName = charImageName, let info = imageBuilds[charName] {
+                        candidates.append((charName, info))
+                    }
+                    for (fn, info) in imageBuilds {
+                        let lower = fn.lowercased()
+                        let isLikelyBg = lower.contains("茶の間") || lower.contains("背景") || lower.contains(".pxd") || lower.contains("部屋") || lower.contains("空") || lower.contains("室内") || lower.contains("bg")
+                        if isLikelyBg { continue }
+                        if charImageName == fn { continue }
+                        candidates.append((fn, info))
+                    }
+                    // Action / バウンス / 長尺を優先
+                    candidates.sort { a, b in
+                        let sa = (a.1["score"] as? Double) ?? (((a.1["isAction"] as? Bool) == true ? 1000.0 : 0.0) + ((a.1["duration"] as? Double) ?? 0))
+                        let sb = (b.1["score"] as? Double) ?? (((b.1["isAction"] as? Bool) == true ? 1000.0 : 0.0) + ((b.1["duration"] as? Double) ?? 0))
+                        return sa > sb
+                    }
+                    guard let best = candidates.first else { return nil }
+                    let info = best.1
+                    var effect = (info["effect"] as? String) ?? ""
+                    let duration = (info["duration"] as? Double) ?? 0.0
+                    let delay = (info["delay"] as? Double) ?? 0.0
+                    let isAction = (info["isAction"] as? Bool) ?? false
+                    var bounceCount = 0
+                    if let bc = info["bounceCount"] as? Int { bounceCount = bc }
+                    else if let bc = info["bounceCount"] as? Double { bounceCount = Int(bc) }
+                    let blob = (effect + " " + String(describing: info["buildType"] ?? "")).lowercased()
+                    let looksBounce = blob.contains("bounce") || blob.contains("バウンス") || blob.contains("呼吸") || blob.contains("揺れ") || isAction
+                    if looksBounce && effect.isEmpty { effect = "バウンス" }
+                    if looksBounce && bounceCount <= 0 && duration > 0.5 {
+                        bounceCount = max(1, Int((duration * 1.73).rounded()))
+                    }
+                    if !looksBounce && effect.isEmpty && duration <= 0 { return nil }
+                    let effectLabel = effect.isEmpty ? (looksBounce ? "バウンス" : "アニメーション") : effect
+                    var parts: [String] = []
+                    if duration > 0 { parts.append(String(format: "%.1f秒", duration)) }
+                    if bounceCount > 0 { parts.append("\(bounceCount)回") }
+                    if delay > 0 { parts.append(String(format: "遅延%.1f秒", delay)) }
+                    if parts.isEmpty { return effectLabel }
+                    return "\(effectLabel) (\(parts.joined(separator: ", ")))"
+                }()
+                
+                // キャラ画像が未解決でも、バウンス付き画像名があれば再解決を試みる
+                if charResolvedPath == nil, let charAnim, charAnim.contains("バウンス") || charAnim.lowercased().contains("bounce") {
+                    for (fn, info) in imageBuilds {
+                        let isAction = (info["isAction"] as? Bool) ?? false
+                        let effect = ((info["effect"] as? String) ?? "").lowercased()
+                        if isAction || effect.contains("bounce") || effect.contains("バウンス") {
+                            if let resolved = resolver.resolveCharacterImage(named: fn, speaker: meta.speaker) {
+                                charResolvedPath = resolved
+                                charImageName = fn
+                                break
+                            }
+                        }
+                    }
+                }
+                
+                // 5. オブジェクト（テキストや図形など）— オブジェクト向けビルドがあるときだけ animation を付与
                 var slideObjects: [SlideObjectData] = []
+                let firstTextBuildEffect: String? = {
+                    for tb in textBuilds {
+                        let eff = (tb["effect"] as? String) ?? ""
+                        if !eff.isEmpty { return eff }
+                    }
+                    return nil
+                }()
                 for (tIdx, t) in texts.enumerated() {
                     slideObjects.append(SlideObjectData(
                         type: "text",
@@ -1344,12 +1440,12 @@ public enum FileFormatParser {
                         y: Double(200 + tIdx * 120),
                         width: 1720,
                         height: 100,
-                        animation: "フェードイン"
+                        animation: firstTextBuildEffect
                     ))
                 }
                 
-                // 6. オブジェクトのアニメーション
-                let objAnim = "オブジェクト表示"
+                // 6. オブジェクトのアニメーション（テキストビルドがあるときだけ）
+                let objAnim: String? = firstTextBuildEffect
                 
                 // 7. テロップとノートにあるテキスト
                 let formattedScript: String
@@ -1376,13 +1472,22 @@ public enum FileFormatParser {
                     // ★ charAnim は絶対に入れない → parseRecipes が .slide ターゲットで誤適用するため
                     animationMeta: meta.animMeta,
                     animationDuration: {
-                        // キャラクター画像のbuildItems duration を優先使用
+                        // Action / キャラビルドの duration を優先
+                        var bestDur: Double = 0
+                        for (_, info) in imageBuilds {
+                            let dur = (info["duration"] as? Double) ?? 0
+                            let isAction = (info["isAction"] as? Bool) ?? false
+                            if isAction && dur > bestDur { bestDur = dur }
+                        }
+                        if bestDur > 0 { return bestDur }
                         if let charName = charImageName,
                            let buildInfo = imageBuilds[charName],
                            let dur = buildInfo["duration"] as? Double, dur > 0 {
                             return dur
                         }
-                        // フォールバック: ノートの所要時間推定
+                        if let charAnim, let d = SlideAnimationKit.extractDurationSeconds(from: charAnim) {
+                            return d
+                        }
                         return SlideAnimationKit.estimateDuration(
                             meta: meta.animMeta,
                             noteDuration: meta.duration,
@@ -1750,11 +1855,18 @@ public enum SlideAnimationKit {
         var anim = lower
         var parsedBounceCount = 25
         
-        // "25回" などの回数指定をパース
+        // "25回" / "26回" などの回数指定をパース
         if let match = token.range(of: "([0-9]+)\\s*回", options: .regularExpression) {
             let numStr = token[match].replacingOccurrences(of: "回", with: "").trimmingCharacters(in: .whitespaces)
             if let c = Int(numStr), c > 0 {
                 parsedBounceCount = c
+            }
+        }
+        // 回数が無く秒数だけあるバウンスは Keynote 既定ペース（約1.73回/秒）で推定
+        if parsedBounceCount == 25, let dur = extractDurationSeconds(from: token), dur > 0.5 {
+            let looksBounce = token.lowercased().contains("bounce") || token.contains("バウンス") || token.contains("呼吸") || token.contains("揺れ")
+            if looksBounce {
+                parsedBounceCount = max(1, Int((dur * 1.73).rounded()))
             }
         }
         
@@ -1802,6 +1914,28 @@ public enum SlideAnimationKit {
             kind = .kenBurns
         }
         return Recipe(kind: kind, target: target, raw: token, bounceCount: parsedBounceCount)
+    }
+    
+
+    /// トークンから秒数を抽出（例: "バウンス (15.0秒, 26回)" → 15.0）
+    public static func extractDurationSeconds(from token: String) -> Double? {
+        if let match = token.range(of: "([0-9]+(?:\\.[0-9]+)?)\\s*秒", options: .regularExpression) {
+            let numStr = token[match].replacingOccurrences(of: "秒", with: "").trimmingCharacters(in: .whitespaces)
+            if let d = Double(numStr), d > 0 { return d }
+        }
+        if let match = token.range(of: "([0-9]+(?:\\.[0-9]+)?)\\s*s\\b", options: [.regularExpression, .caseInsensitive]) {
+            let raw = String(token[match])
+            let numStr = raw.lowercased().replacingOccurrences(of: "s", with: "").trimmingCharacters(in: .whitespaces)
+            if let d = Double(numStr), d > 0 { return d }
+        }
+        return nil
+    }
+    
+    /// Keynote アクション・バウンスの周波数（Hz）。回数÷継続時間。
+    public static func bounceFrequencyHz(recipe: Recipe, durationHint: Double? = nil) -> Double {
+        let count = Double(max(1, recipe.bounceCount > 0 ? recipe.bounceCount : 25))
+        let dur = durationHint ?? extractDurationSeconds(from: recipe.raw) ?? (count / 1.73)
+        return max(0.4, min(4.0, count / max(dur, 0.25)))
     }
     
     /// ビルド数とノート記載からアニメ尺を推定（未記載時のフォールバック）
