@@ -1834,14 +1834,15 @@ struct MovieMakerView: View {
         if let meta = sc.animationMeta, !meta.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return true
         }
-        if let dur = sc.animationDuration, dur > 0 { return true }
-        // キャラクターアニメーション専用プロパティをチェック
         if let charAnim = sc.characterAnimation, !charAnim.isEmpty { return true }
-        // キャラクター画像があればデフォルトバウンスアニメーションを付与するため常にtrue
-        if sc.characterImagePath != nil { return true }
-        // 背景アニメーションがあれば常にtrue
         if let bgAnim = sc.backgroundAnimation, !bgAnim.isEmpty { return true }
-        // レシピ化できるメタが残っていればアニメありとみなす
+        if let objAnim = sc.objectAnimation, !objAnim.isEmpty { return true }
+        if let effect = sc.slideTransitionEffect,
+           !effect.isEmpty,
+           effect != "no transition effect",
+           effect.lowercased() != "none" {
+            return true
+        }
         if !SlideAnimationKit.parseRecipes(from: sc.animationMeta).isEmpty { return true }
         return false
     }
@@ -1957,23 +1958,28 @@ struct MovieMakerView: View {
                                 .frame(width: geo.size.width, height: geo.size.height, alignment: .bottom)
                         }
                         .aspectRatio(16/9, contentMode: .fit)
-                    } else if activeScene.backgroundImagePath == nil, let path = activeScene.imagePath, let nsImage = NSImage(contentsOfFile: path) {
-                        let hasCharAnim = (states.charOffsetY != 0.0 || states.charScale != 1.0)
-                        if hasCharAnim {
-                            GeometryReader { geo in
-                                Image(nsImage: nsImage)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .scaleEffect(states.charScale)
-                                    .offset(x: states.charOffsetX, y: states.charOffsetY)
-                                    .mask(
-                                        Rectangle()
-                                            .frame(width: geo.size.width * 0.85, height: geo.size.height * 0.78)
-                                            .position(x: geo.size.width * 0.50, y: geo.size.height * 0.39)
-                                    )
-                            }
-                            .aspectRatio(16/9, contentMode: .fit)
+                    } else if let charAnimStr = activeScene.characterAnimation,
+                              !charAnimStr.isEmpty,
+                              (charAnimStr.contains("バウンス") || charAnimStr.lowercased().contains("bounce") || charAnimStr.contains("呼吸")),
+                              let path = activeScene.imagePath ?? activeScene.backgroundImagePath,
+                              let nsImage = NSImage(contentsOfFile: path) {
+                        // キャラ素材未解決でも Keynote 書き出し画像の中央下をキャラ代理として char* を適用
+                        GeometryReader { geo in
+                            Image(nsImage: nsImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(height: geo.size.height * 0.88)
+                                .scaleEffect(states.charScale)
+                                .offset(x: states.charOffsetX, y: states.charOffsetY + geo.size.height * 0.02)
+                                .opacity(states.charOpacity)
+                                .mask(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .frame(width: geo.size.width * 0.42, height: geo.size.height * 0.72)
+                                        .position(x: geo.size.width * 0.50, y: geo.size.height * 0.52)
+                                )
+                                .frame(width: geo.size.width, height: geo.size.height, alignment: .bottom)
                         }
+                        .aspectRatio(16/9, contentMode: .fit)
                     } else if let spk = activeScene.speakerCharacter, !spk.isEmpty {
                         VStack {
                             Spacer()
@@ -2069,14 +2075,40 @@ struct MovieMakerView: View {
                         .aspectRatio(16/9, contentMode: .fit)
                     }
                     
-                    // 8. スライドトランジション
-                    if let effect = activeScene.slideTransitionEffect, effect != "no transition effect", effect != "none" {
-                        let trDur = max(0.05, activeScene.slideTransitionDuration ?? 1.0)
-                        let isTransitioningIn = sceneElapsed < trDur
-                        if isPlaying && isTransitioningIn {
-                            let trProgress = min(1.0, sceneElapsed / trDur)
-                            Color.black.opacity(1.0 - trProgress)
-                                .aspectRatio(16/9, contentMode: .fit)
+                    // 8. スライドトランジション（効果名があるときだけ。なしなら無理にフェードしない）
+                    if let effectRaw = activeScene.slideTransitionEffect {
+                        let effect = effectRaw.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let effectLower = effect.lowercased()
+                        let isNone = effect.isEmpty
+                            || effect == "no transition effect"
+                            || effectLower == "none"
+                            || effect.contains("なし")
+                            || effect.contains("無し")
+                            || effectLower.contains("no transition")
+                        if !isNone, isPlaying {
+                            let trDur = max(0.15, min(2.0, activeScene.slideTransitionDuration ?? 0.8))
+                            if sceneElapsed < trDur {
+                                let trProgress = min(1.0, sceneElapsed / trDur)
+                                let t = CGFloat(trProgress)
+                                if effectLower.contains("push") || effect.contains("プッシュ") || effectLower.contains("slide") || effect.contains("スライド") {
+                                    // 押し出し相当: 黒帯ではなくコンテンツ側オフセットは slide* で表現しづらいのでフェード併用
+                                    Color.black.opacity(Double(1.0 - t))
+                                        .aspectRatio(16/9, contentMode: .fit)
+                                        .offset(x: (1.0 - t) * -40)
+                                } else if effectLower.contains("wipe") || effect.contains("ワイプ") {
+                                    Color.black
+                                        .aspectRatio(16/9, contentMode: .fit)
+                                        .mask(
+                                            Rectangle()
+                                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                                .scaleEffect(x: max(0.001, 1.0 - t), anchor: .trailing)
+                                        )
+                                } else {
+                                    // fade / dissolve / その他
+                                    Color.black.opacity(Double(1.0 - t))
+                                        .aspectRatio(16/9, contentMode: .fit)
+                                }
+                            }
                         }
                     }
                     
@@ -3475,31 +3507,60 @@ private func getAnimationStates(
     guard isPlaying else { return states }
     
     let progress = max(0.0, min(1.0, p))
-    // バウンスはシーン進捗ではなく経過秒で駆動し、尺が長くても毎フレームはっきり動く
     let bouncePhase = wallElapsed
+    _ = isAnim
     
-    func applyKind(_ kind: SlideAnimationKit.Kind, scale: inout CGFloat, ox: inout CGFloat, oy: inout CGFloat, op: inout Double, bounceAmp: CGFloat) {
+    func applyKind(
+        _ kind: SlideAnimationKit.Kind,
+        scale: inout CGFloat,
+        ox: inout CGFloat,
+        oy: inout CGFloat,
+        op: inout Double,
+        bounceAmp: CGFloat,
+        bounceHz: Double,
+        bounceDur: Double,
+        bounceDecay: Bool
+    ) {
         scale = 1.0; ox = 0.0; oy = 0.0; op = 1.0
         switch kind {
         case .zoomIn:     scale = 1.0 + CGFloat(progress) * 0.10
         case .zoomOut:    scale = 1.10 - CGFloat(progress) * 0.10
-        case .fadeIn:     op = progress
+        case .fadeIn:     op = min(1.0, progress / 0.35)
         case .slideInRight: ox = CGFloat(1.0 - progress) * 200
         case .slideUp:    oy = CGFloat(1.0 - progress) * 100
         case .panRight:   scale = 1.05; ox = CGFloat(progress) * -30
         case .panLeft:    scale = 1.05; ox = CGFloat(progress) * 30
         case .kenBurns:   scale = 1.0 + CGFloat(progress) * 0.06; oy = CGFloat(progress) * -4.0
         case .bounce:
-            let hz = 2.0
-            let angle = bouncePhase * hz * 2.0 * .pi
-            oy = CGFloat(sin(angle)) * bounceAmp
-            scale = 1.0 + CGFloat(max(0.0, sin(angle))) * 0.025
+            let hz = max(0.4, bounceHz)
+            let dur = max(0.25, bounceDur)
+            let t = bouncePhase
+            let angle = t * hz * 2.0 * .pi
+            var amp = bounceAmp
+            if bounceDecay {
+                // Keynote「ディケイ」相当: 継続時間に向けて減衰（最低15%）
+                let life = min(1.0, t / dur)
+                amp = bounceAmp * CGFloat(max(0.15, 1.0 - life * 0.85))
+            }
+            oy = CGFloat(sin(angle)) * amp
+            scale = 1.0 + CGFloat(max(0.0, sin(angle))) * 0.03
         }
     }
     
-    func applyToChar(kind: SlideAnimationKit.Kind) {
+    func charBounceParams(from recipe: SlideAnimationKit.Recipe) -> (hz: Double, dur: Double, decay: Bool) {
+        let dur = SlideAnimationKit.extractDurationSeconds(from: recipe.raw)
+            ?? activeScene.animationDuration
+            ?? Double(max(1, recipe.bounceCount)) / 1.73
+        let hz = SlideAnimationKit.bounceFrequencyHz(recipe: recipe, durationHint: dur)
+        let decay = recipe.raw.contains("ディケイ") || recipe.raw.lowercased().contains("decay") || dur >= 3.0
+        return (hz, dur, decay)
+    }
+    
+    func applyToChar(kind: SlideAnimationKit.Kind, recipe: SlideAnimationKit.Recipe? = nil) {
         var s: CGFloat = 1.0; var ox: CGFloat = 0; var oy: CGFloat = 0; var op: Double = 1
-        applyKind(kind, scale: &s, ox: &ox, oy: &oy, op: &op, bounceAmp: 14.0)
+        let r = recipe ?? SlideAnimationKit.Recipe(kind: kind, target: .character, raw: "")
+        let bp = charBounceParams(from: r)
+        applyKind(kind, scale: &s, ox: &ox, oy: &oy, op: &op, bounceAmp: 16.0, bounceHz: bp.hz, bounceDur: bp.dur, bounceDecay: bp.decay)
         states.charScale = s
         states.charOffsetX = ox
         states.charOffsetY = oy
@@ -3508,11 +3569,9 @@ private func getAnimationStates(
     
     func applyToSlide(kind: SlideAnimationKit.Kind) {
         var s: CGFloat = 1.0; var ox: CGFloat = 0; var oy: CGFloat = 0; var op: Double = 1
-        applyKind(kind, scale: &s, ox: &ox, oy: &oy, op: &op, bounceAmp: 0.0)
-        // 背景に bounce は使わない（Ken Burns へ）
-        if kind == .bounce {
-            applyKind(.kenBurns, scale: &s, ox: &ox, oy: &oy, op: &op, bounceAmp: 0.0)
-        }
+        // 背景に bounce は使わない
+        let k = (kind == .bounce) ? SlideAnimationKit.Kind.kenBurns : kind
+        applyKind(k, scale: &s, ox: &ox, oy: &oy, op: &op, bounceAmp: 0.0, bounceHz: 1.0, bounceDur: 1.0, bounceDecay: false)
         states.slideScale = s
         states.slideOffsetX = ox
         states.slideOffsetY = oy
@@ -3521,59 +3580,68 @@ private func getAnimationStates(
     
     func applyToObj(kind: SlideAnimationKit.Kind) {
         var s: CGFloat = 1.0; var ox: CGFloat = 0; var oy: CGFloat = 0; var op: Double = 1
-        applyKind(kind, scale: &s, ox: &ox, oy: &oy, op: &op, bounceAmp: 6.0)
+        applyKind(kind, scale: &s, ox: &ox, oy: &oy, op: &op, bounceAmp: 6.0, bounceHz: 1.5, bounceDur: 1.0, bounceDecay: false)
+        // オブジェクト既定の「表示」は短めのフェード＋上昇
+        if kind == .kenBurns || kind == .bounce {
+            let t = min(1.0, progress / 0.4)
+            op = t
+            oy = CGFloat(1.0 - t) * 18.0
+            s = 1.0
+            ox = 0
+        }
         states.objScale = s
         states.objOffsetX = ox
         states.objOffsetY = oy
         states.objOpacity = op
     }
     
-    // Step 1: characterAnimation → キャラのみ
+    // 1) backgroundAnimation → slide* のみ（無ければ静止）
+    var slideAnimApplied = false
+    if let bgAnimStr = activeScene.backgroundAnimation, !bgAnimStr.isEmpty {
+        applyToSlide(kind: SlideAnimationKit.classify(token: bgAnimStr).kind)
+        slideAnimApplied = true
+    }
+    
+    // 2) characterAnimation → char* のみ（バウンスは wallElapsed + 回数/秒で駆動）
     var charAnimApplied = false
     if let charAnimStr = activeScene.characterAnimation, !charAnimStr.isEmpty {
         let charRecipe = SlideAnimationKit.classify(token: charAnimStr)
         let charKind: SlideAnimationKit.Kind = (charRecipe.kind == .kenBurns) ? .bounce : charRecipe.kind
-        applyToChar(kind: charKind)
+        applyToChar(kind: charKind, recipe: SlideAnimationKit.Recipe(kind: charKind, target: .character, raw: charAnimStr, bounceCount: charRecipe.bounceCount))
         charAnimApplied = true
     }
     
-    // Step 2: animationMeta recipes — ターゲット別に厳密分離
+    // 3) animationMeta recipes — ターゲット厳密分離（背景未設定時のみ slide 適用）
     let recipes = SlideAnimationKit.parseRecipes(from: activeScene.animationMeta)
-    var slideAnimApplied = false
     var objAnimApplied = false
-    
     for recipe in recipes {
         switch recipe.target {
         case .slide:
-            applyToSlide(kind: recipe.kind)
-            slideAnimApplied = true
+            if !slideAnimApplied {
+                applyToSlide(kind: recipe.kind)
+                slideAnimApplied = true
+            }
         case .character:
             if !charAnimApplied {
-                applyToChar(kind: recipe.kind == .kenBurns ? .bounce : recipe.kind)
+                let k = recipe.kind == .kenBurns ? SlideAnimationKit.Kind.bounce : recipe.kind
+                applyToChar(kind: k, recipe: recipe)
                 charAnimApplied = true
             }
         case .object:
-            // オブジェクト/テロップのみ。charScale/charOffset には絶対に入れない
             applyToObj(kind: recipe.kind)
             objAnimApplied = true
         }
     }
     
-    // objectAnimation 文字列があればオブジェクトへ
+    // 4) objectAnimation → obj* のみ（無ければオブジェクト/テロップは動かさない）
     if !objAnimApplied, let objAnim = activeScene.objectAnimation, !objAnim.isEmpty {
         applyToObj(kind: SlideAnimationKit.classify(token: objAnim).kind)
         objAnimApplied = true
     }
     
-    // Step 3: キャラ未設定 + 画像あり → 呼吸バウンス
-    if !charAnimApplied && activeScene.characterImagePath != nil {
-        applyToChar(kind: .bounce)
-    }
-    
-    // Step 4: スライド未設定 → Ken Burns（背景のみ）
-    if !slideAnimApplied {
-        applyToSlide(kind: .kenBurns)
-    }
+    // キャラレイヤーが出るのに characterAnimation が空なら動かさない（Keynote静止に合わせる）
+    // 背景デフォルト Ken Burns も付けない
+    _ = (slideAnimApplied, charAnimApplied, objAnimApplied)
     
     return states
 }
