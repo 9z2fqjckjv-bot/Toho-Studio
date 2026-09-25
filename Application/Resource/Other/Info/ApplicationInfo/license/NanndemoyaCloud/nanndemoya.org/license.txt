@@ -1,0 +1,7 @@
+認証状態：（Info） #認証状態を表示します。（「認証済み」、「未認証」のいずれかが表示されます。）
+UserId：xxx # ユーザーID（メールアドレスの@より前の部分）を表示します。（認証済みの場合に表示されます。）
+クラウド：（Info） # クラウドの通信状況を表示します。（「ログイン済み」、「未ログイン」のいずれかが表示されます。）
+ログインまたはログアウト # ログインまたはログアウトします。
+ブラウザで確認 # アプリケーション内ブラウザでNanndemoyaCloudのウェブサイトを開きます。(https://www.nanndemoya.net/service-guide/subscription/nanndemoya-cloud)
+エラーが出る場合 # エラーが出る場合の対処方法を表示します。（ヘルプガイドを開きます。）
+NanndemoyaCloud申込  # NanndemoyaCloudの申し込みページを開きます。(https://forms.gle/x7xkQkGfiZHDvUzM8)

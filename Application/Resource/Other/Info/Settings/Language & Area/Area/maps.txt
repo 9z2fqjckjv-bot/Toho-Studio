@@ -1,0 +1,2 @@
+/Volumes/ZSSD/GitHub/repository/TohoStudio/幻想郷マップ.jpeg
+画像を差し替え #幻想郷の地図画像を差し替えます。デフォルトでは、上記のパスにある画像が表示されます。

@@ -1,9 +1,0 @@
-請求情報
-(PaymentMethod) #お支払い方法がここに表示されます。
-支払い期日と金額
-(Date, time, amount, details) #支払い期日と金額と「詳細」（詳細情報をポップアップで表示する文字）がここに新しい日付順に表示されます。
-ブラウザで確認 #アプリケーション内ブラウザでベースパック通帳を開きます。（デフォルトのリンクURLはhttps://docs.google.com/spreadsheets/d/1TetBelEjIOVzHxhC-EYQFTXXoBlHUTmA0ipCPqXck7E/edit?usp=sharing"です。NanndemoyaCloudの認証が通ると、その利用者のGoogleドライブ上にあるベースパック通帳（スプレッドシートファイル）を開くリンクになります。NanndemoyaCloudの認証を解除すると、自動でデフォルトリンクに戻ります。）
-見覚えのない明細が載っている場合…　#https://forms.gle/RV6Sy3qyuf7DMxde9
-金額と購入日が食い違っている場合… #https://forms.gle/RV6Sy3qyuf7DMxde9
-お支払い方法に関するドキュメントを見る #お支払い方法に関するドキュメントが開きます。（ドキュメントは後日掲載予定）
-ヘルプとサポート #請求情報と明細に関するヘルプガイドが開きます。（ヘルプガイドは後日掲載予定）

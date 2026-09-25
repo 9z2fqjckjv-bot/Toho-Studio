@@ -1,6 +1,0 @@
-(NanndemoyaCloudアカウントのアイコン画像)
-(UserName) #NanndemoyaCloudに登録している名前が表示されます。
-(Email) #NanndemoyaCloudに登録しているメールアドレスが表示されます。
-ブラウザで閲覧(Button) #アプリケーション内ブラウザで、NanndemoyaCloudの画面を開きます。
-ログアウト(Button) #アプリケーションからNanndemoyaCloudアカウントのログインを解除します。ログアウト中は「NanndemoyaCloudにログイン」と表示されます。ログイン時には、アプリケーション内ブラウザを利用し、ログイン処理をします。
-情報を更新(icon) #上記の項目の最新情報を読み取り、表示します。

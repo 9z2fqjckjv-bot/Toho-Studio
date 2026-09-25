@@ -1,0 +1,8 @@
+都度課金式プラン
+Seller,Model,Data-Type,Default,User,Selling
+OpenAI,ChatGPT,Switch,off,off,no
+Anthropic,Claude,Switch,off,off,no
+Google,Gemini,Switch,off,off,no
+何でも屋,NanndemoyaAI,Switch,off,off,no
+Info,,"Since the plan is currently suspended and the ""Selling"" feature is not enabled, this setting is locked to ""Off."" (If you enable ""Selling"" for this plan via a CSV file, a startup error will occur and an error report detailing the issue will be automatically generated. While an error pop-up will appear upon startup, the only functional impact is that the settings for paid features within the ""Pay-per-use Plan"" for AI functions will be grayed out and unchangeable; the application can otherwise be used normally.) Access to AI functions via API is not currently available. This feature will become accessible once the service launches. Please use a flat-rate plan until the service becomes available.",,,
+注意事項,,“Selling”の機能がオンになっていないプラン提供休止中のため、オフに固定されます。（”selling”がオフのプランをCSVファイル上でオンにした場合、起動エラーが発生し、その詳細が書かれた絵レポートが自動出力されます。ただし、起動時にエラーポップアップが出る現象が起きるのみであり、「AI機能」の「都度課金式プラン」における有料機能の設定がグレーアウトで変更できません。それ以外の有料機能や設定項目に支障はなく、その点を除けば、通常通りアプリケーションを利用できます。）現在、APIを用いた、AI機能の利用は提供していません。提供開始次第、この機能を利用できるようになります。提供開始までは定額式プランをご利用ください。,,,
