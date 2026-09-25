@@ -23,6 +23,7 @@ public enum ActiveModal: String, Identifiable {
     case splitPopup = "分割"
     case policyCheckPopup = "点検と修正"
     case slideRecognitionPopup = "スライド認識"
+    case slideLoader = "スライドの読み込み"
 
     public var id: String { rawValue }
 }

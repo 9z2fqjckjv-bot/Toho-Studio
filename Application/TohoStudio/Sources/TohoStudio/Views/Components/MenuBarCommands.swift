@@ -52,7 +52,12 @@ public struct MenuBarCommands: Commands {
             .keyboardShortcut("n", modifiers: [.command, .option])
 
             Button("ファイル読み込み (cmd+f+r)") {
-                appState.log("ファイル読み込みダイアログを開きました")
+                if appState.currentModule == .slideScenarioMaker {
+                    appState.activeModal = .slideLoader
+                    appState.log("スライド＆シナリオメーカー: スライドの読み込みプログラムを開きました")
+                } else {
+                    appState.log("ファイル読み込みダイアログを開きました")
+                }
                 appState.addHistory("ファイル: ファイル読み込み")
             }
             .keyboardShortcut("r", modifiers: [.command, .option])
@@ -170,7 +175,13 @@ public struct MenuBarCommands: Commands {
             }
 
             Button("再生成 (cmd+e+p)") {
-                appState.log("現在表示中の要素を再生成しました")
+                if appState.currentModule == .slideScenarioMaker {
+                    let path = SlideRecognitionService.shared.loadedProjectName.contains("/") ? SlideRecognitionService.shared.loadedProjectName : "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方惑情録/東方惑情録　第1話.key"
+                    SlideRecognitionService.shared.loadSlideProgram(filePath: path, replaceState: true) { _, _ in }
+                    appState.log("スライド＆シナリオメーカー: 表示されているスライドの元ファイルを再読み込みしました")
+                } else {
+                    appState.log("現在表示中の要素を再生成しました")
+                }
                 appState.addHistory("編集: 再生成")
             }
 

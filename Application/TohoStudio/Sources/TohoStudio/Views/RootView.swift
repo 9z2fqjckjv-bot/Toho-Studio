@@ -242,6 +242,11 @@ public struct RootView: View {
                 )) {
                     PolicyCheckModalView()
                 }
+            case .slideLoader:
+                Color.clear
+                    .onAppear {
+                        appState.currentModule = .slideScenarioMaker
+                    }
             default:
                 fallbackModalView(title: modal.rawValue)
             }
