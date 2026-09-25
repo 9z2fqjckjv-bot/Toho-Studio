@@ -2,7 +2,7 @@
 
 ![Toho-Studio](https://img.shields.io/badge/Platform-macOS%2013%2B-blue.svg)
 ![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)
-![Version](https://img.shields.io/badge/Version-v1.0.1-green.svg)
+![Version](https://img.shields.io/badge/Version-v1.0.2-green.svg)
 ![License](https://img.shields.io/badge/License-Touhou%20Project%20Guideline-red.svg)
 
 > **Powered By zuyasi & Nanndemoya**
@@ -77,8 +77,9 @@ Toho-Studio は、東方Projectの二次創作活動を総合的に支援する�
 - `Application/AquesTalk/`: AquesTalk 音声ライブラリおよび辞書
 - `Application/Documents/`: マニュアル、料金表、幻想郷マップ等
 - `Application/Resource/`: 各ソフトの編集ファイル、設定テキスト、ポリシー、CSV等
-- `v1.0.1.dmg`: GitHub リリース公開用 macOS インストーラーイメージ（ドラッグ＆ドロップ対応完全版）
-- `v1.0.1.zip`: GitHub リリース公開用アーカイブ（AquesTalkライセンスキーを除去したサニタイズ済み完全版）
+- `v1.0.2.dmg`: GitHub リリース公開用 macOS インストーラーイメージ（大容量スライド対応・スリープ防止対応完全版）
+- `v1.0.2.zip`: GitHub リリース公開用アーカイブ（AquesTalkライセンスキーを除去したサニタイズ済み完全版）
+- `v1.0.1.dmg`: 前回リリース インストーラー (v1.0.1)
 - `v1.0.0.zip`: 初回リリースアーカイブ (v1.0.0)
 
 ### 起動方法

@@ -554,8 +554,8 @@ public struct SlideScenarioMakerView: View {
                 .bold()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(recognitionService.logs) { log in
+                LazyVStack(alignment: .leading, spacing: 4) {
+                    ForEach(recognitionService.logs.suffix(150)) { log in
                         HStack {
                             Text(log.step).bold().font(.caption2)
                             Text(log.details).font(.caption2).foregroundColor(.secondary)

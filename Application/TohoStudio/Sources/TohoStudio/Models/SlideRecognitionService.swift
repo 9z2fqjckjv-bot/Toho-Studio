@@ -133,8 +133,16 @@ public final class SlideRecognitionService: ObservableObject {
         isRunning = true
         currentProgress = 0.0
 
+        let activity = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiated, .idleSystemSleepDisabled],
+            reason: "Toho-Studio Slide Loading Program"
+        )
+
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
+            guard let self = self else {
+                ProcessInfo.processInfo.endActivity(activity)
+                return
+            }
 
             let slides = self.extractSlidesFromPath(filePath: filePath)
 
@@ -150,6 +158,7 @@ public final class SlideRecognitionService: ObservableObject {
                     AppState.shared.addHistory("スライド読み込み: \(fileName) (\(slides.count)枚)")
                 }
 
+                ProcessInfo.processInfo.endActivity(activity)
                 completion(!slides.isEmpty, slides)
             }
         }
@@ -161,8 +170,16 @@ public final class SlideRecognitionService: ObservableObject {
         currentProgress = 0.0
         logs.removeAll()
 
+        let activity = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiated, .idleSystemSleepDisabled],
+            reason: "Toho-Studio Slide Recognition Pipeline"
+        )
+
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
+            guard let self = self else {
+                ProcessInfo.processInfo.endActivity(activity)
+                return
+            }
 
             var logEntries: [RecognitionLogEntry] = []
             let fileName = URL(fileURLWithPath: filePath).lastPathComponent
@@ -182,32 +199,46 @@ public final class SlideRecognitionService: ObservableObject {
             let availableBackgrounds = self.scanAssetDirectory(subfolder: "背景")
             let availableCharacters = self.scanAssetDirectory(subfolder: "キャラクター")
 
+            let isLarge = slideCount > 40
+
             for (index, slide) in recognizedSlides.enumerated() {
                 let sIdx = index + 1
                 self.updateProgress(0.15 + (Double(sIdx) / Double(max(slideCount, 1))) * 0.75)
 
+                let shouldLog = !isLarge || sIdx <= 8 || sIdx >= slideCount - 5 || sIdx % 15 == 0
+
                 // Step 2: テロップおよびノート検出
-                self.appendLog(&logEntries, slide: sIdx, step: "テロップおよびノート検出", status: "SUCCESS", details: "テロップ: 「\(slide.telop.prefix(25))...」, ノート検出完了")
+                if shouldLog {
+                    self.appendLog(&logEntries, slide: sIdx, step: "テロップおよびノート検出", status: "SUCCESS", details: "テロップ: 「\(slide.telop.prefix(25))...」, ノート検出完了")
+                }
 
                 // Step 3: 背景画像の検出と「動画用」探索照合
                 let bgName = slide.backgroundName
                 let matchedBg = availableBackgrounds.first(where: { bgName.contains($0) || $0.contains(bgName) }) ?? (availableBackgrounds.first ?? bgName)
                 bgMatches += 1
-                self.appendLog(&logEntries, slide: sIdx, step: "背景画像照合", status: "MATCHED", details: "スライド背景「\(bgName)」-> 動画用/背景/\(matchedBg) に照合成功")
+                if shouldLog {
+                    self.appendLog(&logEntries, slide: sIdx, step: "背景画像照合", status: "MATCHED", details: "スライド背景「\(bgName)」-> 動画用/背景/\(matchedBg) に照合成功")
+                }
 
                 // Step 4: キャラクター画像の検出と「動画用」探索照合
                 let charName = slide.characterName
                 let matchedChar = availableCharacters.first(where: { $0.contains(charName) }) ?? "\(charName)_通常立ち絵.png"
                 charMatches += 1
-                self.appendLog(&logEntries, slide: sIdx, step: "キャラクター照合", status: "MATCHED", details: "キャラクター「\(charName)」-> 動画用/キャラクター/\(matchedChar) に高精度照合完了")
+                if shouldLog {
+                    self.appendLog(&logEntries, slide: sIdx, step: "キャラクター照合", status: "MATCHED", details: "キャラクター「\(charName)」-> 動画用/キャラクター/\(matchedChar) に高精度照合完了")
+                }
 
                 // Step 5: オブジェクトの検出と記録
                 let obj = slide.detectedObjects.first ?? "演出枠"
-                self.appendLog(&logEntries, slide: sIdx, step: "オブジェクト検出", status: "SUCCESS", details: "オブジェクト「\(obj)」のバウンディングボックスとアンカーを記録")
+                if shouldLog {
+                    self.appendLog(&logEntries, slide: sIdx, step: "オブジェクト検出", status: "SUCCESS", details: "オブジェクト「\(obj)」のバウンディングボックスとアンカーを記録")
+                }
 
                 // Step 6: アニメーション・トランジションの検出と紐付け
                 animCount += 1
-                self.appendLog(&logEntries, slide: sIdx, step: "アニメーション紐付け", status: "SUCCESS", details: "アニメーションタグ「\(slide.animationTag)」とイージングを正常紐付け")
+                if shouldLog {
+                    self.appendLog(&logEntries, slide: sIdx, step: "アニメーション紐付け", status: "SUCCESS", details: "アニメーションタグ「\(slide.animationTag)」とイージングを正常紐付け")
+                }
             }
 
             // Step 7: 実行テストと精度評価 (High precision >= 99%)
@@ -234,6 +265,7 @@ public final class SlideRecognitionService: ObservableObject {
                 AppState.shared.slides = recognizedSlides
                 AppState.shared.log("スライド認識完了: 「\(fileName)」から \(slideCount) 枚解析・置換 (精度: \(accuracy)%)")
                 AppState.shared.addHistory("スライド認識・置換: \(fileName) (\(slideCount)枚)")
+                ProcessInfo.processInfo.endActivity(activity)
                 completion(finalResult)
             }
         }
