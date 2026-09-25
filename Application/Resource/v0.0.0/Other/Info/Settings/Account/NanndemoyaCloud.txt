@@ -1,0 +1,6 @@
+(NanndemoyaCloud上のアカウントのアイコン画像)
+(UserName) #NanndemoyaCloudに登録している名前が表示されます。
+(Email) #NanndemoyaCloudに登録しているメールアドレスが表示されます。
+ライセンスで開く(Button) #ライセンスと認証＞NanndemoyaCloudに移動します。
+ログアウト(Button) #アプリケーションからGoogleアカウントのログインを解除します。ログアウト中は「Googleでログイン」と表示されます。ログイン時には、アプリケーション内ブラウザを利用し、ログイン処理をします。
+情報を更新(icon) #上記の項目の最新情報を読み取り、表示します。
