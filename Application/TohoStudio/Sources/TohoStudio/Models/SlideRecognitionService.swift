@@ -48,6 +48,20 @@ public final class SlideRecognitionService: ObservableObject {
     private let videoAssetsPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用"
     private let extractorScriptPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Scripts/keynote_extractor.py"
 
+    private var resolvedExtractorScriptPath: String {
+        if FileManager.default.fileExists(atPath: extractorScriptPath) {
+            return extractorScriptPath
+        }
+        if let bundlePath = Bundle.main.path(forResource: "keynote_extractor", ofType: "py") {
+            return bundlePath
+        }
+        let inBundle = Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/keynote_extractor.py").path
+        if FileManager.default.fileExists(atPath: inBundle) {
+            return inBundle
+        }
+        return extractorScriptPath
+    }
+
     private init() {}
 
     /// Returns all available Keynote presentation files located in the repository
@@ -279,21 +293,26 @@ public final class SlideRecognitionService: ObservableObject {
         }
 
         // Try Python script execution
-        if fileManager.fileExists(atPath: extractorScriptPath) {
+        let scriptPath = resolvedExtractorScriptPath
+        if fileManager.fileExists(atPath: scriptPath) {
+            let tempOutputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("toho_extract_\(UUID().uuidString).json")
+            defer {
+                try? fileManager.removeItem(at: tempOutputURL)
+            }
+
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
-            process.arguments = [extractorScriptPath, filePath]
-
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = Pipe()
+            process.arguments = [scriptPath, filePath, tempOutputURL.path]
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
 
             do {
                 try process.run()
                 process.waitUntilExit()
 
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                if fileManager.fileExists(atPath: tempOutputURL.path),
+                   let data = try? Data(contentsOf: tempOutputURL),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                    let slideDicts = json["slides"] as? [[String: Any]], !slideDicts.isEmpty {
                     var items: [SlideItem] = []
                     for (i, d) in slideDicts.enumerated() {
