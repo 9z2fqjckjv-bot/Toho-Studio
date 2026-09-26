@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 public struct MenuBarCommands: Commands {
     @ObservedObject var appState: AppState
@@ -11,6 +12,7 @@ public struct MenuBarCommands: Commands {
         // MARK: - Toho-Studio (cmd+t)
         CommandMenu("Toho-Studio") {
             Button("アプリ情報 (cmd+t+i)") {
+                appState.appInfoInitialTab = 0
                 appState.activeModal = .appInfo
                 appState.addHistory("メニュー: アプリ情報を表示")
             }
@@ -46,8 +48,8 @@ public struct MenuBarCommands: Commands {
         // MARK: - ファイル (cmd+f)
         CommandMenu("ファイル") {
             Button("新規作成 (cmd+f+n)") {
-                appState.log("新規編集ファイルを作成しました")
-                appState.addHistory("ファイル: 新規作成")
+                appState.activeModal = .newProject
+                appState.addHistory("ファイル: 新規作成ダイアログ表示")
             }
             .keyboardShortcut("n", modifiers: [.command, .option])
 
@@ -56,67 +58,79 @@ public struct MenuBarCommands: Commands {
                     appState.activeModal = .slideLoader
                     appState.log("スライド＆シナリオメーカー: スライドの読み込みプログラムを開きました")
                 } else {
-                    appState.log("ファイル読み込みダイアログを開きました")
+                    let panel = NSOpenPanel()
+                    panel.allowsMultipleSelection = false
+                    panel.canChooseFiles = true
+                    panel.canChooseDirectories = false
+                    panel.message = "開くプロジェクトまたは素材ファイルを選択してください"
+                    if panel.runModal() == .OK, let url = panel.url {
+                        appState.currentProjectPath = url.path
+                        appState.currentProjectName = url.deletingPathExtension().lastPathComponent
+                        if url.pathExtension.lowercased() == "key" {
+                            appState.currentModule = .slideScenarioMaker
+                            SlideRecognitionService.shared.loadSlideProgram(filePath: url.path, replaceState: true) { _, _ in }
+                        }
+                        appState.log("ファイルを読み込みました: \(url.lastPathComponent)")
+                        appState.addHistory("ファイル: 読み込み (\(url.lastPathComponent))")
+                    }
                 }
-                appState.addHistory("ファイル: ファイル読み込み")
+                appState.addHistory("ファイル: ファイル読み込み実行")
             }
             .keyboardShortcut("r", modifiers: [.command, .option])
 
             Button("書き出し (cmd+f+e)") {
-                appState.log("現在の編集ファイルを書き出しました")
-                appState.addHistory("ファイル: 書き出し")
+                appState.activeModal = .fileExport
+                appState.addHistory("ファイル: 書き出しダイアログ表示")
             }
             .keyboardShortcut("e", modifiers: [.command, .option])
 
             Button("複製 (cmd+f+c)") {
-                appState.log("編集ファイルを複製しました")
-                appState.addHistory("ファイル: 複製")
+                appState.performDuplicate()
             }
             .keyboardShortcut("c", modifiers: [.command, .option])
 
             Button("巻き戻し (cmd+f+b)") {
-                appState.log("編集ファイルを以前の状態に巻き戻しました")
-                appState.addHistory("ファイル: 巻き戻し")
+                appState.performRollback()
             }
             .keyboardShortcut("b", modifiers: [.command, .option])
 
             Button("バックアップ (cmd+f+shift+b)") {
-                _ = StorageManager.shared.createBackup(fileName: "CurrentProject", content: "TohoStudio Project Backup Data")
-                appState.log("プロジェクトのバックアップを作成しました")
-                appState.addHistory("ファイル: バックアップ")
+                appState.activeModal = .backupManager
+                appState.addHistory("ファイル: バックアップ管理を開きました")
             }
             .keyboardShortcut("b", modifiers: [.command, .option, .shift])
 
             Divider()
 
             Button("上書き保存 (cmd+f+s)") {
-                appState.log("編集ファイルを上書き保存しました")
-                appState.addHistory("ファイル: 上書き保存")
+                appState.performSave()
             }
             .keyboardShortcut("s", modifiers: [.command])
 
             Button("ファイル保存 (cmd+f+shift+s)") {
-                appState.log("プロジェクトファイルとして名前をつけて保存しました")
-                appState.addHistory("ファイル: 名前をつけて保存")
+                let panel = NSSavePanel()
+                panel.title = "プロジェクトに名前をつけて保存"
+                panel.nameFieldStringValue = "\(appState.currentProjectName).tohoproj"
+                if panel.runModal() == .OK, let url = panel.url {
+                    appState.performSaveAs(fileName: url.deletingPathExtension().lastPathComponent)
+                }
             }
             .keyboardShortcut("s", modifiers: [.command, .shift])
 
             Button("ファイル修復 (cmd+f+shift+r)") {
-                _ = StorageManager.shared.repairFile(filePath: "CurrentProject")
-                appState.log("ファイル修復処理を実行しました")
-                appState.addHistory("ファイル: ファイル修復")
+                appState.performRepair()
             }
             .keyboardShortcut("r", modifiers: [.command, .option, .shift])
 
             Button("整合性確認 (cmd+f+shift+c)") {
                 appState.activeModal = .integrityAlert
-                appState.addHistory("ファイル: 整合性確認")
+                appState.addHistory("ファイル: 整合性確認を開きました")
             }
             .keyboardShortcut("c", modifiers: [.command, .option, .shift])
 
             Button("ファイル情報 (cmd+f+i)") {
                 appState.activeModal = .fileInfo
-                appState.addHistory("ファイル: ファイル情報")
+                appState.addHistory("ファイル: ファイル情報を表示")
             }
             .keyboardShortcut("i", modifiers: [.command, .option])
         }
@@ -124,45 +138,47 @@ public struct MenuBarCommands: Commands {
         // MARK: - 編集 (cmd+e)
         CommandMenu("編集") {
             Button("やり直す (cmd+z)") {
-                appState.log("操作をひとつ戻しました (Undo)")
-                appState.addHistory("編集: やり直す")
+                appState.performUndo()
             }
             .keyboardShortcut("z", modifiers: [.command])
 
             Button("進める (cmd+shift+z)") {
-                appState.log("やり直した操作を進めました (Redo)")
-                appState.addHistory("編集: 進める")
+                appState.performRedo()
             }
             .keyboardShortcut("z", modifiers: [.command, .shift])
 
             Divider()
 
-            Button("トリミング (cmd+t)") {
-                appState.activeModal = .trimmingPopup
-                appState.addHistory("編集: トリミング")
+            // トリミング: ゲームメーカー以外で表示 (仕様書 78行目)
+            if appState.currentModule != .gameMaker {
+                Button("トリミング (cmd+t)") {
+                    appState.activeModal = .trimmingPopup
+                    appState.addHistory("編集: トリミングダイアログを開きました")
+                }
+                .keyboardShortcut("t", modifiers: [.command])
             }
-            .keyboardShortcut("t", modifiers: [.command])
 
             Button("分割 (cmd+e+c)") {
                 appState.activeModal = .splitPopup
-                appState.addHistory("編集: 分割")
+                appState.addHistory("編集: 分割ダイアログを開きました")
             }
             .keyboardShortcut("c", modifiers: [.command, .control])
 
             Button("インポート (cmd+e+i)") {
-                appState.log("素材スタジオにファイルをインポートしました")
-                appState.addHistory("編集: インポート")
+                appState.performImportMaterials()
             }
+            .keyboardShortcut("i", modifiers: [.command, .control])
 
             Button("エクスポート (cmd+e+o)") {
-                appState.log("素材スタジオからファイルをエクスポートしました")
-                appState.addHistory("編集: エクスポート")
+                appState.performExportMaterials()
             }
+            .keyboardShortcut("o", modifiers: [.command, .control])
 
             Button("シーン情報 (cmd+e+shift+i)") {
-                appState.activeModal = .fileInfo
-                appState.addHistory("編集: シーン情報")
+                appState.activeModal = .sceneInfo
+                appState.addHistory("編集: シーン情報を表示")
             }
+            .keyboardShortcut("i", modifiers: [.command, .control, .shift])
 
             Button("画面更新 (cmd+e+r)") {
                 appState.log("画面を更新し、最新状態を取得しました")
@@ -171,18 +187,16 @@ public struct MenuBarCommands: Commands {
 
             Button("点検と修正 (cmd+e+u)") {
                 appState.activeModal = .policyCheckPopup
-                appState.addHistory("編集: 点検と修正")
+                appState.addHistory("編集: 点検と修正を開きました")
             }
+            .keyboardShortcut("u", modifiers: [.command, .control])
 
-            Button("再生成 (cmd+e+p)") {
-                if appState.currentModule == .slideScenarioMaker {
-                    let path = SlideRecognitionService.shared.loadedProjectName.contains("/") ? SlideRecognitionService.shared.loadedProjectName : "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方惑情録/東方惑情録　第1話.key"
-                    SlideRecognitionService.shared.loadSlideProgram(filePath: path, replaceState: true) { _, _ in }
-                    appState.log("スライド＆シナリオメーカー: 表示されているスライドの元ファイルを再読み込みしました")
-                } else {
-                    appState.log("現在表示中の要素を再生成しました")
+            // 再生成: 素材スタジオ以外で表示 (仕様書 162行目)
+            if appState.currentModule != .materialStudio {
+                Button("再生成 (cmd+e+p)") {
+                    appState.performRegenerate()
                 }
-                appState.addHistory("編集: 再生成")
+                .keyboardShortcut("p", modifiers: [.command, .control])
             }
 
             Button("素材一覧 (cmd+e+s)") {
@@ -196,223 +210,289 @@ public struct MenuBarCommands: Commands {
 
             Button("編集履歴 (cmd+e+h)") {
                 appState.activeModal = .historyList
-                appState.addHistory("編集: 編集履歴")
+                appState.addHistory("編集: 編集履歴を表示")
             }
+            .keyboardShortcut("h", modifiers: [.command, .control])
 
             Button("自動保存 (cmd+e+a)") {
                 StorageManager.shared.autoSaveEnabled.toggle()
                 appState.log("自動保存を \(StorageManager.shared.autoSaveEnabled ? "有効" : "無効") にしました")
                 appState.addHistory("編集: 自動保存切り替え")
             }
+            .keyboardShortcut("a", modifiers: [.command, .control])
 
             Button("素材作成 (cmd+e+m)") {
-                appState.log("編集中のデータから新規素材を作成し、素材スタジオに保存しました")
-                appState.addHistory("編集: 素材作成")
+                appState.performCreateMaterialFromCurrent()
             }
+            .keyboardShortcut("m", modifiers: [.command, .control])
 
             Button("編集メモ (cmd+e+n)") {
                 appState.activeModal = .memoPad
-                appState.addHistory("編集: 編集メモ")
+                appState.addHistory("編集: 編集メモを開きました")
             }
+            .keyboardShortcut("n", modifiers: [.command, .control])
         }
 
         // MARK: - 表示 (cmd+d)
         CommandMenu("表示") {
             Button("全画面表示 (cmd+d+a)") {
                 appState.isFullScreen.toggle()
-                appState.addHistory("表示: 全画面表示切り替え")
+                appState.addHistory("表示: 全画面表示切り替え (\(appState.isFullScreen ? "全画面" : "通常"))")
             }
+            .keyboardShortcut("a", modifiers: [.command, .option])
 
             Button("進捗状況確認 (cmd+d+s)") {
                 appState.activeModal = .backgroundProcess
-                appState.addHistory("表示: 進捗状況確認")
+                appState.addHistory("表示: 進捗状況確認を表示")
             }
 
             Button("ログと実績 (cmd+d+l)") {
                 appState.activeModal = .logsAndAchievements
-                appState.addHistory("表示: ログと実績")
+                appState.addHistory("表示: ログと実績を表示")
             }
 
             Button("バグレポート (cmd+d+b)") {
                 appState.activeModal = .bugReport
-                appState.addHistory("表示: バグレポート")
+                appState.addHistory("表示: バグレポートを開きました")
             }
 
             Button("Finderで表示 (cmd+d+f)") {
-                appState.log("Finderでファイルパスを開きました")
-                appState.addHistory("表示: Finderで表示")
+                appState.showInFinder()
             }
 
             Button("履歴一覧 (cmd+d+m)") {
                 appState.activeModal = .historyList
-                appState.addHistory("表示: 履歴一覧")
+                appState.addHistory("表示: 履歴一覧を表示")
             }
 
             Button("ステータス (cmd+d+shift+s)") {
                 appState.activeModal = .statusComparison
-                appState.addHistory("表示: ステータス比較")
+                appState.addHistory("表示: ステータス比較を表示")
             }
 
             Button("スクショ (cmd+d+p)") {
-                appState.log("画面スクリーンショットをキャプチャし素材スタジオに保存しました")
-                appState.addHistory("表示: スクショ")
+                appState.captureScreen()
+            }
+
+            Button(appState.isScreenRecording ? "画面収録を停止 (cmd+d+shift+p)" : "画面収録を開始 (cmd+d+shift+p)") {
+                appState.toggleScreenRecording()
             }
 
             Button("デバック画面 (cmd+d+shift+l)") {
                 appState.activeModal = .debugScreen
-                appState.addHistory("表示: デバック画面")
+                appState.addHistory("表示: デバック画面を表示")
             }
 
             Button("ソフト一覧 (cmd+d+option+s)") {
                 appState.activeModal = .softwareList
-                appState.addHistory("表示: ソフト一覧")
+                appState.addHistory("表示: ソフト一覧を表示")
             }
 
             Button("機能リスト (cmd+d+option+l)") {
                 appState.activeModal = .featureList
-                appState.addHistory("表示: 機能リスト")
+                appState.addHistory("表示: 機能リストを表示")
+            }
+
+            Button("オプション (cmd+d+option)") {
+                appState.activeModal = .contextOptions
+                appState.addHistory("表示: コンテキストオプションを表示")
             }
 
             Button("備考録 (cmd+d+n)") {
                 appState.activeModal = .memoPad
-                appState.addHistory("表示: 備考録")
+                appState.addHistory("表示: 備考録を表示")
+            }
+
+            Divider()
+
+            Button("拡大 (cmd+d+z)") {
+                appState.zoomScale = min(appState.zoomScale + 0.1, 1.8)
+                appState.log("UI表示倍率を拡大しました: \(Int(appState.zoomScale * 100))%")
+                appState.addHistory("表示: 拡大 (\(Int(appState.zoomScale * 100))%)")
+            }
+
+            Button("縮小 (cmd+d+shift+z)") {
+                appState.zoomScale = max(appState.zoomScale - 0.1, 0.7)
+                appState.log("UI表示倍率を縮小しました: \(Int(appState.zoomScale * 100))%")
+                appState.addHistory("表示: 縮小 (\(Int(appState.zoomScale * 100))%)")
             }
         }
 
-        // MARK: - 再生 (cmd+p) - ムービーメーカー専用
-        CommandMenu("再生") {
-            Button("全画面再生 (cmd+p+a)") {
-                appState.isFullScreen = true
-                appState.isPlaying = true
-                appState.addHistory("再生: 全画面再生")
-            }
+        // MARK: - 再生 (cmd+p) - ムービーメーカー専用 (仕様書 193行目)
+        if appState.currentModule == .movieMaker {
+            CommandMenu("再生") {
+                Button("全画面再生 (cmd+p+a)") {
+                    appState.isFullScreen = true
+                    appState.isPlaying = true
+                    appState.addHistory("再生: 全画面再生を開始")
+                }
 
-            Button("ここから再生 (cmd+p+n)") {
-                appState.isPlaying = true
-                appState.addHistory("再生: ここから再生")
-            }
+                Button("ここから再生 (cmd+p+n)") {
+                    appState.isPlaying = true
+                    appState.addHistory("再生: ここから再生")
+                }
 
-            Button("ループ再生 (cmd+p+l)") {
-                appState.isLooping.toggle()
-                appState.addHistory("再生: ループ切り替え (\(appState.isLooping))")
-            }
+                Button("ループ再生 (cmd+p+l)") {
+                    appState.isLooping.toggle()
+                    appState.addHistory("再生: ループ切り替え (\(appState.isLooping ? "ループON" : "ループOFF"))")
+                }
 
-            Button("音量アップ (cmd+p+u)") {
-                appState.playbackVolume = min(appState.playbackVolume + 0.1, 1.0)
-                appState.addHistory("再生: 音量アップ (\(Int(appState.playbackVolume * 100))%)")
-            }
+                Button("音量アップ (cmd+p+u)") {
+                    appState.playbackVolume = min(appState.playbackVolume + 0.1, 1.0)
+                    appState.addHistory("再生: 音量アップ (\(Int(appState.playbackVolume * 100))%)")
+                }
 
-            Button("音量ダウン (cmd+p+d)") {
-                appState.playbackVolume = max(appState.playbackVolume - 0.1, 0.0)
-                appState.addHistory("再生: 音量ダウン (\(Int(appState.playbackVolume * 100))%)")
-            }
+                Button("音量ダウン (cmd+p+d)") {
+                    appState.playbackVolume = max(appState.playbackVolume - 0.1, 0.0)
+                    appState.addHistory("再生: 音量ダウン (\(Int(appState.playbackVolume * 100))%)")
+                }
 
-            Button("最初から再生 (cmd+p+s)") {
-                appState.currentTime = 0.0
-                appState.isPlaying = true
-                appState.addHistory("再生: 最初から再生")
-            }
+                Button("最初から再生 (cmd+p+s)") {
+                    appState.currentTime = 0.0
+                    appState.isPlaying = true
+                    appState.addHistory("再生: 最初から再生")
+                }
 
-            Button("ここだけ再生 (cmd+p+option+s)") {
-                appState.isPlaying = true
-                appState.addHistory("再生: ここだけ再生")
-            }
+                Button("ここだけ再生 (cmd+p+option+s)") {
+                    appState.isPlaying = true
+                    appState.addHistory("再生: ここだけ再生")
+                }
 
-            Button("停止 (cmd+p+space+s)") {
-                appState.isPlaying = false
-                appState.addHistory("再生: 停止")
-            }
+                Button("停止 (cmd+p+space+s)") {
+                    appState.isPlaying = false
+                    appState.addHistory("再生: 停止")
+                }
 
-            Button("巻き戻し (cmd+p+b)") {
-                appState.currentTime = max(appState.currentTime - 5.0, 0.0)
-                appState.addHistory("再生: 巻き戻し")
-            }
+                Button("巻き戻し (cmd+p+b)") {
+                    appState.currentTime = max(appState.currentTime - 5.0, 0.0)
+                    appState.addHistory("再生: 巻き戻し (5秒)")
+                }
 
-            Button("早送り (cmd+p+f)") {
-                appState.currentTime = min(appState.currentTime + 5.0, appState.totalDuration)
-                appState.addHistory("再生: 早送り")
-            }
+                Button("早送り (cmd+p+f)") {
+                    appState.currentTime = min(appState.currentTime + 5.0, appState.totalDuration)
+                    appState.addHistory("再生: 早送り (5秒)")
+                }
 
-            Button("デバック再生 (cmd+p+shift+d)") {
-                appState.isDebugPlayback.toggle()
-                appState.addHistory("再生: デバック再生切り替え")
-            }
+                Divider()
 
-            Button("再生位置確認 (cmd+p+i)") {
-                appState.showPlaybackOverlay.toggle()
-                appState.addHistory("再生: 再生位置確認表示切り替え")
-            }
+                Menu("倍速再生 (cmd+p+数字キー)") {
+                    Button("1.0倍速 (等倍)") { appState.playbackSpeed = 1.0 }
+                    Button("1.5倍速") { appState.playbackSpeed = 1.5 }
+                    Button("2.0倍速") { appState.playbackSpeed = 2.0 }
+                    Button("3.0倍速") { appState.playbackSpeed = 3.0 }
+                    Button("5.0倍速") { appState.playbackSpeed = 5.0 }
+                    Button("9.0倍速") { appState.playbackSpeed = 9.0 }
+                }
 
-            Button("レート確認 (cmd+p+r)") {
-                appState.showRateOverlay.toggle()
-                appState.addHistory("再生: レート確認表示切り替え")
+                Menu("素材情報表示 (cmd+p+特定キー)") {
+                    Button("キャラクター情報 (c)") { appState.activeMaterialInfoKey = "c" }
+                    Button("オブジェクト情報 (o)") { appState.activeMaterialInfoKey = "o" }
+                    Button("背景画像情報 (b)") { appState.activeMaterialInfoKey = "b" }
+                    Button("テロップ情報 (p)") { appState.activeMaterialInfoKey = "p" }
+                    Button("非表示 (クリア)") { appState.activeMaterialInfoKey = nil }
+                }
+
+                Divider()
+
+                Button("デバック再生 (cmd+p+shift+d)") {
+                    appState.isDebugPlayback.toggle()
+                    appState.addHistory("再生: デバック再生切り替え (\(appState.isDebugPlayback))")
+                }
+
+                Button("再生位置確認 (cmd+p+i)") {
+                    appState.showPlaybackOverlay.toggle()
+                    appState.addHistory("再生: 再生位置確認表示切り替え")
+                }
+
+                Button("レート確認 (cmd+p+r)") {
+                    appState.showRateOverlay.toggle()
+                    appState.addHistory("再生: レート確認表示切り替え")
+                }
             }
         }
 
         // MARK: - ウィンドウ (cmd+w)
         CommandMenu("ウィンドウ") {
             Button("レイアウト (cmd+w+l)") {
-                appState.log("レイアウトを切り替えました")
-                appState.addHistory("ウィンドウ: レイアウト切り替え")
+                appState.cycleLayout()
             }
 
             Button("コードモード (cmd+c)") {
                 appState.activeModal = .developer
-                appState.addHistory("ウィンドウ: コードモード")
+                appState.addHistory("ウィンドウ: コードモード (開発者コンソール)")
             }
 
             Button("リセット (cmd+w+r)") {
-                appState.log("プログラムをリセットし初期状態に戻しました")
-                appState.addHistory("ウィンドウ: リセット")
+                appState.performSoftReset()
             }
 
             Button("更新 (cmd+w+shift+r)") {
-                appState.log("表示画面を復元しました")
-                appState.addHistory("ウィンドウ: 更新")
+                appState.performRestoreAfterReset()
             }
 
             Button("新規展開 (cmd+w+n)") {
-                appState.log("新規ウィンドウを開きました")
+                let url = Bundle.main.bundleURL
+                let config = NSWorkspace.OpenConfiguration()
+                config.createsNewApplicationInstance = true
+                NSWorkspace.shared.openApplication(at: url, configuration: config, completionHandler: nil)
+                appState.log("新しいウィンドウでアプリケーションを新規展開しました")
                 appState.addHistory("ウィンドウ: 新規展開")
+            }
+
+            Button("アプリを閉じる (cmd+w+q)") {
+                NSApplication.shared.hide(nil)
+            }
+            .keyboardShortcut("q", modifiers: [.command, .control])
+
+            Button("パネル表示 (cmd+w+p)") {
+                appState.isPanelDisplayMode.toggle()
+                appState.log("パネル統合表示を \(appState.isPanelDisplayMode ? "有効" : "無効") にしました")
+                appState.addHistory("ウィンドウ: パネル表示切り替え")
+            }
+
+            Button("オプション (cmd+w+o)") {
+                appState.activeModal = .windowOptions
+                appState.addHistory("ウィンドウ: オプション設定を表示")
             }
         }
 
         // MARK: - ヘルプ (cmd+h)
         CommandMenu("ヘルプ") {
             Button("取扱説明書 (cmd+h+d)") {
-                appState.activeModal = .featureList
-                appState.addHistory("ヘルプ: 取扱説明書")
+                appState.activeModal = .manual
+                appState.addHistory("ヘルプ: 取扱説明書を表示")
             }
 
             Button("ヘルプガイド (cmd+h+g)") {
-                appState.activeModal = .featureList
-                appState.addHistory("ヘルプ: ヘルプガイド")
+                appState.activeModal = .helpGuide
+                appState.addHistory("ヘルプ: ヘルプガイドを表示")
             }
 
             Button("Q&A (cmd+h+q)") {
-                appState.activeModal = .featureList
-                appState.addHistory("ヘルプ: Q&A")
+                appState.activeModal = .qa
+                appState.addHistory("ヘルプ: Q&Aを表示")
             }
 
             Button("クレジット (cmd+h+k)") {
-                appState.activeModal = .appInfo
-                appState.addHistory("ヘルプ: クレジット")
+                appState.activeModal = .credits
+                appState.addHistory("ヘルプ: クレジットを表示")
             }
 
             Button("困ったときは (cmd+h+n)") {
-                appState.activeModal = .featureList
-                appState.addHistory("ヘルプ: 困ったときは")
+                appState.activeModal = .troubleshoot
+                appState.addHistory("ヘルプ: 困ったときはを表示")
             }
 
             Button("ライセンス (cmd+h+l)") {
-                appState.activeModal = .appInfo
-                appState.addHistory("ヘルプ: ライセンス")
+                appState.activeModal = .license
+                appState.addHistory("ヘルプ: ライセンスを表示")
             }
 
             Button("サポート依頼 (cmd+h+s)") {
-                appState.activeModal = .bugReport
-                appState.addHistory("ヘルプ: サポート依頼")
+                appState.activeModal = .supportRequest
+                appState.addHistory("ヘルプ: サポート依頼を表示")
             }
         }
     }
 }
+

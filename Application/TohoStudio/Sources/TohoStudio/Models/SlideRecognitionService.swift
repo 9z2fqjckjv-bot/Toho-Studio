@@ -479,6 +479,87 @@ public final class SlideRecognitionService: ObservableObject {
         AppState.shared.materials = items
     }
 
+    /// 指示書 Slide 34 準拠:
+    /// 「動画用フォルダ内の各ファイルの一括素材スタジオ追加を行い、Applicationフォルダ内でスライド、素材、作品を一元管理する」
+    public func importAllVideoAssetsToMaterialStudio(completion: @escaping (Int) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            let videoRoot = self.videoAssetsPath
+            let fm = FileManager.default
+            guard fm.fileExists(atPath: videoRoot) else {
+                DispatchQueue.main.async { completion(0) }
+                return
+            }
+
+            var newMaterials: [MaterialItem] = []
+            var registeredPaths = Set(AppState.shared.materials.map { $0.filePath })
+
+            let enumerator = fm.enumerator(atPath: videoRoot)
+            while let file = enumerator?.nextObject() as? String {
+                if file.hasPrefix(".") || file.contains("/.") { continue }
+                let fullPath = "\(videoRoot)/\(file)"
+                if registeredPaths.contains(fullPath) { continue }
+
+                var isDir: ObjCBool = false
+                if fm.fileExists(atPath: fullPath, isDirectory: &isDir), !isDir.boolValue {
+                    let ext = URL(fileURLWithPath: fullPath).pathExtension.lowercased()
+                    let fileName = URL(fileURLWithPath: fullPath).lastPathComponent
+                    let attrs = try? fm.attributesOfItem(atPath: fullPath)
+                    let size = (attrs?[.size] as? Int64) ?? 1024
+
+                    var mType = "画像"
+                    var category = "一般"
+
+                    if ["png", "jpg", "jpeg", "pxd", "gif", "webp"].contains(ext) {
+                        mType = "画像"
+                        if file.contains("背景") {
+                            category = "背景"
+                        } else if file.contains("キャラクター") {
+                            category = "キャラクター"
+                        } else if file.contains("手作り素材") {
+                            category = "手作り素材"
+                        } else {
+                            category = "画像素材"
+                        }
+                    } else if ["mp3", "wav", "m4a", "aac", "ogg"].contains(ext) {
+                        mType = "音声"
+                        if file.contains("BGM") {
+                            category = "BGM"
+                        } else if file.contains("効果音") || file.contains("SE") {
+                            category = "効果音"
+                        } else {
+                            category = "音声"
+                        }
+                    } else if ["key", "keynote"].contains(ext) {
+                        mType = "スライド"
+                        category = "スライド"
+                    } else if ["txt", "md", "csv", "json"].contains(ext) {
+                        mType = "シナリオ"
+                        category = "台本"
+                    }
+
+                    let item = MaterialItem(
+                        title: fileName,
+                        type: mType,
+                        category: category,
+                        filePath: fullPath,
+                        fileSize: size,
+                        createdAt: Date(),
+                        isCloudSynced: true
+                    )
+                    newMaterials.append(item)
+                    registeredPaths.insert(fullPath)
+                }
+            }
+
+            DispatchQueue.main.async {
+                AppState.shared.materials.append(contentsOf: newMaterials)
+                AppState.shared.log("動画用フォルダから一括素材スタジオ追加完了: \(newMaterials.count)件登録")
+                completion(newMaterials.count)
+            }
+        }
+    }
+
     private func autoSaveProject(fileName: String) {
         let app = AppState.shared
         let projectDict: [String: Any] = [

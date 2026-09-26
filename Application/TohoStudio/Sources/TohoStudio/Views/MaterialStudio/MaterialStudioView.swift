@@ -40,6 +40,16 @@ public struct MaterialStudioView: View {
                 }
                 .buttonStyle(.bordered)
 
+                // 指示書 Slide 34: 動画用フォルダ内の各ファイルの一括素材スタジオ追加
+                Button(action: {
+                    SlideRecognitionService.shared.importAllVideoAssetsToMaterialStudio { count in
+                        appState.log("動画用フォルダから一括素材スタジオ追加が完了しました（\(count)件）")
+                    }
+                }) {
+                    Label("動画用フォルダ一括追加", systemImage: "square.and.arrow.down.on.square.fill")
+                }
+                .buttonStyle(.bordered)
+
                 // AI Advanced Search Button
                 Button(action: { showAiSearchModal = true }) {
                     Label("AI高度検索・置換", systemImage: "sparkles")

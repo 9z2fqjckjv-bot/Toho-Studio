@@ -41,6 +41,7 @@ public final class AquesTalkBridge: ObservableObject {
 
     private init() {
         loadLibraries()
+        // License keys will be loaded and synchronized via AquesTalkLicenseManager.shared
     }
 
     deinit {
@@ -118,16 +119,20 @@ public final class AquesTalkBridge: ObservableObject {
     }
 
     public func applyKeys(dev: String, usr: String) {
-        self.devKey = dev
-        self.usrKey = usr
-        if let devFunc = setDevKeyPtr, !dev.isEmpty {
-            dev.withCString { _ = devFunc($0) }
+        applyMultiKeys(aqDev: dev, aqUsr: usr, kanjiDev: dev)
+    }
+
+    public func applyMultiKeys(aqDev: String, aqUsr: String, kanjiDev: String) {
+        self.devKey = aqDev.isEmpty ? kanjiDev : aqDev
+        self.usrKey = aqUsr
+        if let devFunc = setDevKeyPtr, !aqDev.isEmpty {
+            aqDev.withCString { _ = devFunc($0) }
         }
-        if let usrFunc = setUsrKeyPtr, !usr.isEmpty {
-            usr.withCString { _ = usrFunc($0) }
+        if let usrFunc = setUsrKeyPtr, !aqUsr.isEmpty {
+            aqUsr.withCString { _ = usrFunc($0) }
         }
-        if let kDevFunc = kanjiSetDevKeyPtr, !dev.isEmpty {
-            dev.withCString { _ = kDevFunc($0) }
+        if let kDevFunc = kanjiSetDevKeyPtr, !kanjiDev.isEmpty {
+            kanjiDev.withCString { _ = kDevFunc($0) }
         }
     }
 

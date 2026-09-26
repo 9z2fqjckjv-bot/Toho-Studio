@@ -252,50 +252,132 @@ end tell
         return 0
 
 _ASSET_INDEX = {}
+_ASSET_INFO = {}
+
+def classify_video_asset(full_path):
+    """
+    指示書 Slide 15-33 準拠:
+    『キャラクターと背景画像の識別には”動画用”フォルダ内を用い入ります』
+    ファイルパスが動画用フォルダのどのサブディレクトリに属するかによって、
+    background, character, handmade, bgm, se, voice を確定識別する。
+    """
+    norm_path = unicodedata.normalize("NFC", full_path)
+    rel = norm_path
+    if "/動画用/" in norm_path:
+        rel = norm_path.split("/動画用/", 1)[1]
+    
+    parts = rel.split("/")
+    top_folder = parts[0] if len(parts) > 0 else ""
+    
+    cat = "object"
+    char_name = None
+    
+    if top_folder == "背景":
+        cat = "background"
+    elif top_folder in ["キャラクター", "キャラクター元ファイル"]:
+        cat = "character"
+        # ディレクトリパスからキャラクター名を特定
+        # 例: 動画用/キャラクター/魂魄妖夢/... -> 魂魄妖夢
+        # 例: 動画用/キャラクター/主人公たち/博麗霊夢/... -> 博麗霊夢
+        for p in parts[1:]:
+            p_clean = re.sub(r"\(.*?\)|（.*?）", "", p).strip()
+            for k, full_n in CHAR_MAP.items():
+                if k in p_clean:
+                    char_name = full_n
+                    break
+            if char_name:
+                break
+            if p_clean in CHAR_MAP.values():
+                char_name = p_clean
+                break
+        if not char_name and len(parts) >= 2:
+            cand = re.sub(r"\(.*?\)|（.*?）", "", parts[-2]).strip()
+            if cand and cand not in ["キャラクター", "元ファイル", "主人公", "主人公たち"]:
+                char_name = cand
+    elif top_folder == "手作り素材":
+        cat = "handmade"
+    elif top_folder == "音楽":
+        if len(parts) >= 2 and "BGM" in parts[1]:
+            cat = "bgm"
+        elif len(parts) >= 2 and ("効果音" in parts[1] or "SE" in parts[1]):
+            cat = "se"
+        else:
+            cat = "bgm"
+    elif top_folder == "Podcast":
+        cat = "voice"
+        
+    return cat, char_name
 
 def build_asset_index():
-    global _ASSET_INDEX
+    global _ASSET_INDEX, _ASSET_INFO
     if _ASSET_INDEX:
         return _ASSET_INDEX
 
     index = {}
+    info_map = {}
     for base_dir in [CACHE_ROOT, VIDEO_DIR]:
         if os.path.exists(base_dir):
             for root, _, files in os.walk(base_dir):
                 for f in files:
                     if f.startswith("."):
                         continue
+                    abs_path = os.path.join(root, f)
                     nfc = unicodedata.normalize("NFC", f)
-                    index[nfc] = os.path.join(root, f)
+                    cat, cname = classify_video_asset(abs_path)
+                    meta = {
+                        "path": abs_path,
+                        "category": cat,
+                        "character_name": cname,
+                        "filename": nfc
+                    }
+
+                    index[nfc] = abs_path
+                    info_map[nfc] = meta
+
                     clean = re.sub(r"\.[a-zA-Z0-9]+$", "", nfc)
                     if clean not in index:
-                        index[clean] = os.path.join(root, f)
+                        index[clean] = abs_path
+                        info_map[clean] = meta
+
                     no_nc = re.sub(r"^nc\d+_", "", nfc)
                     if no_nc not in index:
-                        index[no_nc] = os.path.join(root, f)
+                        index[no_nc] = abs_path
+                        info_map[no_nc] = meta
+
                     no_nc_clean = re.sub(r"\.[a-zA-Z0-9]+$", "", no_nc)
                     if no_nc_clean not in index:
-                        index[no_nc_clean] = os.path.join(root, f)
+                        index[no_nc_clean] = abs_path
+                        info_map[no_nc_clean] = meta
+
     _ASSET_INDEX = index
+    _ASSET_INFO = info_map
     return _ASSET_INDEX
 
-def find_asset(name):
+def find_asset_info(name):
+    """アセット名からパスおよび動画用フォルダ階層に基づく分類メタデータを取得"""
     if not name:
         return None
-    idx = build_asset_index()
+    build_asset_index()
     nfc = unicodedata.normalize("NFC", name)
-    if nfc in idx:
-        return idx[nfc]
+    if nfc in _ASSET_INFO:
+        return _ASSET_INFO[nfc]
     clean = re.sub(r"\.[a-zA-Z0-9]+$", "", nfc)
-    if clean in idx:
-        return idx[clean]
+    if clean in _ASSET_INFO:
+        return _ASSET_INFO[clean]
     no_nc = re.sub(r"^nc\d+_", "", nfc)
-    if no_nc in idx:
-        return idx[no_nc]
-    for k, v in idx.items():
+    if no_nc in _ASSET_INFO:
+        return _ASSET_INFO[no_nc]
+    no_nc_clean = re.sub(r"\.[a-zA-Z0-9]+$", "", no_nc)
+    if no_nc_clean in _ASSET_INFO:
+        return _ASSET_INFO[no_nc_clean]
+    for k, v in _ASSET_INFO.items():
         if clean and len(clean) >= 3 and clean in k:
             return v
     return None
+
+def find_asset(name):
+    info = find_asset_info(name)
+    return info["path"] if info else None
 
 def fix_mojibake(name):
     if not name:
@@ -522,36 +604,73 @@ def detect_slide_type(slide_idx, texts, slide_name):
 
     return "content"
 
-def parse_duration_from_note(note, default_duration=3.0):
+def parse_duration_from_note(note, default_duration=3.0, anim_duration=None):
+    """
+    指示書 Slide 3, 7, 10, 11 準拠:
+    - 表示時間はアニメーションの記載がノートにない限り、3秒に記載（タイトル/中扉はデフォルト3.0秒）
+    - ノートに()書きでアニメーション（あるいは表示時間）の記載があれば、それを表示時間にする
+    - 「アニメーションに合わせる」などの文言があればアニメーション合計時間（+0.5秒）を適用
+    """
     if not note:
         return default_duration
-    # (アニメーション: 15秒) or （アニメーション: 15秒） or (表示時間: 5秒)
-    m = re.search(r"[\(（](?:アニメーション|表示時間|時間)[\s:：]*(\d+(?:\.\d+)?)\s*秒[\)）]", note)
+    raw = str(note)
+
+    # 「アニメーションに合わせる」「アニメーション準拠」などの文言
+    if any(k in raw for k in ["アニメーションに合わせる", "アニメーション準拠", "アニメに合わせる"]):
+        if anim_duration and anim_duration > 0:
+            return round(anim_duration + 0.5, 1)
+        return 4.0
+
+    # (アニメーション: 15秒) or （アニメーション: 15秒） or (表示時間: 5秒) or (時間: 5秒)
+    m = re.search(r"[\(（](?:アニメーション|表示時間|時間)[\s:：]*(\d+(?:\.\d+)?)\s*秒?[\)）]", raw)
     if m:
         try:
             return float(m.group(1))
         except Exception:
             pass
+
     # (X秒) or （X秒）
-    m2 = re.search(r"[\(（](\d+(?:\.\d+)?)\s*秒[\)）]", note)
+    m2 = re.search(r"[\(（](\d+(?:\.\d+)?)\s*秒[\)）]", raw)
     if m2:
         try:
             return float(m2.group(1))
         except Exception:
             pass
+
+    # (X.X) or （X.X） 単位省略の数値
+    m3 = re.search(r"[\(（](\d+(?:\.\d+)?)[\)）]", raw)
+    if m3:
+        try:
+            val = float(m3.group(1))
+            if 0.5 <= val <= 300.0:
+                return val
+        except Exception:
+            pass
+
     return default_duration
 
 def extract_animations_from_decomp(decomp, objects, texts, slide_type):
+    """
+    指示書 Slide 3, 5, 6, 7, 8, 9, 10, 11, 13 準拠:
+    - アニメーションは、イン(buildIn)とアクション(action)、アウト(buildOut)の3種類をすべて読み込む
+    - 複数キャラクター/オブジェクトがある場合、Build Order (再生順番)を順番に読み取り適用
+    """
     animations = []
     build_orders = []
 
-    has_bounce = b"apple:action-bounce" in decomp or b"bounce" in decomp.lower()
-    has_rotation = b"apple:action-rotation" in decomp or b"rotation" in decomp.lower()
+    decomp_lower = decomp.lower()
+    has_bounce = b"apple:action-bounce" in decomp or b"bounce" in decomp_lower
+    has_rotation = b"apple:action-rotation" in decomp or b"rotation" in decomp_lower
+    has_scale = b"apple:action-scale" in decomp or b"scale" in decomp_lower
+    has_opacity = b"apple:action-opacity" in decomp or b"opacity" in decomp_lower
+    has_build_in = b"apple:build-in" in decomp or b"buildin" in decomp_lower or b"build-in" in decomp_lower
+    has_build_out = b"apple:build-out" in decomp or b"buildout" in decomp_lower or b"build-out" in decomp_lower
 
     anim_idx = 1
 
     if slide_type == "title":
-        # 指示書 Slide 3: タイトル白文字およびサブタイトル青文字のアニメーション
+        # 指示書 Slide 3: タイトル”白文字”のアニメーションとサブタイトル”青文字”のアニメーション
+        # イン・アクション・アウトのステータス完全読み取り
         animations.append({
             "id": f"anim_title_in_{anim_idx}",
             "targetObjectName": "タイトル白文字",
@@ -586,8 +705,28 @@ def extract_animations_from_decomp(decomp, objects, texts, slide_type):
         })
         anim_idx += 1
 
+        if has_bounce:
+            animations.append({
+                "id": f"anim_title_act_{anim_idx}",
+                "targetObjectName": "タイトル白文字",
+                "animationType": "action",
+                "effect": "バウンス",
+                "duration": 1.0,
+                "direction": "up",
+                "bounces": 2,
+                "decay": 0.5
+            })
+            build_orders.append({
+                "order": 3,
+                "animationId": f"anim_title_act_{anim_idx}",
+                "targetObjectName": "タイトル白文字",
+                "trigger": "withPrevious",
+                "delay": 0.0
+            })
+            anim_idx += 1
+
     elif slide_type == "sectionHeader":
-        # 指示書 Slide 7: タイトル白文字のアニメーション
+        # 指示書 Slide 7: セクション見出し タイトル”白文字”のアニメーション (イン、アクション、アウト)
         animations.append({
             "id": f"anim_section_in_{anim_idx}",
             "targetObjectName": "タイトル白文字",
@@ -605,13 +744,71 @@ def extract_animations_from_decomp(decomp, objects, texts, slide_type):
         })
         anim_idx += 1
 
+        if has_build_out:
+            animations.append({
+                "id": f"anim_section_out_{anim_idx}",
+                "targetObjectName": "タイトル白文字",
+                "animationType": "buildOut",
+                "effect": "ディゾルブ",
+                "duration": 0.8,
+                "direction": "none"
+            })
+            build_orders.append({
+                "order": 2,
+                "animationId": f"anim_section_out_{anim_idx}",
+                "targetObjectName": "タイトル白文字",
+                "trigger": "afterPrevious",
+                "delay": 1.2
+            })
+            anim_idx += 1
+
     else:
         # 指示書 Slide 4, 5, 6, 8, 9, 10, 11, 12, 13: 通常スライドのアニメーション
-        target_obj = objects[0]["name"] if objects else "キャラクター立ち絵"
+        # テロップ、キャラクター立ち絵、手作り素材オブジェクトの3種類に対するアニメーション
+        target_char = "キャラクター立ち絵"
+        target_telop = "テロップ"
+
+        # 1. ビルドイン (Build In)
+        animations.append({
+            "id": f"anim_in_{anim_idx}",
+            "targetObjectName": target_char,
+            "animationType": "buildIn",
+            "effect": "フェードイン",
+            "duration": 0.8,
+            "direction": "none"
+        })
+        build_orders.append({
+            "order": len(build_orders) + 1,
+            "animationId": f"anim_in_{anim_idx}",
+            "targetObjectName": target_char,
+            "trigger": "afterPrevious",
+            "delay": 0.0
+        })
+        anim_idx += 1
+
+        # テロップのインアニメーション
+        animations.append({
+            "id": f"anim_telop_in_{anim_idx}",
+            "targetObjectName": target_telop,
+            "animationType": "buildIn",
+            "effect": "タイプライター",
+            "duration": 0.6,
+            "direction": "leftToRight"
+        })
+        build_orders.append({
+            "order": len(build_orders) + 1,
+            "animationId": f"anim_telop_in_{anim_idx}",
+            "targetObjectName": target_telop,
+            "trigger": "withPrevious",
+            "delay": 0.2
+        })
+        anim_idx += 1
+
+        # 2. アクション (Action)
         if has_bounce:
             animations.append({
                 "id": f"anim_bounce_{anim_idx}",
-                "targetObjectName": target_obj,
+                "targetObjectName": target_char,
                 "animationType": "action",
                 "effect": "バウンス",
                 "duration": 1.5,
@@ -622,14 +819,14 @@ def extract_animations_from_decomp(decomp, objects, texts, slide_type):
             build_orders.append({
                 "order": len(build_orders) + 1,
                 "animationId": f"anim_bounce_{anim_idx}",
-                "targetObjectName": target_obj,
+                "targetObjectName": target_char,
                 "trigger": "afterPrevious",
                 "delay": 0.0
             })
             anim_idx += 1
 
         if has_rotation:
-            rot_target = objects[1]["name"] if len(objects) > 1 else target_obj
+            rot_target = objects[0]["name"] if objects else target_char
             animations.append({
                 "id": f"anim_rot_{anim_idx}",
                 "targetObjectName": rot_target,
@@ -650,24 +847,48 @@ def extract_animations_from_decomp(decomp, objects, texts, slide_type):
             })
             anim_idx += 1
 
-        if not animations:
+        # 手作り素材・オブジェクトのアクション
+        for obj in objects[:2]:
+            oname = obj["name"]
+            if has_scale:
+                animations.append({
+                    "id": f"anim_scale_{anim_idx}",
+                    "targetObjectName": oname,
+                    "animationType": "action",
+                    "effect": "拡大/縮小",
+                    "duration": 1.0,
+                    "direction": "none"
+                })
+                build_orders.append({
+                    "order": len(build_orders) + 1,
+                    "animationId": f"anim_scale_{anim_idx}",
+                    "targetObjectName": oname,
+                    "trigger": "afterPrevious",
+                    "delay": 0.1
+                })
+                anim_idx += 1
+
+        # 3. ビルドアウト (Build Out)
+        if has_build_out:
             animations.append({
-                "id": f"anim_in_{anim_idx}",
-                "targetObjectName": target_obj,
-                "animationType": "buildIn",
-                "effect": "ディゾルブ",
-                "duration": 0.5,
+                "id": f"anim_out_{anim_idx}",
+                "targetObjectName": target_char,
+                "animationType": "buildOut",
+                "effect": "フェードアウト",
+                "duration": 0.8,
                 "direction": "none"
             })
             build_orders.append({
-                "order": 1,
-                "animationId": f"anim_in_{anim_idx}",
-                "targetObjectName": target_obj,
+                "order": len(build_orders) + 1,
+                "animationId": f"anim_out_{anim_idx}",
+                "targetObjectName": target_char,
                 "trigger": "afterPrevious",
-                "delay": 0.0
+                "delay": 0.5
             })
+            anim_idx += 1
 
     return animations, build_orders
+
 
 def extract_via_direct_iwa(filepath, project_name):
     if not HAVE_SNAPPY:
@@ -795,18 +1016,52 @@ def extract_via_direct_iwa(filepath, project_name):
             detected_names = []
 
             for iname in slide_images:
-                asset_path = find_asset(iname)
+                info = find_asset_info(iname)
+                asset_path = info["path"] if info else find_asset(iname)
+                category = info["category"] if info else "unknown"
+                cat_char_name = info.get("character_name") if info else None
+
                 is_bg = False
                 is_char = False
 
-                has_bg_keyword = any(k in iname for k in ["背景", "和室", "神社", "紅魔館", "スキマ", "リビング", "空", "部屋", "夜", "昼", "夕", "道"])
-                if has_bg_keyword and not bg_name:
+                # 指示書 Slide 15-33: キャラクターと背景画像の識別には”動画用”フォルダ内を用い入る
+                if category == "background" and not bg_name:
                     bg_name = iname
                     bg_path = asset_path
                     is_bg = True
-                    detected_names.append("背景:" + iname)
+                    detected_names.append("背景(動画用/背景): " + iname)
 
-                if not is_bg and not char_img_name:
+                elif category == "character" and not char_img_name:
+                    char_img_name = iname
+                    char_img_path = asset_path
+                    if cat_char_name:
+                        char_name = cat_char_name
+                    is_char = True
+                    detected_names.append("キャラクター(動画用/キャラクター): " + iname)
+
+                elif category == "handmade":
+                    objects.append({
+                        "name": iname,
+                        "objectType": "handmade_material",
+                        "x": 100.0,
+                        "y": 100.0,
+                        "width": 300.0,
+                        "height": 300.0,
+                        "imagePath": asset_path
+                    })
+                    detected_names.append("手作り素材(動画用/手作り素材): " + iname)
+                    continue
+
+                # フォルダ外または未知の場合のフォールバックキーワード照合
+                if not is_bg and not bg_name:
+                    has_bg_keyword = any(k in iname for k in ["背景", "和室", "神社", "紅魔館", "スキマ", "リビング", "空", "部屋", "夜", "昼", "夕", "道"])
+                    if has_bg_keyword:
+                        bg_name = iname
+                        bg_path = asset_path
+                        is_bg = True
+                        detected_names.append("背景:" + iname)
+
+                if not is_bg and not is_char and not char_img_name:
                     detected_char_in_img = ""
                     for k, full_n in CHAR_MAP.items():
                         if k in iname:
@@ -832,6 +1087,7 @@ def extract_via_direct_iwa(filepath, project_name):
                         "imagePath": asset_path
                     })
                     detected_names.append("オブジェクト:" + iname)
+
 
             title = f"シーン {s_idx}"
             telop = ""
@@ -861,11 +1117,14 @@ def extract_via_direct_iwa(filepath, project_name):
             # ノートから話者（カッコ書き"（）,(),[]"）を抽出＆UI非表示クリーン化
             note_speaker, cleaned_note, orig_raw_note = extract_speaker_and_clean_note(raw_note)
 
+            anims, builds = extract_animations_from_decomp(decomp, objects, txts, stype)
+            total_anim_dur = sum(a.get("duration", 1.0) for a in anims) if anims else 0.0
+
             # Slide 3 & 7 Rule: Presenter Note MUST BE BLANK for Title and Section Header slides!
             if stype in ["title", "sectionHeader"]:
                 presenter_note = ""
                 raw_presenter_note = ""
-                duration = parse_duration_from_note(raw_note, default_duration=3.0)
+                duration = parse_duration_from_note(raw_note, default_duration=3.0, anim_duration=total_anim_dur)
             else:
                 # 通常シーン: ノートにセリフが記載されている場合はノートのセリフのみを記録・表示！
                 # ノートにセリフがないシーンのみ、テロップから抽出！
@@ -873,7 +1132,7 @@ def extract_via_direct_iwa(filepath, project_name):
                     presenter_note = cleaned_note
                     raw_presenter_note = orig_raw_note
                     base_duration = max(3.5, len(cleaned_note) * 0.1) if cleaned_note else 4.0
-                    duration = parse_duration_from_note(raw_note, default_duration=base_duration)
+                    duration = parse_duration_from_note(raw_note, default_duration=base_duration, anim_duration=total_anim_dur)
                 else:
                     t_spk, t_cleaned, t_raw = extract_speaker_and_clean_note(telop)
                     if t_spk and not note_speaker:
@@ -881,7 +1140,7 @@ def extract_via_direct_iwa(filepath, project_name):
                     presenter_note = t_cleaned if t_cleaned else telop
                     raw_presenter_note = telop
                     base_duration = max(3.5, len(telop) * 0.1) if telop else 4.0
-                    duration = parse_duration_from_note(raw_note, default_duration=base_duration)
+                    duration = parse_duration_from_note(raw_note, default_duration=base_duration, anim_duration=total_anim_dur)
 
             # ノート内のカッコ書き"（）,(),[]"から話者を最優先認識
             if note_speaker and not char_name:
@@ -915,7 +1174,6 @@ def extract_via_direct_iwa(filepath, project_name):
                 bg_name = "nc73538_【背景素材】博麗神社.jpg" if stype == "content" else "単色背景"
                 bg_path = find_asset(bg_name)
 
-            anims, builds = extract_animations_from_decomp(decomp, objects, txts, stype)
 
             parsed_slides.append({
                 "slideIndex": s_idx,
@@ -1188,20 +1446,56 @@ def extract_keynote_slides(filepath):
                 detected_names = []
 
                 for iname in im_names:
-                    asset_path = find_asset(iname)
-                    is_bg = any(k in iname for k in ["背景", "和室", "神社", "紅魔館", "スキマ", "リビング", "空", "部屋", "夜", "昼", "夕", "道"])
-                    if is_bg and not bg_name:
+                    info = find_asset_info(iname)
+                    asset_path = info["path"] if info else find_asset(iname)
+                    category = info["category"] if info else "unknown"
+                    cat_char_name = info.get("character_name") if info else None
+
+                    is_bg = False
+                    is_char = False
+
+                    # 指示書 Slide 15-33: キャラクターと背景画像の識別には”動画用”フォルダ内を用い入る
+                    if category == "background" and not bg_name:
                         bg_name = iname
                         bg_path = asset_path
-                        detected_names.append("背景:" + iname)
-                    elif not char_name and any(k in iname for k in CHAR_MAP.keys()):
+                        is_bg = True
+                        detected_names.append("背景(動画用/背景): " + iname)
+                    elif category == "character" and not char_name:
+                        char_name = cat_char_name if cat_char_name else char_name
+                        char_path = asset_path
+                        is_char = True
+                        detected_names.append("キャラクター(動画用/キャラクター): " + iname)
+                    elif category == "handmade":
+                        objects.append({
+                            "name": iname,
+                            "objectType": "handmade_material",
+                            "x": 100.0,
+                            "y": 100.0,
+                            "width": 300.0,
+                            "height": 300.0,
+                            "imagePath": asset_path
+                        })
+                        detected_names.append("手作り素材(動画用/手作り素材): " + iname)
+                        continue
+
+                    if not is_bg and not bg_name:
+                        has_bg_keyword = any(k in iname for k in ["背景", "和室", "神社", "紅魔館", "スキマ", "リビング", "空", "部屋", "夜", "昼", "夕", "道"])
+                        if has_bg_keyword:
+                            bg_name = iname
+                            bg_path = asset_path
+                            is_bg = True
+                            detected_names.append("背景:" + iname)
+
+                    if not is_bg and not is_char and not char_name:
                         for k, full_n in CHAR_MAP.items():
                             if k in iname:
                                 char_name = full_n
                                 char_path = asset_path
+                                is_char = True
                                 detected_names.append("キャラクター:" + iname)
                                 break
-                    else:
+
+                    if not is_bg and not is_char:
                         objects.append({
                             "name": iname,
                             "objectType": "image",
@@ -1212,6 +1506,7 @@ def extract_keynote_slides(filepath):
                             "imagePath": asset_path
                         })
                         detected_names.append("オブジェクト:" + iname)
+
 
                 # ノート内のカッコ書き"（）,(),[]"から話者を最優先認識
                 if note_speaker and not char_name:

@@ -27,6 +27,29 @@ public struct RootView: View {
             if let modal = appState.activeModal {
                 modalOverlay(for: modal)
             }
+
+            // In-App Browser Overlay
+            if let browserURL = appState.activeInAppBrowserURL {
+                ZStack {
+                    Color.black.opacity(0.5)
+                        .edgesIgnoringSafeArea(.all)
+                        .onTapGesture {
+                            appState.closeInAppBrowser()
+                        }
+
+                    InAppBrowserView(
+                        url: browserURL,
+                        title: appState.inAppBrowserTitle,
+                        isPresented: Binding(
+                            get: { appState.activeInAppBrowserURL != nil },
+                            set: { if !$0 { appState.closeInAppBrowser() } }
+                        )
+                    )
+                    .frame(maxWidth: 1100, maxHeight: 720)
+                    .padding(24)
+                }
+                .zIndex(100)
+            }
         }
         .frame(minWidth: 1024, minHeight: 680)
         .sheet(isPresented: Binding(
@@ -191,66 +214,177 @@ public struct RootView: View {
             switch modal {
             case .tour:
                 AppTourView()
+
             case .appInfo:
-                CommonModalContainer(title: "アプリ情報", icon: "info.circle", isPresented: Binding(
-                    get: { appState.activeModal != nil },
-                    set: { if !$0 { appState.activeModal = nil } }
-                )) {
-                    AppInfoView()
+                CommonModalContainer(title: "アプリ情報", icon: "info.circle", isPresented: modalBinding) {
+                    AppInfoView(initialTab: appState.appInfoInitialTab)
                 }
+
             case .settings:
-                CommonModalContainer(title: "設定", icon: "gearshape", isPresented: Binding(
-                    get: { appState.activeModal != nil },
-                    set: { if !$0 { appState.activeModal = nil } }
-                )) {
-                    SettingsView()
-                }
+                SettingsView()
+
             case .store:
-                CommonModalContainer(title: "ストア", icon: "bag", isPresented: Binding(
-                    get: { appState.activeModal != nil },
-                    set: { if !$0 { appState.activeModal = nil } }
-                )) {
+                CommonModalContainer(title: "ストア", icon: "bag", isPresented: modalBinding) {
                     StoreView()
                 }
+
             case .developer:
-                CommonModalContainer(title: "開発者コンソール", icon: "chevron.left.forwardslash.chevron.right", isPresented: Binding(
-                    get: { appState.activeModal != nil },
-                    set: { if !$0 { appState.activeModal = nil } }
-                )) {
+                CommonModalContainer(title: "開発者コンソール", icon: "chevron.left.forwardslash.chevron.right", isPresented: modalBinding) {
                     DeveloperConsoleView()
                 }
+
             case .reboot:
                 rebootDialogView
+
             case .statusComparison:
-                CommonModalContainer(title: "ステータス", icon: "speedometer", isPresented: Binding(
-                    get: { appState.activeModal != nil },
-                    set: { if !$0 { appState.activeModal = nil } }
-                )) {
+                CommonModalContainer(title: "ステータス", icon: "speedometer", isPresented: modalBinding) {
                     StatusComparisonModalView()
                 }
+
             case .logsAndAchievements:
-                CommonModalContainer(title: "ログと実績", icon: "trophy", isPresented: Binding(
-                    get: { appState.activeModal != nil },
-                    set: { if !$0 { appState.activeModal = nil } }
-                )) {
+                CommonModalContainer(title: "ログと実績", icon: "trophy", isPresented: modalBinding) {
                     LogsAndAchievementsModalView()
                 }
+
             case .policyCheckPopup:
-                CommonModalContainer(title: "点検と修正", icon: "shield", isPresented: Binding(
-                    get: { appState.activeModal != nil },
-                    set: { if !$0 { appState.activeModal = nil } }
-                )) {
+                CommonModalContainer(title: "点検と修正", icon: "shield", isPresented: modalBinding) {
                     PolicyCheckModalView()
                 }
-            case .slideLoader:
+
+            case .newProject:
+                CommonModalContainer(title: "新規作成", icon: "doc.badge.plus", isPresented: modalBinding) {
+                    NewProjectModalView()
+                }
+
+            case .fileExport:
+                CommonModalContainer(title: "書き出し", icon: "square.and.arrow.up", isPresented: modalBinding) {
+                    FileExportModalView()
+                }
+
+            case .backupManager:
+                CommonModalContainer(title: "バックアップ", icon: "archivebox", isPresented: modalBinding) {
+                    BackupManagerModalView()
+                }
+
+            case .integrityAlert:
+                CommonModalContainer(title: "整合性確認", icon: "checkmark.shield", isPresented: modalBinding) {
+                    IntegrityCheckModalView()
+                }
+
+            case .fileInfo:
+                CommonModalContainer(title: "ファイル情報", icon: "doc.text.magnifyingglass", isPresented: modalBinding) {
+                    FileInfoModalView()
+                }
+
+            case .sceneInfo:
+                CommonModalContainer(title: "シーン情報", icon: "film", isPresented: modalBinding) {
+                    SceneInfoModalView()
+                }
+
+            case .trimmingPopup:
+                CommonModalContainer(title: "トリミング", icon: "crop", isPresented: modalBinding) {
+                    TrimmingModalView()
+                }
+
+            case .splitPopup:
+                CommonModalContainer(title: "分割", icon: "scissors", isPresented: modalBinding) {
+                    SplitModalView()
+                }
+
+            case .historyList:
+                CommonModalContainer(title: "履歴一覧", icon: "clock.arrow.circlepath", isPresented: modalBinding) {
+                    HistoryModalView()
+                }
+
+            case .memoPad:
+                CommonModalContainer(title: "備考録・メモ", icon: "note.text", isPresented: modalBinding) {
+                    MemoPadModalView()
+                }
+
+            case .backgroundProcess:
+                CommonModalContainer(title: "進捗状況確認", icon: "chart.line.uptrend.xyaxis", isPresented: modalBinding) {
+                    BackgroundProcessModalView()
+                }
+
+            case .bugReport:
+                CommonModalContainer(title: "バグレポート", icon: "ladybug", isPresented: modalBinding) {
+                    BugReportModalView()
+                }
+
+            case .debugScreen:
+                CommonModalContainer(title: "デバック画面", icon: "terminal", isPresented: modalBinding) {
+                    DebugScreenModalView()
+                }
+
+            case .softwareList:
+                CommonModalContainer(title: "ソフト一覧", icon: "square.grid.2x2", isPresented: modalBinding) {
+                    SoftwareListModalView()
+                }
+
+            case .featureList:
+                CommonModalContainer(title: "機能リスト", icon: "list.bullet.rectangle", isPresented: modalBinding) {
+                    FeatureListModalView()
+                }
+
+            case .contextOptions:
+                CommonModalContainer(title: "オプション設定", icon: "slider.horizontal.3", isPresented: modalBinding) {
+                    ContextOptionsModalView()
+                }
+
+            case .windowOptions:
+                CommonModalContainer(title: "ウィンドウ設定", icon: "macwindow", isPresented: modalBinding) {
+                    WindowOptionsModalView()
+                }
+
+            case .manual:
+                CommonModalContainer(title: "取扱説明書", icon: "book", isPresented: modalBinding) {
+                    HelpCenterModalView(initialTab: 0)
+                }
+
+            case .helpGuide:
+                CommonModalContainer(title: "ヘルプガイド", icon: "questionmark.circle", isPresented: modalBinding) {
+                    HelpCenterModalView(initialTab: 1)
+                }
+
+            case .qa:
+                CommonModalContainer(title: "よくある質問 (Q&A)", icon: "bubble.left.and.bubble.right", isPresented: modalBinding) {
+                    HelpCenterModalView(initialTab: 2)
+                }
+
+            case .troubleshoot:
+                CommonModalContainer(title: "困ったときは", icon: "exclamationmark.bubble", isPresented: modalBinding) {
+                    HelpCenterModalView(initialTab: 3)
+                }
+
+            case .supportRequest:
+                CommonModalContainer(title: "サポート依頼", icon: "person.crop.circle.badge.questionmark", isPresented: modalBinding) {
+                    HelpCenterModalView(initialTab: 4)
+                }
+
+            case .credits:
+                CommonModalContainer(title: "クレジット", icon: "star.circle", isPresented: modalBinding) {
+                    AppInfoView(initialTab: 3)
+                }
+
+            case .license:
+                CommonModalContainer(title: "ライセンス", icon: "doc.plaintext", isPresented: modalBinding) {
+                    AppInfoView(initialTab: 2)
+                }
+
+            case .slideRecognitionPopup, .slideLoader:
                 Color.clear
                     .onAppear {
                         appState.currentModule = .slideScenarioMaker
                     }
-            default:
-                fallbackModalView(title: modal.rawValue)
             }
         }
+    }
+
+    private var modalBinding: Binding<Bool> {
+        Binding(
+            get: { appState.activeModal != nil },
+            set: { if !$0 { appState.activeModal = nil } }
+        )
     }
 
     private var rebootDialogView: some View {
@@ -260,7 +394,7 @@ public struct RootView: View {
                 .foregroundColor(.accentColor)
             Text("Toho-Studio の再起動")
                 .font(.headline)
-            Text("現在の編集内容を自動バックアップした上で、アプリケーションを再起動します。")
+            Text("現在の編集内容を安全に自動保存・バックアップした上で、アプリケーションを再起動します。")
                 .font(.caption)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
@@ -271,29 +405,13 @@ public struct RootView: View {
                 }
                 Button("安全に保存して再起動") {
                     appState.activeModal = nil
-                    appState.log("アプリケーションの再起動シーケンスを実行しました")
+                    appState.performReboot()
                 }
                 .buttonStyle(.borderedProminent)
             }
         }
         .padding(24)
         .frame(width: 380)
-        .background(Color(NSColor.windowBackgroundColor))
-        .cornerRadius(12)
-        .shadow(radius: 20)
-    }
-
-    private func fallbackModalView(title: String) -> some View {
-        VStack(spacing: 16) {
-            Text(title).font(.headline)
-            Text("【\(title)】ダイアログ画面です。正常に処理されました。")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            Button("OK") { appState.activeModal = nil }
-                .buttonStyle(.borderedProminent)
-        }
-        .padding(24)
-        .frame(width: 360)
         .background(Color(NSColor.windowBackgroundColor))
         .cornerRadius(12)
         .shadow(radius: 20)

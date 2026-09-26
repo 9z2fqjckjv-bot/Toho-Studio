@@ -2,9 +2,13 @@ import SwiftUI
 
 public struct AppInfoView: View {
     @ObservedObject var appState = AppState.shared
-    @State private var selectedInfoTab: Int = 0
+    @State private var selectedInfoTab: Int
     @State private var isCheckingUpdate: Bool = false
     @State private var updateStatusMessage: String = "最新バージョンです。"
+
+    public init(initialTab: Int = 0) {
+        self._selectedInfoTab = State(initialValue: initialTab)
+    }
 
     public var body: some View {
         VStack(spacing: 0) {
