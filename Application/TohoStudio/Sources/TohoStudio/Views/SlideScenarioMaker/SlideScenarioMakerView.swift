@@ -201,82 +201,228 @@ public struct SlideScenarioMakerView: View {
         VStack(spacing: 12) {
             if selectedSlideIdx < appState.slides.count {
                 let slide = appState.slides[selectedSlideIdx]
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(NSColor.controlBackgroundColor))
-                        .aspectRatio(16/9, contentMode: .fit)
 
-                    // Background Image Layer (if found in Assets)
-                    if let bgImage = loadBackgroundImage(named: slide.backgroundName) {
-                        Image(nsImage: bgImage)
-                            .resizable()
-                            .aspectRatio(16/9, contentMode: .fit)
-                            .cornerRadius(8)
-                            .opacity(0.85)
-                    }
+                VStack(spacing: 6) {
+                    // Visual Canvas with exact relative coordinates
+                    GeometryReader { geo in
+                        let canvasW = geo.size.width
+                        let canvasH = geo.size.height
+                        let origW = max(slide.slideWidth, 1.0)
+                        let origH = max(slide.slideHeight, 1.0)
+                        let scaleX = canvasW / origW
+                        let scaleY = canvasH / origH
 
-                    VStack {
-                        HStack {
-                            Text("【背景】\(slide.backgroundName)")
-                                .font(.caption2)
-                                .padding(4)
-                                .background(Color.black.opacity(0.7))
-                                .foregroundColor(.white)
-                                .cornerRadius(4)
-                            Spacer()
-                            Text("アニメ: \(slide.animationTag)")
-                                .font(.caption2)
-                                .padding(4)
-                                .background(Color.blue.opacity(0.7))
-                                .foregroundColor(.white)
-                                .cornerRadius(4)
+                        ZStack(alignment: .topLeading) {
+                            // 1. Base Canvas Background
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.black)
+                                .frame(width: canvasW, height: canvasH)
+
+                            // 2. Slide Background Image Layer
+                            if let bgImg = resolveImage(path: slide.backgroundImagePath, name: slide.backgroundName, subfolder: "背景") {
+                                Image(nsImage: bgImg)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: canvasW, height: canvasH)
+                                    .clipped()
+                            } else {
+                                // Default Gradient Background
+                                LinearGradient(
+                                    colors: [Color(red: 0.1, green: 0.12, blue: 0.18), Color(red: 0.05, green: 0.06, blue: 0.1)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                                .frame(width: canvasW, height: canvasH)
+                            }
+
+                            // 3. Other Slide Objects Layer (Props, Effects, Graphics)
+                            ForEach(slide.objects) { obj in
+                                let ox = obj.x * scaleX
+                                let oy = obj.y * scaleY
+                                let ow = max(obj.width * scaleX, 10.0)
+                                let oh = max(obj.height * scaleY, 10.0)
+
+                                Group {
+                                    if let oImg = resolveImage(path: obj.imagePath, name: obj.name, subfolder: nil) {
+                                        Image(nsImage: oImg)
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fit)
+                                    } else {
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .stroke(Color.yellow.opacity(0.6), lineWidth: 1)
+                                            .background(Color.yellow.opacity(0.15))
+                                            .overlay(
+                                                Text(obj.name)
+                                                    .font(.system(size: 9))
+                                                    .foregroundColor(.white)
+                                                    .lineLimit(1)
+                                            )
+                                    }
+                                }
+                                .frame(width: ow, height: oh)
+                                .position(x: ox + ow / 2, y: oy + oh / 2)
+                            }
+
+                            // 4. Character Standing Portrait Layer (Accurate Positioning)
+                            let charImg = resolveImage(path: slide.characterImagePath, name: slide.characterName, subfolder: "キャラクター")
+                            let cx = (slide.characterX ?? (origW * 0.6)) * scaleX
+                            let cy = (slide.characterY ?? (origH * 0.05)) * scaleY
+                            let cw = max((slide.characterWidth ?? (origW * 0.35)) * scaleX, 20.0)
+                            let ch = max((slide.characterHeight ?? (origH * 0.9)) * scaleY, 20.0)
+
+                            if let charImage = charImg {
+                                Image(nsImage: charImage)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: cw, height: ch)
+                                    .position(x: cx + cw / 2, y: cy + ch / 2)
+                                    .shadow(color: .black.opacity(0.35), radius: 6, x: 2, y: 3)
+                            } else if !slide.characterName.isEmpty && slide.characterName != "ナレーション" {
+                                // Elegant character stand-in if image asset not yet found
+                                VStack(spacing: 4) {
+                                    Image(systemName: "person.crop.rectangle.fill")
+                                        .font(.system(size: min(cw, ch) * 0.35))
+                                        .foregroundColor(.accentColor.opacity(0.85))
+                                    Text(slide.characterName)
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.black.opacity(0.65))
+                                        .cornerRadius(4)
+                                }
+                                .frame(width: cw, height: ch)
+                                .position(x: cx + cw / 2, y: cy + ch / 2)
+                            }
+
+                            // 5. Accurate Telop Layer (Subtitles / Dialogues)
+                            let tx = (slide.telopX ?? 0.0) * scaleX
+                            let ty = (slide.telopY ?? (origH * 0.79)) * scaleY
+                            let tw = max((slide.telopWidth ?? origW) * scaleX, 50.0)
+                            let th = max((slide.telopHeight ?? (origH * 0.21)) * scaleY, 25.0)
+
+                            if !slide.telop.isEmpty {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    // Speaker name badge if defined
+                                    if !slide.characterName.isEmpty && slide.characterName != "ナレーション" {
+                                        Text("【\(slide.characterName)】")
+                                            .font(.system(size: max(canvasH * 0.035, 10), weight: .heavy))
+                                            .foregroundColor(.yellow)
+                                    }
+                                    Text(slide.telop)
+                                        .font(.system(size: max(canvasH * 0.042, 11), weight: .medium))
+                                        .foregroundColor(.white)
+                                        .lineSpacing(2)
+                                        .multilineTextAlignment(.leading)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .frame(width: tw, height: th, alignment: .topLeading)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color.black.opacity(0.78))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke(Color.white.opacity(0.2), lineWidth: 0.8)
+                                        )
+                                )
+                                .position(x: tx + tw / 2, y: ty + th / 2)
+                            }
+
+                            // 6. Slide Title & Metadata Overlay (Top Bar)
+                            HStack {
+                                Text("#\(slide.slideIndex): \(slide.title)")
+                                    .font(.caption2)
+                                    .bold()
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .background(Color.black.opacity(0.65))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(4)
+
+                                Spacer()
+
+                                HStack(spacing: 4) {
+                                    if !slide.characterName.isEmpty {
+                                        Label(slide.characterName, systemImage: "person.fill")
+                                            .font(.caption2)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 3)
+                                            .background(Color.accentColor.opacity(0.8))
+                                            .foregroundColor(.white)
+                                            .cornerRadius(4)
+                                    }
+                                    Text(slide.animationTag)
+                                        .font(.caption2)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 3)
+                                        .background(Color.blue.opacity(0.7))
+                                        .foregroundColor(.white)
+                                        .cornerRadius(4)
+                                }
+                            }
+                            .padding(8)
+                            .frame(width: canvasW, alignment: .top)
                         }
-                        .padding(12)
-
-                        Spacer()
-
-                        VStack(spacing: 4) {
-                            Image(systemName: "person.crop.rectangle.fill")
-                                .font(.system(size: 64))
-                                .foregroundColor(.accentColor.opacity(0.85))
-                            Text(slide.characterName)
-                                .font(.caption)
-                                .bold()
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                                .background(Color.black.opacity(0.6))
-                                .cornerRadius(4)
-                        }
-
-                        Spacer()
-
-                        Text(slide.telop)
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
-                            .padding(10)
-                            .background(Color.black.opacity(0.75))
-                            .cornerRadius(6)
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 12)
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                        )
                     }
-                }
+                    .aspectRatio(16/9, contentMode: .fit)
 
-                // Slide Split & Info Bar
-                HStack {
-                    Text("スライド \(selectedSlideIdx + 1) / \(appState.slides.count)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    Spacer()
-
-                    Button(action: {
-                        appState.log("スライドを背景・立ち絵・テロップの3ファイルに分割して素材スタジオに保存しました")
-                    }) {
-                        Label("スライドを3種ファイルに分割保存", systemImage: "square.split.3x1")
+                    // Elements & Layout Details Inspector Bar
+                    HStack(spacing: 8) {
+                        Text("スライド \(selectedSlideIdx + 1) / \(appState.slides.count)")
                             .font(.caption)
+                            .bold()
+
+                        Divider().frame(height: 12)
+
+                        // Speaker Badge
+                        HStack(spacing: 4) {
+                            Text("話者:").font(.caption2).foregroundColor(.secondary)
+                            Text(slide.characterName.isEmpty ? "ナレーション" : slide.characterName)
+                                .font(.caption2)
+                                .bold()
+                                .foregroundColor(.accentColor)
+                        }
+
+                        Divider().frame(height: 12)
+
+                        // Background Badge
+                        HStack(spacing: 4) {
+                            Text("背景:").font(.caption2).foregroundColor(.secondary)
+                            Text(slide.backgroundName.isEmpty ? "博麗神社" : slide.backgroundName)
+                                .font(.caption2)
+                                .lineLimit(1)
+                        }
+
+                        // Objects count
+                        if !slide.objects.isEmpty {
+                            Divider().frame(height: 12)
+                            HStack(spacing: 4) {
+                                Text("オブジェクト:").font(.caption2).foregroundColor(.secondary)
+                                Text("\(slide.objects.count)件")
+                                    .font(.caption2)
+                                    .bold()
+                            }
+                        }
+
+                        Spacer()
+
+                        Button(action: {
+                            appState.log("スライド #\(slide.slideIndex) を背景・立ち絵・テロップの3種素材に分解して素材スタジオに登録しました")
+                        }) {
+                            Label("3種素材に分割保存", systemImage: "square.split.3x1")
+                                .font(.caption2)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
                     }
+                    .padding(.horizontal, 4)
+                    .padding(.top, 4)
                 }
             } else {
                 VStack(spacing: 12) {
@@ -295,11 +441,49 @@ public struct SlideScenarioMakerView: View {
         }
     }
 
-    private func loadBackgroundImage(named name: String) -> NSImage? {
-        let repoPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/背景/\(name)"
-        if FileManager.default.fileExists(atPath: repoPath) {
-            return NSImage(contentsOfFile: repoPath)
+    /// Resolves image path by checking given path, project cache, and 動画用 asset directories
+    private func resolveImage(path: String?, name: String?, subfolder: String?) -> NSImage? {
+        let fm = FileManager.default
+
+        // 1. Direct path check
+        if let directPath = path, !directPath.isEmpty, fm.fileExists(atPath: directPath) {
+            return NSImage(contentsOfFile: directPath)
         }
+
+        guard let targetName = name, !targetName.isEmpty else { return nil }
+
+        // Clean target name for matching
+        let cleanName = targetName.replacingOccurrences(of: ".png", with: "")
+            .replacingOccurrences(of: ".jpg", with: "")
+            .replacingOccurrences(of: ".jpeg", with: "")
+
+        // 2. Search in .cache/keynote_extracted
+        let cacheBase = "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/keynote_extracted"
+        if let enumerator = fm.enumerator(atPath: cacheBase) {
+            for case let file as String in enumerator {
+                if file.contains(targetName) || file.contains(cleanName) {
+                    let fullPath = (cacheBase as NSString).appendingPathComponent(file)
+                    if let img = NSImage(contentsOfFile: fullPath) {
+                        return img
+                    }
+                }
+            }
+        }
+
+        // 3. Search in 動画用 assets
+        let repoBase = "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用"
+        let searchFolder = subfolder != nil ? (repoBase as NSString).appendingPathComponent(subfolder!) : repoBase
+        if fm.fileExists(atPath: searchFolder), let enumerator = fm.enumerator(atPath: searchFolder) {
+            for case let file as String in enumerator {
+                if file.contains(targetName) || file.contains(cleanName) {
+                    let fullPath = (searchFolder as NSString).appendingPathComponent(file)
+                    if let img = NSImage(contentsOfFile: fullPath) {
+                        return img
+                    }
+                }
+            }
+        }
+
         return nil
     }
 

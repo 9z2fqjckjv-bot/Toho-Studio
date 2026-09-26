@@ -321,10 +321,51 @@ public final class SlideRecognitionService: ObservableObject {
                         let telop = d["telop"] as? String ?? "スライド \(idx) セリフ"
                         let note = d["presenterNote"] as? String ?? "シーン #\(idx) 演出ノート"
                         let bg = d["backgroundName"] as? String ?? "nc73538_【背景素材】博麗神社.jpg"
-                        let char = d["characterName"] as? String ?? "博麗霊夢"
+                        let char = d["characterName"] as? String ?? "ナレーション"
                         let objs = d["detectedObjects"] as? [String] ?? ["演出枠"]
                         let anim = d["animationTag"] as? String ?? "フェードイン"
                         let trans = d["transitionTag"] as? String ?? "クロスディゾルブ"
+
+                        let sWidth = d["slideWidth"] as? Double ?? 1920.0
+                        let sHeight = d["slideHeight"] as? Double ?? 1080.0
+                        let bgPath = d["backgroundImagePath"] as? String
+                        let bgX = d["backgroundX"] as? Double ?? 0.0
+                        let bgY = d["backgroundY"] as? Double ?? 0.0
+                        let bgW = d["backgroundWidth"] as? Double ?? 1920.0
+                        let bgH = d["backgroundHeight"] as? Double ?? 1080.0
+
+                        let charPath = d["characterImagePath"] as? String
+                        let charX = d["characterX"] as? Double
+                        let charY = d["characterY"] as? Double
+                        let charW = d["characterWidth"] as? Double
+                        let charH = d["characterHeight"] as? Double
+
+                        let tX = d["telopX"] as? Double
+                        let tY = d["telopY"] as? Double
+                        let tW = d["telopWidth"] as? Double
+                        let tH = d["telopHeight"] as? Double
+
+                        var objectItems: [SlideObjectItem] = []
+                        if let rawObjs = d["objects"] as? [[String: Any]] {
+                            for ro in rawObjs {
+                                let oName = ro["name"] as? String ?? "オブジェクト"
+                                let oType = ro["objectType"] as? String ?? "image"
+                                let ox = ro["x"] as? Double ?? 0.0
+                                let oy = ro["y"] as? Double ?? 0.0
+                                let ow = ro["width"] as? Double ?? 100.0
+                                let oh = ro["height"] as? Double ?? 100.0
+                                let oPath = ro["imagePath"] as? String
+                                objectItems.append(SlideObjectItem(
+                                    name: oName,
+                                    objectType: oType,
+                                    x: ox,
+                                    y: oy,
+                                    width: ow,
+                                    height: oh,
+                                    imagePath: oPath
+                                ))
+                            }
+                        }
 
                         items.append(SlideItem(
                             slideIndex: idx,
@@ -335,7 +376,24 @@ public final class SlideRecognitionService: ObservableObject {
                             characterName: char,
                             detectedObjects: objs,
                             animationTag: anim,
-                            transitionTag: trans
+                            transitionTag: trans,
+                            slideWidth: sWidth,
+                            slideHeight: sHeight,
+                            backgroundImagePath: bgPath,
+                            backgroundX: bgX,
+                            backgroundY: bgY,
+                            backgroundWidth: bgW,
+                            backgroundHeight: bgH,
+                            characterImagePath: charPath,
+                            characterX: charX,
+                            characterY: charY,
+                            characterWidth: charW,
+                            characterHeight: charH,
+                            telopX: tX,
+                            telopY: tY,
+                            telopWidth: tW,
+                            telopHeight: tH,
+                            objects: objectItems
                         ))
                     }
                     if !items.isEmpty {

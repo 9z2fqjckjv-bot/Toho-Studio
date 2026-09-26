@@ -124,6 +124,43 @@ public struct SoundClip: Identifiable, Codable, Equatable {
 }
 
 // MARK: - Slide & Scenario Maker Models
+public struct SlideObjectItem: Identifiable, Codable, Equatable {
+    public var id: UUID = UUID()
+    public var name: String
+    public var objectType: String // "background", "character", "telop", "image", "shape", "text"
+    public var x: Double
+    public var y: Double
+    public var width: Double
+    public var height: Double
+    public var text: String?
+    public var imagePath: String?
+    public var characterName: String?
+
+    public init(
+        id: UUID = UUID(),
+        name: String,
+        objectType: String,
+        x: Double,
+        y: Double,
+        width: Double,
+        height: Double,
+        text: String? = nil,
+        imagePath: String? = nil,
+        characterName: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.objectType = objectType
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.text = text
+        self.imagePath = imagePath
+        self.characterName = characterName
+    }
+}
+
 public struct SlideItem: Identifiable, Codable, Equatable {
     public var id: UUID = UUID()
     public var slideIndex: Int
@@ -135,6 +172,86 @@ public struct SlideItem: Identifiable, Codable, Equatable {
     public var detectedObjects: [String] = []
     public var animationTag: String = "なし"
     public var transitionTag: String = "フェード"
+
+    // 高精度レイアウト・画像連携拡張プロパティ
+    public var slideWidth: Double = 1920
+    public var slideHeight: Double = 1080
+    public var backgroundImagePath: String? = nil
+    public var backgroundX: Double = 0
+    public var backgroundY: Double = 0
+    public var backgroundWidth: Double = 1920
+    public var backgroundHeight: Double = 1080
+
+    public var characterImagePath: String? = nil
+    public var characterX: Double? = nil
+    public var characterY: Double? = nil
+    public var characterWidth: Double? = nil
+    public var characterHeight: Double? = nil
+
+    public var telopX: Double? = nil
+    public var telopY: Double? = nil
+    public var telopWidth: Double? = nil
+    public var telopHeight: Double? = nil
+
+    public var objects: [SlideObjectItem] = []
+
+    public init(
+        id: UUID = UUID(),
+        slideIndex: Int,
+        title: String,
+        telop: String,
+        presenterNote: String = "",
+        backgroundName: String = "",
+        characterName: String = "",
+        detectedObjects: [String] = [],
+        animationTag: String = "なし",
+        transitionTag: String = "フェード",
+        slideWidth: Double = 1920,
+        slideHeight: Double = 1080,
+        backgroundImagePath: String? = nil,
+        backgroundX: Double = 0,
+        backgroundY: Double = 0,
+        backgroundWidth: Double = 1920,
+        backgroundHeight: Double = 1080,
+        characterImagePath: String? = nil,
+        characterX: Double? = nil,
+        characterY: Double? = nil,
+        characterWidth: Double? = nil,
+        characterHeight: Double? = nil,
+        telopX: Double? = nil,
+        telopY: Double? = nil,
+        telopWidth: Double? = nil,
+        telopHeight: Double? = nil,
+        objects: [SlideObjectItem] = []
+    ) {
+        self.id = id
+        self.slideIndex = slideIndex
+        self.title = title
+        self.telop = telop
+        self.presenterNote = presenterNote
+        self.backgroundName = backgroundName
+        self.characterName = characterName
+        self.detectedObjects = detectedObjects
+        self.animationTag = animationTag
+        self.transitionTag = transitionTag
+        self.slideWidth = slideWidth
+        self.slideHeight = slideHeight
+        self.backgroundImagePath = backgroundImagePath
+        self.backgroundX = backgroundX
+        self.backgroundY = backgroundY
+        self.backgroundWidth = backgroundWidth
+        self.backgroundHeight = backgroundHeight
+        self.characterImagePath = characterImagePath
+        self.characterX = characterX
+        self.characterY = characterY
+        self.characterWidth = characterWidth
+        self.characterHeight = characterHeight
+        self.telopX = telopX
+        self.telopY = telopY
+        self.telopWidth = telopWidth
+        self.telopHeight = telopHeight
+        self.objects = objects
+    }
 }
 
 // MARK: - Game Maker Models
