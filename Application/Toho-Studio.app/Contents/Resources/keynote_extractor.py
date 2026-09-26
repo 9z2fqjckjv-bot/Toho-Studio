@@ -139,9 +139,10 @@ def export_slide_images_if_needed(filepath):
 
         os.makedirs(cache_dir, exist_ok=True)
 
-        keynote_app = get_keynote_app_name()
         script = f'''
-tell application "{keynote_app}"
+tell application id "com.apple.Keynote"
+    activate
+    delay 0.5
     set theFile to POSIX file "{filepath}"
     set theDoc to open theFile
     set outDir to POSIX file "{cache_dir}"
@@ -209,7 +210,6 @@ def export_slide_animation_videos_if_needed(filepath, slides):
         if not needed_slides:
             return len(target_slides)
 
-        keynote_app = get_keynote_app_name()
         export_blocks = []
         for s in needed_slides:
             s_idx = s["slideIndex"]
@@ -228,7 +228,9 @@ def export_slide_animation_videos_if_needed(filepath, slides):
             export_blocks.append(block)
 
         script = f'''
-tell application "{keynote_app}"
+tell application id "com.apple.Keynote"
+    activate
+    delay 0.5
     set theFile to POSIX file "{filepath}"
     set theDoc to open theFile
     set totalSlides to count of slides of theDoc
@@ -372,6 +374,134 @@ def extract_strings_from_decomp(decomp):
                     pass
         pos += 1
     return results
+
+def parse_varint(data, pos):
+    res = 0; shift = 0
+    l_data = len(data)
+    while pos < l_data:
+        b = data[pos]
+        pos += 1
+        res |= (b & 0x7f) << shift
+        if not (b & 0x80):
+            break
+        shift += 7
+    return res, pos
+
+def extract_slide_texts_and_note(decomp):
+    """
+    Slideの解凍データ(decomp)から、スライド上のテロップ(StorageArchive)と
+    プレゼンターノート(NoteArchive -> StorageArchive)を高精度に完全分離抽出する。
+    """
+    archives = {}
+    cp = 0
+    l_decomp = len(decomp)
+    ignored = {"メディア", "テキスト", "タイトル", "キャプション", "本文", "ヘッダ", "フッタ", "Slide", "Theme", "Shape"}
+
+    while cp < l_decomp:
+        h_len, cp = parse_varint(decomp, cp)
+        if h_len <= 0 or cp + h_len > l_decomp:
+            break
+        h_bytes = decomp[cp:cp+h_len]
+        cp += h_len
+        
+        hp = 0
+        archive_id = 0
+        messages = []
+        l_h = len(h_bytes)
+        while hp < l_h:
+            tw, hp = parse_varint(h_bytes, hp)
+            wire = tw & 7; tag = tw >> 3
+            if wire == 0:
+                v, hp = parse_varint(h_bytes, hp)
+                if tag == 1: archive_id = v
+            elif wire == 2:
+                l, hp = parse_varint(h_bytes, hp)
+                if hp + l > l_h: break
+                val_bytes = h_bytes[hp:hp+l]
+                hp += l
+                if tag == 2: # MessageInfo
+                    mp = 0; m_type = 0; m_len = 0
+                    l_val = len(val_bytes)
+                    while mp < l_val:
+                        mtw, mp = parse_varint(val_bytes, mp)
+                        mwire = mtw & 7; mtag = mtw >> 3
+                        if mwire == 0:
+                            v, mp = parse_varint(val_bytes, mp)
+                            if mtag == 1: m_type = v
+                            elif mtag == 3: m_len = v
+                        elif mwire == 2:
+                            ml, mp = parse_varint(val_bytes, mp)
+                            mp += ml
+                    messages.append((m_type, m_len))
+        
+        for m_type, m_len in messages:
+            if cp + m_len > l_decomp: break
+            m_body = decomp[cp:cp+m_len]
+            archives[archive_id] = (m_type, m_body)
+            cp += m_len
+
+    # NoteArchive (type 15) を探索
+    note_storage_id = None
+    for aid, (mtype, mbody) in archives.items():
+        if mtype == 15: # NoteArchive
+            p = 0
+            l_body = len(mbody)
+            while p < l_body:
+                tw, p = parse_varint(mbody, p)
+                wire = tw & 7; tag = tw >> 3
+                if wire == 2:
+                    l, p = parse_varint(mbody, p)
+                    if p + l > l_body: break
+                    sub = mbody[p:p+l]
+                    p += l
+                    if tag == 1: # storage reference
+                        sp = 0
+                        l_sub = len(sub)
+                        while sp < l_sub:
+                            stw, sp = parse_varint(sub, sp)
+                            if (stw & 7) == 0:
+                                note_storage_id, sp = parse_varint(sub, sp)
+                                break
+                            elif (stw & 7) == 2:
+                                sl, sp = parse_varint(sub, sp)
+                                sp += sl
+
+    note_text = ""
+    telop_texts = []
+
+    # StorageArchive (type 2001) からテキストを抽出
+    for aid, (mtype, mbody) in archives.items():
+        if mtype == 2001:
+            p = 0
+            txt_parts = []
+            l_body = len(mbody)
+            while p < l_body:
+                tw, p = parse_varint(mbody, p)
+                wire = tw & 7; tag = tw >> 3
+                if wire == 0:
+                    _, p = parse_varint(mbody, p)
+                elif wire == 2:
+                    l, p = parse_varint(mbody, p)
+                    if p + l > l_body: break
+                    sub = mbody[p:p+l]
+                    p += l
+                    if tag == 3: # repeated string text
+                        try:
+                            clean_sub = sub.decode("utf-8").replace("\ufffc", "").strip()
+                            clean_sub = unicodedata.normalize("NFC", clean_sub)
+                            if clean_sub and clean_sub not in ignored and clean_sub not in txt_parts:
+                                txt_parts.append(clean_sub)
+                        except Exception:
+                            pass
+            if txt_parts:
+                t = "\n".join(txt_parts).strip()
+                if t:
+                    if aid == note_storage_id:
+                        note_text = t
+                    else:
+                        telop_texts.append(t)
+
+    return telop_texts, note_text
 
 def detect_slide_type(slide_idx, texts, slide_name):
     combined = "\n".join(texts)
@@ -635,9 +765,13 @@ def extract_via_direct_iwa(filepath, project_name):
         for idx, sid in enumerate(ordered_sids):
             s_idx = idx + 1
             fname, decomp = slide_file_map[sid]
-            txts = extract_strings_from_decomp(decomp)
+            telop_texts, note_text = extract_slide_texts_and_note(decomp)
+            if not telop_texts and not note_text:
+                txts = extract_strings_from_decomp(decomp)
+            else:
+                txts = telop_texts
 
-            stype = detect_slide_type(s_idx, txts, fname)
+            stype = detect_slide_type(s_idx, txts if txts else ([note_text] if note_text else []), fname)
 
             slide_images = []
             for v, iname in image_id_map.items():
@@ -701,17 +835,27 @@ def extract_via_direct_iwa(filepath, project_name):
 
             title = f"シーン {s_idx}"
             telop = ""
-            raw_note = ""
+            raw_note = (note_text or "").strip()
 
-            if txts:
-                if stype == "title":
+            if stype == "title":
+                if telop_texts:
+                    title = telop_texts[0]
+                    if len(telop_texts) >= 2:
+                        telop = telop_texts[1]
+                elif txts:
                     title = txts[0]
                     if len(txts) >= 2:
                         telop = txts[1]
-                elif stype == "sectionHeader":
+            elif stype == "sectionHeader":
+                if telop_texts:
+                    title = telop_texts[0]
+                elif txts:
                     title = txts[0]
-                    telop = ""
-                else:
+                telop = ""
+            else:
+                if telop_texts:
+                    telop = "\n".join(telop_texts)
+                elif txts:
                     telop = "\n".join(txts)
 
             # ノートから話者（カッコ書き"（）,(),[]"）を抽出＆UI非表示クリーン化
@@ -723,19 +867,21 @@ def extract_via_direct_iwa(filepath, project_name):
                 raw_presenter_note = ""
                 duration = parse_duration_from_note(raw_note, default_duration=3.0)
             else:
-                # Slide 4 & 8 Rule: If presenter note is blank, use telop as scenario!
-                if not raw_note:
+                # 通常シーン: ノートにセリフが記載されている場合はノートのセリフのみを記録・表示！
+                # ノートにセリフがないシーンのみ、テロップから抽出！
+                if raw_note:
+                    presenter_note = cleaned_note
+                    raw_presenter_note = orig_raw_note
+                    base_duration = max(3.5, len(cleaned_note) * 0.1) if cleaned_note else 4.0
+                    duration = parse_duration_from_note(raw_note, default_duration=base_duration)
+                else:
                     t_spk, t_cleaned, t_raw = extract_speaker_and_clean_note(telop)
                     if t_spk and not note_speaker:
                         note_speaker = t_spk
                     presenter_note = t_cleaned if t_cleaned else telop
                     raw_presenter_note = telop
-                else:
-                    presenter_note = cleaned_note
-                    raw_presenter_note = orig_raw_note
-
-                base_duration = max(3.5, len(telop) * 0.1) if telop else 4.0
-                duration = parse_duration_from_note(raw_note, default_duration=base_duration)
+                    base_duration = max(3.5, len(telop) * 0.1) if telop else 4.0
+                    duration = parse_duration_from_note(raw_note, default_duration=base_duration)
 
             # ノート内のカッコ書き"（）,(),[]"から話者を最優先認識
             if note_speaker and not char_name:
@@ -1019,16 +1165,19 @@ def extract_keynote_slides(filepath):
                     raw_presenter_note = ""
                     duration = parse_duration_from_note(note, default_duration=3.0)
                 else:
-                    if not note:
+                    if note:
+                        presenter_note = cleaned_note
+                        raw_presenter_note = orig_raw_note
+                        base_duration = max(3.5, len(cleaned_note) * 0.1) if cleaned_note else 4.0
+                        duration = parse_duration_from_note(note, default_duration=base_duration)
+                    else:
                         t_spk, t_cleaned, t_raw = extract_speaker_and_clean_note(telop)
                         if t_spk and not note_speaker:
                             note_speaker = t_spk
                         presenter_note = t_cleaned if t_cleaned else telop
                         raw_presenter_note = telop
-                    else:
-                        presenter_note = cleaned_note
-                        raw_presenter_note = orig_raw_note
-                    duration = parse_duration_from_note(note, default_duration=max(3.5, len(telop)*0.1))
+                        base_duration = max(3.5, len(telop) * 0.1) if telop else 4.0
+                        duration = parse_duration_from_note(note, default_duration=base_duration)
 
                 im_names = [clean_image_name(n) for n in s.get("imNames", []) if n]
                 bg_name = ""

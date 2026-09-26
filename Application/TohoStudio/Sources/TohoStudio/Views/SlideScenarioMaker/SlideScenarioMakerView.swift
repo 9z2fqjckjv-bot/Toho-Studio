@@ -308,6 +308,29 @@ public struct SlideScenarioMakerView: View {
                             .cornerRadius(4)
                         }
                         .buttonStyle(.plain)
+
+                        if canvasViewMode == .animationVideo {
+                            Button(action: {
+                                let cur = canvasViewMode
+                                canvasViewMode = .slideOriginal
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                    canvasViewMode = cur
+                                }
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "arrow.counterclockwise")
+                                    Text("最初から再生")
+                                        .bold()
+                                }
+                                .font(.caption2)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.purple)
+                                .foregroundColor(.white)
+                                .cornerRadius(4)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
 
                     if canvasViewMode == .slideOriginal {
@@ -383,6 +406,7 @@ public struct SlideScenarioMakerView: View {
                                 if let videoPath = slide.animationVideoPath, FileManager.default.fileExists(atPath: videoPath) {
                                     // 🌟 アニメーション動画再生 (Keynote Native Recorded Movie) 🌟
                                     SlideVideoPlayerView(videoPath: videoPath)
+                                        .id(videoPath)
                                         .frame(width: canvasW, height: canvasH)
                                         .cornerRadius(8)
                                 } else {
@@ -1124,46 +1148,89 @@ public struct SlideVideoPlayerView: NSViewRepresentable {
         self.videoPath = videoPath
     }
 
-    public func makeNSView(context: Context) -> AVPlayerView {
-        let playerView = AVPlayerView()
-        playerView.controlsStyle = .inline
-        playerView.showsFullScreenToggleButton = true
-        let url = URL(fileURLWithPath: videoPath)
-        let player = AVPlayer(url: url)
-        playerView.player = player
-        player.actionAtItemEnd = .none
+    public class Coordinator: NSObject {
+        var currentVideoPath: String = ""
+        var player: AVPlayer?
+        var endObserver: Any?
+        weak var playerView: AVPlayerView?
 
-        NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: player.currentItem,
-            queue: .main
-        ) { _ in
-            player.seek(to: .zero)
-            player.play()
+        func setupPlayer(with path: String, in view: AVPlayerView) {
+            guard currentVideoPath != path || player == nil else { return }
+            currentVideoPath = path
+            self.playerView = view
+
+            cleanup()
+
+            let url = URL(fileURLWithPath: path)
+            let asset = AVURLAsset(url: url)
+            let item = AVPlayerItem(asset: asset)
+            let newPlayer = AVPlayer(playerItem: item)
+            newPlayer.actionAtItemEnd = .none
+            newPlayer.automaticallyWaitsToMinimizeStalling = false
+
+            view.wantsLayer = true
+            view.layer?.backgroundColor = NSColor.black.cgColor
+            view.videoGravity = .resizeAspect
+            view.controlsStyle = .inline
+            view.showsFullScreenToggleButton = true
+            view.player = newPlayer
+            self.player = newPlayer
+
+            // ループ再生
+            endObserver = NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemDidPlayToEndTime,
+                object: item,
+                queue: .main
+            ) { [weak newPlayer] _ in
+                newPlayer?.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+                newPlayer?.play()
+            }
+
+            // 即座に先頭から再生開始
+            newPlayer.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+            newPlayer.play()
         }
 
-        player.play()
+        func replay() {
+            player?.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+            player?.play()
+        }
+
+        func cleanup() {
+            if let obs = endObserver {
+                NotificationCenter.default.removeObserver(obs)
+                endObserver = nil
+            }
+            player?.pause()
+            player = nil
+        }
+
+        deinit {
+            cleanup()
+        }
+    }
+
+    public func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    public func makeNSView(context: Context) -> AVPlayerView {
+        let playerView = AVPlayerView()
+        playerView.wantsLayer = true
+        playerView.layer?.backgroundColor = NSColor.black.cgColor
+        playerView.controlsStyle = .inline
+        playerView.showsFullScreenToggleButton = true
+        playerView.videoGravity = .resizeAspect
+        context.coordinator.setupPlayer(with: videoPath, in: playerView)
         return playerView
     }
 
     public func updateNSView(_ nsView: AVPlayerView, context: Context) {
-        if let currentItem = nsView.player?.currentItem,
-           let asset = currentItem.asset as? AVURLAsset,
-           asset.url.path == videoPath {
-            return
-        }
-        let url = URL(fileURLWithPath: videoPath)
-        let player = AVPlayer(url: url)
-        player.actionAtItemEnd = .none
-        NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: player.currentItem,
-            queue: .main
-        ) { _ in
-            player.seek(to: .zero)
-            player.play()
-        }
-        nsView.player = player
-        player.play()
+        context.coordinator.setupPlayer(with: videoPath, in: nsView)
+    }
+
+    public static func dismantleNSView(_ nsView: AVPlayerView, coordinator: Coordinator) {
+        coordinator.cleanup()
+        nsView.player = nil
     }
 }
