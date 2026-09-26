@@ -127,7 +127,7 @@ public struct DeveloperConsoleView: View {
                 let recentLogs = appState.logs.prefix(5).map({ "[\($0.level)] \($0.message)" }).joined(separator: "\n")
                 generatedBugfixPrompt = """
                 【Toho-Studio エラー修正プロンプト】
-                現在のバージョン: v1.0.4
+                現在のバージョン: v1.0.5
                 OS: macOS (Swift 6.0 / Native)
                 直近のシステムログ:
                 \(recentLogs)
@@ -152,12 +152,12 @@ public struct DeveloperConsoleView: View {
 
             GroupBox(label: Text("公開リソース作成 (AquesTalkライセンスキー自動除外)")) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("仕様書補足事項に則り、安全に公開できるようにAquesTalkのライセンスキーを削除（サニタイズ）した状態で、/Volumes/ZSSD/GitHub/repository/TohoStudio 配下に新配布パッケージ (v1.0.4.dmg / v1.0.4.zip) を書き出します。")
+                    Text("仕様書補足事項に則り、安全に公開できるようにAquesTalkのライセンスキーを削除（サニタイズ）した状態で、/Volumes/ZSSD/GitHub/repository/TohoStudio 配下に新配布パッケージ (v1.0.5.dmg / v1.0.5.zip) を書き出します。")
                         .font(.caption).foregroundColor(.secondary)
 
                     HStack {
                         Button(action: {
-                            appState.log("新バージョン公開リソース (v1.0.4) を生成しました")
+                            appState.log("新バージョン公開リソース (v1.0.5) を生成しました")
                         }) {
                             Label("新バージョンをリソースとして書き出し", systemImage: "shippingbox.fill")
                         }
@@ -216,7 +216,7 @@ public struct DeveloperConsoleView: View {
 
             Text("コミュニティ・開発者向け掲示板:").font(.subheadline).bold()
             List {
-                Text("【お知らせ】Toho-Studio v1.0.4 がリリースされました。Keynoteスライド読み込み時の話者名・正確な配置座標・全画像要素の完全反映に対応しました。")
+                Text("【お知らせ】Toho-Studio v1.0.5 がリリースされました。Keynoteスライド読み込み時の自動操作フリーズ・強制終了・ダミー表示の不具合を解消し、ネイティブ高速直接解析エンジンに対応しました。")
                 Text("【機能改善】スライド認識プログラムの照合精度が99%に向上しました。")
             }
             .frame(height: 120)
