@@ -18,6 +18,7 @@ public struct RecognitionResult: Identifiable, Codable {
     public var matchedBackgroundCount: Int
     public var matchedCharacterCount: Int
     public var animationCount: Int
+    public var animationVideoCount: Int = 0
     public var accuracyRate: Double // e.g. 99.4%
 }
 
@@ -185,6 +186,11 @@ public final class SlideRecognitionService: ObservableObject {
             let recognizedSlides = self.extractSlidesFromPath(filePath: filePath)
             let slideCount = recognizedSlides.count
 
+            let renderedImageCount = recognizedSlides.filter { $0.slideImagePath != nil }.count
+            if renderedImageCount > 0 {
+                self.appendLog(&logEntries, slide: 0, step: "スライド画面抽出", status: "SUCCESS", details: "Keynoteスライド画面そのもの(1920x1080)を全\(renderedImageCount)枚完全抽出・レンダリング同期完了")
+            }
+
             var bgMatches = 0
             var charMatches = 0
             var animCount = 0
@@ -288,6 +294,11 @@ public final class SlideRecognitionService: ObservableObject {
                 self.updateProgress(1.0)
                 self.isRunning = false
 
+                let animVideoCount = recognizedSlides.filter { $0.animationVideoPath != nil }.count
+                if animVideoCount > 0 {
+                    self.appendLog(&logEntries, slide: 0, step: "アニメーション動画記録", status: "SUCCESS", details: "アニメーションありスライド \(animVideoCount)件のプレビュー動画を記録完了")
+                }
+
                 let finalResult = RecognitionResult(
                     fileName: fileName,
                     totalSlides: slideCount,
@@ -296,6 +307,7 @@ public final class SlideRecognitionService: ObservableObject {
                     matchedBackgroundCount: bgMatches,
                     matchedCharacterCount: charMatches,
                     animationCount: animCount,
+                    animationVideoCount: animVideoCount,
                     accuracyRate: accuracy
                 )
 
@@ -372,12 +384,39 @@ public final class SlideRecognitionService: ObservableObject {
         clips.append(SoundClip(name: "メインテーマ BGM", type: "BGM", duration: 180.0, volume: 0.6))
         // 音声セリフ枠
         for slide in slides.prefix(50) {
-            if !slide.telop.isEmpty && !slide.characterName.isEmpty && slide.characterName != "ナレーション" {
+            // ノートにあるカッコ書き"（）,(),[]"から話者を最優先で識別
+            var speaker = slide.characterName
+            if let noteBracketSpeaker = SlideItem.extractSpeakerFromBrackets(from: slide.rawPresenterNote ?? slide.presenterNote), !noteBracketSpeaker.isEmpty {
+                speaker = noteBracketSpeaker
+            } else if let telopBracketSpeaker = SlideItem.extractSpeakerFromBrackets(from: slide.telop), !telopBracketSpeaker.isEmpty {
+                speaker = telopBracketSpeaker
+            }
+
+            // キャラクター辞書にあれば正式名に補正
+            let charDictionary = [
+                "霊夢": "博麗霊夢", "魔理沙": "霧雨魔理沙", "咲夜": "十六夜咲夜", "妖夢": "魂魄妖夢",
+                "幽々子": "西行寺幽々子", "紫": "八雲紫", "パチュリー": "パチュリー・ノーレッジ",
+                "フラン": "フランドール・スカーレット", "レミリア": "レミリア・スカーレット",
+                "早苗": "東風谷早苗", "さとり": "古明地さとり", "こいし": "古明地こいし",
+                "アリス": "アリス・マーガトロイド", "チルノ": "チルノ", "文": "射命丸文"
+            ]
+            if let mapped = charDictionary[speaker] {
+                speaker = mapped
+            }
+
+            // セリフ本文はカッコ書き"（）,(),[]"を除去したクリーンなテキストを使用
+            var speechText = slide.telop
+            if !slide.displayPresenterNote.isEmpty && slide.displayPresenterNote != slide.title {
+                speechText = slide.displayPresenterNote
+            }
+            speechText = SlideItem.stripSpeakerBrackets(from: speechText)
+
+            if !speechText.isEmpty && !speaker.isEmpty && speaker != "ナレーション" {
                 clips.append(SoundClip(
-                    name: "\(slide.characterName)セリフ #\(slide.slideIndex)",
+                    name: "\(speaker)セリフ #\(slide.slideIndex)",
                     type: "Voice",
-                    character: slide.characterName,
-                    text: slide.telop,
+                    character: speaker,
+                    text: speechText,
                     voiceSymbol: "",
                     duration: slide.duration,
                     volume: 1.0,
@@ -521,6 +560,9 @@ public final class SlideRecognitionService: ObservableObject {
                         let tY = d["telopY"] as? Double
                         let tW = d["telopWidth"] as? Double
                         let tH = d["telopHeight"] as? Double
+                        let slideImagePath = d["slideImagePath"] as? String
+                        let animationVideoPath = d["animationVideoPath"] as? String
+                        let rawPresenterNote = d["rawPresenterNote"] as? String
 
                         var objectItems: [SlideObjectItem] = []
                         if let rawObjs = d["objects"] as? [[String: Any]] {
@@ -624,7 +666,10 @@ public final class SlideRecognitionService: ObservableObject {
                             telopY: tY,
                             telopWidth: tW,
                             telopHeight: tH,
-                            objects: objectItems
+                            objects: objectItems,
+                            slideImagePath: slideImagePath,
+                            animationVideoPath: animationVideoPath,
+                            rawPresenterNote: rawPresenterNote
                         ))
                     }
                     if !items.isEmpty {

@@ -16,6 +16,8 @@ import struct
 import subprocess
 import unicodedata
 import time
+import hashlib
+import glob
 
 try:
     import snappy
@@ -25,6 +27,8 @@ except ImportError:
 
 REPO_ROOT = "/Volumes/ZSSD/GitHub/repository/TohoStudio"
 CACHE_ROOT = os.path.join(REPO_ROOT, ".cache/keynote_extracted")
+CACHE_SLIDES_ROOT = os.path.join(REPO_ROOT, ".cache/keynote_slides")
+CACHE_ANIMATIONS_ROOT = os.path.join(REPO_ROOT, ".cache/keynote_animations")
 VIDEO_DIR = os.path.join(REPO_ROOT, "動画用")
 
 CHAR_MAP = {
@@ -58,6 +62,192 @@ CHAR_MAP = {
     "永琳": "八意永琳",
     "輝夜": "蓬莱山輝夜"
 }
+
+def extract_speaker_and_clean_note(raw_text):
+    """
+    ノートにあるカッコ書き"（）,(),[]"から話者を識別し、
+    話者名、UI表示用のクリーンなノート（カッコ書きを除去したもの）、元の生ノートを返す。
+    ※カッコ書きはサウンドメーカーでの話者識別のための記述であり、UI上には表示しない。
+    """
+    if not raw_text:
+        return "", "", ""
+    raw_note = str(raw_text).strip()
+    speaker = ""
+
+    # 全角丸カッコ（）、半角丸カッコ()、半角角カッコ[]、全角角カッコ［］に囲まれた話者表記
+    bracket_re = re.compile(r'[（\(\[［]([^）\)\]］\s]{1,20})[）\)\]］]')
+    m = bracket_re.search(raw_note)
+    if m:
+        speaker = m.group(1).strip()
+
+    # UI非表示用: カッコ書き "（...）", "(...)", "[...]", "［...］" を完全に除去
+    cleaned = bracket_re.sub("", raw_note).strip()
+    # 行ごとの整形
+    cleaned_lines = [l.strip() for l in cleaned.splitlines() if l.strip()]
+    cleaned_note = "\n".join(cleaned_lines)
+
+    return speaker, cleaned_note, raw_note
+
+def get_keynote_app_name():
+    for candidate in ["Keynote Creator Studio", "Keynote"]:
+        if os.path.exists(f"/Applications/{candidate}.app"):
+            return candidate
+    try:
+        out = subprocess.check_output(["mdfind", "kMDItemCFBundleIdentifier == 'com.apple.Keynote'"], text=True).strip()
+        if out:
+            base = os.path.basename(out.splitlines()[0])
+            name = os.path.splitext(base)[0]
+            if name:
+                return name
+    except Exception:
+        pass
+    return "Keynote Creator Studio"
+
+def natural_sort_key(s):
+    return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s)]
+
+def export_slide_images_if_needed(filepath):
+    """
+    Keynoteファイルからスライド画面そのもの(高解像度1920x1080 JPEG)を一括エクスポートし、
+    スライド順の画像ファイルパスのリストを返す。
+    すでにキャッシュが存在し、mtimeが一致していれば瞬時にキャッシュを再利用する。
+    """
+    if not filepath or not os.path.exists(filepath):
+        return []
+
+    filepath = unicodedata.normalize("NFC", os.path.abspath(filepath))
+    try:
+        os.makedirs(CACHE_SLIDES_ROOT, exist_ok=True)
+        mtime = os.path.getmtime(filepath)
+        size = os.path.getsize(filepath)
+        base_name = unicodedata.normalize("NFC", os.path.splitext(os.path.basename(filepath))[0])
+        safe_slug = re.sub(r'[^a-zA-Z0-9_\-\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uffef\u4e00-\u9faf]', '_', base_name)
+        hash_str = hashlib.md5(f"{filepath}:{mtime}:{size}".encode("utf-8")).hexdigest()[:10]
+        cache_dir = os.path.join(CACHE_SLIDES_ROOT, f"{safe_slug}_{hash_str}")
+
+        # 既存キャッシュディレクトリの探索（NFC/NFD揺れ対策）
+        for candidate in os.listdir(CACHE_SLIDES_ROOT):
+            cand_norm = unicodedata.normalize("NFC", candidate)
+            if cand_norm.startswith(f"{safe_slug}_"):
+                cand_dir = os.path.join(CACHE_SLIDES_ROOT, candidate)
+                existing = sorted(
+                    glob.glob(os.path.join(cand_dir, "*.jpeg")) + glob.glob(os.path.join(cand_dir, "*.jpg")),
+                    key=natural_sort_key
+                )
+                if existing:
+                    return existing
+
+        os.makedirs(cache_dir, exist_ok=True)
+
+        keynote_app = get_keynote_app_name()
+        script = f'''
+tell application "{keynote_app}"
+    set theFile to POSIX file "{filepath}"
+    set theDoc to open theFile
+    set outDir to POSIX file "{cache_dir}"
+    export theDoc to file outDir as slide images with properties {{image format:JPEG}}
+    close theDoc saving no
+end tell
+'''
+        res = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=90)
+        if res.returncode == 0:
+            exported_images = sorted(
+                glob.glob(os.path.join(cache_dir, "*.jpeg")) + glob.glob(os.path.join(cache_dir, "*.jpg")),
+                key=natural_sort_key
+            )
+            if exported_images:
+                return exported_images
+    except Exception:
+        pass
+
+    return []
+
+def export_slide_animation_videos_if_needed(filepath, slides):
+    """
+    Keynoteファイル内でアニメーションがあるスライドを検出し、
+    各スライドのアニメーション動画(.m4v)をキャッシュにエクスポートして記録する。
+    すでにキャッシュが存在すれば再利用し、slide['animationVideoPath'] に格納する。
+    """
+    if not filepath or not os.path.exists(filepath) or not slides:
+        return 0
+
+    filepath = unicodedata.normalize("NFC", os.path.abspath(filepath))
+    target_slides = [s for s in slides if s.get("animations") and len(s["animations"]) > 0]
+    if not target_slides:
+        return 0
+
+    try:
+        os.makedirs(CACHE_ANIMATIONS_ROOT, exist_ok=True)
+        mtime = os.path.getmtime(filepath)
+        size = os.path.getsize(filepath)
+        base_name = unicodedata.normalize("NFC", os.path.splitext(os.path.basename(filepath))[0])
+        safe_slug = re.sub(r'[^a-zA-Z0-9_\-\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uffef\u4e00-\u9faf]', '_', base_name)
+        hash_str = hashlib.md5(f"{filepath}:{mtime}:{size}".encode("utf-8")).hexdigest()[:10]
+        cache_dir = os.path.join(CACHE_ANIMATIONS_ROOT, f"{safe_slug}_{hash_str}")
+
+        # 既存キャッシュディレクトリの探索（NFC/NFD揺れ対策）
+        for candidate in os.listdir(CACHE_ANIMATIONS_ROOT):
+            cand_norm = unicodedata.normalize("NFC", candidate)
+            if cand_norm.startswith(f"{safe_slug}_"):
+                cand_dir = os.path.join(CACHE_ANIMATIONS_ROOT, candidate)
+                cand_vids = glob.glob(os.path.join(cand_dir, "*.m4v")) + glob.glob(os.path.join(cand_dir, "*.mp4"))
+                if cand_vids:
+                    cache_dir = cand_dir
+                    break
+
+        os.makedirs(cache_dir, exist_ok=True)
+
+        needed_slides = []
+        for s in target_slides:
+            s_idx = s["slideIndex"]
+            expected_video = os.path.join(cache_dir, f"slide_{s_idx:03d}_anim.m4v")
+            if os.path.exists(expected_video) and os.path.getsize(expected_video) > 1000:
+                s["animationVideoPath"] = expected_video
+            else:
+                needed_slides.append(s)
+
+        if not needed_slides:
+            return len(target_slides)
+
+        keynote_app = get_keynote_app_name()
+        export_blocks = []
+        for s in needed_slides:
+            s_idx = s["slideIndex"]
+            out_path = os.path.join(cache_dir, f"slide_{s_idx:03d}_anim.m4v")
+            block = f'''
+        -- Slide {s_idx}
+        repeat with i from 1 to totalSlides
+            set skipped of slide i of theDoc to true
+        end repeat
+        set skipped of slide {s_idx} of theDoc to false
+        set outMovie to POSIX file "{out_path}"
+        try
+            export theDoc to file outMovie as QuickTime movie with properties {{skipped slides:false, movie format:format720p}}
+        end try
+'''
+            export_blocks.append(block)
+
+        script = f'''
+tell application "{keynote_app}"
+    set theFile to POSIX file "{filepath}"
+    set theDoc to open theFile
+    set totalSlides to count of slides of theDoc
+    {"".join(export_blocks)}
+    close theDoc saving no
+end tell
+'''
+        res = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=180)
+        if res.returncode == 0:
+            for s in needed_slides:
+                s_idx = s["slideIndex"]
+                out_path = os.path.join(cache_dir, f"slide_{s_idx:03d}_anim.m4v")
+                if os.path.exists(out_path) and os.path.getsize(out_path) > 1000:
+                    s["animationVideoPath"] = out_path
+
+        return sum(1 for s in target_slides if s.get("animationVideoPath"))
+    except Exception as e:
+        sys.stderr.write(f"Animation export error: {e}\n")
+        return 0
 
 _ASSET_INDEX = {}
 
@@ -524,19 +714,37 @@ def extract_via_direct_iwa(filepath, project_name):
                 else:
                     telop = "\n".join(txts)
 
+            # ノートから話者（カッコ書き"（）,(),[]"）を抽出＆UI非表示クリーン化
+            note_speaker, cleaned_note, orig_raw_note = extract_speaker_and_clean_note(raw_note)
+
             # Slide 3 & 7 Rule: Presenter Note MUST BE BLANK for Title and Section Header slides!
             if stype in ["title", "sectionHeader"]:
                 presenter_note = ""
+                raw_presenter_note = ""
                 duration = parse_duration_from_note(raw_note, default_duration=3.0)
             else:
                 # Slide 4 & 8 Rule: If presenter note is blank, use telop as scenario!
                 if not raw_note:
-                    presenter_note = telop
+                    t_spk, t_cleaned, t_raw = extract_speaker_and_clean_note(telop)
+                    if t_spk and not note_speaker:
+                        note_speaker = t_spk
+                    presenter_note = t_cleaned if t_cleaned else telop
+                    raw_presenter_note = telop
                 else:
-                    presenter_note = raw_note
+                    presenter_note = cleaned_note
+                    raw_presenter_note = orig_raw_note
 
                 base_duration = max(3.5, len(telop) * 0.1) if telop else 4.0
                 duration = parse_duration_from_note(raw_note, default_duration=base_duration)
+
+            # ノート内のカッコ書き"（）,(),[]"から話者を最優先認識
+            if note_speaker and not char_name:
+                for k, full_n in CHAR_MAP.items():
+                    if k in note_speaker:
+                        char_name = full_n
+                        break
+                if not char_name:
+                    char_name = note_speaker
 
             if not char_name:
                 speaker_match = re.match(r"^([^\s「]{1,10})[「『](.*)[」』]$", telop)
@@ -569,6 +777,7 @@ def extract_via_direct_iwa(filepath, project_name):
                 "title": title,
                 "telop": telop,
                 "presenterNote": presenter_note,
+                "rawPresenterNote": raw_presenter_note,
                 "duration": duration,
                 "transitionEffect": "クロスディゾルブ",
                 "transitionTrigger": "automatically",
@@ -772,142 +981,180 @@ def extract_keynote_slides(filepath):
     # Priority 1: Direct Native IWA Parser (Fast, no GUI, zero interruption, ~2s)
     direct_res = extract_via_direct_iwa(filepath, project_name)
     if direct_res and direct_res.get("slides") and len(direct_res["slides"]) > 0:
-        return direct_res
-
-    # Priority 2: Extract slide structure via JXA
-    jxa_data = extract_via_jxa(filepath)
-    if not jxa_data or not jxa_data.get("slides"):
-        # Priority 3: Fallback using actual repo assets
-        return fallback_scan(filepath, project_name)
-
-    doc_w = float(jxa_data.get("docW", 1920))
-    doc_h = float(jxa_data.get("docH", 1080))
-    raw_slides = jxa_data["slides"]
-
-    parsed_slides = []
-    for s in raw_slides:
-        s_idx = s["idx"]
-        note = (s.get("note") or "").strip()
-
-        all_texts = []
-        for i, raw_txt in enumerate(s.get("shTexts", [])):
-            txt = unicodedata.normalize("NFC", (raw_txt or "").strip())
-            if txt:
-                all_texts.append(txt)
-        for i, raw_txt in enumerate(s.get("tiTexts", [])):
-            txt = unicodedata.normalize("NFC", (raw_txt or "").strip())
-            if txt:
-                all_texts.append(txt)
-
-        stype = detect_slide_type(s_idx, all_texts, "")
-        title = all_texts[0] if all_texts else f"シーン {s_idx}"
-        telop = "\n".join(all_texts[1:]) if len(all_texts) > 1 else (all_texts[0] if all_texts else "")
-
-        if stype in ["title", "sectionHeader"]:
-            presenter_note = ""
-            duration = parse_duration_from_note(note, default_duration=3.0)
+        res = direct_res
+    else:
+        # Priority 2: Extract slide structure via JXA
+        jxa_data = extract_via_jxa(filepath)
+        if not jxa_data or not jxa_data.get("slides"):
+            # Priority 3: Fallback using actual repo assets
+            res = fallback_scan(filepath, project_name)
         else:
-            presenter_note = note if note else telop
-            duration = parse_duration_from_note(note, default_duration=max(3.5, len(telop)*0.1))
+            doc_w = float(jxa_data.get("docW", 1920))
+            doc_h = float(jxa_data.get("docH", 1080))
+            raw_slides = jxa_data["slides"]
 
-        im_names = [clean_image_name(n) for n in s.get("imNames", []) if n]
-        bg_name = ""
-        bg_path = None
-        char_name = ""
-        char_path = None
-        objects = []
-        detected_names = []
+            parsed_slides = []
+            for s in raw_slides:
+                s_idx = s["idx"]
+                note = (s.get("note") or "").strip()
 
-        for iname in im_names:
-            asset_path = find_asset(iname)
-            is_bg = any(k in iname for k in ["背景", "和室", "神社", "紅魔館", "スキマ", "リビング", "空", "部屋", "夜", "昼", "夕", "道"])
-            if is_bg and not bg_name:
-                bg_name = iname
-                bg_path = asset_path
-                detected_names.append("背景:" + iname)
-            elif not char_name and any(k in iname for k in CHAR_MAP.keys()):
-                for k, full_n in CHAR_MAP.items():
-                    if k in iname:
-                        char_name = full_n
-                        char_path = asset_path
-                        detected_names.append("キャラクター:" + iname)
-                        break
-            else:
-                objects.append({
-                    "name": iname,
-                    "objectType": "image",
-                    "x": 100.0,
-                    "y": 100.0,
-                    "width": 300.0,
-                    "height": 300.0,
-                    "imagePath": asset_path
+                all_texts = []
+                for i, raw_txt in enumerate(s.get("shTexts", [])):
+                    txt = unicodedata.normalize("NFC", (raw_txt or "").strip())
+                    if txt:
+                        all_texts.append(txt)
+                for i, raw_txt in enumerate(s.get("tiTexts", [])):
+                    txt = unicodedata.normalize("NFC", (raw_txt or "").strip())
+                    if txt:
+                        all_texts.append(txt)
+
+                stype = detect_slide_type(s_idx, all_texts, "")
+                title = all_texts[0] if all_texts else f"シーン {s_idx}"
+                telop = "\n".join(all_texts[1:]) if len(all_texts) > 1 else (all_texts[0] if all_texts else "")
+
+                note_speaker, cleaned_note, orig_raw_note = extract_speaker_and_clean_note(note)
+
+                if stype in ["title", "sectionHeader"]:
+                    presenter_note = ""
+                    raw_presenter_note = ""
+                    duration = parse_duration_from_note(note, default_duration=3.0)
+                else:
+                    if not note:
+                        t_spk, t_cleaned, t_raw = extract_speaker_and_clean_note(telop)
+                        if t_spk and not note_speaker:
+                            note_speaker = t_spk
+                        presenter_note = t_cleaned if t_cleaned else telop
+                        raw_presenter_note = telop
+                    else:
+                        presenter_note = cleaned_note
+                        raw_presenter_note = orig_raw_note
+                    duration = parse_duration_from_note(note, default_duration=max(3.5, len(telop)*0.1))
+
+                im_names = [clean_image_name(n) for n in s.get("imNames", []) if n]
+                bg_name = ""
+                bg_path = None
+                char_name = ""
+                char_path = None
+                objects = []
+                detected_names = []
+
+                for iname in im_names:
+                    asset_path = find_asset(iname)
+                    is_bg = any(k in iname for k in ["背景", "和室", "神社", "紅魔館", "スキマ", "リビング", "空", "部屋", "夜", "昼", "夕", "道"])
+                    if is_bg and not bg_name:
+                        bg_name = iname
+                        bg_path = asset_path
+                        detected_names.append("背景:" + iname)
+                    elif not char_name and any(k in iname for k in CHAR_MAP.keys()):
+                        for k, full_n in CHAR_MAP.items():
+                            if k in iname:
+                                char_name = full_n
+                                char_path = asset_path
+                                detected_names.append("キャラクター:" + iname)
+                                break
+                    else:
+                        objects.append({
+                            "name": iname,
+                            "objectType": "image",
+                            "x": 100.0,
+                            "y": 100.0,
+                            "width": 300.0,
+                            "height": 300.0,
+                            "imagePath": asset_path
+                        })
+                        detected_names.append("オブジェクト:" + iname)
+
+                # ノート内のカッコ書き"（）,(),[]"から話者を最優先認識
+                if note_speaker and not char_name:
+                    for k, full_n in CHAR_MAP.items():
+                        if k in note_speaker:
+                            char_name = full_n
+                            break
+                    if not char_name:
+                        char_name = note_speaker
+
+                if not char_name:
+                    char_name = "ナレーション" if stype == "content" else ""
+                if not bg_name:
+                    bg_name = "nc73538_【背景素材】博麗神社.jpg" if stype == "content" else "単色背景"
+                    bg_path = find_asset(bg_name)
+
+                parsed_slides.append({
+                    "slideIndex": s_idx,
+                    "slideType": stype,
+                    "title": title,
+                    "telop": telop,
+                    "presenterNote": presenter_note,
+                    "rawPresenterNote": raw_presenter_note,
+                    "duration": duration,
+                    "transitionEffect": "クロスディゾルブ",
+                    "transitionTrigger": "automatically",
+                    "transitionDelay": 0.0,
+                    "transitionDuration": 0.8,
+                    "backgroundName": bg_name,
+                    "characterName": char_name,
+                    "slideWidth": doc_w,
+                    "slideHeight": doc_h,
+                    "backgroundImagePath": bg_path,
+                    "backgroundX": 0.0,
+                    "backgroundY": 0.0,
+                    "backgroundWidth": doc_w,
+                    "backgroundHeight": doc_h,
+                    "characterImagePath": char_path,
+                    "characterX": 720.0 if char_path else None,
+                    "characterY": 30.0 if char_path else None,
+                    "characterWidth": 480.0 if char_path else None,
+                    "characterHeight": 850.0 if char_path else None,
+                    "telopX": 0.0,
+                    "telopY": 855.0,
+                    "telopWidth": doc_w,
+                    "telopHeight": 225.0,
+                    "objects": objects,
+                    "detectedObjects": detected_names if detected_names else ["演出枠"],
+                    "animationTag": "フェードイン",
+                    "transitionTag": "クロスディゾルブ",
+                    "animations": [{
+                        "id": f"anim_{s_idx}",
+                        "targetObjectName": char_name if char_name else "演出枠",
+                        "animationType": "buildIn",
+                        "effect": "フェードイン",
+                        "duration": 1.0,
+                        "direction": "none"
+                    }],
+                    "buildOrder": [{
+                        "order": 1,
+                        "animationId": f"anim_{s_idx}",
+                        "targetObjectName": char_name if char_name else "演出枠",
+                        "trigger": "afterPrevious",
+                        "delay": 0.0
+                    }]
                 })
-                detected_names.append("オブジェクト:" + iname)
 
-        if not char_name:
-            char_name = "ナレーション" if stype == "content" else ""
-        if not bg_name:
-            bg_name = "nc73538_【背景素材】博麗神社.jpg" if stype == "content" else "単色背景"
-            bg_path = find_asset(bg_name)
+            res = {
+                "slides": parsed_slides,
+                "total": len(parsed_slides),
+                "fileName": os.path.basename(filepath),
+                "docWidth": doc_w,
+                "docHeight": doc_h,
+                "parserEngine": "JXA"
+            }
 
-        parsed_slides.append({
-            "slideIndex": s_idx,
-            "slideType": stype,
-            "title": title,
-            "telop": telop,
-            "presenterNote": presenter_note,
-            "duration": duration,
-            "transitionEffect": "クロスディゾルブ",
-            "transitionTrigger": "automatically",
-            "transitionDelay": 0.0,
-            "transitionDuration": 0.8,
-            "backgroundName": bg_name,
-            "characterName": char_name,
-            "slideWidth": doc_w,
-            "slideHeight": doc_h,
-            "backgroundImagePath": bg_path,
-            "backgroundX": 0.0,
-            "backgroundY": 0.0,
-            "backgroundWidth": doc_w,
-            "backgroundHeight": doc_h,
-            "characterImagePath": char_path,
-            "characterX": 720.0 if char_path else None,
-            "characterY": 30.0 if char_path else None,
-            "characterWidth": 480.0 if char_path else None,
-            "characterHeight": 850.0 if char_path else None,
-            "telopX": 0.0,
-            "telopY": 855.0,
-            "telopWidth": doc_w,
-            "telopHeight": 225.0,
-            "objects": objects,
-            "detectedObjects": detected_names if detected_names else ["演出枠"],
-            "animationTag": "フェードイン",
-            "transitionTag": "クロスディゾルブ",
-            "animations": [{
-                "id": f"anim_{s_idx}",
-                "targetObjectName": char_name if char_name else "演出枠",
-                "animationType": "buildIn",
-                "effect": "フェードイン",
-                "duration": 1.0,
-                "direction": "none"
-            }],
-            "buildOrder": [{
-                "order": 1,
-                "animationId": f"anim_{s_idx}",
-                "targetObjectName": char_name if char_name else "演出枠",
-                "trigger": "afterPrevious",
-                "delay": 0.0
-            }]
-        })
+    # スライド画面そのものの高解像度レンダリング画像(1920x1080 JPEG)を一括エクスポート＆キャッシュからマッピング
+    slide_images = export_slide_images_if_needed(filepath)
+    if res and "slides" in res:
+        for idx, slide in enumerate(res["slides"]):
+            if idx < len(slide_images):
+                slide["slideImagePath"] = slide_images[idx]
+            else:
+                slide["slideImagePath"] = None
+        if slide_images:
+            res["exportedSlideImagesCount"] = len(slide_images)
 
-    return {
-        "slides": parsed_slides,
-        "total": len(parsed_slides),
-        "fileName": os.path.basename(filepath),
-        "docWidth": doc_w,
-        "docHeight": doc_h,
-        "parserEngine": "JXA"
-    }
+        # アニメーションがあるスライドの動画(.m4v)をエクスポート＆キャッシュからマッピング
+        exported_anim_count = export_slide_animation_videos_if_needed(filepath, res["slides"])
+        res["exportedAnimationVideosCount"] = exported_anim_count
+
+    return res
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

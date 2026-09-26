@@ -275,6 +275,37 @@ public struct SlideItem: Identifiable, Codable, Equatable {
     public var telopHeight: Double? = nil
 
     public var objects: [SlideObjectItem] = []
+    public var slideImagePath: String? = nil // Keynoteから抽出されたスライド画面そのものの高解像度レンダリング画像パス (1920x1080)
+    public var animationVideoPath: String? = nil // アニメーションがあるスライドの記録動画パス (.m4v/.mp4)
+    public var rawPresenterNote: String? = nil // ノート生データ (カッコ書き"（）,(),[]"含む元データ)
+
+    /// UI表示用ノート（カッコ書き"（）,(),[]"を完全に除外してUIに表示する）
+    public var displayPresenterNote: String {
+        return SlideItem.stripSpeakerBrackets(from: presenterNote)
+    }
+
+    /// カッコ書き"（話者）", "(話者)", "[話者]" を文字列から除去する共通ユーティリティ
+    public static func stripSpeakerBrackets(from text: String) -> String {
+        let pattern = "[（\\(\\[［][^）\\)\\]］\\s]{1,20}[）\\)\\]］]"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { return text }
+        let range = NSRange(text.startIndex..., in: text)
+        let cleaned = regex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "")
+        let lines = cleaned.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        return lines.joined(separator: "\n")
+    }
+
+    /// カッコ書き"（話者）", "(話者)", "[話者]" から話者名を抽出する
+    public static func extractSpeakerFromBrackets(from text: String) -> String? {
+        let pattern = "[（\\(\\[［]([^）\\)\\]］\\s]{1,20})[）\\)\\]］]"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { return nil }
+        let nsStr = text as NSString
+        let range = NSRange(text.startIndex..., in: text)
+        if let match = regex.firstMatch(in: text, options: [], range: range), match.numberOfRanges > 1 {
+            let extracted = nsStr.substring(with: match.range(at: 1)).trimmingCharacters(in: .whitespaces)
+            return extracted.isEmpty ? nil : extracted
+        }
+        return nil
+    }
 
     public init(
         id: UUID = UUID(),
@@ -311,7 +342,10 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         telopY: Double? = nil,
         telopWidth: Double? = nil,
         telopHeight: Double? = nil,
-        objects: [SlideObjectItem] = []
+        objects: [SlideObjectItem] = [],
+        slideImagePath: String? = nil,
+        animationVideoPath: String? = nil,
+        rawPresenterNote: String? = nil
     ) {
         self.id = id
         self.slideIndex = slideIndex
@@ -348,6 +382,9 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         self.telopWidth = telopWidth
         self.telopHeight = telopHeight
         self.objects = objects
+        self.slideImagePath = slideImagePath
+        self.animationVideoPath = animationVideoPath
+        self.rawPresenterNote = rawPresenterNote ?? presenterNote
     }
 }
 

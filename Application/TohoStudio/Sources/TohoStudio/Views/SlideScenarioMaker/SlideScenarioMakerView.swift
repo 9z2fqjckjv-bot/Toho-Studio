@@ -1,11 +1,22 @@
 import SwiftUI
 import AppKit
+import AVKit
+import AVFoundation
 
 public struct SlideScenarioMakerView: View {
     @ObservedObject var appState = AppState.shared
     @ObservedObject var recognitionService = SlideRecognitionService.shared
 
+    public enum CanvasViewMode: String, CaseIterable, Identifiable {
+        case slideOriginal = "スライド原画"
+        case animationVideo = "🎬 アニメ動画"
+        case elementLayers = "レイヤー分解"
+        public var id: String { rawValue }
+    }
+
     @State private var selectedSlideIdx: Int = 0
+    @State private var canvasViewMode: CanvasViewMode = .slideOriginal
+    @State private var showCanvasOverlay: Bool = true
     @State private var showUnifiedModal: Bool = false
     @State private var selectedFilePath: String = "/Volumes/ZSSD/GitHub/repository/TohoStudio/交換夫婦/交換夫婦（21.22話目）.key"
     @State private var syncMovieMaker: Bool = true
@@ -156,69 +167,104 @@ public struct SlideScenarioMakerView: View {
 
             List(0..<appState.slides.count, id: \.self) { idx in
                 let slide = appState.slides[idx]
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("#\(slide.slideIndex)")
-                            .font(.caption2)
-                            .bold()
-                            .foregroundColor(.accentColor)
+                HStack(alignment: .top, spacing: 8) {
+                    // スライド画面サムネイル (16:9)
+                    if let imgPath = slide.slideImagePath, let thumbImg = resolveImage(path: imgPath, name: nil, subfolder: nil) {
+                        Image(nsImage: thumbImg)
+                            .resizable()
+                            .aspectRatio(16/9, contentMode: .fit)
+                            .frame(width: 58, height: 33)
+                            .cornerRadius(3)
+                            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary.opacity(0.3), lineWidth: 0.5))
+                    } else if let bgImg = resolveImage(path: slide.backgroundImagePath, name: slide.backgroundName, subfolder: "背景") {
+                        Image(nsImage: bgImg)
+                            .resizable()
+                            .aspectRatio(16/9, contentMode: .fit)
+                            .frame(width: 58, height: 33)
+                            .cornerRadius(3)
+                            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary.opacity(0.3), lineWidth: 0.5))
+                    } else {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(slide.slideType == "sectionHeader" ? Color.purple.opacity(0.3) : (slide.slideType == "title" ? Color.blue.opacity(0.3) : Color.black.opacity(0.3)))
+                            .frame(width: 58, height: 33)
+                            .overlay(
+                                Text("#\(slide.slideIndex)")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(.secondary)
+                            )
+                    }
 
-                        // スライド種別バッジ
-                        if slide.slideType == "title" {
-                            Text("タイトル")
-                                .font(.system(size: 9))
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
-                                .background(Color.blue.opacity(0.2))
-                                .foregroundColor(.blue)
-                                .cornerRadius(3)
-                        } else if slide.slideType == "sectionHeader" {
-                            Text("中扉")
-                                .font(.system(size: 9))
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
-                                .background(Color.purple.opacity(0.2))
-                                .foregroundColor(.purple)
-                                .cornerRadius(3)
-                        }
-
-                        Spacer()
-
-                        Text("⏱️\(String(format: "%.1f", slide.duration))s")
-                            .font(.system(size: 9))
-                            .foregroundColor(.secondary)
-
-                        if !slide.characterName.isEmpty {
-                            Text(slide.characterName)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Text("#\(slide.slideIndex)")
                                 .font(.caption2)
+                                .bold()
+                                .foregroundColor(.accentColor)
+
+                            // スライド種別バッジ
+                            if slide.slideType == "title" {
+                                Text("タイトル")
+                                    .font(.system(size: 8))
+                                    .padding(.horizontal, 3)
+                                    .padding(.vertical, 1)
+                                    .background(Color.blue.opacity(0.2))
+                                    .foregroundColor(.blue)
+                                    .cornerRadius(2)
+                            } else if slide.slideType == "sectionHeader" {
+                                Text("中扉")
+                                    .font(.system(size: 8))
+                                    .padding(.horizontal, 3)
+                                    .padding(.vertical, 1)
+                                    .background(Color.purple.opacity(0.2))
+                                    .foregroundColor(.purple)
+                                    .cornerRadius(2)
+                            }
+
+                            Spacer()
+
+                            Text("⏱️\(String(format: "%.1f", slide.duration))s")
+                                .font(.system(size: 8))
                                 .foregroundColor(.secondary)
                         }
-                    }
 
-                    Text(slide.title)
-                        .font(.caption)
-                        .bold()
-                        .lineLimit(1)
+                        Text(slide.title)
+                            .font(.system(size: 11, weight: .semibold))
+                            .lineLimit(1)
 
-                    if !slide.telop.isEmpty {
-                        Text(slide.telop)
-                            .font(.caption2)
-                            .lineLimit(2)
-                            .foregroundColor(.secondary)
-                    }
+                        if !slide.telop.isEmpty {
+                            Text(slide.telop)
+                                .font(.system(size: 9))
+                                .lineLimit(1)
+                                .foregroundColor(.secondary)
+                        }
 
-                    if !slide.animations.isEmpty {
-                        HStack(spacing: 3) {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 8))
-                                .foregroundColor(.orange)
-                            Text("\(slide.animations.count)アニメ")
-                                .font(.system(size: 8))
-                                .foregroundColor(.orange)
+                        if !slide.animations.isEmpty {
+                            HStack(spacing: 3) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 7))
+                                    .foregroundColor(.orange)
+                                Text("\(slide.animations.count)アニメ")
+                                    .font(.system(size: 8))
+                                    .foregroundColor(.orange)
+
+                                if slide.animationVideoPath != nil {
+                                    HStack(spacing: 1) {
+                                        Image(systemName: "film.fill")
+                                            .font(.system(size: 7))
+                                        Text("動画")
+                                            .font(.system(size: 7, weight: .bold))
+                                    }
+                                    .padding(.horizontal, 3)
+                                    .padding(.vertical, 0.5)
+                                    .background(Color.purple.opacity(0.8))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(2)
+                                }
+                            }
                         }
                     }
                 }
-                .padding(6)
+                .padding(5)
                 .background(selectedSlideIdx == idx ? Color.accentColor.opacity(0.2) : Color.clear)
                 .cornerRadius(6)
                 .contentShape(Rectangle())
@@ -231,9 +277,90 @@ public struct SlideScenarioMakerView: View {
 
     // MARK: - Slide Canvas
     private var slideCanvasView: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             if selectedSlideIdx < appState.slides.count {
                 let slide = appState.slides[selectedSlideIdx]
+
+                // Mode Selector & Status Header Bar
+                HStack(spacing: 12) {
+                    Picker("画面表示", selection: $canvasViewMode) {
+                        ForEach(CanvasViewMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 320)
+
+                    if let videoPath = slide.animationVideoPath, FileManager.default.fileExists(atPath: videoPath) {
+                        Button(action: {
+                            canvasViewMode = (canvasViewMode == .animationVideo) ? .slideOriginal : .animationVideo
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: canvasViewMode == .animationVideo ? "photo" : "play.circle.fill")
+                                Text(canvasViewMode == .animationVideo ? "原画に戻す" : "🎬 アニメ再生")
+                                    .bold()
+                            }
+                            .font(.caption2)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(canvasViewMode == .animationVideo ? Color.blue : Color.orange)
+                            .foregroundColor(.white)
+                            .cornerRadius(4)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    if canvasViewMode == .slideOriginal {
+                        Toggle("情報オーバーレイ", isOn: $showCanvasOverlay)
+                            .toggleStyle(.checkbox)
+                            .font(.caption)
+
+                        Spacer()
+
+                        if slide.slideImagePath != nil && resolveImage(path: slide.slideImagePath, name: nil, subfolder: nil) != nil {
+                            HStack(spacing: 4) {
+                                Image(systemName: "photo.badge.checkmark.fill")
+                                    .foregroundColor(.green)
+                                Text("Keynote原画表示中 (1920×1080)")
+                                    .font(.caption)
+                                    .bold()
+                                    .foregroundColor(.green)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.green.opacity(0.12))
+                            .cornerRadius(4)
+                        } else {
+                            HStack(spacing: 4) {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .foregroundColor(.orange)
+                                Text("レイヤー自動描画中 (原画抽出前)")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
+                        }
+                    } else if canvasViewMode == .animationVideo {
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Image(systemName: "film.fill")
+                                .foregroundColor(.orange)
+                            Text("🎬 Keynoteアニメーション動画再生中")
+                                .font(.caption)
+                                .bold()
+                                .foregroundColor(.orange)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.orange.opacity(0.12))
+                        .cornerRadius(4)
+                    } else {
+                        Spacer()
+                        Text("各要素の個別レイヤー・相対座標プレビューモード")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.horizontal, 4)
 
                 VStack(spacing: 6) {
                     // Visual Canvas with exact relative coordinates
@@ -251,173 +378,241 @@ public struct SlideScenarioMakerView: View {
                                 .fill(Color.black)
                                 .frame(width: canvasW, height: canvasH)
 
-                            // 2. Slide Background Image Layer
-                            if let bgImg = resolveImage(path: slide.backgroundImagePath, name: slide.backgroundName, subfolder: "背景") {
-                                Image(nsImage: bgImg)
+                            // 2. Main Visual Render
+                            if canvasViewMode == .animationVideo {
+                                if let videoPath = slide.animationVideoPath, FileManager.default.fileExists(atPath: videoPath) {
+                                    // 🌟 アニメーション動画再生 (Keynote Native Recorded Movie) 🌟
+                                    SlideVideoPlayerView(videoPath: videoPath)
+                                        .frame(width: canvasW, height: canvasH)
+                                        .cornerRadius(8)
+                                } else {
+                                    VStack(spacing: 12) {
+                                        Image(systemName: "video.slash")
+                                            .font(.system(size: 36))
+                                            .foregroundColor(.secondary)
+                                        Text("このスライドにはアニメーション動画がありません")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                        Text("Keynote内でアニメーション設定があるスライドが自動で動画記録されます。")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                        Button("スライド原画に戻す") {
+                                            canvasViewMode = .slideOriginal
+                                        }
+                                        .buttonStyle(.bordered)
+                                    }
+                                    .frame(width: canvasW, height: canvasH)
+                                    .background(Color.black.opacity(0.85))
+                                }
+                            } else if canvasViewMode == .slideOriginal,
+                               let slidePath = slide.slideImagePath,
+                               let slideOriginalImg = resolveImage(path: slidePath, name: nil, subfolder: nil) {
+                                // 🌟 スライド画面そのものの完全レンダリング画像 (Keynote Native) 🌟
+                                Image(nsImage: slideOriginalImg)
                                     .resizable()
-                                    .aspectRatio(contentMode: .fill)
+                                    .aspectRatio(contentMode: .fit)
                                     .frame(width: canvasW, height: canvasH)
                                     .clipped()
                             } else {
-                                // Default Gradient Background
-                                LinearGradient(
-                                    colors: slide.slideType == "sectionHeader" ?
-                                        [Color(red: 0.05, green: 0.1, blue: 0.25), Color(red: 0.02, green: 0.05, blue: 0.15)] :
-                                        [Color(red: 0.1, green: 0.12, blue: 0.18), Color(red: 0.05, green: 0.06, blue: 0.1)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                                .frame(width: canvasW, height: canvasH)
-                            }
-
-                            // 3. Other Slide Objects Layer (Props, Effects, Graphics, Pager)
-                            ForEach(slide.objects) { obj in
-                                let ox = obj.x * scaleX
-                                let oy = obj.y * scaleY
-                                let ow = max(obj.width * scaleX, 10.0)
-                                let oh = max(obj.height * scaleY, 10.0)
-
-                                Group {
-                                    if let oImg = resolveImage(path: obj.imagePath, name: obj.name, subfolder: nil) {
-                                        Image(nsImage: oImg)
-                                            .resizable()
-                                            .aspectRatio(contentMode: .fit)
-                                    } else {
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .stroke(Color.yellow.opacity(0.6), lineWidth: 1)
-                                            .background(Color.yellow.opacity(0.15))
-                                            .overlay(
-                                                Text(obj.name)
-                                                    .font(.system(size: 9))
-                                                    .foregroundColor(.white)
-                                                    .lineLimit(1)
-                                            )
-                                    }
+                                // --- 要素レイヤー分解表示 (編集プレビュー / フォールバック) ---
+                                // A. Slide Background Image Layer
+                                if let bgImg = resolveImage(path: slide.backgroundImagePath, name: slide.backgroundName, subfolder: "背景") {
+                                    Image(nsImage: bgImg)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                        .frame(width: canvasW, height: canvasH)
+                                        .clipped()
+                                } else {
+                                    // Default Gradient Background
+                                    LinearGradient(
+                                        colors: slide.slideType == "sectionHeader" ?
+                                            [Color(red: 0.05, green: 0.1, blue: 0.25), Color(red: 0.02, green: 0.05, blue: 0.15)] :
+                                            [Color(red: 0.1, green: 0.12, blue: 0.18), Color(red: 0.05, green: 0.06, blue: 0.1)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                    .frame(width: canvasW, height: canvasH)
                                 }
-                                .frame(width: ow, height: oh)
-                                .position(x: ox + ow / 2, y: oy + oh / 2)
-                            }
 
-                            // 4. Character Standing Portrait Layer
-                            let charImg = resolveImage(path: slide.characterImagePath, name: slide.characterName, subfolder: "キャラクター")
-                            let cx = (slide.characterX ?? (origW * 0.6)) * scaleX
-                            let cy = (slide.characterY ?? (origH * 0.05)) * scaleY
-                            let cw = max((slide.characterWidth ?? (origW * 0.35)) * scaleX, 20.0)
-                            let ch = max((slide.characterHeight ?? (origH * 0.9)) * scaleY, 20.0)
+                                // B. Other Slide Objects Layer (Props, Effects, Graphics, Pager)
+                                ForEach(slide.objects) { obj in
+                                    let ox = obj.x * scaleX
+                                    let oy = obj.y * scaleY
+                                    let ow = max(obj.width * scaleX, 10.0)
+                                    let oh = max(obj.height * scaleY, 10.0)
 
-                            if let charImage = charImg {
-                                Image(nsImage: charImage)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
+                                    Group {
+                                        if let oImg = resolveImage(path: obj.imagePath, name: obj.name, subfolder: nil) {
+                                            Image(nsImage: oImg)
+                                                .resizable()
+                                                .aspectRatio(contentMode: .fit)
+                                        } else {
+                                            RoundedRectangle(cornerRadius: 4)
+                                                .stroke(Color.yellow.opacity(0.6), lineWidth: 1)
+                                                .background(Color.yellow.opacity(0.15))
+                                                .overlay(
+                                                    Text(obj.name)
+                                                        .font(.system(size: 9))
+                                                        .foregroundColor(.white)
+                                                        .lineLimit(1)
+                                                )
+                                        }
+                                    }
+                                    .frame(width: ow, height: oh)
+                                    .position(x: ox + ow / 2, y: oy + oh / 2)
+                                }
+
+                                // C. Character Standing Portrait Layer
+                                let charImg = resolveImage(path: slide.characterImagePath, name: slide.characterName, subfolder: "キャラクター")
+                                let cx = (slide.characterX ?? (origW * 0.6)) * scaleX
+                                let cy = (slide.characterY ?? (origH * 0.05)) * scaleY
+                                let cw = max((slide.characterWidth ?? (origW * 0.35)) * scaleX, 20.0)
+                                let ch = max((slide.characterHeight ?? (origH * 0.9)) * scaleY, 20.0)
+
+                                if let charImage = charImg {
+                                    Image(nsImage: charImage)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(width: cw, height: ch)
+                                        .position(x: cx + cw / 2, y: cy + ch / 2)
+                                        .shadow(color: .black.opacity(0.35), radius: 6, x: 2, y: 3)
+                                } else if !slide.characterName.isEmpty && slide.characterName != "ナレーション" && slide.slideType == "content" {
+                                    VStack(spacing: 4) {
+                                        Image(systemName: "person.crop.rectangle.fill")
+                                            .font(.system(size: min(cw, ch) * 0.35))
+                                            .foregroundColor(.accentColor.opacity(0.85))
+                                        Text(slide.characterName)
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.black.opacity(0.65))
+                                            .cornerRadius(4)
+                                    }
                                     .frame(width: cw, height: ch)
                                     .position(x: cx + cw / 2, y: cy + ch / 2)
-                                    .shadow(color: .black.opacity(0.35), radius: 6, x: 2, y: 3)
-                            } else if !slide.characterName.isEmpty && slide.characterName != "ナレーション" && slide.slideType == "content" {
-                                VStack(spacing: 4) {
-                                    Image(systemName: "person.crop.rectangle.fill")
-                                        .font(.system(size: min(cw, ch) * 0.35))
-                                        .foregroundColor(.accentColor.opacity(0.85))
-                                    Text(slide.characterName)
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.black.opacity(0.65))
-                                        .cornerRadius(4)
                                 }
-                                .frame(width: cw, height: ch)
-                                .position(x: cx + cw / 2, y: cy + ch / 2)
-                            }
 
-                            // 5. Section Header Center Text
-                            if slide.slideType == "sectionHeader" {
-                                VStack {
-                                    Text(slide.title)
-                                        .font(.system(size: max(canvasH * 0.065, 16), weight: .bold))
-                                        .foregroundColor(.white)
-                                        .shadow(color: .blue.opacity(0.8), radius: 8, x: 0, y: 0)
-                                }
-                                .frame(width: canvasW, height: canvasH, alignment: .center)
-                            }
-
-                            // 6. Accurate Telop Layer (Subtitles / Dialogues)
-                            let tx = (slide.telopX ?? 0.0) * scaleX
-                            let ty = (slide.telopY ?? (origH * 0.79)) * scaleY
-                            let tw = max((slide.telopWidth ?? origW) * scaleX, 50.0)
-                            let th = max((slide.telopHeight ?? (origH * 0.21)) * scaleY, 25.0)
-
-                            if !slide.telop.isEmpty && slide.slideType != "sectionHeader" {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    if !slide.characterName.isEmpty && slide.characterName != "ナレーション" {
-                                        Text("【\(slide.characterName)】")
-                                            .font(.system(size: max(canvasH * 0.035, 10), weight: .heavy))
-                                            .foregroundColor(.yellow)
+                                // D. Section Header Center Text
+                                if slide.slideType == "sectionHeader" {
+                                    VStack {
+                                        Text(slide.title)
+                                            .font(.system(size: max(canvasH * 0.065, 16), weight: .bold))
+                                            .foregroundColor(.white)
+                                            .shadow(color: .blue.opacity(0.8), radius: 8, x: 0, y: 0)
                                     }
-                                    Text(slide.telop)
-                                        .font(.system(size: max(canvasH * 0.042, 11), weight: .medium))
-                                        .foregroundColor(.white)
-                                        .lineSpacing(2)
-                                        .multilineTextAlignment(.leading)
+                                    .frame(width: canvasW, height: canvasH, alignment: .center)
                                 }
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 8)
-                                .frame(width: tw, height: th, alignment: .topLeading)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(Color.black.opacity(0.78))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 6)
-                                                .stroke(Color.white.opacity(0.2), lineWidth: 0.8)
-                                        )
-                                )
-                                .position(x: tx + tw / 2, y: ty + th / 2)
+
+                                // E. Accurate Telop Layer (Subtitles / Dialogues)
+                                let tx = (slide.telopX ?? 0.0) * scaleX
+                                let ty = (slide.telopY ?? (origH * 0.79)) * scaleY
+                                let tw = max((slide.telopWidth ?? origW) * scaleX, 50.0)
+                                let th = max((slide.telopHeight ?? (origH * 0.21)) * scaleY, 25.0)
+
+                                if !slide.telop.isEmpty && slide.slideType != "sectionHeader" {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        if !slide.characterName.isEmpty && slide.characterName != "ナレーション" {
+                                            Text("【\(slide.characterName)】")
+                                                .font(.system(size: max(canvasH * 0.035, 10), weight: .heavy))
+                                                .foregroundColor(.yellow)
+                                        }
+                                        Text(slide.telop)
+                                            .font(.system(size: max(canvasH * 0.042, 11), weight: .medium))
+                                            .foregroundColor(.white)
+                                            .lineSpacing(2)
+                                            .multilineTextAlignment(.leading)
+                                    }
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .frame(width: tw, height: th, alignment: .topLeading)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(Color.black.opacity(0.78))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 6)
+                                                    .stroke(Color.white.opacity(0.2), lineWidth: 0.8)
+                                            )
+                                    )
+                                    .position(x: tx + tw / 2, y: ty + th / 2)
+                                }
                             }
 
-                            // 7. Slide Title & Metadata Overlay (Top Bar)
-                            HStack {
-                                Text("#\(slide.slideIndex): \(slide.title)")
-                                    .font(.caption2)
-                                    .bold()
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 3)
-                                    .background(Color.black.opacity(0.65))
-                                    .foregroundColor(.white)
-                                    .cornerRadius(4)
-
-                                // Slide Type
-                                Text(slide.slideType == "title" ? "タイトル" : (slide.slideType == "sectionHeader" ? "中扉" : "通常"))
-                                    .font(.caption2)
-                                    .bold()
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 3)
-                                    .background(slide.slideType == "title" ? Color.blue : (slide.slideType == "sectionHeader" ? Color.purple : Color.green))
-                                    .foregroundColor(.white)
-                                    .cornerRadius(4)
-
-                                Spacer()
-
-                                HStack(spacing: 4) {
-                                    Text("表示: \(String(format: "%.1f", slide.duration))秒")
+                            // 3. Information & Metadata Overlay (Top Bar)
+                            if showCanvasOverlay || canvasViewMode == .elementLayers {
+                                HStack {
+                                    Text("#\(slide.slideIndex): \(slide.title)")
                                         .font(.caption2)
+                                        .bold()
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 3)
-                                        .background(Color.black.opacity(0.65))
+                                        .background(Color.black.opacity(0.75))
                                         .foregroundColor(.white)
                                         .cornerRadius(4)
 
-                                    if !slide.animations.isEmpty {
-                                        Text("\(slide.animations.count)アニメ")
+                                    // Slide Type
+                                    Text(slide.slideType == "title" ? "タイトル" : (slide.slideType == "sectionHeader" ? "中扉" : "通常"))
+                                        .font(.caption2)
+                                        .bold()
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 3)
+                                        .background(slide.slideType == "title" ? Color.blue : (slide.slideType == "sectionHeader" ? Color.purple : Color.green))
+                                        .foregroundColor(.white)
+                                        .cornerRadius(4)
+
+                                    if canvasViewMode == .slideOriginal && slide.slideImagePath != nil {
+                                        Text("原画")
+                                            .font(.system(size: 9, weight: .bold))
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 2)
+                                            .background(Color.green)
+                                            .foregroundColor(.white)
+                                            .cornerRadius(3)
+                                    }
+
+                                    Spacer()
+
+                                    HStack(spacing: 4) {
+                                        Text("表示: \(String(format: "%.1f", slide.duration))秒")
                                             .font(.caption2)
                                             .padding(.horizontal, 6)
                                             .padding(.vertical, 3)
-                                            .background(Color.orange.opacity(0.8))
+                                            .background(Color.black.opacity(0.75))
                                             .foregroundColor(.white)
                                             .cornerRadius(4)
+
+                                        if !slide.animations.isEmpty {
+                                            Text("\(slide.animations.count)アニメ")
+                                                .font(.caption2)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 3)
+                                                .background(Color.orange.opacity(0.85))
+                                                .foregroundColor(.white)
+                                                .cornerRadius(4)
+
+                                            if slide.animationVideoPath != nil {
+                                                Button(action: {
+                                                    canvasViewMode = (canvasViewMode == .animationVideo) ? .slideOriginal : .animationVideo
+                                                }) {
+                                                    HStack(spacing: 3) {
+                                                        Image(systemName: canvasViewMode == .animationVideo ? "photo" : "film.fill")
+                                                        Text(canvasViewMode == .animationVideo ? "原画" : "🎬 動画確認")
+                                                            .font(.system(size: 9, weight: .bold))
+                                                    }
+                                                    .padding(.horizontal, 6)
+                                                    .padding(.vertical, 3)
+                                                    .background(canvasViewMode == .animationVideo ? Color.blue : Color.purple)
+                                                    .foregroundColor(.white)
+                                                    .cornerRadius(4)
+                                                }
+                                                .buttonStyle(.plain)
+                                            }
+                                        }
                                     }
                                 }
+                                .padding(8)
+                                .frame(width: canvasW, alignment: .top)
                             }
-                            .padding(8)
-                            .frame(width: canvasW, alignment: .top)
                         }
                         .cornerRadius(8)
                         .overlay(
@@ -468,12 +663,33 @@ public struct SlideScenarioMakerView: View {
 
                         // Animation count
                         if !slide.animations.isEmpty {
-                            HStack(spacing: 4) {
-                                Text("アニメーション:").font(.caption2).foregroundColor(.secondary)
-                                Text("\(slide.animations.count)件 (順序: \(slide.buildOrder.count)件)")
-                                    .font(.caption2)
-                                    .bold()
-                                    .foregroundColor(.orange)
+                            HStack(spacing: 6) {
+                                HStack(spacing: 4) {
+                                    Text("アニメーション:").font(.caption2).foregroundColor(.secondary)
+                                    Text("\(slide.animations.count)件 (順序: \(slide.buildOrder.count)件)")
+                                        .font(.caption2)
+                                        .bold()
+                                        .foregroundColor(.orange)
+                                }
+
+                                if let vPath = slide.animationVideoPath, FileManager.default.fileExists(atPath: vPath) {
+                                    Button(action: {
+                                        canvasViewMode = (canvasViewMode == .animationVideo) ? .slideOriginal : .animationVideo
+                                    }) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: canvasViewMode == .animationVideo ? "photo" : "play.fill")
+                                            Text(canvasViewMode == .animationVideo ? "スライド原画に戻す" : "🎬 アニメーション動画を確認")
+                                                .bold()
+                                        }
+                                        .font(.caption2)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 3)
+                                        .background(canvasViewMode == .animationVideo ? Color.blue : Color.orange)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(4)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
                             }
                         }
 
@@ -575,6 +791,18 @@ public struct SlideScenarioMakerView: View {
             }
         }
 
+        let slidesCacheBase = "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/keynote_slides"
+        if let enumerator = fm.enumerator(atPath: slidesCacheBase) {
+            for case let file as String in enumerator {
+                if file.contains(targetName) || file.contains(cleanName) {
+                    let fullPath = (slidesCacheBase as NSString).appendingPathComponent(file)
+                    if let img = NSImage(contentsOfFile: fullPath) {
+                        return img
+                    }
+                }
+            }
+        }
+
         let repoBase = "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用"
         let searchFolder = subfolder != nil ? (repoBase as NSString).appendingPathComponent(subfolder!) : repoBase
         if fm.fileExists(atPath: searchFolder), let enumerator = fm.enumerator(atPath: searchFolder) {
@@ -641,16 +869,28 @@ public struct SlideScenarioMakerView: View {
 
                     HStack {
                         Text("発表者・演出ノート:").font(.caption).foregroundColor(.secondary)
+                        if let raw = slide.rawPresenterNote, let spk = SlideItem.extractSpeakerFromBrackets(from: raw) {
+                            Text("話者: [\(spk)] (サウンド連携済・UI非表示)")
+                                .font(.system(size: 8))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(Color.purple.opacity(0.15))
+                                .foregroundColor(.purple)
+                                .cornerRadius(3)
+                        }
                         Spacer()
-                        if slide.presenterNote.isEmpty {
+                        if slide.displayPresenterNote.isEmpty {
                             Text("(空白)")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
                     }
                     TextEditor(text: Binding(
-                        get: { slide.presenterNote },
-                        set: { appState.slides[selectedSlideIdx].presenterNote = $0 }
+                        get: { slide.displayPresenterNote },
+                        set: {
+                            // UIから入力・編集された際も、カッコ書き話者タグを除いたクリーンなテキストとして保持
+                            appState.slides[selectedSlideIdx].presenterNote = SlideItem.stripSpeakerBrackets(from: $0)
+                        }
                     ))
                     .frame(height: 80)
                     .border(Color.secondary.opacity(0.2))
@@ -809,6 +1049,12 @@ public struct SlideScenarioMakerView: View {
                             Text("\(result.animationCount)").font(.title2).bold().foregroundColor(.orange)
                             Text("アニメーション紐付").font(.caption2)
                         }
+                        if result.animationVideoCount > 0 {
+                            VStack {
+                                Text("\(result.animationVideoCount)").font(.title2).bold().foregroundColor(.purple)
+                                Text("動画記録スライド").font(.caption2)
+                            }
+                        }
                     }
                     .padding(4)
                 }
@@ -837,7 +1083,8 @@ public struct SlideScenarioMakerView: View {
                     ) { result in
                         selectedSlideIdx = 0
                         let fName = URL(fileURLWithPath: selectedFilePath).lastPathComponent
-                        loadSuccessMessage = "「\(fName)」から \(result.totalSlides) 枚のスライド・アニメーション・ビルド順を解析・各メーカーへ完全反映しました (認識精度: \(result.accuracyRate)%)。"
+                        let vidNote = result.animationVideoCount > 0 ? "・動画記録: \(result.animationVideoCount)件" : ""
+                        loadSuccessMessage = "「\(fName)」から \(result.totalSlides) 枚のスライド・アニメーション\(vidNote)・ビルド順を解析・各メーカーへ完全反映しました (認識精度: \(result.accuracyRate)%)。"
                         showUnifiedModal = false
                     }
                 }) {
@@ -866,5 +1113,57 @@ public struct SlideScenarioMakerView: View {
         if openPanel.runModal() == .OK, let url = openPanel.url {
             selectedFilePath = url.path
         }
+    }
+}
+
+// MARK: - Slide Video Player View (Keynoteアニメーション記録動画再生)
+public struct SlideVideoPlayerView: NSViewRepresentable {
+    public let videoPath: String
+
+    public init(videoPath: String) {
+        self.videoPath = videoPath
+    }
+
+    public func makeNSView(context: Context) -> AVPlayerView {
+        let playerView = AVPlayerView()
+        playerView.controlsStyle = .inline
+        playerView.showsFullScreenToggleButton = true
+        let url = URL(fileURLWithPath: videoPath)
+        let player = AVPlayer(url: url)
+        playerView.player = player
+        player.actionAtItemEnd = .none
+
+        NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: player.currentItem,
+            queue: .main
+        ) { _ in
+            player.seek(to: .zero)
+            player.play()
+        }
+
+        player.play()
+        return playerView
+    }
+
+    public func updateNSView(_ nsView: AVPlayerView, context: Context) {
+        if let currentItem = nsView.player?.currentItem,
+           let asset = currentItem.asset as? AVURLAsset,
+           asset.url.path == videoPath {
+            return
+        }
+        let url = URL(fileURLWithPath: videoPath)
+        let player = AVPlayer(url: url)
+        player.actionAtItemEnd = .none
+        NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: player.currentItem,
+            queue: .main
+        ) { _ in
+            player.seek(to: .zero)
+            player.play()
+        }
+        nsView.player = player
+        player.play()
     }
 }
