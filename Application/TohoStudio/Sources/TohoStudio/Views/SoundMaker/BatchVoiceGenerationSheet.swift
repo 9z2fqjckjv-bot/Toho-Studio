@@ -296,7 +296,7 @@ public struct BatchVoiceGenerationSheet: View {
                             set: { uniformSpeed = Int($0) }
                         ), in: 50...200, step: 5)
                     } else {
-                        Text("各話者・スライドに設定された固有の速度（例: こいし75%, 妖夢115%, 早苗130%など）をそのまま尊重して生成します。")
+                        Text("各話者・スライドに設定された固有の速度（例: こいし50%, 妖夢115%, 早苗90%など）をそのまま尊重して生成します。")
                             .font(.system(size: 10))
                             .foregroundColor(.secondary)
                     }

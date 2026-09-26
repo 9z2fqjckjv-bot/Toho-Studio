@@ -357,11 +357,25 @@ public final class SlideVoiceBatchService: ObservableObject {
 
             // MovieScene の生成/更新
             let matchedSlide = appState.slides.first(where: { $0.slideIndex == item.slideIndex })
-            let sceneTitle = matchedSlide?.title.isEmpty == false ? matchedSlide!.title : item.slideTitle
+            var rawTitle = matchedSlide?.title.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if rawTitle.isEmpty {
+                rawTitle = item.slideTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            while rawTitle.hasPrefix("シーン \(item.slideIndex):") || rawTitle.hasPrefix("シーン\(item.slideIndex):") {
+                let prefixLen = rawTitle.hasPrefix("シーン \(item.slideIndex):") ? ("シーン \(item.slideIndex):").count : ("シーン\(item.slideIndex):").count
+                rawTitle = String(rawTitle.dropFirst(prefixLen)).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            let finalTitle: String
+            if rawTitle.isEmpty || rawTitle == "シーン \(item.slideIndex)" || rawTitle == "スライド #\(item.slideIndex)" {
+                finalTitle = "シーン \(item.slideIndex)"
+            } else {
+                finalTitle = "シーン \(item.slideIndex): \(rawTitle)"
+            }
+
             let telopText = matchedSlide?.telop.isEmpty == false ? matchedSlide!.telop : item.text
 
             let scene = MovieScene(
-                title: "シーン \(item.slideIndex): \(sceneTitle)",
+                title: finalTitle,
                 duration: sceneDuration,
                 slideTitle: "スライド #\(item.slideIndex)",
                 backgroundName: matchedSlide?.backgroundName ?? "神社",

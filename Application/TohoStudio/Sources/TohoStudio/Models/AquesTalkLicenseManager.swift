@@ -139,18 +139,21 @@ public final class AquesTalkLicenseManager: ObservableObject {
 
         for lib in AquesTalkTargetLibrary.allCases {
             // Load regular keys
-            let reg = UserDefaults.standard.string(forKey: "\(regularKeyPrefix)\(lib.rawValue)") ?? ""
+            let reg = (UserDefaults.standard.string(forKey: "\(regularKeyPrefix)\(lib.rawValue)") ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
             loadedRegular[lib] = reg
 
             // Load library-specific dev keys
-            let dev = UserDefaults.standard.string(forKey: "\(devKeyPrefix)\(lib.rawValue)") ?? ""
+            let dev = (UserDefaults.standard.string(forKey: "\(devKeyPrefix)\(lib.rawValue)") ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
             loadedDev[lib] = dev
         }
 
         // Inclusive dev key (compatible with both keys)
-        let incDev = UserDefaults.standard.string(forKey: "\(devKeyPrefix)包括")
+        let incDev = (UserDefaults.standard.string(forKey: "\(devKeyPrefix)包括")
             ?? UserDefaults.standard.string(forKey: "\(regularKeyPrefix)開発ライセンス")
-            ?? ""
+            ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         self.inclusiveDevKey = incDev
 
         self.regularKeys = loadedRegular
@@ -166,7 +169,7 @@ public final class AquesTalkLicenseManager: ObservableObject {
     }
 
     public func setRegularKey(_ key: String, for lib: AquesTalkTargetLibrary) {
-        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         regularKeys[lib] = trimmed
         UserDefaults.standard.set(trimmed, forKey: "\(regularKeyPrefix)\(lib.rawValue)")
         syncWithBridge()
@@ -185,7 +188,7 @@ public final class AquesTalkLicenseManager: ObservableObject {
     }
 
     public func setDevKey(_ key: String, for lib: AquesTalkTargetLibrary) {
-        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         devKeys[lib] = trimmed
         UserDefaults.standard.set(trimmed, forKey: "\(devKeyPrefix)\(lib.rawValue)")
         syncWithBridge()
@@ -204,7 +207,7 @@ public final class AquesTalkLicenseManager: ObservableObject {
     }
 
     public func setInclusiveDevKey(_ key: String) {
-        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         self.inclusiveDevKey = trimmed
         UserDefaults.standard.set(trimmed, forKey: "\(devKeyPrefix)包括")
         UserDefaults.standard.set(trimmed, forKey: "\(regularKeyPrefix)開発ライセンス")

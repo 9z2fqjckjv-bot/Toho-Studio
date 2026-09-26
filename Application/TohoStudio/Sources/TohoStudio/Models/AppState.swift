@@ -748,15 +748,15 @@ public final class AppState: ObservableObject {
 
     public func initializeVoiceTemplates() {
         voiceTemplates = [
-            // 1. コゲの日記準拠（東風谷早苗）
+            // 1. コゲの日記準拠（東風谷早苗 特別指定）
             VoiceTemplate(
                 name: "東風谷早苗 (コゲの日記)",
                 characterName: "東風谷早苗",
                 voiceType: .f2,
-                speed: 100,
-                pitch: 115,
+                speed: 90,
+                pitch: 135,
                 source: "コゲの日記",
-                description: "YMM3標準設定ベース・女性2・速度100%・音程115"
+                description: "コゲの日記準拠・女性2・速度90%・音程135"
             ),
             // 2. 独自テンプレート4種（ユーザー指定）
             VoiceTemplate(
@@ -795,55 +795,264 @@ public final class AppState: ObservableObject {
                 source: "独自テンプレート",
                 description: "男声2(m2)・速度100%・音程115"
             ),
-            // 3. コゲの日記 主要東方キャラ
+            // 3. ゆっくりボイスメーカー準拠 テンプレート（第1優先）
             VoiceTemplate(
-                name: "博麗霊夢 (コゲの日記)",
+                name: "博麗霊夢 (ゆっくりボイスメーカー)",
                 characterName: "博麗霊夢",
                 voiceType: .f1,
                 speed: 100,
                 pitch: 100,
-                source: "コゲの日記",
-                description: "YMM3標準・女性1・速度100%・音程100"
+                source: "ゆっくりボイスメーカー",
+                description: "女性1・速度100%・音程100"
             ),
             VoiceTemplate(
-                name: "霧雨魔理沙 (コゲの日記)",
+                name: "霧雨魔理沙 (ゆっくりボイスメーカー)",
                 characterName: "霧雨魔理沙",
                 voiceType: .f2,
                 speed: 100,
                 pitch: 100,
-                source: "コゲの日記",
-                description: "YMM3標準・女性2・速度100%・音程100"
+                source: "ゆっくりボイスメーカー",
+                description: "女性2・速度100%・音程100"
             ),
             VoiceTemplate(
-                name: "魂魄妖夢 (コゲの日記)",
+                name: "魂魄妖夢 (ゆっくりボイスメーカー)",
                 characterName: "魂魄妖夢",
-                voiceType: .f1,
-                speed: 100,
-                pitch: 100,
-                source: "コゲの日記",
-                description: "YMM3標準・女性1・速度100%・音程100"
+                voiceType: .f2,
+                speed: 115,
+                pitch: 120,
+                source: "ゆっくりボイスメーカー",
+                description: "女性2・速度115%・音程120"
             ),
             VoiceTemplate(
-                name: "十六夜咲夜 (コゲの日記)",
+                name: "十六夜咲夜 (ゆっくりボイスメーカー)",
                 characterName: "十六夜咲夜",
                 voiceType: .f1,
                 speed: 105,
                 pitch: 125,
-                source: "コゲの日記",
+                source: "ゆっくりボイスメーカー",
                 description: "女性1・速度105%・音程125"
             ),
             VoiceTemplate(
-                name: "チルノ (コゲの日記)",
+                name: "チルノ (ゆっくりボイスメーカー)",
                 characterName: "チルノ",
                 voiceType: .f2,
                 speed: 115,
                 pitch: 120,
-                source: "コゲの日記",
+                source: "ゆっくりボイスメーカー",
                 description: "女性2・速度115%・音程120"
             ),
             VoiceTemplate(
+                name: "レミリア・スカーレット (ゆっくりボイスメーカー)",
+                characterName: "レミリア・スカーレット",
+                voiceType: .f1,
+                speed: 80,
+                pitch: 150,
+                source: "ゆっくりボイスメーカー",
+                description: "女性1・速度80%・音程150"
+            ),
+            VoiceTemplate(
+                name: "フランドール・スカーレット (ゆっくりボイスメーカー)",
+                characterName: "フランドール・スカーレット",
+                voiceType: .jgr,
+                speed: 100,
+                pitch: 100,
+                source: "ゆっくりボイスメーカー",
+                description: "機械1・速度100%・音程100"
+            ),
+            VoiceTemplate(
+                name: "アリス・マーガトロイド (ゆっくりボイスメーカー)",
+                characterName: "アリス・マーガトロイド",
+                voiceType: .f1,
+                speed: 110,
+                pitch: 130,
+                source: "ゆっくりボイスメーカー",
+                description: "女性1・速度110%・音程130"
+            ),
+            VoiceTemplate(
+                name: "パチュリー・ノーレッジ (ゆっくりボイスメーカー)",
+                characterName: "パチュリー・ノーレッジ",
+                voiceType: .f2,
+                speed: 120,
+                pitch: 115,
+                source: "ゆっくりボイスメーカー",
+                description: "女性2・速度120%・音程115"
+            ),
+            VoiceTemplate(
+                name: "古明地さとり (ゆっくりボイスメーカー)",
+                characterName: "古明地さとり",
+                voiceType: .jgr,
+                speed: 115,
+                pitch: 125,
+                source: "ゆっくりボイスメーカー",
+                description: "機械1・速度115%・音程125"
+            ),
+            VoiceTemplate(
+                name: "古明地こいし (ゆっくりボイスメーカー)",
+                characterName: "古明地こいし",
+                voiceType: .f2,
+                speed: 50,
+                pitch: 181,
+                source: "ゆっくりボイスメーカー",
+                description: "女性2・速度50%・音程181"
+            ),
+            VoiceTemplate(
+                name: "射命丸文 (ゆっくりボイスメーカー)",
+                characterName: "射命丸文",
+                voiceType: .f2,
+                speed: 100,
+                pitch: 125,
+                source: "ゆっくりボイスメーカー",
+                description: "女性2・速度100%・音程125"
+            ),
+            VoiceTemplate(
+                name: "犬走椛 (ゆっくりボイスメーカー)",
+                characterName: "犬走椛",
+                voiceType: .f1,
+                speed: 120,
+                pitch: 110,
+                source: "ゆっくりボイスメーカー",
+                description: "女性1・速度120%・音程110"
+            ),
+            VoiceTemplate(
+                name: "藤原妹紅 (ゆっくりボイスメーカー)",
+                characterName: "藤原妹紅",
+                voiceType: .f2,
+                speed: 100,
+                pitch: 120,
+                source: "ゆっくりボイスメーカー",
+                description: "女性2・速度100%・音程120"
+            ),
+            VoiceTemplate(
+                name: "八坂神奈子 (ゆっくりボイスメーカー)",
+                characterName: "八坂神奈子",
+                voiceType: .f1,
+                speed: 115,
+                pitch: 90,
+                source: "ゆっくりボイスメーカー",
+                description: "女性1・速度115%・音程90"
+            ),
+            VoiceTemplate(
+                name: "洩矢諏訪子 (ゆっくりボイスメーカー)",
+                characterName: "洩矢諏訪子",
+                voiceType: .f1,
+                speed: 80,
+                pitch: 175,
+                source: "ゆっくりボイスメーカー",
+                description: "女性1・速度80%・音程175"
+            ),
+            VoiceTemplate(
+                name: "河城にとり (ゆっくりボイスメーカー)",
+                characterName: "河城にとり",
+                voiceType: .jgr,
+                speed: 105,
+                pitch: 105,
+                source: "ゆっくりボイスメーカー",
+                description: "機械1・速度105%・音程105"
+            ),
+            VoiceTemplate(
+                name: "多々良小傘 (ゆっくりボイスメーカー)",
+                characterName: "多々良小傘",
+                voiceType: .imd1,
+                speed: 110,
+                pitch: 130,
+                source: "ゆっくりボイスメーカー",
+                description: "中性・速度110%・音程130"
+            ),
+            VoiceTemplate(
+                name: "聖白蓮 (ゆっくりボイスメーカー)",
+                characterName: "聖白蓮",
+                voiceType: .imd1,
+                speed: 102,
+                pitch: 97,
+                source: "ゆっくりボイスメーカー",
+                description: "中性・速度102%・音程97"
+            ),
+            VoiceTemplate(
+                name: "伊吹萃香 (ゆっくりボイスメーカー)",
+                characterName: "伊吹萃香",
+                voiceType: .imd1,
+                speed: 100,
+                pitch: 150,
+                source: "ゆっくりボイスメーカー",
+                description: "中性・速度100%・音程150"
+            ),
+            VoiceTemplate(
+                name: "鈴仙・優曇華院・イナバ (ゆっくりボイスメーカー)",
+                characterName: "鈴仙・優曇華院・イナバ",
+                voiceType: .f1,
+                speed: 80,
+                pitch: 120,
+                source: "ゆっくりボイスメーカー",
+                description: "女性1・速度80%・音程120"
+            ),
+            VoiceTemplate(
+                name: "蓬莱山輝夜 (ゆっくりボイスメーカー)",
+                characterName: "蓬莱山輝夜",
+                voiceType: .f1,
+                speed: 100,
+                pitch: 120,
+                source: "ゆっくりボイスメーカー",
+                description: "女性1・速度100%・音程120"
+            ),
+            VoiceTemplate(
+                name: "因幡てゐ (ゆっくりボイスメーカー)",
+                characterName: "因幡てゐ",
+                voiceType: .imd1,
+                speed: 110,
+                pitch: 120,
+                source: "ゆっくりボイスメーカー",
+                description: "中性・速度110%・音程120"
+            ),
+            VoiceTemplate(
+                name: "霊烏路空 (ゆっくりボイスメーカー)",
+                characterName: "霊烏路空",
+                voiceType: .imd1,
+                speed: 80,
+                pitch: 170,
+                source: "ゆっくりボイスメーカー",
+                description: "中性・速度80%・音程170"
+            ),
+            VoiceTemplate(
+                name: "四季映姫 (ゆっくりボイスメーカー)",
+                characterName: "四季映姫",
+                voiceType: .f2,
+                speed: 87,
+                pitch: 117,
+                source: "ゆっくりボイスメーカー",
+                description: "女性2・速度87%・音程117"
+            ),
+            VoiceTemplate(
+                name: "封獣ぬえ (ゆっくりボイスメーカー)",
+                characterName: "封獣ぬえ",
+                voiceType: .f2,
+                speed: 100,
+                pitch: 180,
+                source: "ゆっくりボイスメーカー",
+                description: "女性2・速度100%・音程180"
+            ),
+            VoiceTemplate(
+                name: "比那名居天子 (ゆっくりボイスメーカー)",
+                characterName: "比那名居天子",
+                voiceType: .f2,
+                speed: 75,
+                pitch: 134,
+                source: "ゆっくりボイスメーカー",
+                description: "女性2・速度75%・音程134"
+            ),
+
+            // 4. コゲの日記準拠 テンプレート（第2優先: ゆっくりボイスメーカー未収録キャラ）
+            VoiceTemplate(
                 name: "八雲紫 (コゲの日記)",
                 characterName: "八雲紫",
+                voiceType: .f2,
+                speed: 96,
+                pitch: 127,
+                source: "コゲの日記",
+                description: "女性2・速度96%・音程127"
+            ),
+            VoiceTemplate(
+                name: "西行寺幽々子 (コゲの日記)",
+                characterName: "西行寺幽々子",
                 voiceType: .f2,
                 speed: 96,
                 pitch: 127,
@@ -869,76 +1078,49 @@ public final class AppState: ObservableObject {
                 description: "女性1・速度80%・音程160"
             ),
             VoiceTemplate(
-                name: "レミリア・スカーレット (コゲの日記)",
-                characterName: "レミリア・スカーレット",
-                voiceType: .f2,
-                speed: 80,
-                pitch: 150,
-                source: "コゲの日記",
-                description: "女性2・速度80%・音程150"
-            ),
-            VoiceTemplate(
-                name: "フランドール・スカーレット (コゲの日記)",
-                characterName: "フランドール・スカーレット",
-                voiceType: .r1,
-                speed: 115,
-                pitch: 100,
-                source: "コゲの日記",
-                description: "機械1/ロボット・速度115%・音程100"
-            ),
-            VoiceTemplate(
-                name: "アリス・マーガトロイド (コゲの日記)",
-                characterName: "アリス・マーガトロイド",
+                name: "大妖精 (コゲの日記)",
+                characterName: "大妖精",
                 voiceType: .f1,
-                speed: 110,
-                pitch: 130,
+                speed: 96,
+                pitch: 138,
                 source: "コゲの日記",
-                description: "女性1・速度110%・音程130"
+                description: "女性1・速度96%・音程138"
             ),
             VoiceTemplate(
-                name: "パチュリー・ノーレッジ (コゲの日記)",
-                characterName: "パチュリー・ノーレッジ",
+                name: "ルーミア (コゲの日記)",
+                characterName: "ルーミア",
+                voiceType: .f1,
+                speed: 63,
+                pitch: 165,
+                source: "コゲの日記",
+                description: "女性1・速度63%・音程165"
+            ),
+            VoiceTemplate(
+                name: "上白沢慧音 (コゲの日記)",
+                characterName: "上白沢慧音",
                 voiceType: .imd1,
-                speed: 100,
-                pitch: 140,
+                speed: 95,
+                pitch: 145,
                 source: "コゲの日記",
-                description: "中性・速度100%・音程140"
+                description: "中性・速度95%・音程145"
             ),
             VoiceTemplate(
-                name: "射命丸文 (コゲの日記)",
-                characterName: "射命丸文",
+                name: "八意永琳 (コゲの日記)",
+                characterName: "八意永琳",
+                voiceType: .imd1,
+                speed: 97,
+                pitch: 106,
+                source: "コゲの日記",
+                description: "中性・速度97%・音程106"
+            ),
+            VoiceTemplate(
+                name: "火焔猫燐 (コゲの日記)",
+                characterName: "火焔猫燐",
                 voiceType: .f2,
-                speed: 120,
+                speed: 130,
                 pitch: 125,
                 source: "コゲの日記",
-                description: "女性2・速度120%・音程125"
-            ),
-            VoiceTemplate(
-                name: "犬走椛 (コゲの日記)",
-                characterName: "犬走椛",
-                voiceType: .f1,
-                speed: 120,
-                pitch: 110,
-                source: "コゲの日記",
-                description: "女性1・速度120%・音程110"
-            ),
-            VoiceTemplate(
-                name: "古明地さとり (コゲの日記)",
-                characterName: "古明地さとり",
-                voiceType: .f1,
-                speed: 89,
-                pitch: 134,
-                source: "コゲの日記",
-                description: "女性1・速度89%・音程134"
-            ),
-            VoiceTemplate(
-                name: "古明地こいし (コゲの日記)",
-                characterName: "古明地こいし",
-                voiceType: .f2,
-                speed: 75,
-                pitch: 181,
-                source: "コゲの日記",
-                description: "女性2・速度75%・音程181"
+                description: "女性2・速度130%・音程125"
             ),
             VoiceTemplate(
                 name: "風見幽香 (コゲの日記)",
@@ -950,86 +1132,114 @@ public final class AppState: ObservableObject {
                 description: "中性・速度100%・音程160"
             ),
             VoiceTemplate(
-                name: "藤原妹紅 (コゲの日記)",
-                characterName: "藤原妹紅",
-                voiceType: .f2,
-                speed: 120,
+                name: "本居小鈴 (コゲの日記)",
+                characterName: "本居小鈴",
+                voiceType: .f1,
+                speed: 99,
                 pitch: 130,
                 source: "コゲの日記",
-                description: "女性2・速度120%・音程130"
+                description: "女性1・速度99%・音程130"
             ),
-            // 4. Gスカのブログ・ゆっくりボイスメーカー 主要キャラ
             VoiceTemplate(
-                name: "八坂神奈子 (Gスカブログ)",
-                characterName: "八坂神奈子",
+                name: "紅美鈴 (コゲの日記)",
+                characterName: "紅美鈴",
+                voiceType: .imd1,
+                speed: 110,
+                pitch: 155,
+                source: "コゲの日記",
+                description: "中性・速度110%・音程155"
+            ),
+            VoiceTemplate(
+                name: "小悪魔 (コゲの日記)",
+                characterName: "小悪魔",
                 voiceType: .f1,
-                speed: 115,
-                pitch: 90,
-                source: "Gスカのブログ",
-                description: "女性1・速度115%・音程90"
+                speed: 95,
+                pitch: 165,
+                source: "コゲの日記",
+                description: "女性1・速度95%・音程165"
             ),
             VoiceTemplate(
-                name: "洩矢諏訪子 (Gスカブログ)",
-                characterName: "洩矢諏訪子",
+                name: "物部布都 (コゲの日記)",
+                characterName: "物部布都",
                 voiceType: .f1,
-                speed: 80,
-                pitch: 175,
-                source: "Gスカのブログ",
-                description: "女性1・速度80%・音程175"
+                speed: 110,
+                pitch: 123,
+                source: "コゲの日記",
+                description: "女性1・速度110%・音程123"
             ),
             VoiceTemplate(
-                name: "多々良小傘 (Gスカブログ)",
-                characterName: "多々良小傘",
-                voiceType: .f2,
-                speed: 105,
-                pitch: 145,
-                source: "Gスカのブログ",
-                description: "女性2・速度105%・音程145"
-            ),
-            VoiceTemplate(
-                name: "聖白蓮 (Gスカブログ)",
-                characterName: "聖白蓮",
-                voiceType: .f2,
-                speed: 96,
-                pitch: 120,
-                source: "Gスカのブログ",
-                description: "女性2・速度96%・音程120"
-            ),
-            VoiceTemplate(
-                name: "豊聡耳神子 (Gスカブログ)",
+                name: "豊聡耳神子 (コゲの日記)",
                 characterName: "豊聡耳神子",
                 voiceType: .f1,
                 speed: 130,
                 pitch: 103,
-                source: "Gスカのブログ",
+                source: "コゲの日記",
                 description: "女性1・速度130%・音程103"
             ),
             VoiceTemplate(
-                name: "鬼人正邪 (Gスカブログ)",
+                name: "鬼人正邪 (コゲの日記)",
                 characterName: "鬼人正邪",
                 voiceType: .imd1,
                 speed: 110,
                 pitch: 133,
-                source: "Gスカのブログ",
+                source: "コゲの日記",
                 description: "中性・速度110%・音程133"
             ),
+
+            // 5. Gスカブログ準拠 テンプレート（第3優先: ゆっくりボイスメーカー・コゲの日記未収録キャラ）
             VoiceTemplate(
-                name: "少名針妙丸 (ゆっくりボイスメーカー)",
-                characterName: "少名針妙丸",
-                voiceType: .jgr,
-                speed: 120,
-                pitch: 160,
-                source: "ゆっくりボイスメーカー",
-                description: "児童・速度120%・音程160"
+                name: "茨木華扇 (Gスカブログ)",
+                characterName: "茨木華扇",
+                voiceType: .f1,
+                speed: 100,
+                pitch: 140,
+                source: "Gスカのブログ",
+                description: "女性1・速度100%・音程140"
             ),
             VoiceTemplate(
-                name: "純狐 (ゆっくりボイスメーカー)",
-                characterName: "純狐",
-                voiceType: .f3,
-                speed: 95,
-                pitch: 105,
-                source: "ゆっくりボイスメーカー",
-                description: "女性3(落ち着き)・速度95%・音程105"
+                name: "高麗野あうん (Gスカブログ)",
+                characterName: "高麗野あうん",
+                voiceType: .f1,
+                speed: 83,
+                pitch: 140,
+                source: "Gスカのブログ",
+                description: "女性1・速度83%・音程140"
+            ),
+            VoiceTemplate(
+                name: "スターサファイア (Gスカブログ)",
+                characterName: "スターサファイア",
+                voiceType: .f2,
+                speed: 60,
+                pitch: 150,
+                source: "Gスカのブログ",
+                description: "女性2・速度60%・音程150"
+            ),
+            VoiceTemplate(
+                name: "飯綱丸龍 (Gスカブログ)",
+                characterName: "飯綱丸龍",
+                voiceType: .f2,
+                speed: 93,
+                pitch: 116,
+                source: "Gスカのブログ",
+                description: "女性2・速度93%・音程116"
+            ),
+            VoiceTemplate(
+                name: "菅牧典 (Gスカブログ)",
+                characterName: "菅牧典",
+                voiceType: .f1,
+                speed: 90,
+                pitch: 130,
+                source: "Gスカのブログ",
+                description: "女性1・速度90%・音程130"
+            ),
+            VoiceTemplate(
+                name: "豪徳寺ミケ (Gスカブログ)",
+                characterName: "豪徳寺ミケ",
+                voiceType: .f1,
+                speed: 80,
+                pitch: 180,
+                source: "Gスカのブログ",
+                description: "女性1・速度80%・音程180"
             )
         ]
     }

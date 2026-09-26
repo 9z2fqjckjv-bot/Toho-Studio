@@ -20,6 +20,7 @@ private struct DAWTheme {
 public struct SoundMakerView: View {
     @ObservedObject var appState = AppState.shared
     @ObservedObject var aquesTalk = AquesTalkBridge.shared
+    @ObservedObject var soundManager = SoundMakerAudioManager.shared
 
     // Timeline State
     @State private var currentTime: Double = 0.0
@@ -84,11 +85,6 @@ public struct SoundMakerView: View {
         VStack(spacing: 0) {
             // Logic Pro Style Control Bar (LCD非表示でスッキリ配置)
             dawControlBar
-
-            Divider().background(DAWTheme.trackBorder)
-
-            // シーン欄セレクターバー (シーンをワンクリックで切り替え・連動)
-            sceneSelectionBarView
 
             Divider().background(DAWTheme.trackBorder)
 
@@ -284,91 +280,7 @@ public struct SoundMakerView: View {
         .background(Color(red: 0.16, green: 0.17, blue: 0.19))
     }
 
-    // MARK: - Scene Selection Bar View (編集画面のシーン欄: 青枠連動・跨ぎボタン廃止)
-    private var sceneSelectionBarView: some View {
-        ScrollViewReader { sceneBarProxy in
-            HStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: "film.stack.fill")
-                        .font(.system(size: 11))
-                        .foregroundColor(.cyan)
-                    Text("シーン欄:")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.white)
-                }
-                .padding(.leading, 12)
 
-                // Horizontal Scene Pills List (タイムラインと連動)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        let scenes = activeSceneList()
-                        ForEach(Array(scenes.enumerated()), id: \.element.id) { index, scene in
-                            let sNum = index + 1
-                            let isSelected = selectedSceneIndex == sNum
-                            let vClips = voiceClips(for: sNum)
-                            let bClips = bgmClips(for: sNum)
-                            let sClips = seClips(for: sNum)
-
-                            Button(action: {
-                                selectScene(index: sNum)
-                            }) {
-                                HStack(spacing: 5) {
-                                    Text("S\(sNum)")
-                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                        .foregroundColor(isSelected ? .white : .secondary)
-
-                                    Text(scene.title)
-                                        .font(.system(size: 10, weight: isSelected ? .bold : .medium))
-                                        .foregroundColor(isSelected ? .white : .white.opacity(0.85))
-                                        .lineLimit(1)
-
-                                    HStack(spacing: 3) {
-                                        if !vClips.isEmpty {
-                                            Image(systemName: "waveform")
-                                                .font(.system(size: 8))
-                                                .foregroundColor(.red.opacity(0.9))
-                                        }
-                                        if !bClips.isEmpty {
-                                            Image(systemName: "music.note")
-                                                .font(.system(size: 8))
-                                                .foregroundColor(Color(hex: "#DDA0DD"))
-                                        }
-                                        if !sClips.isEmpty {
-                                            Image(systemName: "bolt.fill")
-                                                .font(.system(size: 8))
-                                                .foregroundColor(.green)
-                                        }
-                                    }
-                                }
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(
-                                    isSelected ?
-                                        Color.cyan.opacity(0.35) :
-                                        Color.white.opacity(0.06)
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .stroke(isSelected ? Color.cyan : Color.white.opacity(0.12), lineWidth: isSelected ? 2 : 1)
-                                )
-                                .cornerRadius(4)
-                            }
-                            .buttonStyle(.plain)
-                            .id("top_scene_pill_\(sNum)")
-                        }
-                    }
-                    .padding(.horizontal, 4)
-                }
-                .onChange(of: selectedSceneIndex) { newIndex in
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        sceneBarProxy.scrollTo("top_scene_pill_\(newIndex)", anchor: .center)
-                    }
-                }
-            }
-            .frame(height: 32)
-            .background(Color(red: 0.15, green: 0.16, blue: 0.18))
-        }
-    }
 
     // MARK: - LCD Display Component
     private var lcdDisplayView: some View {
@@ -538,7 +450,7 @@ public struct SoundMakerView: View {
                             .font(.system(size: 9, design: .monospaced))
                             .foregroundColor(.cyan)
                     }
-                    Text(currentScene?.title ?? "タイトルなし")
+                    Text(currentScene?.displayCleanTitle ?? "タイトルなし")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
@@ -878,9 +790,22 @@ public struct SoundMakerView: View {
     private func sceneBgmClipRow(clip: SoundClip) -> some View {
         let isSpanning = clip.isSpanningScenes
         let isSelected = selectedClipId == clip.id
+        let isPlayingThis = soundManager.currentlyPlayingClipId == clip.id && soundManager.isPreviewPlaying
 
         return VStack(alignment: .leading, spacing: 6) {
+            // Header: Play Button, Icon, Title, Spanning Badge, Delete
             HStack(spacing: 6) {
+                // Play / Stop Button (試聴プレビュー)
+                Button(action: {
+                    soundManager.togglePreview(clip: clip)
+                }) {
+                    Image(systemName: isPlayingThis ? "stop.circle.fill" : "play.circle.fill")
+                        .font(.system(size: 15))
+                        .foregroundColor(isPlayingThis ? .purple : Color(hex: "#DDA0DD"))
+                }
+                .buttonStyle(.plain)
+                .help(isPlayingThis ? "再生を停止" : "このBGMを倍速・逆再生設定で試聴再生")
+
                 Image(systemName: "music.note")
                     .font(.system(size: 11))
                     .foregroundColor(Color(hex: "#DDA0DD"))
@@ -905,6 +830,7 @@ public struct SoundMakerView: View {
 
                 // Delete Button
                 Button(action: {
+                    if isPlayingThis { soundManager.stopPreview() }
                     appState.soundClips.removeAll(where: { $0.id == clip.id })
                     if selectedClipId == clip.id {
                         selectedClipId = nil
@@ -915,6 +841,90 @@ public struct SoundMakerView: View {
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
+            }
+
+            // Controls: 倍速再生セレクター & 逆再生トグル & ループ
+            HStack(spacing: 6) {
+                // 倍速再生セレクター (Playback Speed Menu)
+                Menu {
+                    ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 2.0], id: \.self) { rate in
+                        Button(action: {
+                            if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                appState.soundClips[idx].playbackRate = rate
+                                if isPlayingThis {
+                                    soundManager.playPreview(clip: appState.soundClips[idx])
+                                }
+                            }
+                        }) {
+                            HStack {
+                                Text(String(format: "%.2fx %@", rate, rate == 1.0 ? "(標準)" : ""))
+                                if clip.playbackRate == rate {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: "gauge.with.needle")
+                        Text(String(format: "%.2fx", clip.playbackRate))
+                    }
+                    .font(.system(size: 9, weight: .bold))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(clip.playbackRate != 1.0 ? Color.cyan.opacity(0.3) : Color.white.opacity(0.1))
+                    .foregroundColor(clip.playbackRate != 1.0 ? .cyan : .white.opacity(0.85))
+                    .cornerRadius(3)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("BGMの再生速度（倍速）を変更")
+
+                // 逆再生トグルボタン (Reverse Playback Toggle)
+                Button(action: {
+                    if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                        appState.soundClips[idx].isReversed.toggle()
+                        if isPlayingThis {
+                            soundManager.playPreview(clip: appState.soundClips[idx])
+                        }
+                    }
+                }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "arrow.uturn.backward")
+                        Text(clip.isReversed ? "逆再生 ON" : "逆再生")
+                    }
+                    .font(.system(size: 9, weight: .bold))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(clip.isReversed ? Color.orange.opacity(0.4) : Color.white.opacity(0.1))
+                    .foregroundColor(clip.isReversed ? .orange : .secondary)
+                    .cornerRadius(3)
+                }
+                .buttonStyle(.plain)
+                .help(clip.isReversed ? "逆再生中（クリックで通常再生に戻す）" : "BGMを逆再生（リバース）する")
+
+                // ループ再生トグル
+                Button(action: {
+                    if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                        appState.soundClips[idx].isLooping.toggle()
+                    }
+                }) {
+                    HStack(spacing: 2) {
+                        Image(systemName: "repeat")
+                        if clip.isLooping {
+                            Text("LOOP").font(.system(size: 8, weight: .bold))
+                        }
+                    }
+                    .font(.system(size: 9))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(clip.isLooping ? Color.purple.opacity(0.4) : Color.white.opacity(0.06))
+                    .foregroundColor(clip.isLooping ? Color(hex: "#DDA0DD") : .secondary)
+                    .cornerRadius(3)
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
             }
 
             // Volume Slider & Fades
@@ -958,64 +968,132 @@ public struct SoundMakerView: View {
     // MARK: - Scene SE Clip Row
     private func sceneSeClipRow(clip: SoundClip) -> some View {
         let isSelected = selectedClipId == clip.id
-        let isPlayingThis = playingClipPreviewId == clip.id
+        let isPlayingThis = soundManager.currentlyPlayingClipId == clip.id && soundManager.isPreviewPlaying
 
-        return HStack(spacing: 8) {
-            Image(systemName: "bolt.fill")
-                .font(.system(size: 10))
-                .foregroundColor(.green)
+        return VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                // Preview Play Button (SoundMakerAudioManager で本物のSE音を流す)
+                Button(action: {
+                    soundManager.togglePreview(clip: clip)
+                }) {
+                    Image(systemName: isPlayingThis ? "stop.circle.fill" : "play.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(isPlayingThis ? .green : .cyan)
+                }
+                .buttonStyle(.plain)
+                .help(isPlayingThis ? "再生を停止" : "この効果音を倍速・逆再生設定で試聴再生")
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(clip.name)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-                Text(String(format: "長さ: %.2fs", clip.duration))
-                    .font(.system(size: 8))
-                    .foregroundColor(.secondary)
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 10))
+                    .foregroundColor(.green)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(clip.name)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    Text(String(format: "長さ: %.2fs", clip.duration))
+                        .font(.system(size: 8))
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                // Delete
+                Button(action: {
+                    if isPlayingThis { soundManager.stopPreview() }
+                    appState.soundClips.removeAll(where: { $0.id == clip.id })
+                    if selectedClipId == clip.id {
+                        selectedClipId = nil
+                    }
+                }) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
             }
 
-            Spacer()
-
-            // Volume mini slider
-            HStack(spacing: 2) {
-                Text("音量:").font(.system(size: 8)).foregroundColor(.secondary)
-                Slider(
-                    value: Binding(
-                        get: { clip.volume },
-                        set: { val in
+            // Controls: 倍速再生セレクター & 逆再生トグル & 音量
+            HStack(spacing: 6) {
+                // 倍速再生セレクター
+                Menu {
+                    ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 2.0], id: \.self) { rate in
+                        Button(action: {
                             if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
-                                    appState.soundClips[idx].volume = val
+                                appState.soundClips[idx].playbackRate = rate
+                                if isPlayingThis {
+                                    soundManager.playPreview(clip: appState.soundClips[idx])
+                                }
+                            }
+                        }) {
+                            HStack {
+                                Text(String(format: "%.2fx %@", rate, rate == 1.0 ? "(標準)" : ""))
+                                if clip.playbackRate == rate {
+                                    Image(systemName: "checkmark")
+                                }
                             }
                         }
-                    ),
-                    in: 0...1.0
-                )
-                .frame(width: 45)
-            }
-
-            // Preview Play
-            Button(action: {
-                togglePlayVoiceClip(clip)
-            }) {
-                Image(systemName: isPlayingThis ? "stop.fill" : "play.fill")
-                    .font(.system(size: 11))
-                    .foregroundColor(isPlayingThis ? .green : .cyan)
-            }
-            .buttonStyle(.plain)
-
-            // Delete
-            Button(action: {
-                appState.soundClips.removeAll(where: { $0.id == clip.id })
-                if selectedClipId == clip.id {
-                    selectedClipId = nil
+                    }
+                } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: "gauge.with.needle")
+                        Text(String(format: "%.2fx", clip.playbackRate))
+                    }
+                    .font(.system(size: 8, weight: .bold))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(clip.playbackRate != 1.0 ? Color.cyan.opacity(0.3) : Color.white.opacity(0.1))
+                    .foregroundColor(clip.playbackRate != 1.0 ? .cyan : .white.opacity(0.85))
+                    .cornerRadius(3)
                 }
-            }) {
-                Image(systemName: "trash")
-                    .font(.system(size: 9))
-                    .foregroundColor(.secondary)
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("SEの再生速度（倍速）を変更")
+
+                // 逆再生トグル
+                Button(action: {
+                    if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                        appState.soundClips[idx].isReversed.toggle()
+                        if isPlayingThis {
+                            soundManager.playPreview(clip: appState.soundClips[idx])
+                        }
+                    }
+                }) {
+                    HStack(spacing: 2) {
+                        Image(systemName: "arrow.uturn.backward")
+                        Text(clip.isReversed ? "逆再生 ON" : "逆再生")
+                    }
+                    .font(.system(size: 8, weight: .bold))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(clip.isReversed ? Color.orange.opacity(0.4) : Color.white.opacity(0.1))
+                    .foregroundColor(clip.isReversed ? .orange : .secondary)
+                    .cornerRadius(3)
+                }
+                .buttonStyle(.plain)
+                .help(clip.isReversed ? "逆再生中（クリックで通常再生に戻す）" : "効果音を逆再生（リバース効果音）にする")
+
+                Spacer()
+
+                // Volume mini slider
+                HStack(spacing: 2) {
+                    Text("音量:").font(.system(size: 8)).foregroundColor(.secondary)
+                    Slider(
+                        value: Binding(
+                            get: { clip.volume },
+                            set: { val in
+                                if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                    appState.soundClips[idx].volume = val
+                                }
+                            }
+                        ),
+                        in: 0...1.0
+                    )
+                    .frame(width: 45)
+                    Text("\(Int(clip.volume * 100))%").font(.system(size: 7, design: .monospaced)).foregroundColor(.cyan)
+                }
             }
-            .buttonStyle(.plain)
         }
         .padding(6)
         .background(Color.green.opacity(0.08))
@@ -1237,6 +1315,102 @@ public struct SoundMakerView: View {
                                 .lineLimit(2)
                                 .multilineTextAlignment(.trailing)
                         }
+                    }
+
+                    Divider().padding(.vertical, 2)
+
+                    // BGM / SE / 音声 再生コントロール
+                    let isPlayingThis = soundManager.currentlyPlayingClipId == clip.id && soundManager.isPreviewPlaying
+                    HStack {
+                        Button(action: {
+                            soundManager.togglePreview(clip: clip)
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: isPlayingThis ? "stop.fill" : "play.fill")
+                                Text(isPlayingThis ? "停止" : "試聴再生")
+                            }
+                            .font(.caption2.bold())
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(isPlayingThis ? Color.red : Color.cyan)
+                            .cornerRadius(4)
+                        }
+                        .buttonStyle(.plain)
+
+                        Spacer()
+
+                        // 逆再生トグル
+                        Button(action: {
+                            if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                appState.soundClips[idx].isReversed.toggle()
+                                if isPlayingThis {
+                                    soundManager.playPreview(clip: appState.soundClips[idx])
+                                }
+                            }
+                        }) {
+                            HStack(spacing: 2) {
+                                Image(systemName: "arrow.uturn.backward")
+                                Text(clip.isReversed ? "逆再生 ON" : "逆再生")
+                            }
+                            .font(.caption2.bold())
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .background(clip.isReversed ? Color.orange.opacity(0.4) : Color.white.opacity(0.1))
+                            .foregroundColor(clip.isReversed ? .orange : .secondary)
+                            .cornerRadius(4)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    // 倍速再生スライダー & プリセット
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Text("再生速度 (倍速):").font(.caption2).foregroundColor(.secondary)
+                            Spacer()
+                            Text(String(format: "%.2fx", clip.playbackRate))
+                                .font(.caption2.bold())
+                                .foregroundColor(clip.playbackRate != 1.0 ? .cyan : .white)
+                        }
+
+                        HStack(spacing: 4) {
+                            ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 2.0], id: \.self) { rate in
+                                Button(action: {
+                                    if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                        appState.soundClips[idx].playbackRate = rate
+                                        if isPlayingThis {
+                                            soundManager.playPreview(clip: appState.soundClips[idx])
+                                        }
+                                    }
+                                }) {
+                                    Text(String(format: "%.2f", rate))
+                                        .font(.system(size: 8, weight: .bold))
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 2)
+                                        .background(clip.playbackRate == rate ? Color.cyan : Color.white.opacity(0.1))
+                                        .foregroundColor(clip.playbackRate == rate ? .black : .white)
+                                        .cornerRadius(2)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+
+                    // 音量スライダー
+                    HStack {
+                        Text("音量:").font(.caption2).foregroundColor(.secondary)
+                        Slider(
+                            value: Binding(
+                                get: { clip.volume },
+                                set: { val in
+                                    if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                        appState.soundClips[idx].volume = val
+                                    }
+                                }
+                            ),
+                            in: 0...1.0
+                        )
+                        Text("\(Int(clip.volume * 100))%").font(.caption2.monospaced()).foregroundColor(.cyan)
                     }
                 }
             } else {
@@ -1610,8 +1784,8 @@ public struct SoundMakerView: View {
 
                             Divider().background(DAWTheme.trackBorder)
 
-                            // 2. Movie Scene Thumbnails Strip (シーン分割レーン: 2つの青枠連動)
-                            sceneThumbnailsLaneView(proxy: timelineProxy)
+                            // 2. Movie Scene Thumbnails Strip (シーン分割レーン: 絶対座標配置)
+                            sceneThumbnailsLaneView(proxy: timelineProxy, width: totalWidth)
                                 .frame(width: totalWidth, height: 38)
 
                             Divider().background(DAWTheme.trackBorder)
@@ -1650,7 +1824,7 @@ public struct SoundMakerView: View {
         let sIdx = max(0, min(selectedSceneIndex - 1, scenes.count - 1))
         let (sStart, sEnd) = sceneTimeRange(index: sIdx)
         let startX = CGFloat(sStart) * CGFloat(zoomScale)
-        let sWidth = max(50, CGFloat(sEnd - sStart) * CGFloat(zoomScale))
+        let sWidth = max(2.0, CGFloat(sEnd - sStart) * CGFloat(zoomScale))
 
         return Rectangle()
             .fill(Color.cyan.opacity(0.08))
@@ -1663,23 +1837,38 @@ public struct SoundMakerView: View {
             .allowsHitTesting(false)
     }
 
-    // MARK: - Ruler Scale Content
+    // MARK: - Ruler Scale Content (秒数・タイムコードが正確に視認できるルーラー)
     private func rulerScaleContentView(width: CGFloat) -> some View {
         HStack(spacing: 0) {
             ForEach(0..<Int(totalTimelineDuration / 2.0), id: \.self) { bar in
-                let barNum = (bar * 2) + 1
+                let seconds = bar * 2
+                let isMajor = (seconds % 10 == 0) // 10秒ごとにタイムコード表示
+                let timeString = String(format: "%02d:%02d", seconds / 60, seconds % 60)
+
                 HStack(alignment: .top, spacing: 0) {
-                    Text("\(barNum)")
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding(.leading, 4)
-                        .padding(.top, 4)
+                    if isMajor {
+                        Text(timeString)
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.9))
+                            .padding(.leading, 3)
+                            .padding(.top, 3)
+                    } else {
+                        // 2秒ごとの小目盛り
+                        VStack(spacing: 0) {
+                            Rectangle()
+                                .fill(Color.white.opacity(0.25))
+                                .frame(width: 1, height: 6)
+                                .padding(.leading, 2)
+                                .padding(.top, 2)
+                            Spacer()
+                        }
+                    }
                     Spacer()
                 }
                 .frame(width: CGFloat(zoomScale * 2.0), height: 26)
                 .overlay(
                     Rectangle()
-                        .stroke(DAWTheme.trackBorder.opacity(0.5), lineWidth: 0.5)
+                        .stroke(DAWTheme.trackBorder.opacity(isMajor ? 0.6 : 0.25), lineWidth: 0.5)
                 )
             }
         }
@@ -1687,24 +1876,54 @@ public struct SoundMakerView: View {
         .background(DAWTheme.rulerBackground)
     }
 
-    // MARK: - Scene Thumbnails Strip Lane (シーン分割トラック: 2つの青枠連動)
-    private func sceneThumbnailsLaneView(proxy: ScrollViewProxy) -> some View {
-        HStack(spacing: 0) {
-            let scenes = activeSceneList()
+    // MARK: - Scene Strip Lane (シーン分割トラック: 音声クリップ・ルーラーと絶対座標で完全一致)
+    private func sceneThumbnailsLaneView(proxy: ScrollViewProxy, width: CGFloat) -> some View {
+        let scenes = activeSceneList()
+        // 各シーンの開始時間（累積秒数）を計算
+        var accumulated: Double = 0.0
+        var sceneStarts: [Double] = []
+        for s in scenes {
+            sceneStarts.append(accumulated)
+            accumulated += s.duration
+        }
+
+        return ZStack(alignment: .topLeading) {
+            // 背景レーン
+            Rectangle()
+                .fill(DAWTheme.stripBackground)
+                .frame(width: width, height: 38)
+
+            // 各シーンを絶対座標で配置 (HStackの累積ズレを完全に排除)
             ForEach(Array(scenes.enumerated()), id: \.element.id) { index, scene in
                 let sNum = index + 1
-                let sceneWidth = CGFloat(scene.duration) * CGFloat(zoomScale)
-                sceneStripItemView(scene: scene, index: index, width: sceneWidth, proxy: proxy)
+                let sStart = index < sceneStarts.count ? sceneStarts[index] : 0.0
+                let startX = CGFloat(sStart) * CGFloat(zoomScale)
+                let itemWidth = max(2.0, CGFloat(scene.duration) * CGFloat(zoomScale))
+
+                sceneStripItemView(scene: scene, index: index, width: itemWidth, proxy: proxy)
+                    .frame(width: itemWidth, height: 32)
+                    .clipped()
+                    .offset(x: startX, y: 3)
                     .id("scene_anchor_\(sNum)")
             }
         }
-        .frame(height: 38)
-        .background(DAWTheme.stripBackground)
+        .frame(width: width, height: 38, alignment: .topLeading)
     }
 
     private func sceneStripItemView(scene: MovieScene, index: Int, width: CGFloat, proxy: ScrollViewProxy? = nil) -> some View {
         let sNum = index + 1
         let isSelected = selectedSceneIndex == sNum
+        let cleanTitle = scene.displayCleanTitle
+        // 重複を除去したタイトル (例: "シーン 46: タイトル" -> "タイトル")
+        let shortTitle: String = {
+            if cleanTitle.hasPrefix("シーン \(sNum): ") {
+                return String(cleanTitle.dropFirst("シーン \(sNum): ".count)).trimmingCharacters(in: .whitespacesAndNewlines)
+            } else if cleanTitle == "シーン \(sNum)" || cleanTitle == "スライド #\(sNum)" {
+                return ""
+            }
+            return cleanTitle
+        }()
+
         return Button(action: {
             selectScene(index: sNum, proxy: proxy)
         }) {
@@ -1713,40 +1932,55 @@ public struct SoundMakerView: View {
                     .fill(
                         isSelected ?
                             LinearGradient(
-                                colors: [Color.cyan.opacity(0.65), Color.blue.opacity(0.55)],
+                                colors: [Color.cyan.opacity(0.85), Color.blue.opacity(0.75)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ) :
                             LinearGradient(
-                                colors: [Color.blue.opacity(0.35), Color.purple.opacity(0.25)],
+                                colors: [Color.blue.opacity(0.40), Color.purple.opacity(0.30)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                     )
 
-                HStack(spacing: 4) {
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "photo.fill")
-                        .font(.system(size: 9))
-                        .foregroundColor(isSelected ? .white : .cyan)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("S\(sNum): \(scene.title)")
-                            .font(.system(size: 9, weight: isSelected ? .black : .bold))
-                            .foregroundColor(.white)
-                            .lineLimit(1)
-                        Text(String(format: "%.1fs", scene.duration))
+                HStack(spacing: 3) {
+                    if width >= 55 {
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : "film")
                             .font(.system(size: 8))
-                            .foregroundColor(.white.opacity(isSelected ? 0.95 : 0.7))
+                            .foregroundColor(isSelected ? .white : .cyan)
+                    }
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        if width >= 85 && !shortTitle.isEmpty {
+                            Text("S\(sNum): \(shortTitle)")
+                                .font(.system(size: 9, weight: isSelected ? .black : .bold))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                        } else {
+                            Text("S\(sNum)")
+                                .font(.system(size: 9, weight: isSelected ? .black : .bold))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                        }
+
+                        if width >= 40 {
+                            Text(String(format: "%.1fs", scene.duration))
+                                .font(.system(size: 7.5, design: .monospaced))
+                                .foregroundColor(.white.opacity(isSelected ? 0.95 : 0.7))
+                                .lineLimit(1)
+                        }
                     }
                     Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 3)
             }
-            .frame(width: max(24, width), height: 32)
+            .frame(width: max(2, width), height: 32)
+            .clipped()
             .overlay(
                 RoundedRectangle(cornerRadius: 3)
                     .stroke(isSelected ? Color.cyan : Color.cyan.opacity(0.3), lineWidth: isSelected ? 2.5 : 1)
             )
-            .shadow(color: isSelected ? Color.cyan.opacity(0.7) : Color.clear, radius: 4)
+            .shadow(color: isSelected ? Color.cyan.opacity(0.7) : Color.clear, radius: isSelected ? 3 : 0)
         }
         .buttonStyle(.plain)
     }
@@ -1770,6 +2004,9 @@ public struct SoundMakerView: View {
         .onTapGesture { location in
             let clickedSeconds = Double(location.x) / zoomScale
             currentTime = max(0, min(totalTimelineDuration, clickedSeconds))
+            if isPlaying {
+                soundManager.startTimelinePlayback(from: currentTime, clips: appState.soundClips)
+            }
         }
     }
 
@@ -1905,6 +2142,28 @@ public struct SoundMakerView: View {
                         .font(.system(size: 9, weight: .bold))
                         .lineLimit(1)
 
+                    // 倍速バッジ
+                    if clip.playbackRate != 1.0 {
+                        Text(String(format: "%.2fx", clip.playbackRate))
+                            .font(.system(size: 7, weight: .bold))
+                            .padding(.horizontal, 3)
+                            .padding(.vertical, 1)
+                            .background(Color.cyan.opacity(0.35))
+                            .foregroundColor(.cyan)
+                            .cornerRadius(2)
+                    }
+
+                    // 逆再生バッジ
+                    if clip.isReversed {
+                        Text("◀ REV")
+                            .font(.system(size: 7, weight: .bold))
+                            .padding(.horizontal, 3)
+                            .padding(.vertical, 1)
+                            .background(Color.orange.opacity(0.45))
+                            .foregroundColor(.orange)
+                            .cornerRadius(2)
+                    }
+
                     Spacer()
 
                     Text(String(format: "%.1fs", clip.duration))
@@ -1916,8 +2175,10 @@ public struct SoundMakerView: View {
                 .padding(.vertical, 2)
                 .background(isSpanning ? Color.purple.opacity(0.85) : clipColor.opacity(0.75))
 
-                // Realistic Audio Waveform Shape (波の形)
-                WaveformDisplayShape(points: clip.waveformPoints ?? sampleWaveform(for: clip.name))
+                // Realistic Audio Waveform Shape (波の形 / 逆再生時は反転)
+                let basePoints = clip.waveformPoints ?? sampleWaveform(for: clip.name)
+                let renderPoints = clip.isReversed ? Array(basePoints.reversed()) : basePoints
+                WaveformDisplayShape(points: renderPoints)
                     .fill(isSpanning ? Color(hex: "#DDA0DD") : clipColor)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(.horizontal, 4)
@@ -2056,12 +2317,14 @@ public struct SoundMakerView: View {
 
     private func startPlayback() {
         isPlaying = true
+        soundManager.startTimelinePlayback(from: currentTime, clips: appState.soundClips)
         playbackTimer?.invalidate()
         playbackTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
             currentTime += 0.05
             if currentTime >= totalTimelineDuration {
                 currentTime = 0.0
             }
+            soundManager.updateTimelinePlayback(currentTime: currentTime, clips: appState.soundClips)
             // Animate meter
             currentMeterLevel = Double.random(in: 0.4...0.95)
         }
@@ -2069,6 +2332,7 @@ public struct SoundMakerView: View {
 
     private func stopPlayback() {
         isPlaying = false
+        soundManager.stopTimelinePlayback()
         playbackTimer?.invalidate()
         playbackTimer = nil
         currentMeterLevel = 0.0

@@ -89,6 +89,18 @@ public final class AudioEffectProcessor {
         return encodeWav(samples: samples, sampleRate: sampleRate)
     }
 
+    /// WAVデータを受け取り、逆再生（反転）した新しいWAVデータを返す
+    public func reverseWav(data: Data) -> Data? {
+        guard let parsed = parseWav(data: data) else { return nil }
+        let reversedSamples = Array(parsed.samples.reversed())
+        return encodeWav(samples: reversedSamples, sampleRate: parsed.sampleRate)
+    }
+
+    /// Floatサンプル配列を受け取り、16bit PCM WAVデータにエンコードする
+    public func encodeToWav(samples: [Float], sampleRate: Int = 44100) -> Data {
+        return encodeWav(samples: samples, sampleRate: sampleRate)
+    }
+
     // MARK: - WAV Parsing
     private struct ParsedWav {
         var samples: [Float] // -1.0 ... 1.0

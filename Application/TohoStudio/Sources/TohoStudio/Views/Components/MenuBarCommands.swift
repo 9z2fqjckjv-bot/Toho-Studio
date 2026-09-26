@@ -358,8 +358,8 @@ public struct MenuBarCommands: Commands {
 
                     Divider()
 
-                    // 東風谷早苗 (コゲの日記)
-                    Button("東風谷早苗 [女性2 / 速度100%, 音程115] (コゲの日記)") {
+                    // 東風谷早苗 (コゲの日記 特別指定)
+                    Button("東風谷早苗 [女性2 / 速度90%, 音程135] (コゲの日記)") {
                         appState.applyVoiceTemplateByName("東風谷早苗 (コゲの日記)")
                     }
 
@@ -381,25 +381,98 @@ public struct MenuBarCommands: Commands {
                         }
                     }
 
-                    // コゲの日記 テンプレート
-                    Menu("コゲの日記 テンプレート") {
+                    // ゆっくりボイスメーカー テンプレート（第1優先）
+                    Menu("ゆっくりボイスメーカー テンプレート") {
                         Button("博麗霊夢 [女性1 / 速度100%, 音程100]") {
-                            appState.applyVoiceTemplateByName("博麗霊夢 (コゲの日記)")
+                            appState.applyVoiceTemplateByName("博麗霊夢 (ゆっくりボイスメーカー)")
                         }
                         Button("霧雨魔理沙 [女性2 / 速度100%, 音程100]") {
-                            appState.applyVoiceTemplateByName("霧雨魔理沙 (コゲの日記)")
+                            appState.applyVoiceTemplateByName("霧雨魔理沙 (ゆっくりボイスメーカー)")
                         }
-                        Button("魂魄妖夢 [女性1 / 速度100%, 音程100]") {
-                            appState.applyVoiceTemplateByName("魂魄妖夢 (コゲの日記)")
+                        Button("魂魄妖夢 [女性2 / 速度115%, 音程120]") {
+                            appState.applyVoiceTemplateByName("魂魄妖夢 (ゆっくりボイスメーカー)")
                         }
                         Button("十六夜咲夜 [女性1 / 速度105%, 音程125]") {
-                            appState.applyVoiceTemplateByName("十六夜咲夜 (コゲの日記)")
+                            appState.applyVoiceTemplateByName("十六夜咲夜 (ゆっくりボイスメーカー)")
                         }
                         Button("チルノ [女性2 / 速度115%, 音程120]") {
-                            appState.applyVoiceTemplateByName("チルノ (コゲの日記)")
+                            appState.applyVoiceTemplateByName("チルノ (ゆっくりボイスメーカー)")
                         }
+                        Button("レミリア・スカーレット [女性1 / 速度80%, 音程150]") {
+                            appState.applyVoiceTemplateByName("レミリア・スカーレット (ゆっくりボイスメーカー)")
+                        }
+                        Button("フランドール・スカーレット [機械1 / 速度100%, 音程100]") {
+                            appState.applyVoiceTemplateByName("フランドール・スカーレット (ゆっくりボイスメーカー)")
+                        }
+                        Button("アリス・マーガトロイド [女性1 / 速度110%, 音程130]") {
+                            appState.applyVoiceTemplateByName("アリス・マーガトロイド (ゆっくりボイスメーカー)")
+                        }
+                        Button("パチュリー・ノーレッジ [女性2 / 速度120%, 音程115]") {
+                            appState.applyVoiceTemplateByName("パチュリー・ノーレッジ (ゆっくりボイスメーカー)")
+                        }
+                        Button("古明地さとり [機械1 / 速度115%, 音程125]") {
+                            appState.applyVoiceTemplateByName("古明地さとり (ゆっくりボイスメーカー)")
+                        }
+                        Button("古明地こいし [女性2 / 速度50%, 音程181]") {
+                            appState.applyVoiceTemplateByName("古明地こいし (ゆっくりボイスメーカー)")
+                        }
+                        Button("射命丸文 [女性2 / 速度100%, 音程125]") {
+                            appState.applyVoiceTemplateByName("射命丸文 (ゆっくりボイスメーカー)")
+                        }
+                        Button("犬走椛 [女性1 / 速度120%, 音程110]") {
+                            appState.applyVoiceTemplateByName("犬走椛 (ゆっくりボイスメーカー)")
+                        }
+                        Button("藤原妹紅 [女性2 / 速度100%, 音程120]") {
+                            appState.applyVoiceTemplateByName("藤原妹紅 (ゆっくりボイスメーカー)")
+                        }
+                        Button("八坂神奈子 [女性1 / 速度115%, 音程90]") {
+                            appState.applyVoiceTemplateByName("八坂神奈子 (ゆっくりボイスメーカー)")
+                        }
+                        Button("洩矢諏訪子 [女性1 / 速度80%, 音程175]") {
+                            appState.applyVoiceTemplateByName("洩矢諏訪子 (ゆっくりボイスメーカー)")
+                        }
+                        Button("河城にとり [機械1 / 速度105%, 音程105]") {
+                            appState.applyVoiceTemplateByName("河城にとり (ゆっくりボイスメーカー)")
+                        }
+                        Button("多々良小傘 [中性 / 速度110%, 音程130]") {
+                            appState.applyVoiceTemplateByName("多々良小傘 (ゆっくりボイスメーカー)")
+                        }
+                        Button("聖白蓮 [中性 / 速度102%, 音程97]") {
+                            appState.applyVoiceTemplateByName("聖白蓮 (ゆっくりボイスメーカー)")
+                        }
+                        Button("伊吹萃香 [中性 / 速度100%, 音程150]") {
+                            appState.applyVoiceTemplateByName("伊吹萃香 (ゆっくりボイスメーカー)")
+                        }
+                        Button("鈴仙・優曇華院 [女性1 / 速度80%, 音程120]") {
+                            appState.applyVoiceTemplateByName("鈴仙・優曇華院・イナバ (ゆっくりボイスメーカー)")
+                        }
+                        Button("蓬莱山輝夜 [女性1 / 速度100%, 音程120]") {
+                            appState.applyVoiceTemplateByName("蓬莱山輝夜 (ゆっくりボイスメーカー)")
+                        }
+                        Button("因幡てゐ [中性 / 速度110%, 音程120]") {
+                            appState.applyVoiceTemplateByName("因幡てゐ (ゆっくりボイスメーカー)")
+                        }
+                        Button("霊烏路空 [中性 / 速度80%, 音程170]") {
+                            appState.applyVoiceTemplateByName("霊烏路空 (ゆっくりボイスメーカー)")
+                        }
+                        Button("四季映姫 [女性2 / 速度87%, 音程117]") {
+                            appState.applyVoiceTemplateByName("四季映姫 (ゆっくりボイスメーカー)")
+                        }
+                        Button("封獣ぬえ [女性2 / 速度100%, 音程180]") {
+                            appState.applyVoiceTemplateByName("封獣ぬえ (ゆっくりボイスメーカー)")
+                        }
+                        Button("比那名居天子 [女性2 / 速度75%, 音程134]") {
+                            appState.applyVoiceTemplateByName("比那名居天子 (ゆっくりボイスメーカー)")
+                        }
+                    }
+
+                    // コゲの日記 テンプレート（第2優先: ゆっくりボイスメーカー未収録キャラ）
+                    Menu("コゲの日記 テンプレート") {
                         Button("八雲紫 [女性2 / 速度96%, 音程127]") {
                             appState.applyVoiceTemplateByName("八雲紫 (コゲの日記)")
+                        }
+                        Button("西行寺幽々子 [女性2 / 速度96%, 音程127]") {
+                            appState.applyVoiceTemplateByName("西行寺幽々子 (コゲの日記)")
                         }
                         Button("八雲藍 [女性2 / 速度115%, 音程113]") {
                             appState.applyVoiceTemplateByName("八雲藍 (コゲの日記)")
@@ -407,63 +480,63 @@ public struct MenuBarCommands: Commands {
                         Button("橙 [女性1 / 速度80%, 音程160]") {
                             appState.applyVoiceTemplateByName("橙 (コゲの日記)")
                         }
-                        Button("レミリア・スカーレット [女性2 / 速度80%, 音程150]") {
-                            appState.applyVoiceTemplateByName("レミリア・スカーレット (コゲの日記)")
+                        Button("大妖精 [女性1 / 速度96%, 音程138]") {
+                            appState.applyVoiceTemplateByName("大妖精 (コゲの日記)")
                         }
-                        Button("フランドール・スカーレット [機械1 / 速度115%, 音程100]") {
-                            appState.applyVoiceTemplateByName("フランドール・スカーレット (コゲの日記)")
+                        Button("ルーミア [女性1 / 速度63%, 音程165]") {
+                            appState.applyVoiceTemplateByName("ルーミア (コゲの日記)")
                         }
-                        Button("アリス・マーガトロイド [女性1 / 速度110%, 音程130]") {
-                            appState.applyVoiceTemplateByName("アリス・マーガトロイド (コゲの日記)")
+                        Button("上白沢慧音 [中性 / 速度95%, 音程145]") {
+                            appState.applyVoiceTemplateByName("上白沢慧音 (コゲの日記)")
                         }
-                        Button("パチュリー・ノーレッジ [中性 / 速度100%, 音程140]") {
-                            appState.applyVoiceTemplateByName("パチュリー・ノーレッジ (コゲの日記)")
+                        Button("八意永琳 [中性 / 速度97%, 音程106]") {
+                            appState.applyVoiceTemplateByName("八意永琳 (コゲの日記)")
                         }
-                        Button("射命丸文 [女性2 / 速度120%, 音程125]") {
-                            appState.applyVoiceTemplateByName("射命丸文 (コゲの日記)")
-                        }
-                        Button("犬走椛 [女性1 / 速度120%, 音程110]") {
-                            appState.applyVoiceTemplateByName("犬走椛 (コゲの日記)")
-                        }
-                        Button("古明地さとり [女性1 / 速度89%, 音程134]") {
-                            appState.applyVoiceTemplateByName("古明地さとり (コゲの日記)")
-                        }
-                        Button("古明地こいし [女性2 / 速度75%, 音程181]") {
-                            appState.applyVoiceTemplateByName("古明地こいし (コゲの日記)")
+                        Button("火焔猫燐 [女性2 / 速度130%, 音程125]") {
+                            appState.applyVoiceTemplateByName("火焔猫燐 (コゲの日記)")
                         }
                         Button("風見幽香 [中性 / 速度100%, 音程160]") {
                             appState.applyVoiceTemplateByName("風見幽香 (コゲの日記)")
                         }
-                        Button("藤原妹紅 [女性2 / 速度120%, 音程130]") {
-                            appState.applyVoiceTemplateByName("藤原妹紅 (コゲの日記)")
+                        Button("本居小鈴 [女性1 / 速度99%, 音程130]") {
+                            appState.applyVoiceTemplateByName("本居小鈴 (コゲの日記)")
+                        }
+                        Button("紅美鈴 [中性 / 速度110%, 音程155]") {
+                            appState.applyVoiceTemplateByName("紅美鈴 (コゲの日記)")
+                        }
+                        Button("小悪魔 [女性1 / 速度95%, 音程165]") {
+                            appState.applyVoiceTemplateByName("小悪魔 (コゲの日記)")
+                        }
+                        Button("物部布都 [女性1 / 速度110%, 音程123]") {
+                            appState.applyVoiceTemplateByName("物部布都 (コゲの日記)")
+                        }
+                        Button("豊聡耳神子 [女性1 / 速度130%, 音程103]") {
+                            appState.applyVoiceTemplateByName("豊聡耳神子 (コゲの日記)")
+                        }
+                        Button("鬼人正邪 [中性 / 速度110%, 音程133]") {
+                            appState.applyVoiceTemplateByName("鬼人正邪 (コゲの日記)")
                         }
                     }
 
-                    // Gスカブログ・ゆっくりボイスメーカー テンプレート
-                    Menu("Gスカブログ・ゆっくりボイスメーカー テンプレート") {
-                        Button("八坂神奈子 [女性1 / 速度115%, 音程90]") {
-                            appState.applyVoiceTemplateByName("八坂神奈子 (Gスカブログ)")
+                    // Gスカブログ テンプレート（第3優先: ゆっくりボイスメーカー・コゲの日記未収録キャラ）
+                    Menu("Gスカブログ テンプレート") {
+                        Button("茨木華扇 [女性1 / 速度100%, 音程140]") {
+                            appState.applyVoiceTemplateByName("茨木華扇 (Gスカブログ)")
                         }
-                        Button("洩矢諏訪子 [女性1 / 速度80%, 音程175]") {
-                            appState.applyVoiceTemplateByName("洩矢諏訪子 (Gスカブログ)")
+                        Button("高麗野あうん [女性1 / 速度83%, 音程140]") {
+                            appState.applyVoiceTemplateByName("高麗野あうん (Gスカブログ)")
                         }
-                        Button("多々良小傘 [女性2 / 速度105%, 音程145]") {
-                            appState.applyVoiceTemplateByName("多々良小傘 (Gスカブログ)")
+                        Button("スターサファイア [女性2 / 速度60%, 音程150]") {
+                            appState.applyVoiceTemplateByName("スターサファイア (Gスカブログ)")
                         }
-                        Button("聖白蓮 [女性2 / 速度96%, 音程120]") {
-                            appState.applyVoiceTemplateByName("聖白蓮 (Gスカブログ)")
+                        Button("飯綱丸龍 [女性2 / 速度93%, 音程116]") {
+                            appState.applyVoiceTemplateByName("飯綱丸龍 (Gスカブログ)")
                         }
-                        Button("豊聡耳神子 [女性1 / 速度130%, 音程103]") {
-                            appState.applyVoiceTemplateByName("豊聡耳神子 (Gスカブログ)")
+                        Button("菅牧典 [女性1 / 速度90%, 音程130]") {
+                            appState.applyVoiceTemplateByName("菅牧典 (Gスカブログ)")
                         }
-                        Button("鬼人正邪 [中性 / 速度110%, 音程133]") {
-                            appState.applyVoiceTemplateByName("鬼人正邪 (Gスカブログ)")
-                        }
-                        Button("少名針妙丸 [児童 / 速度120%, 音程160]") {
-                            appState.applyVoiceTemplateByName("少名針妙丸 (ゆっくりボイスメーカー)")
-                        }
-                        Button("純狐 [女性3 / 速度95%, 音程105]") {
-                            appState.applyVoiceTemplateByName("純狐 (ゆっくりボイスメーカー)")
+                        Button("豪徳寺ミケ [女性1 / 速度80%, 音程180]") {
+                            appState.applyVoiceTemplateByName("豪徳寺ミケ (Gスカブログ)")
                         }
                     }
                 }

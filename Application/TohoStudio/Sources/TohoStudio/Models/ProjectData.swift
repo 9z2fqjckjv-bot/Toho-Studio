@@ -80,6 +80,20 @@ public struct MovieScene: Identifiable, Codable, Equatable {
     public var displayTelop: String {
         return SlideItem.cleanDialogueText(from: telop)
     }
+
+    /// 重複した「シーン X: シーン X」などの表記を整理したクリーンな表示用タイトル
+    public var displayCleanTitle: String {
+        let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = t.components(separatedBy: ": ")
+        if parts.count >= 2 {
+            let p0 = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+            let p1 = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+            if p0 == p1 {
+                return parts.dropFirst().joined(separator: ": ")
+            }
+        }
+        return t
+    }
 }
 
 // MARK: - Character Maker Models
@@ -265,6 +279,8 @@ public struct SoundClip: Identifiable, Codable, Equatable {
     public var audioFilePath: String? = nil // 生成または読み込みファイルパス
     public var voiceType: VoiceType? = nil // キャラボイス時の声種
     public var pitch: Int = 100 // 音程
+    public var playbackRate: Double = 1.0 // 倍速再生レート (0.5x〜2.0x、デフォルト1.0)
+    public var isReversed: Bool = false // 逆再生モード (デフォルトfalse)
 
     public var isSpanningScenes: Bool {
         if let s = spanStartSceneIndex, let e = spanEndSceneIndex, e > s {
@@ -296,7 +312,9 @@ public struct SoundClip: Identifiable, Codable, Equatable {
         isLooping: Bool = false,
         audioFilePath: String? = nil,
         voiceType: VoiceType? = nil,
-        pitch: Int = 100
+        pitch: Int = 100,
+        playbackRate: Double = 1.0,
+        isReversed: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -321,6 +339,45 @@ public struct SoundClip: Identifiable, Codable, Equatable {
         self.audioFilePath = audioFilePath
         self.voiceType = voiceType
         self.pitch = pitch
+        self.playbackRate = playbackRate
+        self.isReversed = isReversed
+    }
+
+    // 後方互換性デコーダー
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        self.name = try container.decode(String.self, forKey: .name)
+        self.type = try container.decode(String.self, forKey: .type)
+        self.character = try container.decodeIfPresent(String.self, forKey: .character)
+        self.text = try container.decodeIfPresent(String.self, forKey: .text)
+        self.voiceSymbol = try container.decodeIfPresent(String.self, forKey: .voiceSymbol)
+        self.duration = try container.decode(Double.self, forKey: .duration)
+        self.volume = try container.decodeIfPresent(Double.self, forKey: .volume) ?? 1.0
+        self.speed = try container.decodeIfPresent(Int.self, forKey: .speed) ?? 100
+        self.startTime = try container.decodeIfPresent(Double.self, forKey: .startTime) ?? 0.0
+        self.trackId = try container.decodeIfPresent(String.self, forKey: .trackId)
+        self.pan = try container.decodeIfPresent(Double.self, forKey: .pan) ?? 0.0
+        self.colorHex = try container.decodeIfPresent(String.self, forKey: .colorHex)
+        self.waveformPoints = try container.decodeIfPresent([Float].self, forKey: .waveformPoints)
+        self.sceneIndex = try container.decodeIfPresent(Int.self, forKey: .sceneIndex)
+        self.spanStartSceneIndex = try container.decodeIfPresent(Int.self, forKey: .spanStartSceneIndex)
+        self.spanEndSceneIndex = try container.decodeIfPresent(Int.self, forKey: .spanEndSceneIndex)
+        self.fadeInDuration = try container.decodeIfPresent(Double.self, forKey: .fadeInDuration) ?? 0.0
+        self.fadeOutDuration = try container.decodeIfPresent(Double.self, forKey: .fadeOutDuration) ?? 0.0
+        self.isLooping = try container.decodeIfPresent(Bool.self, forKey: .isLooping) ?? false
+        self.audioFilePath = try container.decodeIfPresent(String.self, forKey: .audioFilePath)
+        self.voiceType = try container.decodeIfPresent(VoiceType.self, forKey: .voiceType)
+        self.pitch = try container.decodeIfPresent(Int.self, forKey: .pitch) ?? 100
+        self.playbackRate = try container.decodeIfPresent(Double.self, forKey: .playbackRate) ?? 1.0
+        self.isReversed = try container.decodeIfPresent(Bool.self, forKey: .isReversed) ?? false
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, type, character, text, voiceSymbol, duration, volume, speed
+        case startTime, trackId, pan, colorHex, waveformPoints, sceneIndex
+        case spanStartSceneIndex, spanEndSceneIndex, fadeInDuration, fadeOutDuration
+        case isLooping, audioFilePath, voiceType, pitch, playbackRate, isReversed
     }
 }
 

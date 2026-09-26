@@ -23,6 +23,8 @@ public struct SpanAudioInsertSheet: View {
     @State private var fadeInDuration: Double = 1.5
     @State private var fadeOutDuration: Double = 2.0
     @State private var isLooping: Bool = true
+    @State private var playbackRate: Double = 1.0
+    @State private var isReversed: Bool = false
 
     // Preview
     @State private var isPreviewPlaying: Bool = false
@@ -541,6 +543,55 @@ public struct SpanAudioInsertSheet: View {
                 }
             }
 
+            // Playback Speed (倍速再生)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("再生速度 (倍速):")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                    Spacer()
+                    Text(String(format: "%.2fx", playbackRate))
+                        .font(.caption.bold())
+                        .foregroundColor(playbackRate != 1.0 ? .cyan : .white)
+                }
+
+                HStack(spacing: 6) {
+                    ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 2.0], id: \.self) { rate in
+                        Button(action: {
+                            playbackRate = rate
+                            if isPreviewPlaying { startPreview() }
+                        }) {
+                            Text(String(format: "%.2fx", rate))
+                                .font(.system(size: 9, weight: .bold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 4)
+                                .background(playbackRate == rate ? Color.cyan : Color.white.opacity(0.1))
+                                .foregroundColor(playbackRate == rate ? .black : .white)
+                                .cornerRadius(4)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            // Reverse Playback Toggle (逆再生)
+            Toggle(isOn: Binding(
+                get: { isReversed },
+                set: { val in
+                    isReversed = val
+                    if isPreviewPlaying { startPreview() }
+                }
+            )) {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.uturn.backward")
+                        .foregroundColor(.orange)
+                    Text("逆再生 (リバース再生)")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                }
+            }
+            .toggleStyle(.checkbox)
+
             // Loop Toggle
             Toggle(isOn: $isLooping) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -621,41 +672,20 @@ public struct SpanAudioInsertSheet: View {
     private func startPreview() {
         stopPreview()
 
-        // 外部ファイルがある場合はそれを再生
-        if let path = customAudioFilePath, FileManager.default.fileExists(atPath: path) {
-            let url = URL(fileURLWithPath: path)
-            if let player = try? AVAudioPlayer(contentsOf: url) {
-                previewPlayer = player
-                player.volume = Float(volume)
-                player.numberOfLoops = isLooping ? -1 : 0
-                player.play()
-                isPreviewPlaying = true
-                return
-            }
-        }
+        let dummyClip = SoundClip(
+            name: customAudioFileName.isEmpty ? selectedPresetName : customAudioFileName,
+            type: audioType,
+            duration: spanTiming.duration,
+            volume: volume,
+            isLooping: isLooping,
+            audioFilePath: customAudioFilePath,
+            playbackRate: playbackRate,
+            isReversed: isReversed
+        )
 
-        // プリセットの場合はAquesTalkでプレビュー音声を合成
-        if audioType == "SE" {
-            AquesTalkBridge.shared.synthesizeAndPlay(
-                text: "ピチュン！",
-                speed: 150,
-                voice: .f1
-            ) {
-                DispatchQueue.main.async {
-                    self.isPreviewPlaying = false
-                }
-            }
-            isPreviewPlaying = true
-        } else {
-            AquesTalkBridge.shared.synthesizeAndPlay(
-                text: "ルララ〜ルララ〜",
-                speed: 110,
-                voice: .f2
-            ) {
-                DispatchQueue.main.async {
-                    self.isPreviewPlaying = false
-                }
-            }
+        if let player = SoundMakerAudioManager.shared.createConfiguredPlayer(for: dummyClip) {
+            previewPlayer = player
+            player.play()
             isPreviewPlaying = true
         }
     }
@@ -711,7 +741,9 @@ public struct SpanAudioInsertSheet: View {
             fadeInDuration: fadeInDuration,
             fadeOutDuration: fadeOutDuration,
             isLooping: isLooping,
-            audioFilePath: customAudioFilePath
+            audioFilePath: customAudioFilePath,
+            playbackRate: playbackRate,
+            isReversed: isReversed
         )
 
         appState.soundClips.append(newClip)
