@@ -6,10 +6,13 @@ public struct SlideScenarioMakerView: View {
     @ObservedObject var recognitionService = SlideRecognitionService.shared
 
     @State private var selectedSlideIdx: Int = 0
-    @State private var showRecognitionModal: Bool = false
-    @State private var showLoadModal: Bool = false
-    @State private var recognitionFilePath: String = "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方惑情録/東方惑情録　第1話.key"
-    @State private var selectedLoadFilePath: String = "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方惑情録/東方惑情録　第1話.key"
+    @State private var showUnifiedModal: Bool = false
+    @State private var selectedFilePath: String = "/Volumes/ZSSD/GitHub/repository/TohoStudio/交換夫婦/交換夫婦（21.22話目）.key"
+    @State private var syncMovieMaker: Bool = true
+    @State private var syncGameMaker: Bool = true
+    @State private var syncSoundMaker: Bool = true
+    @State private var syncMaterialStudio: Bool = true
+    @State private var autoSaveProject: Bool = true
     @State private var loadSuccessMessage: String? = nil
 
     public var body: some View {
@@ -24,25 +27,16 @@ public struct SlideScenarioMakerView: View {
 
                 Spacer()
 
-                // Primary Slide Load Program Button
-                Button(action: { showLoadModal = true }) {
+                // 指示書 Slide 14: 「既存の『スライド読み込み』のボタンと『スライド認識』のボタンを統合してください」
+                Button(action: { showUnifiedModal = true }) {
                     HStack(spacing: 6) {
-                        Image(systemName: "arrow.down.doc.fill")
-                        Text("スライドの読み込みプログラム")
+                        Image(systemName: "sparkles.rectangle.stack.fill")
+                        Text("スライド読み込み＆認識 (精度99%規格)")
                             .bold()
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .help("Keynoteファイル等からスライドを読み込み、プロジェクトスライドを置き換えます (cmd+f+r)")
-
-                // High-precision Recognition Button
-                Button(action: { showRecognitionModal = true }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "sparkles.rectangle.stack")
-                        Text("スライド認識 (精度99%規格)")
-                    }
-                }
-                .buttonStyle(.bordered)
+                .help("Keynoteファイル（.key）から全スライド・アニメーション・ビルド順を高精度抽出し、各メーカーへ自動反映します (cmd+f+r)")
 
                 Divider().frame(height: 18)
 
@@ -79,12 +73,12 @@ public struct SlideScenarioMakerView: View {
             HSplitView {
                 // Left: Slide Thumbnails
                 slideThumbnailListView
-                    .frame(width: 240)
+                    .frame(width: 250)
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
 
                 // Center: Slide Visual Canvas
                 slideCanvasView
-                    .frame(minWidth: 400, maxWidth: .infinity)
+                    .frame(minWidth: 420, maxWidth: .infinity)
                     .padding()
 
                 // Right: Scenario & Presenter Notes
@@ -93,21 +87,18 @@ public struct SlideScenarioMakerView: View {
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
             }
         }
-        .sheet(isPresented: $showLoadModal) {
-            slideLoadModalView
-        }
-        .sheet(isPresented: $showRecognitionModal) {
-            recognitionModalView
+        .sheet(isPresented: $showUnifiedModal) {
+            unifiedSlideModalView
         }
         .onAppear {
-            if appState.activeModal == .slideLoader {
-                showLoadModal = true
+            if appState.activeModal == .slideLoader || appState.activeModal == .slideRecognitionPopup {
+                showUnifiedModal = true
                 appState.activeModal = nil
             }
         }
         .onChange(of: appState.activeModal) { newModal in
-            if newModal == .slideLoader {
-                showLoadModal = true
+            if newModal == .slideLoader || newModal == .slideRecognitionPopup {
+                showUnifiedModal = true
                 appState.activeModal = nil
             }
         }
@@ -135,9 +126,9 @@ public struct SlideScenarioMakerView: View {
                     .bold()
                 Spacer()
 
-                // Slide Load quick button
-                Button(action: { showLoadModal = true }) {
-                    Label("読込", systemImage: "arrow.down.doc")
+                // 統合読み込み＆認識ボタン
+                Button(action: { showUnifiedModal = true }) {
+                    Label("読込＆認識", systemImage: "arrow.down.doc")
                         .font(.caption2)
                 }
                 .buttonStyle(.bordered)
@@ -171,19 +162,61 @@ public struct SlideScenarioMakerView: View {
                             .font(.caption2)
                             .bold()
                             .foregroundColor(.accentColor)
+
+                        // スライド種別バッジ
+                        if slide.slideType == "title" {
+                            Text("タイトル")
+                                .font(.system(size: 9))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(Color.blue.opacity(0.2))
+                                .foregroundColor(.blue)
+                                .cornerRadius(3)
+                        } else if slide.slideType == "sectionHeader" {
+                            Text("中扉")
+                                .font(.system(size: 9))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(Color.purple.opacity(0.2))
+                                .foregroundColor(.purple)
+                                .cornerRadius(3)
+                        }
+
                         Spacer()
-                        Text(slide.characterName)
-                            .font(.caption2)
+
+                        Text("⏱️\(String(format: "%.1f", slide.duration))s")
+                            .font(.system(size: 9))
                             .foregroundColor(.secondary)
+
+                        if !slide.characterName.isEmpty {
+                            Text(slide.characterName)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
                     }
+
                     Text(slide.title)
                         .font(.caption)
                         .bold()
                         .lineLimit(1)
-                    Text(slide.telop)
-                        .font(.caption2)
-                        .lineLimit(2)
-                        .foregroundColor(.secondary)
+
+                    if !slide.telop.isEmpty {
+                        Text(slide.telop)
+                            .font(.caption2)
+                            .lineLimit(2)
+                            .foregroundColor(.secondary)
+                    }
+
+                    if !slide.animations.isEmpty {
+                        HStack(spacing: 3) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 8))
+                                .foregroundColor(.orange)
+                            Text("\(slide.animations.count)アニメ")
+                                .font(.system(size: 8))
+                                .foregroundColor(.orange)
+                        }
+                    }
                 }
                 .padding(6)
                 .background(selectedSlideIdx == idx ? Color.accentColor.opacity(0.2) : Color.clear)
@@ -228,14 +261,16 @@ public struct SlideScenarioMakerView: View {
                             } else {
                                 // Default Gradient Background
                                 LinearGradient(
-                                    colors: [Color(red: 0.1, green: 0.12, blue: 0.18), Color(red: 0.05, green: 0.06, blue: 0.1)],
+                                    colors: slide.slideType == "sectionHeader" ?
+                                        [Color(red: 0.05, green: 0.1, blue: 0.25), Color(red: 0.02, green: 0.05, blue: 0.15)] :
+                                        [Color(red: 0.1, green: 0.12, blue: 0.18), Color(red: 0.05, green: 0.06, blue: 0.1)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                                 .frame(width: canvasW, height: canvasH)
                             }
 
-                            // 3. Other Slide Objects Layer (Props, Effects, Graphics)
+                            // 3. Other Slide Objects Layer (Props, Effects, Graphics, Pager)
                             ForEach(slide.objects) { obj in
                                 let ox = obj.x * scaleX
                                 let oy = obj.y * scaleY
@@ -263,7 +298,7 @@ public struct SlideScenarioMakerView: View {
                                 .position(x: ox + ow / 2, y: oy + oh / 2)
                             }
 
-                            // 4. Character Standing Portrait Layer (Accurate Positioning)
+                            // 4. Character Standing Portrait Layer
                             let charImg = resolveImage(path: slide.characterImagePath, name: slide.characterName, subfolder: "キャラクター")
                             let cx = (slide.characterX ?? (origW * 0.6)) * scaleX
                             let cy = (slide.characterY ?? (origH * 0.05)) * scaleY
@@ -277,8 +312,7 @@ public struct SlideScenarioMakerView: View {
                                     .frame(width: cw, height: ch)
                                     .position(x: cx + cw / 2, y: cy + ch / 2)
                                     .shadow(color: .black.opacity(0.35), radius: 6, x: 2, y: 3)
-                            } else if !slide.characterName.isEmpty && slide.characterName != "ナレーション" {
-                                // Elegant character stand-in if image asset not yet found
+                            } else if !slide.characterName.isEmpty && slide.characterName != "ナレーション" && slide.slideType == "content" {
                                 VStack(spacing: 4) {
                                     Image(systemName: "person.crop.rectangle.fill")
                                         .font(.system(size: min(cw, ch) * 0.35))
@@ -295,15 +329,25 @@ public struct SlideScenarioMakerView: View {
                                 .position(x: cx + cw / 2, y: cy + ch / 2)
                             }
 
-                            // 5. Accurate Telop Layer (Subtitles / Dialogues)
+                            // 5. Section Header Center Text
+                            if slide.slideType == "sectionHeader" {
+                                VStack {
+                                    Text(slide.title)
+                                        .font(.system(size: max(canvasH * 0.065, 16), weight: .bold))
+                                        .foregroundColor(.white)
+                                        .shadow(color: .blue.opacity(0.8), radius: 8, x: 0, y: 0)
+                                }
+                                .frame(width: canvasW, height: canvasH, alignment: .center)
+                            }
+
+                            // 6. Accurate Telop Layer (Subtitles / Dialogues)
                             let tx = (slide.telopX ?? 0.0) * scaleX
                             let ty = (slide.telopY ?? (origH * 0.79)) * scaleY
                             let tw = max((slide.telopWidth ?? origW) * scaleX, 50.0)
                             let th = max((slide.telopHeight ?? (origH * 0.21)) * scaleY, 25.0)
 
-                            if !slide.telop.isEmpty {
+                            if !slide.telop.isEmpty && slide.slideType != "sectionHeader" {
                                 VStack(alignment: .leading, spacing: 3) {
-                                    // Speaker name badge if defined
                                     if !slide.characterName.isEmpty && slide.characterName != "ナレーション" {
                                         Text("【\(slide.characterName)】")
                                             .font(.system(size: max(canvasH * 0.035, 10), weight: .heavy))
@@ -329,7 +373,7 @@ public struct SlideScenarioMakerView: View {
                                 .position(x: tx + tw / 2, y: ty + th / 2)
                             }
 
-                            // 6. Slide Title & Metadata Overlay (Top Bar)
+                            // 7. Slide Title & Metadata Overlay (Top Bar)
                             HStack {
                                 Text("#\(slide.slideIndex): \(slide.title)")
                                     .font(.caption2)
@@ -340,25 +384,36 @@ public struct SlideScenarioMakerView: View {
                                     .foregroundColor(.white)
                                     .cornerRadius(4)
 
+                                // Slide Type
+                                Text(slide.slideType == "title" ? "タイトル" : (slide.slideType == "sectionHeader" ? "中扉" : "通常"))
+                                    .font(.caption2)
+                                    .bold()
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .background(slide.slideType == "title" ? Color.blue : (slide.slideType == "sectionHeader" ? Color.purple : Color.green))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(4)
+
                                 Spacer()
 
                                 HStack(spacing: 4) {
-                                    if !slide.characterName.isEmpty {
-                                        Label(slide.characterName, systemImage: "person.fill")
-                                            .font(.caption2)
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 3)
-                                            .background(Color.accentColor.opacity(0.8))
-                                            .foregroundColor(.white)
-                                            .cornerRadius(4)
-                                    }
-                                    Text(slide.animationTag)
+                                    Text("表示: \(String(format: "%.1f", slide.duration))秒")
                                         .font(.caption2)
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 3)
-                                        .background(Color.blue.opacity(0.7))
+                                        .background(Color.black.opacity(0.65))
                                         .foregroundColor(.white)
                                         .cornerRadius(4)
+
+                                    if !slide.animations.isEmpty {
+                                        Text("\(slide.animations.count)アニメ")
+                                            .font(.caption2)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 3)
+                                            .background(Color.orange.opacity(0.8))
+                                            .foregroundColor(.white)
+                                            .cornerRadius(4)
+                                    }
                                 }
                             }
                             .padding(8)
@@ -380,10 +435,10 @@ public struct SlideScenarioMakerView: View {
 
                         Divider().frame(height: 12)
 
-                        // Speaker Badge
+                        // Duration Inspector
                         HStack(spacing: 4) {
-                            Text("話者:").font(.caption2).foregroundColor(.secondary)
-                            Text(slide.characterName.isEmpty ? "ナレーション" : slide.characterName)
+                            Text("表示時間:").font(.caption2).foregroundColor(.secondary)
+                            Text("\(String(format: "%.1f", slide.duration))秒")
                                 .font(.caption2)
                                 .bold()
                                 .foregroundColor(.accentColor)
@@ -391,22 +446,34 @@ public struct SlideScenarioMakerView: View {
 
                         Divider().frame(height: 12)
 
-                        // Background Badge
+                        // Transition Inspector
                         HStack(spacing: 4) {
-                            Text("背景:").font(.caption2).foregroundColor(.secondary)
-                            Text(slide.backgroundName.isEmpty ? "博麗神社" : slide.backgroundName)
+                            Text("トランジション:").font(.caption2).foregroundColor(.secondary)
+                            Text(slide.transitionEffect)
                                 .font(.caption2)
-                                .lineLimit(1)
                         }
+
+                        Divider().frame(height: 12)
 
                         // Objects count
                         if !slide.objects.isEmpty {
-                            Divider().frame(height: 12)
                             HStack(spacing: 4) {
                                 Text("オブジェクト:").font(.caption2).foregroundColor(.secondary)
                                 Text("\(slide.objects.count)件")
                                     .font(.caption2)
                                     .bold()
+                            }
+                            Divider().frame(height: 12)
+                        }
+
+                        // Animation count
+                        if !slide.animations.isEmpty {
+                            HStack(spacing: 4) {
+                                Text("アニメーション:").font(.caption2).foregroundColor(.secondary)
+                                Text("\(slide.animations.count)件 (順序: \(slide.buildOrder.count)件)")
+                                    .font(.caption2)
+                                    .bold()
+                                    .foregroundColor(.orange)
                             }
                         }
 
@@ -423,6 +490,47 @@ public struct SlideScenarioMakerView: View {
                     }
                     .padding(.horizontal, 4)
                     .padding(.top, 4)
+
+                    // アニメーション＆ビルド順の詳細一覧バー
+                    if !slide.animations.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(slide.animations) { anim in
+                                    HStack(spacing: 4) {
+                                        Text("#\(anim.order)")
+                                            .font(.system(size: 9, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 4)
+                                            .background(Color.orange)
+                                            .cornerRadius(2)
+                                        Text("\(anim.targetObjectName):")
+                                            .font(.system(size: 10, weight: .medium))
+                                        Text(anim.effect)
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundColor(.orange)
+                                        Text("(\(String(format: "%.1f", anim.duration))s)")
+                                            .font(.system(size: 9))
+                                            .foregroundColor(.secondary)
+                                        if let b = anim.bounceCount {
+                                            Text("\(b)回バウンス")
+                                                .font(.system(size: 9))
+                                                .foregroundColor(.purple)
+                                        }
+                                        if let r = anim.rotationAngle {
+                                            Text("\(Int(r))°回転")
+                                                .font(.system(size: 9))
+                                                .foregroundColor(.blue)
+                                        }
+                                    }
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .background(Color.secondary.opacity(0.12))
+                                    .cornerRadius(4)
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
                 }
             } else {
                 VStack(spacing: 12) {
@@ -431,8 +539,8 @@ public struct SlideScenarioMakerView: View {
                         .foregroundColor(.secondary)
                     Text("スライドがありません")
                         .font(.headline)
-                    Button("スライドを読み込む") {
-                        showLoadModal = true
+                    Button("スライド読み込み＆認識を開始") {
+                        showUnifiedModal = true
                     }
                     .buttonStyle(.borderedProminent)
                 }
@@ -445,19 +553,16 @@ public struct SlideScenarioMakerView: View {
     private func resolveImage(path: String?, name: String?, subfolder: String?) -> NSImage? {
         let fm = FileManager.default
 
-        // 1. Direct path check
         if let directPath = path, !directPath.isEmpty, fm.fileExists(atPath: directPath) {
             return NSImage(contentsOfFile: directPath)
         }
 
         guard let targetName = name, !targetName.isEmpty else { return nil }
 
-        // Clean target name for matching
         let cleanName = targetName.replacingOccurrences(of: ".png", with: "")
             .replacingOccurrences(of: ".jpg", with: "")
             .replacingOccurrences(of: ".jpeg", with: "")
 
-        // 2. Search in .cache/keynote_extracted
         let cacheBase = "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/keynote_extracted"
         if let enumerator = fm.enumerator(atPath: cacheBase) {
             for case let file as String in enumerator {
@@ -470,7 +575,6 @@ public struct SlideScenarioMakerView: View {
             }
         }
 
-        // 3. Search in 動画用 assets
         let repoBase = "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用"
         let searchFolder = subfolder != nil ? (repoBase as NSString).appendingPathComponent(subfolder!) : repoBase
         if fm.fileExists(atPath: searchFolder), let enumerator = fm.enumerator(atPath: searchFolder) {
@@ -499,6 +603,27 @@ public struct SlideScenarioMakerView: View {
             if selectedSlideIdx < appState.slides.count {
                 let slide = appState.slides[selectedSlideIdx]
                 VStack(alignment: .leading, spacing: 8) {
+                    // スライド種別情報
+                    HStack {
+                        Text("スライド種別:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(slide.slideType == "title" ? "タイトルスライド" : (slide.slideType == "sectionHeader" ? "セクション見出し(中扉)" : "通常スライド"))
+                            .font(.caption)
+                            .bold()
+                            .foregroundColor(slide.slideType == "title" ? .blue : (slide.slideType == "sectionHeader" ? .purple : .green))
+                        Spacer()
+                    }
+
+                    if slide.slideType == "title" || slide.slideType == "sectionHeader" {
+                        Text("※指示書仕様: タイトル・中扉スライドのノート欄は必ず空白で読み込まれます")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                            .padding(4)
+                            .background(Color.yellow.opacity(0.15))
+                            .cornerRadius(4)
+                    }
+
                     Text("シーンタイトル:").font(.caption).foregroundColor(.secondary)
                     TextField("タイトル", text: Binding(
                         get: { slide.title },
@@ -514,13 +639,31 @@ public struct SlideScenarioMakerView: View {
                     .frame(height: 80)
                     .border(Color.secondary.opacity(0.2))
 
-                    Text("発表者・演出ノート:").font(.caption).foregroundColor(.secondary)
+                    HStack {
+                        Text("発表者・演出ノート:").font(.caption).foregroundColor(.secondary)
+                        Spacer()
+                        if slide.presenterNote.isEmpty {
+                            Text("(空白)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                     TextEditor(text: Binding(
                         get: { slide.presenterNote },
                         set: { appState.slides[selectedSlideIdx].presenterNote = $0 }
                     ))
-                    .frame(height: 90)
+                    .frame(height: 80)
                     .border(Color.secondary.opacity(0.2))
+
+                    HStack {
+                        Text("表示時間(秒):").font(.caption).foregroundColor(.secondary)
+                        TextField("秒数", value: Binding(
+                            get: { slide.duration },
+                            set: { appState.slides[selectedSlideIdx].duration = $0 }
+                        ), formatter: NumberFormatter())
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 80)
+                    }
 
                     Divider()
 
@@ -536,32 +679,32 @@ public struct SlideScenarioMakerView: View {
         .padding()
     }
 
-    // MARK: - Slide Load Modal View (スライドの読み込みプログラム)
-    private var slideLoadModalView: some View {
-        VStack(alignment: .leading, spacing: 16) {
+    // MARK: - Unified Slide Load & Recognition Modal View (指示書 Slide 14 統合モーダル)
+    private var unifiedSlideModalView: some View {
+        VStack(alignment: .leading, spacing: 14) {
             // Header
             HStack {
-                Label("スライドの読み込みプログラム", systemImage: "arrow.down.doc.fill")
+                Label("スライド読み込み＆認識プログラム (精度99%規格)", systemImage: "sparkles.rectangle.stack.fill")
                     .font(.title3)
                     .bold()
                 Spacer()
-                Button("閉じる") { showLoadModal = false }
+                Button("閉じる") { showUnifiedModal = false }
             }
 
-            Text("Keynoteプレゼンテーションファイル（.key）やスライドファイルを読み込み、スライド＆シナリオメーカー上のスライド・セリフ・背景・演出ノートを自動認識して完全に置き換えます。")
+            Text("Keynoteファイル（.key）から全スライド・全オブジェクト（ポケベル・小道具・枠等）・アニメーション（バウンス・回転等）・ビルド順・スライド種別（タイトル/中扉/通常）を直接高速抽出・認識します。")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
             Divider()
 
-            // Selection Options: Quick List vs Finder File Picker
-            VStack(alignment: .leading, spacing: 8) {
+            // File Selection
+            VStack(alignment: .leading, spacing: 6) {
                 Text("読み込むKeynoteファイルを選択:")
                     .font(.caption)
                     .bold()
 
                 HStack {
-                    TextField("ファイルパス", text: $selectedLoadFilePath)
+                    TextField("ファイルパス", text: $selectedFilePath)
                         .textFieldStyle(.roundedBorder)
 
                     Button("Macから選択...") {
@@ -571,7 +714,8 @@ public struct SlideScenarioMakerView: View {
                 }
             }
 
-            Text("リポジトリ内 Keynote プロジェクト一覧（クイック選択）:")
+            // Quick Selection List
+            Text("Keynote プロジェクト一覧（クイック選択）:")
                 .font(.caption)
                 .bold()
 
@@ -580,7 +724,7 @@ public struct SlideScenarioMakerView: View {
                     ForEach(recognitionService.getAvailableKeynoteProjects()) { item in
                         HStack(spacing: 10) {
                             Image(systemName: "doc.richtext.fill")
-                                .foregroundColor(selectedLoadFilePath == item.filePath ? .accentColor : .secondary)
+                                .foregroundColor(selectedFilePath == item.filePath ? .accentColor : .secondary)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack {
@@ -598,29 +742,75 @@ public struct SlideScenarioMakerView: View {
                             }
                             Spacer()
 
-                            if selectedLoadFilePath == item.filePath {
+                            if selectedFilePath == item.filePath {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundColor(.accentColor)
                             }
                         }
                         .padding(8)
-                        .background(selectedLoadFilePath == item.filePath ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.05))
+                        .background(selectedFilePath == item.filePath ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.05))
                         .cornerRadius(6)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            selectedLoadFilePath = item.filePath
+                            selectedFilePath = item.filePath
                         }
                     }
                 }
             }
-            .frame(height: 200)
+            .frame(height: 140)
             .border(Color.secondary.opacity(0.2))
+
+            // Cross-Module Auto-Sync Settings (指示書 Slide 14 要件)
+            GroupBox(label: Text("各メーカーへの自動反映・同期設定 (指示書 Slide 14)").font(.caption).bold()) {
+                HStack(spacing: 16) {
+                    Toggle("ムービーメーカー", isOn: $syncMovieMaker)
+                        .toggleStyle(.checkbox)
+                        .font(.caption)
+                    Toggle("ゲームメーカー", isOn: $syncGameMaker)
+                        .toggleStyle(.checkbox)
+                        .font(.caption)
+                    Toggle("サウンドメーカー", isOn: $syncSoundMaker)
+                        .toggleStyle(.checkbox)
+                        .font(.caption)
+                    Toggle("素材スタジオ", isOn: $syncMaterialStudio)
+                        .toggleStyle(.checkbox)
+                        .font(.caption)
+                    Toggle("自動保存", isOn: $autoSaveProject)
+                        .toggleStyle(.checkbox)
+                        .font(.caption)
+                }
+                .padding(4)
+            }
 
             if recognitionService.isRunning {
                 VStack(alignment: .leading, spacing: 6) {
-                    ProgressView()
-                    Text("スライド解析・抽出中...")
+                    ProgressView(value: recognitionService.currentProgress)
+                    Text("解析＆各メーカー同期進捗: \(Int(recognitionService.currentProgress * 100))%")
                         .font(.caption)
+                }
+            }
+
+            if let result = recognitionService.lastResult {
+                GroupBox(label: Text("最新解析サマリー (認識精度: \(String(format: "%.1f", result.accuracyRate))%)").font(.caption).bold()) {
+                    HStack(spacing: 20) {
+                        VStack {
+                            Text("\(result.totalSlides)").font(.title2).bold()
+                            Text("スライド総数").font(.caption2)
+                        }
+                        VStack {
+                            Text("\(result.matchedBackgroundCount)").font(.title2).bold().foregroundColor(.green)
+                            Text("背景照合数").font(.caption2)
+                        }
+                        VStack {
+                            Text("\(result.matchedCharacterCount)").font(.title2).bold().foregroundColor(.blue)
+                            Text("キャラクター照合").font(.caption2)
+                        }
+                        VStack {
+                            Text("\(result.animationCount)").font(.title2).bold().foregroundColor(.orange)
+                            Text("アニメーション紐付").font(.caption2)
+                        }
+                    }
+                    .padding(4)
                 }
             }
 
@@ -633,22 +823,27 @@ public struct SlideScenarioMakerView: View {
                 Spacer()
 
                 Button("キャンセル") {
-                    showLoadModal = false
+                    showUnifiedModal = false
                 }
 
                 Button(action: {
-                    recognitionService.loadSlideProgram(filePath: selectedLoadFilePath, replaceState: true) { success, slides in
-                        if success {
-                            selectedSlideIdx = 0
-                            let fName = URL(fileURLWithPath: selectedLoadFilePath).lastPathComponent
-                            loadSuccessMessage = "「\(fName)」から \(slides.count) 枚のスライドを読み込み、画面上のスライドを正常に置き換えました。"
-                            showLoadModal = false
-                        }
+                    recognitionService.loadAndRecognizeSlides(
+                        filePath: selectedFilePath,
+                        syncMovieMaker: syncMovieMaker,
+                        syncGameMaker: syncGameMaker,
+                        syncSoundMaker: syncSoundMaker,
+                        syncMaterialStudio: syncMaterialStudio,
+                        autoSave: autoSaveProject
+                    ) { result in
+                        selectedSlideIdx = 0
+                        let fName = URL(fileURLWithPath: selectedFilePath).lastPathComponent
+                        loadSuccessMessage = "「\(fName)」から \(result.totalSlides) 枚のスライド・アニメーション・ビルド順を解析・各メーカーへ完全反映しました (認識精度: \(result.accuracyRate)%)。"
+                        showUnifiedModal = false
                     }
                 }) {
                     HStack {
-                        Image(systemName: "arrow.triangle.2.circlepath.doc.on.clipboard")
-                        Text("スライドを読み込んで置き換える")
+                        Image(systemName: "sparkles.rectangle.stack.fill")
+                        Text("読み込み＆認識・全メーカー同期を実行")
                             .bold()
                     }
                 }
@@ -657,7 +852,7 @@ public struct SlideScenarioMakerView: View {
             }
         }
         .padding(20)
-        .frame(width: 640, height: 500)
+        .frame(width: 700, height: 600)
     }
 
     private func selectFileViaOpenPanel() {
@@ -669,96 +864,7 @@ public struct SlideScenarioMakerView: View {
         openPanel.directoryURL = URL(fileURLWithPath: "/Volumes/ZSSD/GitHub/repository/TohoStudio")
 
         if openPanel.runModal() == .OK, let url = openPanel.url {
-            selectedLoadFilePath = url.path
+            selectedFilePath = url.path
         }
-    }
-
-    // MARK: - Recognition Modal View (高精度スライド認識プログラム)
-    private var recognitionModalView: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Label("スライド認識プログラム (高精度抽出＆照合エンジン)", systemImage: "sparkles.rectangle.stack")
-                    .font(.headline)
-                Spacer()
-                Button("閉じる") { showRecognitionModal = false }
-            }
-
-            Text("Keynoteファイル等から全オブジェクト、背景画像、キャラクター、アニメーションを検出し、「動画用」素材フォルダと自動照合・紐付けを行い、スライドを置き換えます。")
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-            HStack {
-                TextField("Keynoteファイルパス", text: $recognitionFilePath)
-                    .textFieldStyle(.roundedBorder)
-
-                Button(action: {
-                    recognitionService.analyzeKeynoteOrSlide(filePath: recognitionFilePath) { result in
-                        selectedSlideIdx = 0
-                        loadSuccessMessage = "スライド認識完了: \(result.totalSlides)枚解析 (精度: \(result.accuracyRate)%)。スライドを置き換えました。"
-                    }
-                }) {
-                    Text("認識・解析・置換開始")
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(recognitionService.isRunning)
-            }
-
-            if recognitionService.isRunning {
-                ProgressView(value: recognitionService.currentProgress)
-                Text("解析進捗: \(Int(recognitionService.currentProgress * 100))%")
-                    .font(.caption)
-            }
-
-            if let result = recognitionService.lastResult {
-                GroupBox(label: Text("解析結果サマリー (認識精度: \(String(format: "%.1f", result.accuracyRate))%)")) {
-                    HStack(spacing: 24) {
-                        VStack {
-                            Text("\(result.totalSlides)").font(.title2).bold()
-                            Text("解析スライド数").font(.caption2)
-                        }
-                        VStack {
-                            Text("\(result.matchedBackgroundCount)").font(.title2).bold().foregroundColor(.green)
-                            Text("背景照合数").font(.caption2)
-                        }
-                        VStack {
-                            Text("\(result.matchedCharacterCount)").font(.title2).bold().foregroundColor(.blue)
-                            Text("キャラクター照合数").font(.caption2)
-                        }
-                        VStack {
-                            Text("\(result.animationCount)").font(.title2).bold().foregroundColor(.purple)
-                            Text("アニメーション紐付").font(.caption2)
-                        }
-                    }
-                    .padding(8)
-                }
-            }
-
-            Text("認識ログ:")
-                .font(.caption)
-                .bold()
-
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 4) {
-                    ForEach(recognitionService.logs.suffix(150)) { log in
-                        HStack {
-                            Text(log.step).bold().font(.caption2)
-                            Text(log.details).font(.caption2).foregroundColor(.secondary)
-                            Spacer()
-                            Text(log.status)
-                                .font(.system(size: 9))
-                                .padding(2)
-                                .background(log.status == "MATCHED" ? Color.green.opacity(0.2) : Color.blue.opacity(0.2))
-                                .foregroundColor(log.status == "MATCHED" ? .green : .blue)
-                                .cornerRadius(3)
-                        }
-                        Divider()
-                    }
-                }
-            }
-            .frame(height: 140)
-            .border(Color.secondary.opacity(0.2))
-        }
-        .padding(20)
-        .frame(width: 680, height: 500)
     }
 }

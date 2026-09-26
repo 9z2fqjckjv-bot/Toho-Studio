@@ -124,6 +124,74 @@ public struct SoundClip: Identifiable, Codable, Equatable {
 }
 
 // MARK: - Slide & Scenario Maker Models
+public struct SlideAnimationItem: Identifiable, Codable, Equatable {
+    public var id: UUID = UUID()
+    public var targetObjectName: String
+    public var animationKind: String // "in", "action", "out"
+    public var effect: String // "バウンス", "回転", "フェードイン", "ディゾルブ", etc.
+    public var duration: Double // seconds
+    public var order: Int
+    public var bounceCount: Int? = nil
+    public var decay: Bool? = nil
+    public var rotationAngle: Double? = nil
+    public var rotationCount: Int? = nil
+    public var rotationDirection: String? = nil
+    public var speedChange: String? = nil
+
+    public init(
+        id: UUID = UUID(),
+        targetObjectName: String,
+        animationKind: String,
+        effect: String,
+        duration: Double = 3.0,
+        order: Int = 1,
+        bounceCount: Int? = nil,
+        decay: Bool? = nil,
+        rotationAngle: Double? = nil,
+        rotationCount: Int? = nil,
+        rotationDirection: String? = nil,
+        speedChange: String? = nil
+    ) {
+        self.id = id
+        self.targetObjectName = targetObjectName
+        self.animationKind = animationKind
+        self.effect = effect
+        self.duration = duration
+        self.order = order
+        self.bounceCount = bounceCount
+        self.decay = decay
+        self.rotationAngle = rotationAngle
+        self.rotationCount = rotationCount
+        self.rotationDirection = rotationDirection
+        self.speedChange = speedChange
+    }
+}
+
+public struct BuildOrderItem: Identifiable, Codable, Equatable {
+    public var id: UUID = UUID()
+    public var order: Int
+    public var objectName: String
+    public var effect: String
+    public var trigger: String // "クリック時", "前のアニメーションと同時", "前のアニメーションの後"
+    public var delay: Double // seconds
+
+    public init(
+        id: UUID = UUID(),
+        order: Int,
+        objectName: String,
+        effect: String,
+        trigger: String = "クリック時",
+        delay: Double = 0.0
+    ) {
+        self.id = id
+        self.order = order
+        self.objectName = objectName
+        self.effect = effect
+        self.trigger = trigger
+        self.delay = delay
+    }
+}
+
 public struct SlideObjectItem: Identifiable, Codable, Equatable {
     public var id: UUID = UUID()
     public var name: String
@@ -135,6 +203,7 @@ public struct SlideObjectItem: Identifiable, Codable, Equatable {
     public var text: String?
     public var imagePath: String?
     public var characterName: String?
+    public var animations: [SlideAnimationItem] = []
 
     public init(
         id: UUID = UUID(),
@@ -146,7 +215,8 @@ public struct SlideObjectItem: Identifiable, Codable, Equatable {
         height: Double,
         text: String? = nil,
         imagePath: String? = nil,
-        characterName: String? = nil
+        characterName: String? = nil,
+        animations: [SlideAnimationItem] = []
     ) {
         self.id = id
         self.name = name
@@ -158,6 +228,7 @@ public struct SlideObjectItem: Identifiable, Codable, Equatable {
         self.text = text
         self.imagePath = imagePath
         self.characterName = characterName
+        self.animations = animations
     }
 }
 
@@ -172,6 +243,16 @@ public struct SlideItem: Identifiable, Codable, Equatable {
     public var detectedObjects: [String] = []
     public var animationTag: String = "なし"
     public var transitionTag: String = "フェード"
+
+    // 指示書準拠: スライド種別、表示時間、トランジション設定、アニメーション＆ビルド順
+    public var slideType: String = "content" // "title", "sectionHeader", "content"
+    public var duration: Double = 3.0 // 秒数 (タイトル/中扉はデフォルト3秒、アニメーション指定により可変)
+    public var transitionEffect: String = "なし"
+    public var transitionTrigger: String = "クリック時" // "クリック時", "自動"
+    public var transitionDelay: Double = 0.0
+    public var transitionDuration: Double = 1.0
+    public var animations: [SlideAnimationItem] = []
+    public var buildOrder: [BuildOrderItem] = []
 
     // 高精度レイアウト・画像連携拡張プロパティ
     public var slideWidth: Double = 1920
@@ -206,6 +287,14 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         detectedObjects: [String] = [],
         animationTag: String = "なし",
         transitionTag: String = "フェード",
+        slideType: String = "content",
+        duration: Double = 3.0,
+        transitionEffect: String = "なし",
+        transitionTrigger: String = "クリック時",
+        transitionDelay: Double = 0.0,
+        transitionDuration: Double = 1.0,
+        animations: [SlideAnimationItem] = [],
+        buildOrder: [BuildOrderItem] = [],
         slideWidth: Double = 1920,
         slideHeight: Double = 1080,
         backgroundImagePath: String? = nil,
@@ -234,6 +323,14 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         self.detectedObjects = detectedObjects
         self.animationTag = animationTag
         self.transitionTag = transitionTag
+        self.slideType = slideType
+        self.duration = duration
+        self.transitionEffect = transitionEffect
+        self.transitionTrigger = transitionTrigger
+        self.transitionDelay = transitionDelay
+        self.transitionDuration = transitionDuration
+        self.animations = animations
+        self.buildOrder = buildOrder
         self.slideWidth = slideWidth
         self.slideHeight = slideHeight
         self.backgroundImagePath = backgroundImagePath

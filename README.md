@@ -76,9 +76,10 @@ Toho-Studio は、東方Projectの二次創作活動を総合的に支援する�
 - `Application/TohoStudio/`: Swift Package ソースコード一式
 - `Application/AquesTalk/`: AquesTalk 音声ライブラリおよび辞書
 - `Application/Documents/`: マニュアル、料金表、幻想郷マップ等
-- `Application/Resource/`: 各ソフトの編集ファイル、設定テキスト、ポリシー、CSV等
-- `v1.0.5.dmg`: GitHub リリース公開用 macOS インストーラーイメージ（Keynoteネイティブ直接解析・GUI自動操作フリーズ解消・ダミー誤表示根絶版）
-- `v1.0.5.zip`: GitHub リリース公開用アーカイブ（AquesTalkライセンスキーを除去したサニタイズ済み完全版）
+- `v1.0.6.dmg`: GitHub リリース公開用 macOS インストーラーイメージ（Keynote読み込み＆認識ボタン統合・タイトル/中扉ノート空白化・全オブジェクト＆アニメーション抽出・各メーカー自動同期完全版）
+- `v1.0.6.zip`: GitHub リリース公開用アーカイブ（AquesTalkライセンスキーを除去したサニタイズ済み完全版）
+- `v1.0.5.dmg`: Keynoteネイティブ直接解析・GUI自動操作フリーズ解消版 (v1.0.5)
+- `v1.0.5.zip`: 前バージョン アーカイブ (v1.0.5)
 - `v1.0.4.dmg`: 前バージョン インストーラー (v1.0.4)
 - `v1.0.3.dmg`: スライド認識デッドロック解消版 (v1.0.3)
 - `v1.0.2.dmg`: 大容量スライド対応・スリープ防止対応版 (v1.0.2)
