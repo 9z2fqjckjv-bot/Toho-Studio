@@ -232,7 +232,7 @@ public struct SlideScenarioMakerView: View {
                             .lineLimit(1)
 
                         if !slide.telop.isEmpty {
-                            Text(slide.telop)
+                            Text(slide.displayTelop.isEmpty ? slide.telop : slide.displayTelop)
                                 .font(.system(size: 9))
                                 .lineLimit(1)
                                 .foregroundColor(.secondary)
@@ -541,7 +541,7 @@ public struct SlideScenarioMakerView: View {
                                                 .font(.system(size: max(canvasH * 0.035, 10), weight: .heavy))
                                                 .foregroundColor(.yellow)
                                         }
-                                        Text(slide.telop)
+                                        Text(slide.displayTelop.isEmpty ? slide.telop : slide.displayTelop)
                                             .font(.system(size: max(canvasH * 0.042, 11), weight: .medium))
                                             .foregroundColor(.white)
                                             .lineSpacing(2)
@@ -885,8 +885,8 @@ public struct SlideScenarioMakerView: View {
 
                     Text("テロップ / セリフ入力:").font(.caption).foregroundColor(.secondary)
                     TextEditor(text: Binding(
-                        get: { slide.telop },
-                        set: { appState.slides[selectedSlideIdx].telop = $0 }
+                        get: { slide.displayTelop.isEmpty ? slide.telop : slide.displayTelop },
+                        set: { appState.slides[selectedSlideIdx].telop = SlideItem.cleanDialogueText(from: $0) }
                     ))
                     .frame(height: 80)
                     .border(Color.secondary.opacity(0.2))
@@ -912,8 +912,8 @@ public struct SlideScenarioMakerView: View {
                     TextEditor(text: Binding(
                         get: { slide.displayPresenterNote },
                         set: {
-                            // UIから入力・編集された際も、カッコ書き話者タグを除いたクリーンなテキストとして保持
-                            appState.slides[selectedSlideIdx].presenterNote = SlideItem.stripSpeakerBrackets(from: $0)
+                            // UIから入力・編集された際も、カッコ書き話者タグおよびセリフ後の()書き表記（アニメーション）を除いたクリーンなテキストとして保持
+                            appState.slides[selectedSlideIdx].presenterNote = SlideItem.cleanDialogueText(from: $0)
                         }
                     ))
                     .frame(height: 80)
@@ -1039,7 +1039,7 @@ public struct SlideScenarioMakerView: View {
                     Toggle("素材スタジオ", isOn: $syncMaterialStudio)
                         .toggleStyle(.checkbox)
                         .font(.caption)
-                    Toggle("自動保存", isOn: $autoSaveProject)
+                    Toggle("自動保存 (.tspm形式)", isOn: $autoSaveProject)
                         .toggleStyle(.checkbox)
                         .font(.caption)
                 }

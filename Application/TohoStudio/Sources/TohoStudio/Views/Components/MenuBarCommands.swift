@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 public struct MenuBarCommands: Commands {
     @ObservedObject var appState: AppState
@@ -62,21 +63,64 @@ public struct MenuBarCommands: Commands {
                     panel.allowsMultipleSelection = false
                     panel.canChooseFiles = true
                     panel.canChooseDirectories = false
-                    panel.message = "開くプロジェクトまたは素材ファイルを選択してください"
+                    panel.message = "\(appState.currentModule.rawValue)に読み込むファイルを選択してください（スライド＆シナリオ .tspm / .key 等もインポート可能）"
                     if panel.runModal() == .OK, let url = panel.url {
-                        appState.currentProjectPath = url.path
-                        appState.currentProjectName = url.deletingPathExtension().lastPathComponent
-                        if url.pathExtension.lowercased() == "key" {
-                            appState.currentModule = .slideScenarioMaker
-                            SlideRecognitionService.shared.loadSlideProgram(filePath: url.path, replaceState: true) { _, _ in }
+                        let ext = url.pathExtension.lowercased()
+                        if ["tspm", "key", "keynote", "gslide", "pptx"].contains(ext) {
+                            // スライド＆シナリオメーカーのファイルを、現在のソフト（ムービー、サウンド、ゲーム等）に直接インポート！
+                            appState.importSlideScenarioFile(from: url, targetModule: appState.currentModule)
+                        } else if ext == "tsvm" && appState.currentModule == .movieMaker {
+                            if let data = try? Data(contentsOf: url),
+                               let scenes = try? JSONDecoder().decode([MovieScene].self, from: data) {
+                                appState.movieScenes = scenes
+                                appState.totalDuration = scenes.reduce(0.0) { $0 + $1.duration }
+                                appState.currentProjectPath = url.path
+                                appState.currentProjectName = url.deletingPathExtension().lastPathComponent
+                                appState.log("ムービーメーカープロジェクトを読み込みました: \(scenes.count)シーン")
+                            }
+                        } else if ext == "tssm" && appState.currentModule == .soundMaker {
+                            if let data = try? Data(contentsOf: url),
+                               let clips = try? JSONDecoder().decode([SoundClip].self, from: data) {
+                                appState.soundClips = clips
+                                appState.currentProjectPath = url.path
+                                appState.currentProjectName = url.deletingPathExtension().lastPathComponent
+                                appState.log("サウンドメーカープロジェクトを読み込みました: \(clips.count)クリップ")
+                            }
+                        } else if ext == "tsgm" && appState.currentModule == .gameMaker {
+                            if let data = try? Data(contentsOf: url),
+                               let cmds = try? JSONDecoder().decode([GameCommand].self, from: data) {
+                                appState.gameCommands = cmds
+                                appState.currentProjectPath = url.path
+                                appState.currentProjectName = url.deletingPathExtension().lastPathComponent
+                                appState.log("ゲームメーカープロジェクトを読み込みました: \(cmds.count)コマンド")
+                            }
+                        } else {
+                            // 汎用JSON・フォールバック
+                            if let data = try? Data(contentsOf: url) {
+                                if let slides = try? JSONDecoder().decode([SlideItem].self, from: data) {
+                                    appState.slides = slides
+                                    appState.importCurrentSlides(to: appState.currentModule)
+                                } else {
+                                    appState.importSlideScenarioFile(from: url, targetModule: appState.currentModule)
+                                }
+                            }
                         }
-                        appState.log("ファイルを読み込みました: \(url.lastPathComponent)")
-                        appState.addHistory("ファイル: 読み込み (\(url.lastPathComponent))")
                     }
                 }
                 appState.addHistory("ファイル: ファイル読み込み実行")
             }
             .keyboardShortcut("r", modifiers: [.command, .option])
+
+            Button("スライド＆シナリオからインポート (.tspm)") {
+                let panel = NSOpenPanel()
+                panel.allowsMultipleSelection = false
+                panel.canChooseFiles = true
+                panel.canChooseDirectories = false
+                panel.message = "[\(appState.currentModule.rawValue)]へインポートするスライド＆シナリオファイル (.tspm / .key) を選択してください"
+                if panel.runModal() == .OK, let url = panel.url {
+                    appState.importSlideScenarioFile(from: url, targetModule: appState.currentModule)
+                }
+            }
 
             Button("書き出し (cmd+f+e)") {
                 appState.activeModal = .fileExport
@@ -109,8 +153,12 @@ public struct MenuBarCommands: Commands {
 
             Button("ファイル保存 (cmd+f+shift+s)") {
                 let panel = NSSavePanel()
-                panel.title = "プロジェクトに名前をつけて保存"
-                panel.nameFieldStringValue = "\(appState.currentProjectName).tohoproj"
+                let ext = appState.currentModule.projectExtension
+                panel.title = "\(appState.currentModule.rawValue)ファイルを保存 (\(ext))"
+                panel.nameFieldStringValue = "\(appState.currentProjectName).\(ext)"
+                if let uti = UTType(filenameExtension: ext) {
+                    panel.allowedContentTypes = [uti]
+                }
                 if panel.runModal() == .OK, let url = panel.url {
                     appState.performSaveAs(fileName: url.deletingPathExtension().lastPathComponent)
                 }
@@ -288,9 +336,160 @@ public struct MenuBarCommands: Commands {
                 appState.addHistory("表示: ソフト一覧を表示")
             }
 
-            Button("機能リスト (cmd+d+option+l)") {
-                appState.activeModal = .featureList
-                appState.addHistory("表示: 機能リストを表示")
+            Menu("機能リスト (cmd+d+option+l)") {
+                // 1. AquesTalkで音声を生成 (サブメニュー)
+                Menu("AquesTalkで音声を生成") {
+                    Button("スライド＆シナリオから全音声一括生成...") {
+                        appState.activeModal = .batchVoiceGenerator
+                        appState.addHistory("音声: スライドから全音声一括生成画面を表示")
+                    }
+                    .keyboardShortcut("b", modifiers: [.command, .control, .shift])
+
+                    Button("音声生成スタジオを開く...") {
+                        appState.activeModal = .aquesTalkGenerator
+                    }
+                    .keyboardShortcut("a", modifiers: [.command, .control, .shift])
+
+                    Button("複数シーン跨ぎBGM・SEを挿入...") {
+                        appState.activeModal = .spanAudioInsert
+                        appState.addHistory("音声: 複数シーン跨ぎBGM・SE挿入画面を表示")
+                    }
+                    .keyboardShortcut("m", modifiers: [.command, .control, .shift])
+
+                    Divider()
+
+                    // 東風谷早苗 (コゲの日記)
+                    Button("東風谷早苗 [女性2 / 速度100%, 音程115] (コゲの日記)") {
+                        appState.applyVoiceTemplateByName("東風谷早苗 (コゲの日記)")
+                    }
+
+                    Divider()
+
+                    // 独自テンプレート4種 (imd1,100,115 / l1,100,115 / m1,100,115 / m2,100,115)
+                    Menu("独自テンプレート (4種)") {
+                        Button("imd1 (中性) - 速度100%, 音程115") {
+                            appState.applyVoiceTemplateByName("imd1,100,115 (独自)")
+                        }
+                        Button("l1 (児童/jgr) - 速度100%, 音程115") {
+                            appState.applyVoiceTemplateByName("l1,100,115 (独自)")
+                        }
+                        Button("m1 (男声1) - 速度100%, 音程115") {
+                            appState.applyVoiceTemplateByName("m1,100,115 (独自)")
+                        }
+                        Button("m2 (男声2) - 速度100%, 音程115") {
+                            appState.applyVoiceTemplateByName("m2,100,115 (独自)")
+                        }
+                    }
+
+                    // コゲの日記 テンプレート
+                    Menu("コゲの日記 テンプレート") {
+                        Button("博麗霊夢 [女性1 / 速度100%, 音程100]") {
+                            appState.applyVoiceTemplateByName("博麗霊夢 (コゲの日記)")
+                        }
+                        Button("霧雨魔理沙 [女性2 / 速度100%, 音程100]") {
+                            appState.applyVoiceTemplateByName("霧雨魔理沙 (コゲの日記)")
+                        }
+                        Button("魂魄妖夢 [女性1 / 速度100%, 音程100]") {
+                            appState.applyVoiceTemplateByName("魂魄妖夢 (コゲの日記)")
+                        }
+                        Button("十六夜咲夜 [女性1 / 速度105%, 音程125]") {
+                            appState.applyVoiceTemplateByName("十六夜咲夜 (コゲの日記)")
+                        }
+                        Button("チルノ [女性2 / 速度115%, 音程120]") {
+                            appState.applyVoiceTemplateByName("チルノ (コゲの日記)")
+                        }
+                        Button("八雲紫 [女性2 / 速度96%, 音程127]") {
+                            appState.applyVoiceTemplateByName("八雲紫 (コゲの日記)")
+                        }
+                        Button("八雲藍 [女性2 / 速度115%, 音程113]") {
+                            appState.applyVoiceTemplateByName("八雲藍 (コゲの日記)")
+                        }
+                        Button("橙 [女性1 / 速度80%, 音程160]") {
+                            appState.applyVoiceTemplateByName("橙 (コゲの日記)")
+                        }
+                        Button("レミリア・スカーレット [女性2 / 速度80%, 音程150]") {
+                            appState.applyVoiceTemplateByName("レミリア・スカーレット (コゲの日記)")
+                        }
+                        Button("フランドール・スカーレット [機械1 / 速度115%, 音程100]") {
+                            appState.applyVoiceTemplateByName("フランドール・スカーレット (コゲの日記)")
+                        }
+                        Button("アリス・マーガトロイド [女性1 / 速度110%, 音程130]") {
+                            appState.applyVoiceTemplateByName("アリス・マーガトロイド (コゲの日記)")
+                        }
+                        Button("パチュリー・ノーレッジ [中性 / 速度100%, 音程140]") {
+                            appState.applyVoiceTemplateByName("パチュリー・ノーレッジ (コゲの日記)")
+                        }
+                        Button("射命丸文 [女性2 / 速度120%, 音程125]") {
+                            appState.applyVoiceTemplateByName("射命丸文 (コゲの日記)")
+                        }
+                        Button("犬走椛 [女性1 / 速度120%, 音程110]") {
+                            appState.applyVoiceTemplateByName("犬走椛 (コゲの日記)")
+                        }
+                        Button("古明地さとり [女性1 / 速度89%, 音程134]") {
+                            appState.applyVoiceTemplateByName("古明地さとり (コゲの日記)")
+                        }
+                        Button("古明地こいし [女性2 / 速度75%, 音程181]") {
+                            appState.applyVoiceTemplateByName("古明地こいし (コゲの日記)")
+                        }
+                        Button("風見幽香 [中性 / 速度100%, 音程160]") {
+                            appState.applyVoiceTemplateByName("風見幽香 (コゲの日記)")
+                        }
+                        Button("藤原妹紅 [女性2 / 速度120%, 音程130]") {
+                            appState.applyVoiceTemplateByName("藤原妹紅 (コゲの日記)")
+                        }
+                    }
+
+                    // Gスカブログ・ゆっくりボイスメーカー テンプレート
+                    Menu("Gスカブログ・ゆっくりボイスメーカー テンプレート") {
+                        Button("八坂神奈子 [女性1 / 速度115%, 音程90]") {
+                            appState.applyVoiceTemplateByName("八坂神奈子 (Gスカブログ)")
+                        }
+                        Button("洩矢諏訪子 [女性1 / 速度80%, 音程175]") {
+                            appState.applyVoiceTemplateByName("洩矢諏訪子 (Gスカブログ)")
+                        }
+                        Button("多々良小傘 [女性2 / 速度105%, 音程145]") {
+                            appState.applyVoiceTemplateByName("多々良小傘 (Gスカブログ)")
+                        }
+                        Button("聖白蓮 [女性2 / 速度96%, 音程120]") {
+                            appState.applyVoiceTemplateByName("聖白蓮 (Gスカブログ)")
+                        }
+                        Button("豊聡耳神子 [女性1 / 速度130%, 音程103]") {
+                            appState.applyVoiceTemplateByName("豊聡耳神子 (Gスカブログ)")
+                        }
+                        Button("鬼人正邪 [中性 / 速度110%, 音程133]") {
+                            appState.applyVoiceTemplateByName("鬼人正邪 (Gスカブログ)")
+                        }
+                        Button("少名針妙丸 [児童 / 速度120%, 音程160]") {
+                            appState.applyVoiceTemplateByName("少名針妙丸 (ゆっくりボイスメーカー)")
+                        }
+                        Button("純狐 [女性3 / 速度95%, 音程105]") {
+                            appState.applyVoiceTemplateByName("純狐 (ゆっくりボイスメーカー)")
+                        }
+                    }
+                }
+
+                // 2. レイアウト切り替え (仕様書準拠)
+                Menu("レイアウト切り替え (仕様書準拠)") {
+                    ForEach(AppState.LayoutPresets, id: \.self) { preset in
+                        Button(action: {
+                            appState.setLayout(preset)
+                        }) {
+                            HStack {
+                                Text(preset)
+                                if appState.layoutMode == preset {
+                                    Text("✓")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Divider()
+
+                Button("機能リスト＆ショートカット一覧を開く...") {
+                    appState.activeModal = .featureList
+                    appState.addHistory("表示: 機能リストを表示")
+                }
             }
 
             Button("オプション (cmd+d+option)") {
@@ -413,8 +612,23 @@ public struct MenuBarCommands: Commands {
 
         // MARK: - ウィンドウ (cmd+w)
         CommandMenu("ウィンドウ") {
-            Button("レイアウト (cmd+w+l)") {
+            Button("レイアウト切り替え (cmd+w+l)") {
                 appState.cycleLayout()
+            }
+
+            Menu("レイアウトプリセット (仕様書準拠)") {
+                ForEach(AppState.LayoutPresets, id: \.self) { preset in
+                    Button(action: {
+                        appState.setLayout(preset)
+                    }) {
+                        HStack {
+                            Text(preset)
+                            if appState.layoutMode == preset {
+                                Text("✓")
+                            }
+                        }
+                    }
+                }
             }
 
             Button("コードモード (cmd+c)") {

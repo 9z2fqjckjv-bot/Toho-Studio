@@ -337,15 +337,15 @@ public final class SlideRecognitionService: ObservableObject {
 
     // MARK: - Cross-Module Synchronization (指示書 Slide 14 要件)
 
-    private func syncToMovieMaker(slides: [SlideItem]) {
+    public func syncToMovieMaker(slides: [SlideItem]) {
         let scenes: [MovieScene] = slides.map { slide in
             MovieScene(
                 title: slide.title,
-                duration: slide.duration,
+                duration: max(slide.duration, 2.0),
                 slideTitle: slide.slideType == "title" ? "タイトル" : (slide.slideType == "sectionHeader" ? "中扉" : "第\(slide.slideIndex)スライド"),
                 backgroundName: slide.backgroundName,
                 characterName: slide.characterName,
-                telop: slide.telop,
+                telop: SlideItem.cleanDialogueText(from: slide.telop), // ()書き表記（アニメーション）を完全に削除
                 audioTrack: nil,
                 animationName: slide.animationTag,
                 transitionName: slide.transitionEffect
@@ -353,9 +353,11 @@ public final class SlideRecognitionService: ObservableObject {
         }
         AppState.shared.movieScenes = scenes
         AppState.shared.totalDuration = scenes.reduce(0.0) { $0 + $1.duration }
+        AppState.shared.selectedSceneIndex = 0
+        AppState.shared.saveUndoSnapshot()
     }
 
-    private func syncToGameMaker(slides: [SlideItem]) {
+    public func syncToGameMaker(slides: [SlideItem]) {
         var commands: [GameCommand] = []
         for slide in slides {
             // 背景設定コマンド
@@ -378,12 +380,17 @@ public final class SlideRecognitionService: ObservableObject {
         AppState.shared.gameCommands = commands
     }
 
-    private func syncToSoundMaker(slides: [SlideItem]) {
+    public func syncToSoundMaker(slides: [SlideItem]) {
         var clips: [SoundClip] = []
         // BGM クリップ枠
         clips.append(SoundClip(name: "メインテーマ BGM", type: "BGM", duration: 180.0, volume: 0.6))
         // 音声セリフ枠
-        for slide in slides.prefix(50) {
+        for slide in slides.prefix(100) {
+            // 指示書準拠: セクション見出しとタイトルスライドは音声を必ずスキップ
+            if slide.isTitleOrSectionHeader {
+                continue
+            }
+
             // ノートにあるカッコ書き"（）,(),[]"から話者を最優先で識別
             var speaker = slide.characterName
             if let noteBracketSpeaker = SlideItem.extractSpeakerFromBrackets(from: slide.rawPresenterNote ?? slide.presenterNote), !noteBracketSpeaker.isEmpty {
@@ -404,30 +411,82 @@ public final class SlideRecognitionService: ObservableObject {
                 speaker = mapped
             }
 
-            // セリフ本文はカッコ書き"（）,(),[]"を除去したクリーンなテキストを使用
+            // セリフ本文はカッコ書き"（）,(),[]"および()書き表記（アニメーション）を除去したクリーンなテキストを使用
             var speechText = slide.telop
             if !slide.displayPresenterNote.isEmpty && slide.displayPresenterNote != slide.title {
                 speechText = slide.displayPresenterNote
             }
-            speechText = SlideItem.stripSpeakerBrackets(from: speechText)
+            speechText = SlideItem.cleanDialogueText(from: speechText)
 
             if !speechText.isEmpty && !speaker.isEmpty && speaker != "ナレーション" {
+                let voiceSym = AquesTalkBridge.shared.convertToVoiceSymbol(text: speechText)
+                
+                // Track assignment based on speaker
+                let trackId: String
+                let colorHex: String
+                if speaker.contains("霊夢") {
+                    trackId = "track_voice_reimu"
+                    colorHex = "#E74C3C"
+                } else if speaker.contains("魔理沙") {
+                    trackId = "track_voice_marisa"
+                    colorHex = "#F1C40F"
+                } else {
+                    trackId = "track_voice_reimu"
+                    colorHex = "#00CEC9"
+                }
+
+                // Generate realistic random waveform points
+                let waveform = (0..<16).map { _ in Float.random(in: 0.2...0.95) }
+
                 clips.append(SoundClip(
                     name: "\(speaker)セリフ #\(slide.slideIndex)",
                     type: "Voice",
                     character: speaker,
                     text: speechText,
-                    voiceSymbol: "",
-                    duration: slide.duration,
+                    voiceSymbol: voiceSym,
+                    duration: max(slide.duration, 2.5),
                     volume: 1.0,
-                    speed: 100
+                    speed: 100,
+                    startTime: Double(slide.slideIndex - 1) * 8.0,
+                    trackId: trackId,
+                    colorHex: colorHex,
+                    waveformPoints: waveform
                 ))
             }
         }
+        
+        // Ensure default movie video & BGM clips also present if needed
+        if !clips.contains(where: { $0.type == "Movie" }) {
+            let movieClip = SoundClip(
+                name: "video (スライド映像音声)",
+                type: "Movie",
+                duration: Double(max(1, slides.count)) * 8.0,
+                volume: 0.85,
+                startTime: 0.0,
+                trackId: "track_movie",
+                colorHex: "#3897F0",
+                waveformPoints: (0..<30).map { _ in Float.random(in: 0.2...0.9) }
+            )
+            clips.insert(movieClip, at: 0)
+        }
+        if !clips.contains(where: { $0.type == "BGM" }) {
+            let bgmClip = SoundClip(
+                name: "BGM: テーマ曲",
+                type: "BGM",
+                duration: Double(max(1, slides.count)) * 8.0,
+                volume: 0.65,
+                startTime: 0.0,
+                trackId: "track_bgm",
+                colorHex: "#9B59B6",
+                waveformPoints: (0..<25).map { _ in Float.random(in: 0.3...0.85) }
+            )
+            clips.append(bgmClip)
+        }
+
         AppState.shared.soundClips = clips
     }
 
-    private func syncToMaterialStudio(slides: [SlideItem]) {
+    public func syncToMaterialStudio(slides: [SlideItem]) {
         var items: [MaterialItem] = []
         var registeredNames = Set<String>()
 
@@ -530,7 +589,7 @@ public final class SlideRecognitionService: ObservableObject {
                         } else {
                             category = "音声"
                         }
-                    } else if ["key", "keynote"].contains(ext) {
+                    } else if ["key", "keynote", "tspm", "gslide", "pptx"].contains(ext) {
                         mType = "スライド"
                         category = "スライド"
                     } else if ["txt", "md", "csv", "json"].contains(ext) {
@@ -562,25 +621,60 @@ public final class SlideRecognitionService: ObservableObject {
 
     private func autoSaveProject(fileName: String) {
         let app = AppState.shared
-        let projectDict: [String: Any] = [
-            "projectName": fileName,
-            "savedAt": ISO8601DateFormatter().string(from: Date()),
-            "slideCount": app.slides.count,
-            "movieSceneCount": app.movieScenes.count,
-            "totalDuration": app.totalDuration
-        ]
-        if let data = try? JSONSerialization.data(withJSONObject: projectDict, options: [.prettyPrinted]) {
-            _ = StorageManager.shared.saveProjectFile(module: .slideScenarioMaker, fileName: "\(fileName)_sync.json", data: data)
-            _ = StorageManager.shared.saveProjectFile(module: .movieMaker, fileName: "\(fileName)_movie_sync.json", data: data)
+        // スライド全データを直接エンコードして .tspm に保存
+        if let slideData = try? JSONEncoder().encode(app.slides) {
+            _ = StorageManager.shared.saveProjectFile(module: .slideScenarioMaker, fileName: "\(fileName).tspm", data: slideData)
+            _ = StorageManager.shared.saveProjectFile(module: .slideScenarioMaker, fileName: "\(fileName)_sync.json", data: slideData)
+        }
+        if let movieData = try? JSONEncoder().encode(app.movieScenes) {
+            _ = StorageManager.shared.saveProjectFile(module: .movieMaker, fileName: "\(fileName).tsvm", data: movieData)
+            _ = StorageManager.shared.saveProjectFile(module: .movieMaker, fileName: "\(fileName)_movie_sync.json", data: movieData)
         }
     }
 
     // MARK: - Core Extraction Logic
 
-    private func extractSlidesFromPath(filePath: String) -> [SlideItem] {
+    public func extractSlidesFromPath(filePath: String) -> [SlideItem] {
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: filePath) else {
             return generateFallbackSlides(filePath: filePath, count: 12)
+        }
+
+        // 仕様書 Slide 228: .tspm 編集ファイルの直接読み込みサポート
+        let ext = URL(fileURLWithPath: filePath).pathExtension.lowercased()
+        if ext == "tspm" || ext == "json" {
+            if let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)) {
+                if let directSlides = try? JSONDecoder().decode([SlideItem].self, from: data), !directSlides.isEmpty {
+                    return directSlides
+                }
+                // ディクショナリ形式の解析
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    if let slidesArray = json["slides"] as? [[String: Any]],
+                       let subData = try? JSONSerialization.data(withJSONObject: slidesArray),
+                       let decoded = try? JSONDecoder().decode([SlideItem].self, from: subData), !decoded.isEmpty {
+                        return decoded
+                    }
+                    // projectName から元ファイル（.key等）を探して抽出
+                    if let originalProjectName = json["projectName"] as? String {
+                        let candidateBase = originalProjectName.replacingOccurrences(of: ".tspm", with: "")
+                        let possiblePaths = [
+                            "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方惑情録/\(candidateBase).key",
+                            "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方惑情録/東方惑情録　第1話.key",
+                            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Slide&ScenarioMarker/\(candidateBase).tspm",
+                            URL(fileURLWithPath: filePath).deletingLastPathComponent().appendingPathComponent("\(candidateBase).key").path
+                        ]
+                        for path in possiblePaths {
+                            if fileManager.fileExists(atPath: path) && path != filePath {
+                                let slides = extractSlidesFromPath(filePath: path)
+                                if !slides.isEmpty { return slides }
+                            }
+                        }
+                    }
+                }
+            }
+            if !AppState.shared.slides.isEmpty {
+                return AppState.shared.slides
+            }
         }
 
         let scriptPath = resolvedExtractorScriptPath
@@ -608,8 +702,10 @@ public final class SlideRecognitionService: ObservableObject {
                     for (i, d) in slideDicts.enumerated() {
                         let idx = d["slideIndex"] as? Int ?? (i + 1)
                         let title = d["title"] as? String ?? "シーン \(idx)"
-                        let telop = d["telop"] as? String ?? ""
-                        let note = d["presenterNote"] as? String ?? ""
+                        let rawTelop = d["telop"] as? String ?? ""
+                        let rawNote = d["presenterNote"] as? String ?? ""
+                        let telop = SlideItem.cleanDialogueText(from: rawTelop)
+                        let note = SlideItem.cleanDialogueText(from: rawNote)
                         let bg = d["backgroundName"] as? String ?? "nc73538_【背景素材】博麗神社.jpg"
                         let char = d["characterName"] as? String ?? "ナレーション"
                         let objs = d["detectedObjects"] as? [String] ?? ["演出枠"]

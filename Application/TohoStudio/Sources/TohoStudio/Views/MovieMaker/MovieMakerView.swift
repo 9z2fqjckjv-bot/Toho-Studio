@@ -13,31 +13,60 @@ public struct MovieMakerView: View {
 
             Divider()
 
-            // Main Editor Area (Preview + Timeline)
+            // Main Editor Area (Preview + Timeline) - 仕様書準拠動的レイアウト
             HSplitView {
                 // Left: Preview & Scene Info
                 VStack(spacing: 12) {
                     previewCanvas
                     playbackControlBar
                 }
-                .frame(minWidth: 420, maxWidth: .infinity)
-                .padding(12)
+                .frame(minWidth: 380, maxWidth: .infinity)
+                .padding(appState.layoutMode == "プレビュー最大化" ? 6 : 12)
 
                 // Right: Inspector / Scene Properties
-                sceneInspectorView
-                    .frame(width: 280)
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                if appState.layoutMode != "プレビュー最大化" || true {
+                    sceneInspectorView
+                        .frame(width: inspectorWidthForLayout)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                }
             }
 
             Divider()
 
             // Bottom Timeline Tracks
             timelineTrackView
-                .frame(height: 200)
+                .frame(height: timelineHeightForLayout)
                 .background(Color(NSColor.windowBackgroundColor))
         }
         .sheet(isPresented: $showExportSheet) {
             exportSheetView
+        }
+    }
+
+    private var timelineHeightForLayout: CGFloat {
+        switch appState.layoutMode {
+        case "タイムライン重視": return 340
+        case "プレビュー最大化": return 120
+        case "縦長動画 (9:16)": return 160
+        case "正方形動画 (1:1)": return 180
+        default: return 200
+        }
+    }
+
+    private var inspectorWidthForLayout: CGFloat {
+        switch appState.layoutMode {
+        case "インスペクター重視": return 380
+        case "プレビュー最大化": return 220
+        case "タイムライン重視": return 240
+        default: return 280
+        }
+    }
+
+    private var canvasAspectRatio: CGFloat {
+        switch appState.layoutMode {
+        case "縦長動画 (9:16)": return 9.0 / 16.0
+        case "正方形動画 (1:1)": return 1.0
+        default: return 16.0 / 9.0
         }
     }
 
@@ -60,6 +89,28 @@ public struct MovieMakerView: View {
             }
 
             Divider().frame(height: 18)
+
+            // スライド＆シナリオメーカーからのインポートボタン
+            Menu {
+                Button("スライド＆シナリオファイルを選択 (.tspm / .key)...") {
+                    let panel = NSOpenPanel()
+                    panel.allowsMultipleSelection = false
+                    panel.canChooseFiles = true
+                    panel.canChooseDirectories = false
+                    panel.message = "ムービーメーカーへインポートするスライド＆シナリオファイル (.tspm / .key) を選択してください"
+                    if panel.runModal() == .OK, let url = panel.url {
+                        appState.importSlideScenarioFile(from: url, targetModule: .movieMaker)
+                    }
+                }
+                if !appState.slides.isEmpty {
+                    Button("現在のスライド＆シナリオ (\(appState.slides.count)枚) からタイムライン生成") {
+                        appState.importCurrentSlides(to: .movieMaker)
+                    }
+                }
+            } label: {
+                Label("スライド/シナリオをインポート", systemImage: "arrow.down.doc")
+            }
+            .menuStyle(.borderedButton)
 
             Button(action: { showExportSheet = true }) {
                 Label("動画を書き出し", systemImage: "square.and.arrow.up")
@@ -91,7 +142,7 @@ public struct MovieMakerView: View {
         ZStack {
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color.black)
-                .aspectRatio(16/9, contentMode: .fit)
+                .aspectRatio(canvasAspectRatio, contentMode: .fit)
 
             if !appState.movieScenes.isEmpty, appState.selectedSceneIndex < appState.movieScenes.count {
                 let scene = appState.movieScenes[appState.selectedSceneIndex]
@@ -118,7 +169,7 @@ public struct MovieMakerView: View {
                     Spacer()
 
                     // Telop Subtitle
-                    Text(scene.telop)
+                    Text(scene.displayTelop.isEmpty ? scene.telop : scene.displayTelop)
                         .font(.headline)
                         .bold()
                         .foregroundColor(.white)
@@ -271,8 +322,8 @@ public struct MovieMakerView: View {
 
                     Text("テロップ / セリフ:").font(.caption).foregroundColor(.secondary)
                     TextEditor(text: Binding(
-                        get: { scene.telop },
-                        set: { appState.movieScenes[appState.selectedSceneIndex].telop = $0 }
+                        get: { scene.displayTelop.isEmpty ? scene.telop : scene.displayTelop },
+                        set: { appState.movieScenes[appState.selectedSceneIndex].telop = SlideItem.cleanDialogueText(from: $0) }
                     ))
                     .frame(height: 70)
                     .border(Color.secondary.opacity(0.2))
@@ -306,6 +357,28 @@ public struct MovieMakerView: View {
                     .font(.caption)
                     .bold()
                 Spacer()
+
+                Menu {
+                    Button("スライドファイルを選択 (.tspm / .key)...") {
+                        let panel = NSOpenPanel()
+                        panel.allowsMultipleSelection = false
+                        panel.canChooseFiles = true
+                        panel.canChooseDirectories = false
+                        panel.message = "スライド＆シナリオファイル (.tspm / .key) を選択してください"
+                        if panel.runModal() == .OK, let url = panel.url {
+                            appState.importSlideScenarioFile(from: url, targetModule: .movieMaker)
+                        }
+                    }
+                    if !appState.slides.isEmpty {
+                        Button("現在のスライド (\(appState.slides.count)枚) から再生成") {
+                            appState.importCurrentSlides(to: .movieMaker)
+                        }
+                    }
+                } label: {
+                    Label("スライドからインポート", systemImage: "arrow.down.doc")
+                        .font(.caption)
+                }
+
                 Button(action: {
                     let newScene = MovieScene(
                         title: "シーン \(appState.movieScenes.count + 1)",
@@ -345,7 +418,7 @@ public struct MovieMakerView: View {
                                 .font(.caption)
                                 .lineLimit(1)
                                 .bold()
-                            Text(scene.telop)
+                            Text(scene.displayTelop.isEmpty ? scene.telop : scene.displayTelop)
                                 .font(.caption2)
                                 .lineLimit(2)
                                 .foregroundColor(.secondary)

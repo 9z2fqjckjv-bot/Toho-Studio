@@ -10,6 +10,10 @@ public final class AquesTalkBridge: ObservableObject {
     @Published public var currentVoice: VoiceType = .f1
     @Published public var devKey: String = ""
     @Published public var usrKey: String = ""
+    @Published public var isDevKeyValid: Bool = false
+    @Published public var isUsrKeyValid: Bool = false
+    @Published public var isKanjiDevKeyValid: Bool = false
+    @Published public var lastLicenseStatus: String = "未認証"
     @Published public var lastLog: String = "AquesTalkBridge initialized"
 
     private var audioPlayer: AVAudioPlayer?
@@ -27,57 +31,49 @@ public final class AquesTalkBridge: ObservableObject {
     private typealias KanjiConvertUtf8Func = @convention(c) (UnsafeMutableRawPointer, UnsafePointer<CChar>, UnsafeMutablePointer<CChar>, Int32) -> Int32
     private typealias KanjiSetDevKeyFunc = @convention(c) (UnsafePointer<CChar>) -> Int32
 
-    private var syntheUtf8Ptr: SyntheUtf8Func?
-    private var freeWavePtr: FreeWaveFunc?
-    private var setDevKeyPtr: SetDevKeyFunc?
-    private var setUsrKeyPtr: SetUsrKeyFunc?
+    private struct VoiceSymbols {
+        var handle: UnsafeMutableRawPointer
+        var synthe: SyntheUtf8Func
+        var freeWave: FreeWaveFunc
+        var setDevKey: SetDevKeyFunc?
+        var setUsrKey: SetUsrKeyFunc?
+    }
+
+    private var loadedVoiceSymbols: [VoiceType: VoiceSymbols] = [:]
 
     private var kanjiCreatePtr: KanjiCreateFunc?
     private var kanjiReleasePtr: KanjiReleaseFunc?
     private var kanjiConvertUtf8Ptr: KanjiConvertUtf8Func?
     private var kanjiSetDevKeyPtr: KanjiSetDevKeyFunc?
 
-    private var loadedDylibHandle: UnsafeMutableRawPointer?
-
     private init() {
         loadLibraries()
-        // License keys will be loaded and synchronized via AquesTalkLicenseManager.shared
+        syncFromSavedUserDefaults()
     }
 
     deinit {
         if let handle = kanji2koeHandle, let releaseFunc = kanjiReleasePtr {
             releaseFunc(handle)
         }
-        if let dylib = loadedDylibHandle {
-            dlclose(dylib)
+        for (_, symbols) in loadedVoiceSymbols {
+            dlclose(symbols.handle)
         }
     }
 
     public func loadLibraries() {
         let basePath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/AquesTalk"
 
-        // Load AquesTalk1
-        let voiceLibPath = "\(basePath)/AquesTalk1/lib/libAquesTalk1-\(currentVoice.dylibSuffix).dylib"
-        if let handle = dlopen(voiceLibPath, RTLD_NOW) {
-            loadedDylibHandle = handle
-            if let sym = dlsym(handle, "AquesTalk_Synthe_Utf8") {
-                syntheUtf8Ptr = unsafeBitCast(sym, to: SyntheUtf8Func.self)
-            }
-            if let sym = dlsym(handle, "AquesTalk_FreeWave") {
-                freeWavePtr = unsafeBitCast(sym, to: FreeWaveFunc.self)
-            }
-            if let sym = dlsym(handle, "AquesTalk_SetDevKey") {
-                setDevKeyPtr = unsafeBitCast(sym, to: SetDevKeyFunc.self)
-            }
-            if let sym = dlsym(handle, "AquesTalk_SetUsrKey") {
-                setUsrKeyPtr = unsafeBitCast(sym, to: SetUsrKeyFunc.self)
-            }
-            isAquesTalkAvailable = (syntheUtf8Ptr != nil && freeWavePtr != nil)
+        // Preload current voice and all voice types
+        for voice in VoiceType.allCases {
+            loadVoiceTypeLibrary(voice: voice, basePath: basePath)
+        }
+
+        if loadedVoiceSymbols[currentVoice] != nil {
+            isAquesTalkAvailable = true
             lastLog = "AquesTalk1 dylib loaded successfully (\(currentVoice.rawValue))"
         } else {
             isAquesTalkAvailable = false
-            let err = String(cString: dlerror())
-            lastLog = "AquesTalk1 dlopen fallback: \(err)"
+            lastLog = "AquesTalk1 dylib load fallback"
         }
 
         // Load AqKanji2Koe
@@ -90,7 +86,7 @@ public final class AquesTalkBridge: ObservableObject {
             if let sym = dlsym(kHandle, "AqKanji2Koe_Release") {
                 kanjiReleasePtr = unsafeBitCast(sym, to: KanjiReleaseFunc.self)
             }
-            if let sym = dlsym(kHandle, "AqKanji2Koe_Convert_Utf8") {
+            if let sym = dlsym(kHandle, "AqKanji2Koe_Convert") ?? dlsym(kHandle, "AqKanji2Koe_Convert_Utf8") {
                 kanjiConvertUtf8Ptr = unsafeBitCast(sym, to: KanjiConvertUtf8Func.self)
             }
             if let sym = dlsym(kHandle, "AqKanji2Koe_SetDevKey") {
@@ -112,10 +108,73 @@ public final class AquesTalkBridge: ObservableObject {
         }
     }
 
+    @discardableResult
+    private func loadVoiceTypeLibrary(voice: VoiceType, basePath: String) -> VoiceSymbols? {
+        if let existing = loadedVoiceSymbols[voice] {
+            return existing
+        }
+
+        let voiceLibPath = "\(basePath)/AquesTalk1/lib/libAquesTalk1-\(voice.dylibSuffix).dylib"
+        guard let handle = dlopen(voiceLibPath, RTLD_NOW) else {
+            return nil
+        }
+
+        guard let symSynthe = dlsym(handle, "AquesTalk_Synthe_Utf8"),
+              let symFree = dlsym(handle, "AquesTalk_FreeWave") else {
+            dlclose(handle)
+            return nil
+        }
+
+        let synthe = unsafeBitCast(symSynthe, to: SyntheUtf8Func.self)
+        let freeWave = unsafeBitCast(symFree, to: FreeWaveFunc.self)
+
+        var devFunc: SetDevKeyFunc? = nil
+        var usrFunc: SetUsrKeyFunc? = nil
+        if let symDev = dlsym(handle, "AquesTalk_SetDevKey") {
+            devFunc = unsafeBitCast(symDev, to: SetDevKeyFunc.self)
+        }
+        if let symUsr = dlsym(handle, "AquesTalk_SetUsrKey") {
+            usrFunc = unsafeBitCast(symUsr, to: SetUsrKeyFunc.self)
+        }
+
+        let symbols = VoiceSymbols(handle: handle, synthe: synthe, freeWave: freeWave, setDevKey: devFunc, setUsrKey: usrFunc)
+        loadedVoiceSymbols[voice] = symbols
+
+        // 既存のキーがあれば適用
+        if !devKey.isEmpty, let dev = devFunc {
+            let res = devKey.withCString { dev($0) }
+            if res == 0 { isDevKeyValid = true }
+        }
+        if !usrKey.isEmpty, let usr = usrFunc {
+            let res = usrKey.withCString { usr($0) }
+            if res == 0 { isUsrKeyValid = true }
+        }
+
+        return symbols
+    }
+
     public func setVoiceType(_ voice: VoiceType) {
-        guard voice != currentVoice else { return }
         currentVoice = voice
-        loadLibraries()
+        isAquesTalkAvailable = (loadedVoiceSymbols[voice] != nil)
+    }
+
+    public func syncFromSavedUserDefaults() {
+        let devKeyPrefix = "AquesTalk_DevLicenseKey_"
+        let regularKeyPrefix = "AquesTalk_LicenseKey_"
+
+        let aq1Dev = UserDefaults.standard.string(forKey: "\(devKeyPrefix)AquesTalk1")
+            ?? UserDefaults.standard.string(forKey: "\(devKeyPrefix)包括")
+            ?? UserDefaults.standard.string(forKey: "\(regularKeyPrefix)開発ライセンス")
+            ?? ""
+        var aq1Usr = UserDefaults.standard.string(forKey: "\(regularKeyPrefix)使用ライセンス") ?? ""
+        if aq1Usr.isEmpty {
+            aq1Usr = UserDefaults.standard.string(forKey: "\(regularKeyPrefix)AquesTalk1") ?? ""
+        }
+        let kanjiDev = UserDefaults.standard.string(forKey: "\(devKeyPrefix)AquesTalk2KanjiKoe")
+            ?? UserDefaults.standard.string(forKey: "\(devKeyPrefix)包括")
+            ?? ""
+
+        applyMultiKeys(aqDev: aq1Dev, aqUsr: aq1Usr, kanjiDev: kanjiDev)
     }
 
     public func applyKeys(dev: String, usr: String) {
@@ -123,65 +182,202 @@ public final class AquesTalkBridge: ObservableObject {
     }
 
     public func applyMultiKeys(aqDev: String, aqUsr: String, kanjiDev: String) {
-        self.devKey = aqDev.isEmpty ? kanjiDev : aqDev
-        self.usrKey = aqUsr
-        if let devFunc = setDevKeyPtr, !aqDev.isEmpty {
-            aqDev.withCString { _ = devFunc($0) }
+        let trimmedDev = aqDev.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedUsr = aqUsr.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedKanji = kanjiDev.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        self.devKey = trimmedDev.isEmpty ? trimmedKanji : trimmedDev
+        self.usrKey = trimmedUsr
+
+        var devSuccessCount = 0
+        var devTotalCount = 0
+        var usrSuccessCount = 0
+        var usrTotalCount = 0
+
+        for (_, symbols) in loadedVoiceSymbols {
+            if let devFunc = symbols.setDevKey {
+                devTotalCount += 1
+                if !trimmedDev.isEmpty {
+                    let res = trimmedDev.withCString { devFunc($0) }
+                    if res == 0 {
+                        devSuccessCount += 1
+                    }
+                }
+            }
+            if let usrFunc = symbols.setUsrKey {
+                usrTotalCount += 1
+                if !trimmedUsr.isEmpty {
+                    let res = trimmedUsr.withCString { usrFunc($0) }
+                    if res == 0 {
+                        usrSuccessCount += 1
+                    }
+                }
+            }
         }
-        if let usrFunc = setUsrKeyPtr, !aqUsr.isEmpty {
-            aqUsr.withCString { _ = usrFunc($0) }
+
+        var kanjiSuccess = false
+        if let kDevFunc = kanjiSetDevKeyPtr {
+            let keyToUse = !trimmedKanji.isEmpty ? trimmedKanji : trimmedDev
+            if !keyToUse.isEmpty {
+                let res = keyToUse.withCString { kDevFunc($0) }
+                kanjiSuccess = (res == 0)
+            }
         }
-        if let kDevFunc = kanjiSetDevKeyPtr, !kanjiDev.isEmpty {
-            kanjiDev.withCString { _ = kDevFunc($0) }
+
+        self.isDevKeyValid = !trimmedDev.isEmpty && (devSuccessCount > 0 || devTotalCount == 0)
+        self.isUsrKeyValid = !trimmedUsr.isEmpty && (usrSuccessCount > 0 || usrTotalCount == 0)
+        self.isKanjiDevKeyValid = kanjiSuccess
+
+        if isDevKeyValid && isUsrKeyValid {
+            lastLicenseStatus = "認証済み (開発＆使用ライセンス適用中)"
+        } else if isDevKeyValid {
+            lastLicenseStatus = "開発ライセンス認証済み"
+        } else if isUsrKeyValid {
+            lastLicenseStatus = "使用ライセンス認証済み"
+        } else {
+            lastLicenseStatus = (!trimmedDev.isEmpty || !trimmedUsr.isEmpty) ? "認証エラー (キー不一致)" : "未認証 (評価版動作)"
         }
+
+        lastLog = "ライセンス適用: Dev(\(isDevKeyValid ? "有効" : "無効")), Usr(\(isUsrKeyValid ? "有効" : "無効")), 漢字(\(isKanjiDevKeyValid ? "有効" : "無効")) - \(lastLicenseStatus)"
+    }
+
+    /// 東方キャラクター名から推奨されるVoiceTypeを解決
+    public func voiceType(for characterName: String) -> VoiceType {
+        let name = characterName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if name.contains("霊夢") { return .f1 }
+        if name.contains("魔理沙") { return .f2 }
+        if name.contains("咲夜") { return .f1 }
+        if name.contains("妖夢") { return .f2 }
+        if name.contains("幽々子") { return .f1 }
+        if name.contains("紫") { return .f1 }
+        if name.contains("チルノ") { return .f2 }
+        if name.contains("パチュリー") { return .f2 }
+        if name.contains("レミリア") { return .f1 }
+        if name.contains("フラン") { return .jgr }
+        if name.contains("早苗") { return .f1 }
+        if name.contains("さとり") { return .jgr }
+        if name.contains("こいし") { return .f2 }
+        if name.contains("文") { return .f2 }
+        if name.contains("妹紅") { return .f2 }
+        if name.contains("諏訪子") { return .f1 }
+        if name.contains("神奈子") { return .f1 }
+        if name.contains("にとり") { return .jgr }
+        if name.contains("小傘") { return .imd1 }
+        if name.contains("白蓮") { return .imd1 }
+        if name.contains("きめぇまる") || name.contains("霖之助") { return .m1 }
+        return .f1
+    }
+
+    /// キャラクター名から推奨されるテンプレート設定（速度・音程など）を解決
+    public func characterPreset(for characterName: String) -> (voice: VoiceType, speed: Int, pitch: Int) {
+        let v = voiceType(for: characterName)
+        let name = characterName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // コゲの日記 / ゆっくりボイスメーカーの定番プリセット
+        if name.contains("霊夢") { return (.f1, 100, 100) }
+        if name.contains("魔理沙") { return (.f2, 100, 100) }
+        if name.contains("咲夜") { return (.f1, 105, 125) }
+        if name.contains("妖夢") { return (.f2, 115, 120) }
+        if name.contains("チルノ") { return (.f2, 115, 120) }
+        if name.contains("レミリア") { return (.f1, 80, 150) }
+        if name.contains("フラン") { return (.jgr, 100, 100) }
+        if name.contains("こいし") { return (.f2, 50, 181) }
+        if name.contains("さとり") { return (.jgr, 115, 125) }
+        if name.contains("アリス") { return (.f1, 110, 130) }
+        if name.contains("早苗") { return (.f1, 130, 95) }
+        if name.contains("うどんげ") { return (.f1, 80, 120) }
+        if name.contains("すいか") { return (.imd1, 100, 150) }
+        if name.contains("にとり") { return (.jgr, 105, 105) }
+
+        return (v, 100, 100)
     }
 
     /// Convert text (kanji/kana) to phonetic symbol string
     public func convertToVoiceSymbol(text: String) -> String {
+        let cleaned = SlideItem.cleanDialogueText(from: text)
+        let effectiveText = cleaned.isEmpty ? text : cleaned
+
         guard let handle = kanji2koeHandle, let convertFunc = kanjiConvertUtf8Ptr else {
             // Simple fallback pseudo-phonetic conversion
-            return text.replacingOccurrences(of: "東方", with: "トーフオ_")
+            return effectiveText.replacingOccurrences(of: "東方", with: "トーフオ_")
         }
 
-        let bufferSize = 2048
+        let bufferSize = 4096
         var buffer = [CChar](repeating: 0, count: bufferSize)
-        let res = text.withCString { cText in
+        let res = effectiveText.withCString { cText in
             convertFunc(handle, cText, &buffer, Int32(bufferSize))
         }
 
         if res == 0 {
             return String(cString: buffer)
         } else {
-            return text // fallback on error code
+            return effectiveText // fallback on error code
         }
     }
 
-    /// Synthesize speech and play via AVAudioPlayer, or fallback to NSSpeechSynthesizer
-    public func synthesizeAndPlay(text: String, speed: Int = 100, onComplete: (() -> Void)? = nil) {
-        let phoneticText = convertToVoiceSymbol(text: text)
+    /// 音声を合成してWAVデータ（Data）を返す（音質改善およびエフェクトを適用）
+    public func synthesizeToWavData(
+        text: String,
+        speed: Int = 100,
+        voice: VoiceType? = nil,
+        quality: AudioQualitySetting = .enhanced,
+        effect: AudioEffectType = .none
+    ) -> Data? {
+        let cleanedText = SlideItem.cleanDialogueText(from: text)
+        let targetText = cleanedText.isEmpty ? text : cleanedText
+        let targetVoice = voice ?? currentVoice
+        let phoneticText = convertToVoiceSymbol(text: targetText)
 
-        if isAquesTalkAvailable, let synthe = syntheUtf8Ptr, let freeWave = freeWavePtr {
+        let basePath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/AquesTalk"
+        let symbols = loadedVoiceSymbols[targetVoice] ?? loadVoiceTypeLibrary(voice: targetVoice, basePath: basePath)
+
+        if let sym = symbols {
             var dataSize: Int32 = 0
             let soundPtr = phoneticText.withCString { cPhonetic in
-                synthe(cPhonetic, Int32(speed), &dataSize)
+                sym.synthe(cPhonetic, Int32(speed), &dataSize)
             }
 
             if let resultPtr = soundPtr, dataSize > 0 {
-                let soundData = Data(bytes: resultPtr, count: Int(dataSize))
-                freeWave(resultPtr)
+                let rawSoundData = Data(bytes: resultPtr, count: Int(dataSize))
+                sym.freeWave(resultPtr)
 
-                do {
-                    audioPlayer = try AVAudioPlayer(data: soundData)
-                    audioPlayer?.prepareToPlay()
-                    audioPlayer?.play()
-                    lastLog = "AquesTalk再生成功: [\(text)] (\(dataSize) bytes)"
-                    onComplete?()
-                    return
-                } catch {
-                    lastLog = "AVAudioPlayer再生エラー: \(error.localizedDescription)"
-                }
-            } else {
-                lastLog = "AquesTalk_Synthe_Utf8 失敗 (code: \(dataSize)), フォールバック再生に切り替えます"
+                // 音質改善およびエフェクト処理を適用 (ゆっくりボイスメーカー準拠)
+                let processedData = AudioEffectProcessor.shared.process(
+                    wavData: rawSoundData,
+                    quality: quality,
+                    effect: effect
+                )
+                return processedData
+            }
+        }
+
+        // フォールバック: 合成データが取得できない場合の擬似PCM/標準合成
+        return generateFallbackWavData(text: targetText, speed: speed, quality: quality, effect: effect)
+    }
+
+    /// Synthesize speech and play via AVAudioPlayer, or fallback to NSSpeechSynthesizer
+    public func synthesizeAndPlay(
+        text: String,
+        speed: Int = 100,
+        voice: VoiceType? = nil,
+        quality: AudioQualitySetting = .enhanced,
+        effect: AudioEffectType = .none,
+        onComplete: (() -> Void)? = nil
+    ) {
+        let cleanedText = SlideItem.cleanDialogueText(from: text)
+        let targetText = cleanedText.isEmpty ? text : cleanedText
+        if let wavData = synthesizeToWavData(text: targetText, speed: speed, voice: voice, quality: quality, effect: effect) {
+            do {
+                audioPlayer = try AVAudioPlayer(data: wavData)
+                audioPlayer?.prepareToPlay()
+                audioPlayer?.play()
+                let effectDesc = effect == .echo ? " [エコー]" : ""
+                let qualityDesc = quality == .enhanced ? " [高音質改善]" : " [原音]"
+                lastLog = "AquesTalk再生成功: [\(targetText)] (\(wavData.count) bytes)\(qualityDesc)\(effectDesc)"
+                onComplete?()
+                return
+            } catch {
+                lastLog = "AVAudioPlayer再生エラー: \(error.localizedDescription)"
             }
         }
 
@@ -193,5 +389,65 @@ public final class AquesTalkBridge: ObservableObject {
         lastLog = "macOS標準Speechで再生: [\(text)]"
         #endif
         onComplete?()
+    }
+
+    /// 音声ファイルが利用できない環境用の最小限のサイン波/無音WAVジェネレーター（プレビュー波形用）
+    private func generateFallbackWavData(
+        text: String,
+        speed: Int,
+        quality: AudioQualitySetting,
+        effect: AudioEffectType
+    ) -> Data {
+        let sampleRate = quality.isEnabled ? 44100 : 8000
+        let duration = max(0.5, Double(text.count) * 0.15 * (100.0 / Double(max(50, speed))))
+        let sampleCount = Int(duration * Double(sampleRate))
+
+        var samples = [Float](repeating: 0, count: sampleCount)
+        let freq: Float = 440.0
+        for i in 0..<sampleCount {
+            let t = Float(i) / Float(sampleRate)
+            // 優しいビープトーン
+            let env = min(1.0, Float(i) / 100.0) * min(1.0, Float(sampleCount - i) / 500.0)
+            samples[i] = sin(2.0 * .pi * freq * t) * 0.15 * env
+        }
+
+        // エンコード
+        let rawWav = encodeSimpleWav(samples: samples, sampleRate: sampleRate)
+        return AudioEffectProcessor.shared.process(wavData: rawWav, quality: quality, effect: effect)
+    }
+
+    private func encodeSimpleWav(samples: [Float], sampleRate: Int) -> Data {
+        let dataSize = UInt32(samples.count * 2)
+        let fileSize = 36 + dataSize
+        var data = Data()
+
+        data.append(contentsOf: "RIFF".utf8)
+        var cs = fileSize
+        data.append(Data(bytes: &cs, count: 4))
+        data.append(contentsOf: "WAVEfmt ".utf8)
+        var s16: UInt32 = 16
+        data.append(Data(bytes: &s16, count: 4))
+        var f1: UInt16 = 1
+        data.append(Data(bytes: &f1, count: 2))
+        var ch1: UInt16 = 1
+        data.append(Data(bytes: &ch1, count: 2))
+        var sr = UInt32(sampleRate)
+        data.append(Data(bytes: &sr, count: 4))
+        var br = UInt32(sampleRate * 2)
+        data.append(Data(bytes: &br, count: 4))
+        var ba: UInt16 = 2
+        data.append(Data(bytes: &ba, count: 2))
+        var bp: UInt16 = 16
+        data.append(Data(bytes: &bp, count: 2))
+        data.append(contentsOf: "data".utf8)
+        var ds = dataSize
+        data.append(Data(bytes: &ds, count: 4))
+
+        var int16s = [Int16](repeating: 0, count: samples.count)
+        for i in 0..<samples.count {
+            int16s[i] = Int16(max(-1.0, min(1.0, samples[i])) * 32767.0)
+        }
+        data.append(Data(bytes: int16s, count: int16s.count * 2))
+        return data
     }
 }

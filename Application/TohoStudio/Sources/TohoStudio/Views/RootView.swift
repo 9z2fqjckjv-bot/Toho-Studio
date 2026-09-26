@@ -50,6 +50,48 @@ public struct RootView: View {
                 }
                 .zIndex(100)
             }
+
+            // Import Feedback Toast
+            if let feedback = appState.importFeedbackMessage {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 10) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.headline)
+                        Text(feedback)
+                            .font(.callout)
+                            .bold()
+                            .foregroundColor(.white)
+                        Spacer()
+                        Button(action: {
+                            withAnimation { appState.importFeedbackMessage = nil }
+                        }) {
+                            Image(systemName: "xmark.circle")
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color.black.opacity(0.88))
+                    .cornerRadius(10)
+                    .shadow(radius: 8)
+                    .padding(.horizontal, 40)
+                    .padding(.bottom, 36)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                .zIndex(90)
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+                        withAnimation {
+                            if appState.importFeedbackMessage == feedback {
+                                appState.importFeedbackMessage = nil
+                            }
+                        }
+                    }
+                }
+            }
         }
         .frame(minWidth: 1024, minHeight: 680)
         .sheet(isPresented: Binding(
@@ -128,6 +170,39 @@ public struct RootView: View {
                 }
                 .help("開発者コンソール (cmd+t+e)")
 
+                // AquesTalk Voice Generator Button
+                Button(action: { appState.activeModal = .aquesTalkGenerator }) {
+                    Image(systemName: "waveform.badge.plus")
+                        .foregroundColor(.cyan)
+                }
+                .help("AquesTalkで音声を生成 (cmd+shift+a)")
+
+                // Layout Presets (仕様書準拠)
+                Menu {
+                    ForEach(AppState.LayoutPresets, id: \.self) { preset in
+                        Button(action: { appState.setLayout(preset) }) {
+                            HStack {
+                                Text(preset)
+                                if appState.layoutMode == preset {
+                                    Text("✓")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "rectangle.3.group")
+                        Text(appState.layoutMode)
+                            .font(.caption2)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Color.secondary.opacity(0.12))
+                    .cornerRadius(4)
+                }
+                .menuStyle(.borderlessButton)
+                .help("レイアウト切り替え (cmd+w+l)")
+
                 // Settings
                 Button(action: { appState.activeModal = .settings }) {
                     Image(systemName: "gearshape")
@@ -192,7 +267,7 @@ public struct RootView: View {
                 .font(.caption2)
                 .foregroundColor(.secondary)
 
-            Text("バージョン: v1.0.8")
+            Text("バージョン: v1.0.9")
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }
@@ -370,6 +445,17 @@ public struct RootView: View {
                 CommonModalContainer(title: "ライセンス", icon: "doc.plaintext", isPresented: modalBinding) {
                     AppInfoView(initialTab: 2)
                 }
+
+            case .aquesTalkGenerator:
+                CommonModalContainer(title: "AquesTalkで音声を生成", icon: "waveform.badge.plus", isPresented: modalBinding) {
+                    AquesTalkGeneratorModalView()
+                }
+
+            case .batchVoiceGenerator:
+                BatchVoiceGenerationSheet()
+
+            case .spanAudioInsert:
+                SpanAudioInsertSheet(initialStartScene: max(1, appState.selectedSceneIndex + 1))
 
             case .slideRecognitionPopup, .slideLoader:
                 Color.clear

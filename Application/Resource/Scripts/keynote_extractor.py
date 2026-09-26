@@ -63,11 +63,31 @@ CHAR_MAP = {
     "輝夜": "蓬莱山輝夜"
 }
 
+def clean_dialogue_text(text):
+    """
+    セリフ文やテロップから、話者カッコ表記（[魔理沙]等）および
+    セリフ文の後や文中に付加された()書き表記（アニメーション・時間・演出）を完全に除去し、
+    クリーンなセリフテキストを返す。
+    """
+    if not text:
+        return ""
+    raw = str(text).strip()
+    # 1. アニメーション表記・時間指定・演出カッコ書きの除去
+    anim_re = re.compile(r'[（\(\[［][^）\)\]］]*(?:アニメーション|アニメ|表示時間|時間|\d+(?:\.\d+)?\s*秒|フェード|ズーム|タイプライター|スライド|アクション|イン|アウト|カット)[^）\)\]］]*[）\)\]］]', re.IGNORECASE)
+    cleaned = anim_re.sub("", raw)
+    # 2. 話者指定カッコ書きの除去
+    bracket_re = re.compile(r'[（\(\[［][^）\)\]］\s]{1,20}[）\)\]］]')
+    cleaned = bracket_re.sub("", cleaned).strip()
+    # 行ごとの整形
+    cleaned_lines = [l.strip() for l in cleaned.splitlines() if l.strip()]
+    return "\n".join(cleaned_lines)
+
 def extract_speaker_and_clean_note(raw_text):
     """
     ノートにあるカッコ書き"（）,(),[]"から話者を識別し、
-    話者名、UI表示用のクリーンなノート（カッコ書きを除去したもの）、元の生ノートを返す。
-    ※カッコ書きはサウンドメーカーでの話者識別のための記述であり、UI上には表示しない。
+    話者名、UI表示用・セリフ用のクリーンなノート（カッコ書きを除去したもの）、元の生ノートを返す。
+    ※アニメーションや表示時間などの演出カッコ書きは話者と誤認しないよう除外し、
+      クリーンなセリフ文から完全に削除する。
     """
     if not raw_text:
         return "", "", ""
@@ -76,15 +96,16 @@ def extract_speaker_and_clean_note(raw_text):
 
     # 全角丸カッコ（）、半角丸カッコ()、半角角カッコ[]、全角角カッコ［］に囲まれた話者表記
     bracket_re = re.compile(r'[（\(\[［]([^）\)\]］\s]{1,20})[）\)\]］]')
-    m = bracket_re.search(raw_note)
-    if m:
-        speaker = m.group(1).strip()
+    non_speaker_kws = ["アニメ", "表示時間", "時間", "秒", "イン", "アクション", "アウト", "フェード", "ズーム", "カット"]
+    for m in bracket_re.finditer(raw_note):
+        cand = m.group(1).strip()
+        if any(k in cand for k in non_speaker_kws):
+            continue
+        speaker = cand
+        break
 
-    # UI非表示用: カッコ書き "（...）", "(...)", "[...]", "［...］" を完全に除去
-    cleaned = bracket_re.sub("", raw_note).strip()
-    # 行ごとの整形
-    cleaned_lines = [l.strip() for l in cleaned.splitlines() if l.strip()]
-    cleaned_note = "\n".join(cleaned_lines)
+    # UI非表示・音声生成用: カッコ書きアニメーションおよび話者表記を完全に除去
+    cleaned_note = clean_dialogue_text(raw_note)
 
     return speaker, cleaned_note, raw_note
 
@@ -1179,7 +1200,7 @@ def extract_via_direct_iwa(filepath, project_name):
                 "slideIndex": s_idx,
                 "slideType": stype,
                 "title": title,
-                "telop": telop,
+                "telop": clean_dialogue_text(telop),
                 "presenterNote": presenter_note,
                 "rawPresenterNote": raw_presenter_note,
                 "duration": duration,
@@ -1527,7 +1548,7 @@ def extract_keynote_slides(filepath):
                     "slideIndex": s_idx,
                     "slideType": stype,
                     "title": title,
-                    "telop": telop,
+                    "telop": clean_dialogue_text(telop),
                     "presenterNote": presenter_note,
                     "rawPresenterNote": raw_presenter_note,
                     "duration": duration,

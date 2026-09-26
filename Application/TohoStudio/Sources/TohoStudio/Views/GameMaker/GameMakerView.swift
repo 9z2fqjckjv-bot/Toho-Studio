@@ -20,6 +20,28 @@ public struct GameMakerView: View {
 
                 Spacer()
 
+                // スライド＆シナリオメーカーからのインポートボタン
+                Menu {
+                    Button("スライド＆シナリオファイルを選択 (.tspm / .key)...") {
+                        let panel = NSOpenPanel()
+                        panel.allowsMultipleSelection = false
+                        panel.canChooseFiles = true
+                        panel.canChooseDirectories = false
+                        panel.message = "ゲームメーカーへインポートするスライド＆シナリオファイル (.tspm / .key) を選択してください"
+                        if panel.runModal() == .OK, let url = panel.url {
+                            appState.importSlideScenarioFile(from: url, targetModule: .gameMaker)
+                        }
+                    }
+                    if !appState.slides.isEmpty {
+                        Button("現在のスライド＆シナリオ (\(appState.slides.count)枚) からゲーム化・インポート") {
+                            appState.importCurrentSlides(to: .gameMaker)
+                        }
+                    }
+                } label: {
+                    Label("スライド/シナリオをインポート", systemImage: "arrow.down.doc")
+                }
+                .menuStyle(.borderedButton)
+
                 Button(action: {
                     isTestPlaying.toggle()
                     appState.log("テストプレイを \(isTestPlaying ? "開始" : "終了") しました")
@@ -47,8 +69,31 @@ public struct GameMakerView: View {
         HSplitView {
             // Left: Game Scene Map & Command Graph
             VStack(alignment: .leading, spacing: 12) {
-                Text("ゲームフローチャート＆コマンド分岐")
-                    .font(.headline)
+                HStack {
+                    Text("ゲームフローチャート＆コマンド分岐")
+                        .font(.headline)
+                    Spacer()
+                    Menu {
+                        Button("スライドファイルを選択 (.tspm / .key)...") {
+                            let panel = NSOpenPanel()
+                            panel.allowsMultipleSelection = false
+                            panel.canChooseFiles = true
+                            panel.canChooseDirectories = false
+                            panel.message = "スライド＆シナリオファイル (.tspm / .key) を選択してください"
+                            if panel.runModal() == .OK, let url = panel.url {
+                                appState.importSlideScenarioFile(from: url, targetModule: .gameMaker)
+                            }
+                        }
+                        if !appState.slides.isEmpty {
+                            Button("現在のスライド (\(appState.slides.count)枚) から生成") {
+                                appState.importCurrentSlides(to: .gameMaker)
+                            }
+                        }
+                    } label: {
+                        Label("スライドからインポート", systemImage: "arrow.down.doc")
+                            .font(.caption2)
+                    }
+                }
 
                 List {
                     ForEach(appState.gameCommands) { cmd in

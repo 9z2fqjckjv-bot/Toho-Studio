@@ -61,7 +61,16 @@ public struct NewProjectModalView: View {
                         .font(.largeTitle)
                         .foregroundColor(.accentColor)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(selectedModule.rawValue).font(.headline)
+                        HStack {
+                            Text(selectedModule.rawValue).font(.headline)
+                            Text(".\(selectedModule.projectExtension)")
+                                .font(.caption2)
+                                .bold()
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.accentColor.opacity(0.15))
+                                .cornerRadius(4)
+                        }
                         Text(selectedModule.description).font(.caption).foregroundColor(.secondary)
                     }
                 }
@@ -76,11 +85,14 @@ public struct NewProjectModalView: View {
                 .keyboardShortcut(.cancelAction)
 
                 Button("プロジェクトを作成") {
-                    appState.currentProjectName = projectName
+                    let ext = selectedModule.projectExtension
+                    let cleanName = projectName.hasSuffix(".\(ext)") ? String(projectName.dropLast(ext.count + 1)) : projectName
+                    appState.currentProjectName = cleanName
                     appState.currentModule = selectedModule
+                    appState.currentProjectPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/\(selectedModule.rawValue)/\(cleanName).\(ext)"
                     appState.saveUndoSnapshot()
-                    appState.log("新規プロジェクト『\(projectName)』を[\(selectedModule.rawValue)]で作成しました")
-                    appState.addHistory("ファイル: 新規作成 (ソフト: \(selectedModule.rawValue), プロジェクト: \(projectName))")
+                    appState.log("新規プロジェクト『\(cleanName).\(ext)』を[\(selectedModule.rawValue)]で作成しました")
+                    appState.addHistory("ファイル: 新規作成 (ソフト: \(selectedModule.rawValue), ファイル: \(cleanName).\(ext))")
                     appState.activeModal = nil
                 }
                 .buttonStyle(.borderedProminent)
@@ -380,7 +392,7 @@ public struct FileInfoModalView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     infoRow(label: "プロジェクト名", value: appState.currentProjectName)
                     infoRow(label: "ファイルパス", value: appState.currentProjectPath)
-                    infoRow(label: "ファイル拡張子", value: (appState.currentProjectPath as NSString).pathExtension.uppercased())
+                    infoRow(label: "ファイル拡張子", value: ".\(appState.currentModule.projectExtension) (仕様書 Slide 228等)")
                     infoRow(label: "適用プラン", value: appState.extensionPlan)
                     infoRow(label: "最終保存状態", value: StorageManager.shared.lastSavedTime != nil ? "保存済み" : "未保存の変更あり")
                     infoRow(label: "整合性チェック", value: "合格 (正常)")
@@ -963,7 +975,7 @@ public struct BugReportModalView: View {
             GroupBox(label: Text("実行環境自動取得")) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("OS: macOS (Darwin \(ProcessInfo.processInfo.operatingSystemVersionString)) | Apple Silicon arm64")
-                    Text("アプリバージョン: Toho-Studio v1.0.8 | アクティブソフト: \(appState.currentModule.rawValue)")
+                    Text("アプリバージョン: Toho-Studio v1.0.9 | アクティブソフト: \(appState.currentModule.rawValue)")
                     Text("直近ログ: \(appState.logs.first?.message ?? "正常稼働中")")
                 }
                 .font(.system(.caption2, design: .monospaced))
@@ -1000,7 +1012,7 @@ public struct BugReportModalView: View {
                     generatedPrompt = """
                     【Toho-Studio バグ修正指示書】
                     ■ 不具合概要: \(bugTitle.isEmpty ? "動作不具合の修正" : bugTitle)
-                    ■ 発生環境: macOS / Toho-Studio v1.0.8 / モジュール: \(appState.currentModule.rawValue)
+                    ■ 発生環境: macOS / Toho-Studio v1.0.9 / モジュール: \(appState.currentModule.rawValue)
                     ■ 詳細・再現手順:
                     \(bugDescription.isEmpty ? "操作中に予期せぬ動作が発生しました。" : bugDescription)
                     ■ システムログ:
@@ -1215,6 +1227,8 @@ public struct FeatureListModalView: View {
         ("ヘルプ", "Q&A", "cmd+h+q", false),
         ("ヘルプ", "クレジット", "cmd+h+k", false),
         ("ヘルプ", "困ったときは", "cmd+h+n", false),
+        ("音声", "複数シーン跨ぎBGM・SE挿入", "cmd+ctrl+shift+m", false),
+        ("音声", "スライドから全音声一括生成", "cmd+ctrl+shift+b", false),
         ("ヘルプ", "ライセンス", "cmd+h+l", false),
         ("ヘルプ", "サポート依頼", "cmd+h+s", false)
     ]
@@ -1231,7 +1245,7 @@ public struct FeatureListModalView: View {
                     .frame(width: 200)
             }
 
-            Text("メニューバー搭載の基本機能および有料拡張機能、ショートカットキーの一覧です。")
+            Text("メニューバー搭載の基本機能および有料拡張機能、ショートカットキーの一覧です。機能リストから直接実行できます。")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
@@ -1262,6 +1276,21 @@ public struct FeatureListModalView: View {
                                 .padding(.vertical, 2)
                                 .background(Color.secondary.opacity(0.1))
                                 .cornerRadius(4)
+
+                            // 直接実行ボタン (跨ぎBGM・SE等の機能リスト実行)
+                            if sc.item == "複数シーン跨ぎBGM・SE挿入" {
+                                Button("開く") {
+                                    appState.activeModal = .spanAudioInsert
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.small)
+                            } else if sc.item == "スライドから全音声一括生成" {
+                                Button("開く") {
+                                    appState.activeModal = .batchVoiceGenerator
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.small)
+                            }
                         }
                         .padding(6)
                         Divider()
@@ -1353,10 +1382,9 @@ public struct WindowOptionsModalView: View {
             GroupBox(label: Text("レイアウトプリセット選択")) {
                 VStack(alignment: .leading, spacing: 10) {
                     Picker("現在のレイアウト", selection: $appState.layoutMode) {
-                        Text("標準").tag("標準")
-                        Text("タイムライン重視").tag("タイムライン重視")
-                        Text("プレビュー最大化").tag("プレビュー最大化")
-                        Text("インスペクター重視").tag("インスペクター重視")
+                        ForEach(AppState.LayoutPresets, id: \.self) { mode in
+                            Text(mode).tag(mode)
+                        }
                     }
 
                     HStack {
@@ -1533,3 +1561,301 @@ public struct HelpCenterModalView: View {
         }
     }
 }
+
+// MARK: - 19. AquesTalkで音声を生成モーダル
+public struct AquesTalkGeneratorModalView: View {
+    @ObservedObject var appState = AppState.shared
+    @ObservedObject var aquesTalk = AquesTalkBridge.shared
+
+    @State private var inputText: String = "ゆっくりしていってね！"
+    @State private var voiceSymbol: String = "ユックリシテイッテネ"
+    @State private var selectedVoice: VoiceType = .f1
+    @State private var speechSpeed: Int = 100
+    @State private var speechPitch: Int = 100
+    @State private var selectedQuality: AudioQualitySetting = .enhanced
+    @State private var selectedEffect: AudioEffectType = .none
+    @State private var isSynthesizing: Bool = false
+    @State private var selectedTemplateId: UUID? = nil
+    @State private var saveSuccessMessage: String? = nil
+
+    public init() {}
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            // Header
+            HStack {
+                Label("AquesTalk ゆっくりボイス生成スタジオ", systemImage: "waveform.badge.plus")
+                    .font(.title3)
+                    .bold()
+                Spacer()
+                Text("AqKanji2Koe & AquesTalk1 高速合成")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            // Quick Template Selection (コゲの日記・独自・Gスカ)
+            GroupBox(label: Label("音声テンプレート選択 (コゲの日記・独自4種・Gスカ)", systemImage: "sparkles")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("テンプレート:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Picker("", selection: Binding(
+                            get: { selectedTemplateId ?? appState.voiceTemplates.first?.id ?? UUID() },
+                            set: { newId in
+                                selectedTemplateId = newId
+                                if let tpl = appState.voiceTemplates.first(where: { $0.id == newId }) {
+                                    applyTemplate(tpl)
+                                }
+                            }
+                        )) {
+                            ForEach(appState.voiceTemplates) { t in
+                                Text("\(t.name) [\(t.source)]").tag(t.id)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+
+                    // Direct Quick Buttons for User Specified Templates
+                    HStack(spacing: 6) {
+                        Button("東風谷早苗(コゲの日記)") {
+                            appState.applyVoiceTemplateByName("東風谷早苗 (コゲの日記)")
+                            syncFromActiveTemplate()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                        Button("imd1,100,115") {
+                            appState.applyVoiceTemplateByName("imd1,100,115 (独自)")
+                            syncFromActiveTemplate()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                        Button("l1,100,115") {
+                            appState.applyVoiceTemplateByName("l1,100,115 (独自)")
+                            syncFromActiveTemplate()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                        Button("m1,100,115") {
+                            appState.applyVoiceTemplateByName("m1,100,115 (独自)")
+                            syncFromActiveTemplate()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                        Button("m2,100,115") {
+                            appState.applyVoiceTemplateByName("m2,100,115 (独自)")
+                            syncFromActiveTemplate()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+                .padding(6)
+            }
+
+            // Text Input & Symbol Conversion
+            GroupBox(label: Label("セリフ入力と音声記号列", systemImage: "character.bubble")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("日本語セリフを入力:")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    TextField("セリフを入力", text: $inputText)
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: inputText) { newVal in
+                            voiceSymbol = aquesTalk.convertToVoiceSymbol(text: newVal)
+                        }
+
+                    Text("生成される音声記号列 (AqKanji2Koe):")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    TextField("音声記号列", text: $voiceSymbol)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.caption, design: .monospaced))
+                }
+                .padding(6)
+            }
+
+            // Voice Parameters & ゆっくりボイスメーカーエフェクト・音質改善
+            GroupBox(label: Label("パラメータ設定 ＆ 音質改善・効果 (ゆっくりボイスメーカー準拠)", systemImage: "slider.horizontal.3")) {
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("声種 (Voice Type):")
+                        Spacer()
+                        Picker("", selection: $selectedVoice) {
+                            ForEach(VoiceType.allCases) { v in
+                                Text(v.rawValue).tag(v)
+                            }
+                        }
+                        .frame(width: 180)
+                    }
+
+                    HStack {
+                        Text("音質改善:")
+                        Spacer()
+                        Picker("", selection: $selectedQuality) {
+                            ForEach(AudioQualitySetting.allCases) { q in
+                                Text(q.displayName).tag(q)
+                            }
+                        }
+                        .frame(width: 240)
+                    }
+
+                    HStack {
+                        Text("効果指定 (Effect):")
+                        Spacer()
+                        Picker("", selection: $selectedEffect) {
+                            ForEach(AudioEffectType.allCases) { eff in
+                                Text(eff.displayName).tag(eff)
+                            }
+                        }
+                        .frame(width: 240)
+                    }
+
+                    HStack {
+                        Text("発話速度 (Speed):")
+                        Spacer()
+                        Text("\(speechSpeed)%").bold()
+                    }
+                    Slider(value: Binding(
+                        get: { Double(speechSpeed) },
+                        set: { speechSpeed = Int($0) }
+                    ), in: 50...200)
+
+                    HStack {
+                        Text("音程 (Pitch):")
+                        Spacer()
+                        Text("\(speechPitch)").bold()
+                    }
+                    Slider(value: Binding(
+                        get: { Double(speechPitch) },
+                        set: { speechPitch = Int($0) }
+                    ), in: 50...200)
+                }
+                .padding(6)
+            }
+
+            if let msg = saveSuccessMessage {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text(msg)
+                        .font(.caption)
+                        .foregroundColor(.green)
+                }
+            }
+
+            // Action Buttons
+            HStack(spacing: 10) {
+                Button(action: {
+                    isSynthesizing = true
+                    aquesTalk.setVoiceType(selectedVoice)
+                    aquesTalk.synthesizeAndPlay(
+                        text: inputText,
+                        speed: speechSpeed,
+                        voice: selectedVoice,
+                        quality: selectedQuality,
+                        effect: selectedEffect
+                    ) {
+                        isSynthesizing = false
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: isSynthesizing ? "waveform.badge.magnifyingglass" : "play.fill")
+                        Text("試聴する")
+                    }
+                    .frame(minWidth: 100)
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button(action: {
+                    placeToSoundMakerTimeline()
+                }) {
+                    HStack {
+                        Image(systemName: "plus.rectangle.on.rectangle")
+                        Text("波形トラックに配置")
+                    }
+                }
+                .buttonStyle(.bordered)
+
+                Button(action: {
+                    appState.activeModal = .batchVoiceGenerator
+                }) {
+                    HStack {
+                        Image(systemName: "sparkles.rectangle.stack.fill")
+                        Text("スライド全音声一括生成...")
+                    }
+                    .foregroundColor(.cyan)
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Button("閉じる") {
+                    appState.activeModal = nil
+                }
+            }
+        }
+        .padding(18)
+        .frame(width: 580)
+        .onAppear {
+            syncFromActiveTemplate()
+        }
+    }
+
+    private func applyTemplate(_ tpl: VoiceTemplate) {
+        selectedVoice = tpl.voiceType
+        speechSpeed = tpl.speed
+        speechPitch = tpl.pitch
+        aquesTalk.setVoiceType(tpl.voiceType)
+        saveSuccessMessage = "テンプレート『\(tpl.name)』を適用しました"
+    }
+
+    private func syncFromActiveTemplate() {
+        if let tpl = appState.activeVoiceTemplate {
+            selectedTemplateId = tpl.id
+            applyTemplate(tpl)
+        } else if let first = appState.voiceTemplates.first {
+            selectedTemplateId = first.id
+            applyTemplate(first)
+        }
+    }
+
+    private func placeToSoundMakerTimeline() {
+        let speakerName = appState.activeVoiceTemplate?.characterName ?? "ゆっくりボイス"
+        let trackId: String
+        let colorHex: String
+        if speakerName.contains("霊夢") {
+            trackId = "track_voice_reimu"
+            colorHex = "#E74C3C"
+        } else if speakerName.contains("魔理沙") {
+            trackId = "track_voice_marisa"
+            colorHex = "#F1C40F"
+        } else {
+            trackId = "track_voice_reimu"
+            colorHex = "#00CEC9"
+        }
+
+        let newClip = SoundClip(
+            name: "\(speakerName): \(inputText)",
+            type: "Voice",
+            character: speakerName,
+            text: inputText,
+            voiceSymbol: voiceSymbol,
+            duration: max(2.0, Double(inputText.count) * 0.3 * (100.0 / Double(speechSpeed))),
+            volume: 1.0,
+            speed: speechSpeed,
+            startTime: appState.currentTime,
+            trackId: trackId,
+            colorHex: colorHex,
+            waveformPoints: (0..<18).map { _ in Float.random(in: 0.2...0.95) }
+        )
+        appState.soundClips.append(newClip)
+        saveSuccessMessage = "サウンドメーカーの波形トラックに配置しました (開始位置: \(String(format: "%.1f", appState.currentTime))s)"
+        appState.log("AquesTalkボイス波形クリップをサウンドメーカーに配置しました: 『\(inputText)』")
+    }
+}
+

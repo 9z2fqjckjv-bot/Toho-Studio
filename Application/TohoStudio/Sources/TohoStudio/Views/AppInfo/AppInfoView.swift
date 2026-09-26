@@ -71,7 +71,7 @@ public struct AppInfoView: View {
                     .font(.system(size: 48))
                     .foregroundColor(.accentColor)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Toho-Studio Ver. 1.0.8 (通常版 - Release)")
+                    Text("Toho-Studio Ver. 1.0.9 (通常版 - Release)")
                         .font(.title3)
                         .bold()
                     Text(updateStatusMessage)
@@ -90,7 +90,7 @@ public struct AppInfoView: View {
                             isCheckingUpdate = true
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                                 isCheckingUpdate = false
-                                updateStatusMessage = "最新バージョンです。(v1.0.8)"
+                                updateStatusMessage = "最新バージョンです。(v1.0.9)"
                                 appState.log("GitHub上のリソースを確認し、最新であることを検証しました")
                             }
                         }) {
@@ -146,11 +146,30 @@ public struct AppInfoView: View {
             Text("各種エンジン・クラウドのライセンスステータス").font(.headline)
 
             GroupBox(label: Text("AquesTalk 音声合成エンジン")) {
+                let bridge = AquesTalkBridge.shared
+                let mgr = AquesTalkLicenseManager.shared
+                let isAuth = mgr.isCertified(lib: .aquesTalk1) || bridge.isDevKeyValid || bridge.isUsrKeyValid
+
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text("ライセンス状況:")
                         Spacer()
-                        Text("認証済み (開発＆使用ライセンス)").bold().foregroundColor(.green)
+                        if isAuth {
+                            Text(bridge.lastLicenseStatus.contains("未認証") ? mgr.licenseStatusText(for: .aquesTalk1) : bridge.lastLicenseStatus)
+                                .bold()
+                                .foregroundColor(.green)
+                        } else {
+                            Text("未認証 (評価版・制限あり)")
+                                .bold()
+                                .foregroundColor(.orange)
+                        }
+                    }
+                    HStack {
+                        Text("ライブラリ認証:")
+                        Spacer()
+                        Text("AquesTalk1: \(bridge.isAquesTalkAvailable ? "読込済" : "未検出") | 漢字変換: \(bridge.isAqKanjiAvailable ? "有効" : "未検出")")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
                     }
                     HStack {
                         Text("通信状況:")
