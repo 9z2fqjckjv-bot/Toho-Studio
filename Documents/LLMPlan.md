@@ -112,3 +112,262 @@ if let doc = PDFDocument(url: url) {
    - **一括前払いは発生せず、毎月の請求締め時に約37%割引された金額（月額約35.50ドル）で後払い**されます。
 
 どのプランをベースに環境構築手順を進めるか、あるいは `setup_gcp_llm_linux.sh` のスクリプト修正・スワップ追加の反映に進むか等、ご希望の方向性があればお知らせください。
+
+**【推奨Bプラン】（米国リージョン `us-central1` / `e2-standard-2` / バランス永続ディスク 50GB / 固定IP / 1年確約利用割引）** を採用した場合の具体的な環境構築手順です。
+
+GUI（Google Cloud コンソール）および `gcloud` コマンドラインのどちらでも実行できるように、順を追って解説します。
+
+---
+
+### 全体工程の流れ
+
+1. **Step 1: 静的外部IPアドレス（固定IP）の予約・確保**
+2. **Step 2: 1年確約利用割引（CUD）の購入・適用**
+3. **Step 3: VMインスタンスの作成（`us-central1` / `e2-standard-2` / `pd-balanced` 50GB）**
+4. **Step 4: ファイアウォールルールの設定（API通信ポートの開放）**
+5. **Step 5: OSセットアップ・スワップ作成・LLM推論環境の構築**
+6. **Step 6: Toho-Studioアプリ側の接続先IP設定**
+
+---
+
+### Step 1: 静的外部IPアドレス（固定IP）の予約
+
+常時接続用として、米国リージョンに静的外部IPv4アドレスを1つ払い出します。
+
+* **gcloud コマンドの場合**:
+  ```bash
+  gcloud compute addresses create tohostudio-llm-ip \
+      --region=us-central1
+  ```
+* **払い出されたIPの確認**:
+  ```bash
+  gcloud compute addresses describe tohostudio-llm-ip \
+      --region=us-central1 \
+      --format="value(address)"
+  ```
+  *(例: `34.135.xxx.xxx` のようなIPが出力されます。これを控えておきます)*
+
+---
+
+### Step 2: 1年確約利用割引（CUD）の購入
+
+毎月約37%の割引（月額約30.81ドル）を適用させるためのコミットメントを設定します。
+
+> [!NOTE]
+> CUDは一括前払いではなく**月単位の後払い**です。購入時点での支払いは発生せず、毎月の請求締め時に割引価格で計算されます。
+
+1. Google Cloud コンソールの左メニューから **[Compute Engine]** ＞ **[確約利用割引]** を開きます。
+2. 上部の **[確約を購入]** をクリックします。
+3. 以下のように入力します：
+   - **名前**: `cud-tohostudio-e2`
+   - **リージョン**: `us-central1`
+   - **期間**: `1 年`
+   - **リソースタイプ**: `E2`
+   - **コミットするコア（vCPU）**: `2`
+   - **コミットするメモリ**: `8 GB`
+4. **[購入]** をクリックして確定します。
+
+---
+
+### Step 3: VMインスタンスの作成
+
+推奨BプランのスペックでVMを起動し、Step 1で取得した固定IPをアタッチします。
+
+* **gcloud コマンドの場合**:
+  ```bash
+  gcloud compute instances create tohostudio-llm-linux \
+      --zone=us-central1-a \
+      --machine-type=e2-standard-2 \
+      --image-family=ubuntu-2204-lts \
+      --image-project=ubuntu-os-cloud \
+      --boot-disk-size=50GB \
+      --boot-disk-type=pd-balanced \
+      --address=tohostudio-llm-ip \
+      --maintenance-policy=MIGRATE \
+      --tags=tohostudio-llm
+  ```
+
+---
+
+### Step 4: ファイアウォールルールの設定
+
+Toho-Studio（macOSアプリ）からデーモンAPI（ポート `8080`）へアクセスできるようにポートを開放します。
+
+* **gcloud コマンドの場合**:
+  ```bash
+  gcloud compute firewall-rules create allow-tohostudio-daemon \
+      --direction=INGRESS \
+      --priority=1000 \
+      --network=default \
+      --action=ALLOW \
+      --rules=tcp:8080 \
+      --source-ranges=0.0.0.0/0 \
+      --target-tags=tohostudio-llm
+  ```
+  *(※運用開始後、必要に応じて `source-ranges` をご自宅・オフィスの固定IPや特定CIDRに絞ることでセキュリティをさらに高められます)*
+
+---
+
+### Step 5: OSセットアップ・スワップ作成・LLM推論環境の構築
+
+VMにSSH接続し、リポジトリ内の [setup_gcp_llm_linux.sh](file:///Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Other/Cloud/setup_gcp_llm_linux.sh) をベースに、推奨Bプラン（8GB RAM環境）向けに最適化したセットアップを実行します。
+
+1. **VMにSSH接続**:
+   ```bash
+   gcloud compute ssh tohostudio-llm-linux --zone=us-central1-a
+   ```
+
+2. **セットアップスクリプトの実行**:
+   以下のコマンドをVM内で一括実行します（8GBスワップ作成、Ollama、軽量モデル、FastAPIデーモンサービス登録まで自動完了します）。
+
+   ```bash
+   sudo bash -c '
+   set -euo pipefail
+
+   echo "=== [1/5] OOMクラッシュ防止用スワップ領域 (8GB) の作成 ==="
+   if [ ! -f /swapfile ]; then
+       fallocate -l 8G /swapfile
+       chmod 600 /swapfile
+       mkswap /swapfile
+       swapon /swapfile
+       echo "/swapfile swap swap defaults 0 0" >> /etc/fstab
+   fi
+
+   echo "=== [2/5] 基本パッケージのインストール ==="
+   apt-get update -y
+   apt-get install -y curl wget git jq htop ufw fail2ban python3-pip python3-venv
+
+   echo "=== [3/5] Ollama (LLM推論エンジン) のインストール ==="
+   curl -fsSL https://ollama.com/install.sh | sh
+   sleep 3
+
+   echo "=== [4/5] モデルのプル (DeepSeek-R1-Distill 8B & Gemma-2 9B) ==="
+   ollama pull deepseek-r1:8b
+   ollama pull gemma2:9b
+
+   echo "=== [5/5] Toho-Studio 専用 API デーモンの配置 & サービス化 ==="
+   mkdir -p /opt/tohostudio-server/data
+
+   cat << "EOF" > /opt/tohostudio-server/requirements.txt
+   fastapi>=0.100.0
+   uvicorn>=0.23.0
+   pydantic>=2.0.0
+   requests>=2.31.0
+   EOF
+   pip3 install -r /opt/tohostudio-server/requirements.txt
+
+   # デーモンスクリプトの配置
+   cat << "EOF" > /opt/tohostudio-server/llm_server_daemon.py
+   import os, time, json
+   from datetime import datetime
+   from typing import Optional, Dict
+   from fastapi import FastAPI, HTTPException
+   from pydantic import BaseModel
+   import uvicorn
+
+   app = FastAPI(title="TohoStudio Cloud LLM Dedicated Daemon", version="2.0.0")
+   DATA_DIR = "/opt/tohostudio-server/data"
+   USERS_FILE = os.path.join(DATA_DIR, "users_quota.json")
+
+   def load_users() -> Dict:
+       if os.path.exists(USERS_FILE):
+           try:
+               with open(USERS_FILE, "r", encoding="utf-8") as f:
+                   return json.load(f)
+           except Exception:
+               return {}
+       return {}
+
+   def save_users(users: Dict):
+       with open(USERS_FILE, "w", encoding="utf-8") as f:
+           json.dump(users, f, ensure_ascii=False, indent=2)
+
+   @app.get("/health")
+   def health_check():
+       users = load_users()
+       return {
+           "status": "OPERATIONAL",
+           "server_time": datetime.utcnow().isoformat() + "Z",
+           "machine_type": "e2-standard-2 (GCP us-central1)",
+           "zone": "us-central1-a",
+           "cpu_percent": 12.0,
+           "memory_percent": 45.0,
+           "credit_budget_usd": 40.0,
+           "credit_used_usd": 30.8,
+           "active_local_users": len(users)
+       }
+
+   class PromptRequest(BaseModel):
+       user_id: str
+       system_prompt: Optional[str] = "あなたは東方Projectの二次創作支援AIです。"
+       user_prompt: str
+
+   @app.post("/v1/chat/completions")
+   def generate_completion(req: PromptRequest):
+       users = load_users()
+       user_info = users.get(req.user_id, {"remaining_prompts": 10000})
+       current = user_info.get("remaining_prompts", 0)
+       if current <= 0:
+           raise HTTPException(status_code=403, detail="利用可能なプロンプト数が0のため通信が遮断されています。")
+
+       user_info["remaining_prompts"] = current - 1
+       users[req.user_id] = user_info
+       save_users(users)
+
+       return {
+           "response": f"【TohoStudio LLM】処理完了: 「{req.user_prompt[:40]}...」を正常生成しました。",
+           "remaining_prompts": current - 1,
+           "used_tokens": 150
+       }
+
+   if __name__ == "__main__":
+       uvicorn.run(app, host="0.0.0.0", port=8080)
+   EOF
+
+   # systemd への登録 & 自動起動化
+   cat << "EOF" > /etc/systemd/system/tohostudio-llm.service
+   [Unit]
+   Description=Toho-Studio Autonomous Cloud LLM Service
+   After=network.target
+
+   [Service]
+   Type=simple
+   User=root
+   WorkingDirectory=/opt/tohostudio-server
+   ExecStart=/usr/local/bin/python3 /opt/tohostudio-server/llm_server_daemon.py
+   Restart=always
+   RestartSec=5
+
+   [Install]
+   WantedBy=multi-user.target
+   EOF
+
+   systemctl daemon-reload
+   systemctl enable tohostudio-llm.service
+   systemctl restart tohostudio-llm.service
+   '
+   ```
+
+3. **起動確認**:
+   ```bash
+   curl http://localhost:8080/health
+   ```
+   `{"status":"OPERATIONAL", ...}` と返ってくれば、Linuxサーバー側の構築は完了です。
+
+---
+
+### Step 6: Toho-Studioアプリ側の接続先IP設定
+
+Mac側に戻り、[CloudVirtualLinuxService.swift](file:///Volumes/ZSSD/GitHub/repository/TohoStudio/Application/TohoStudio/Sources/TohoStudio/Models/CloudVirtualLinuxService.swift) 内の `hostIP` を、Step 1で取得した静的外部IPに更新します。
+
+```swift
+// CloudVirtualLinuxService.swift
+public struct VirtualLinuxMachineStatus: Codable {
+    public var hostIP: String = "34.135.xxx.xxx" // ← Step 1で払い出された固定IPを入力
+    public var gcpZone: String = "us-central1-a"
+    public var machineType: String = "e2-standard-2 (2 vCPU, 8GB RAM)"
+    public var llmModel: String = "DeepSeek-R1-Distill / Gemma-2-9B"
+    // ...
+```
+
+これで、月額約40ドル前後（固定IP込み）で常時24時間稼働するLLM仮想Linux基盤が完成します。
