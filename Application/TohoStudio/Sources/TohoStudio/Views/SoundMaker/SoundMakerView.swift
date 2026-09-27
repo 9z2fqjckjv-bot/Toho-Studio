@@ -91,10 +91,10 @@ public struct SoundMakerView: View {
             // Main Editor: Inspector (Left) + Timeline / Tracks (Right)
             HSplitView {
                 if showInspector {
-                    // Left Inspector & Mixer
+                    // Left Inspector & Mixer (白背景テーマで視認性を向上)
                     dawInspectorAndMixerView
                         .frame(width: inspectorWidthForLayout)
-                        .background(DAWTheme.windowBackground)
+                        .background(Color(white: 0.95))
                 }
 
                 // Center & Right: Timeline Tracks with Waveforms
@@ -114,9 +114,22 @@ public struct SoundMakerView: View {
         }
         .onAppear {
             ensureDefaultTracksAndClips()
+            if !appState.soundClips.isEmpty {
+                let repaired = appState.resolveAndRepairAudioPaths(for: appState.soundClips)
+                appState.soundClips = repaired
+                appState.ensureTracksForClips(repaired)
+                appState.syncClipsToMovieScenes(repaired)
+            }
             if let firstClip = appState.soundClips.first {
                 selectedClipId = firstClip.id
             }
+            syncSelectionToLoadedProject(scenes: activeSceneList())
+        }
+        .onChange(of: appState.movieScenes) { newScenes in
+            syncSelectionToLoadedProject(scenes: newScenes)
+        }
+        .onChange(of: appState.soundClips.count) { _ in
+            syncSelectionToLoadedProject(scenes: activeSceneList())
         }
         .onDisappear {
             stopPlayback()
@@ -359,9 +372,9 @@ public struct SoundMakerView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
-            .background(Color(red: 0.14, green: 0.15, blue: 0.17))
+            .background(Color.white)
 
-            Divider().background(DAWTheme.trackBorder)
+            Divider().background(Color.gray.opacity(0.2))
 
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(spacing: 12) {
@@ -404,12 +417,12 @@ public struct SoundMakerView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 5)
-            .background(isSelected ? Color.cyan.opacity(0.25) : Color.white.opacity(0.04))
-            .foregroundColor(isSelected ? .cyan : .secondary)
+            .background(isSelected ? Color.blue.opacity(0.12) : Color(white: 0.94))
+            .foregroundColor(isSelected ? Color(hex: "#0066CC") : Color(white: 0.25))
             .cornerRadius(4)
             .overlay(
                 RoundedRectangle(cornerRadius: 4)
-                    .stroke(isSelected ? Color.cyan.opacity(0.6) : Color.clear, lineWidth: 1)
+                    .stroke(isSelected ? Color.blue.opacity(0.5) : Color.gray.opacity(0.2), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -436,7 +449,7 @@ public struct SoundMakerView: View {
                 }) {
                     Image(systemName: "chevron.left.circle.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(selectedSceneIndex > 1 ? .cyan : .secondary.opacity(0.4))
+                        .foregroundColor(selectedSceneIndex > 1 ? Color(hex: "#0066CC") : Color.gray.opacity(0.3))
                 }
                 .buttonStyle(.plain)
                 .disabled(selectedSceneIndex <= 1)
@@ -445,10 +458,29 @@ public struct SoundMakerView: View {
                     HStack(spacing: 6) {
                         Text("シーン \(selectedSceneIndex) / \(scenes.count)")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                         Text(String(format: "%.1fs (%.1fs〜%.1fs)", sDuration, sRange.start, sRange.end))
                             .font(.system(size: 9, design: .monospaced))
-                            .foregroundColor(.cyan)
+                            .foregroundColor(Color(hex: "#0066CC"))
+                    }
+                    if let note = currentScene?.animationNote ?? currentActiveSlide()?.animationTimingNote {
+                        HStack(spacing: 4) {
+                            Image(systemName: "film.stack.fill")
+                                .font(.system(size: 8))
+                                .foregroundColor(.orange)
+                            Text("🎬 \(note) に合わせて表示")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(.orange)
+                        }
+                    } else if let animDur = currentScene?.animationDuration ?? currentActiveSlide()?.animationTimingDuration {
+                        HStack(spacing: 4) {
+                            Image(systemName: "film.stack.fill")
+                                .font(.system(size: 8))
+                                .foregroundColor(.orange)
+                            Text("🎬 アニメーション: \(String(format: "%.1f", animDur))秒に合わせて表示")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(.orange)
+                        }
                     }
                     Text(currentScene?.displayCleanTitle ?? "タイトルなし")
                         .font(.system(size: 10))
@@ -466,23 +498,27 @@ public struct SoundMakerView: View {
                 }) {
                     Image(systemName: "chevron.right.circle.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(selectedSceneIndex < scenes.count ? .cyan : .secondary.opacity(0.4))
+                        .foregroundColor(selectedSceneIndex < scenes.count ? Color(hex: "#0066CC") : Color.gray.opacity(0.3))
                 }
                 .buttonStyle(.plain)
                 .disabled(selectedSceneIndex >= scenes.count)
             }
             .padding(8)
-            .background(Color(red: 0.12, green: 0.13, blue: 0.15))
-            .cornerRadius(5)
+            .background(Color.white)
+            .cornerRadius(6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+            )
 
-            Divider().background(DAWTheme.trackBorder)
+            Divider().background(Color.gray.opacity(0.2))
 
             // ① キャラクター音声セクション (Voice)
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Label("キャラ音声 (\(vClips.count)件)", systemImage: "person.wave.2.fill")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                     Spacer()
                     Button(action: {
                         addVoiceClipToCurrentScene()
@@ -492,7 +528,7 @@ public struct SoundMakerView: View {
                             Text("音声追加")
                         }
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(.cyan)
+                        .foregroundColor(Color(hex: "#0066CC"))
                     }
                     .buttonStyle(.plain)
                 }
@@ -505,13 +541,13 @@ public struct SoundMakerView: View {
                         Button(action: { showBatchVoiceGenerationSheet = true }) {
                             Text("スライドから全音声一括生成...")
                                 .font(.caption2)
-                                .foregroundColor(.cyan)
+                                .foregroundColor(Color(hex: "#0066CC"))
                         }
                         .buttonStyle(.plain)
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 8)
-                    .background(Color.white.opacity(0.02))
+                    .background(Color(white: 0.96))
                     .cornerRadius(4)
                 } else {
                     ForEach(vClips) { clip in
@@ -520,15 +556,19 @@ public struct SoundMakerView: View {
                 }
             }
             .padding(8)
-            .background(Color(red: 0.16, green: 0.17, blue: 0.19))
+            .background(Color.white)
             .cornerRadius(6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+            )
 
             // ② BGMセクション (ファイル読み込み画面で読み込む)
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Label("BGM (\(bClips.count)件)", systemImage: "music.note")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                     Spacer()
 
                     Menu {
@@ -549,7 +589,7 @@ public struct SoundMakerView: View {
                             Text("BGM読み込み")
                         }
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(Color(hex: "#DDA0DD"))
+                        .foregroundColor(Color.purple)
                     }
                     .menuStyle(.borderlessButton)
                     .help("編集ファイル読み込み時のようにファイル選択画面からBGMを読み込んでこのシーンに配置")
@@ -565,12 +605,14 @@ public struct SoundMakerView: View {
                         }) {
                             Text("ファイルからBGMを選択して読み込む...")
                                 .font(.caption2)
-                                .foregroundColor(Color(hex: "#DDA0DD"))
+                                .foregroundColor(Color.purple)
                         }
                         .buttonStyle(.plain)
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 6)
+                    .background(Color(white: 0.96))
+                    .cornerRadius(4)
                 } else {
                     ForEach(bClips) { bgm in
                         sceneBgmClipRow(clip: bgm)
@@ -578,15 +620,19 @@ public struct SoundMakerView: View {
                 }
             }
             .padding(8)
-            .background(Color(red: 0.16, green: 0.17, blue: 0.19))
+            .background(Color.white)
             .cornerRadius(6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+            )
 
             // ③ SE (効果音) セクション (ファイル読み込み画面で読み込む)
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Label("効果音 / SE (\(sClips.count)件)", systemImage: "bolt.fill")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                     Spacer()
 
                     Menu {
@@ -608,7 +654,7 @@ public struct SoundMakerView: View {
                             Text("SE読み込み")
                         }
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(.green)
+                        .foregroundColor(Color(red: 0.1, green: 0.6, blue: 0.2))
                     }
                     .menuStyle(.borderlessButton)
                     .help("編集ファイル読み込み時のようにファイル選択画面からSEを読み込んでこのシーンに配置")
@@ -624,12 +670,14 @@ public struct SoundMakerView: View {
                         }) {
                             Text("ファイルからSEを選択して読み込む...")
                                 .font(.caption2)
-                                .foregroundColor(.green)
+                                .foregroundColor(Color(red: 0.1, green: 0.6, blue: 0.2))
                         }
                         .buttonStyle(.plain)
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 6)
+                    .background(Color(white: 0.96))
+                    .cornerRadius(4)
                 } else {
                     ForEach(sClips) { se in
                         sceneSeClipRow(clip: se)
@@ -637,8 +685,12 @@ public struct SoundMakerView: View {
                 }
             }
             .padding(8)
-            .background(Color(red: 0.16, green: 0.17, blue: 0.19))
+            .background(Color.white)
             .cornerRadius(6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+            )
         }
     }
 
@@ -655,7 +707,7 @@ public struct SoundMakerView: View {
                 Circle().fill(charColor).frame(width: 8, height: 8)
                 Text(charName)
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
 
                 // VoiceType Picker
                 Picker("", selection: Binding(
@@ -681,7 +733,7 @@ public struct SoundMakerView: View {
                 }) {
                     Image(systemName: isPlayingThis ? "stop.fill" : "play.circle.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(isPlayingThis ? .green : .cyan)
+                        .foregroundColor(isPlayingThis ? .green : Color(hex: "#0066CC"))
                 }
                 .buttonStyle(.plain)
                 .help("この音声を試聴")
@@ -697,8 +749,8 @@ public struct SoundMakerView: View {
                     .font(.system(size: 8, weight: .bold))
                     .padding(.horizontal, 5)
                     .padding(.vertical, 2)
-                    .background(Color.yellow.opacity(0.2))
-                    .foregroundColor(.yellow)
+                    .background(Color.orange.opacity(0.15))
+                    .foregroundColor(.orange)
                     .cornerRadius(3)
                 }
                 .buttonStyle(.plain)
@@ -706,10 +758,7 @@ public struct SoundMakerView: View {
 
                 // Delete Clip
                 Button(action: {
-                    appState.soundClips.removeAll(where: { $0.id == clip.id })
-                    if selectedClipId == clip.id {
-                        selectedClipId = nil
-                    }
+                    deleteClip(clip)
                 }) {
                     Image(systemName: "trash")
                         .font(.system(size: 10))
@@ -737,8 +786,8 @@ public struct SoundMakerView: View {
             .font(.system(size: 11))
 
             // Speed & Pitch & Volume Sliders
-            HStack(spacing: 10) {
-                // Speed
+            HStack(spacing: 8) {
+                // Speed (速度)
                 HStack(spacing: 2) {
                     Text("速:").font(.system(size: 9)).foregroundColor(.secondary)
                     Slider(
@@ -753,12 +802,30 @@ public struct SoundMakerView: View {
                         in: 50...200,
                         step: 5
                     )
-                    Text("\(clip.speed)%").font(.system(size: 8, design: .monospaced)).foregroundColor(.cyan)
+                    Text("\(clip.speed)%").font(.system(size: 8, design: .monospaced)).foregroundColor(Color(hex: "#0066CC"))
                 }
 
-                // Volume
+                // Pitch (音程) - レミリア等キャラクターの高音・低音調整
                 HStack(spacing: 2) {
-                    Text("音量:").font(.system(size: 9)).foregroundColor(.secondary)
+                    Text("高:").font(.system(size: 9)).foregroundColor(.secondary)
+                    Slider(
+                        value: Binding(
+                            get: { Double(clip.pitch) },
+                            set: { val in
+                                if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                    appState.soundClips[idx].pitch = Int(val)
+                                }
+                            }
+                        ),
+                        in: 50...200,
+                        step: 5
+                    )
+                    Text("\(clip.pitch)%").font(.system(size: 8, design: .monospaced)).foregroundColor(.orange)
+                }
+
+                // Volume (音量)
+                HStack(spacing: 2) {
+                    Text("音:").font(.system(size: 9)).foregroundColor(.secondary)
                     Slider(
                         value: Binding(
                             get: { clip.volume },
@@ -770,16 +837,41 @@ public struct SoundMakerView: View {
                         ),
                         in: 0...1.0
                     )
-                    Text("\(Int(clip.volume * 100))%").font(.system(size: 8, design: .monospaced)).foregroundColor(.cyan)
+                    Text("\(Int(clip.volume * 100))%").font(.system(size: 8, design: .monospaced)).foregroundColor(Color(hex: "#0066CC"))
                 }
             }
+
+            // Audio File Badge (実音声ファイルの割り当て表示)
+            HStack(spacing: 4) {
+                if let p = clip.audioFilePath, FileManager.default.fileExists(atPath: p) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                        .font(.system(size: 8))
+                    Text("音声: \((p as NSString).lastPathComponent)")
+                        .font(.system(size: 8, design: .monospaced))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                } else {
+                    Image(systemName: "waveform")
+                        .foregroundColor(.orange)
+                        .font(.system(size: 8))
+                    Text("AquesTalk音声記号 (自動発音)")
+                        .font(.system(size: 8))
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                Text(String(format: "%.2fs", clip.duration))
+                    .font(.system(size: 8, design: .monospaced))
+                    .foregroundColor(Color(hex: "#0066CC"))
+            }
+            .padding(.top, 2)
         }
         .padding(6)
-        .background(isSelected ? Color.white.opacity(0.08) : Color.white.opacity(0.03))
+        .background(isSelected ? Color.blue.opacity(0.08) : Color(white: 0.97))
         .cornerRadius(4)
         .overlay(
             RoundedRectangle(cornerRadius: 4)
-                .stroke(isSelected ? Color.cyan.opacity(0.7) : DAWTheme.trackBorder.opacity(0.4), lineWidth: 1)
+                .stroke(isSelected ? Color(hex: "#0066CC") : Color.gray.opacity(0.2), lineWidth: 1)
         )
         .onTapGesture {
             selectedClipId = clip.id
@@ -801,18 +893,18 @@ public struct SoundMakerView: View {
                 }) {
                     Image(systemName: isPlayingThis ? "stop.circle.fill" : "play.circle.fill")
                         .font(.system(size: 15))
-                        .foregroundColor(isPlayingThis ? .purple : Color(hex: "#DDA0DD"))
+                        .foregroundColor(isPlayingThis ? .purple : Color.purple.opacity(0.85))
                 }
                 .buttonStyle(.plain)
                 .help(isPlayingThis ? "再生を停止" : "このBGMを倍速・逆再生設定で試聴再生")
 
                 Image(systemName: "music.note")
                     .font(.system(size: 11))
-                    .foregroundColor(Color(hex: "#DDA0DD"))
+                    .foregroundColor(.purple)
 
                 Text(clip.name)
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .lineLimit(1)
 
                 Spacer()
@@ -823,18 +915,14 @@ public struct SoundMakerView: View {
                         .font(.system(size: 8, weight: .bold))
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
-                        .background(Color.purple.opacity(0.4))
-                        .foregroundColor(Color(hex: "#DDA0DD"))
+                        .background(Color.purple.opacity(0.15))
+                        .foregroundColor(.purple)
                         .cornerRadius(3)
                 }
 
                 // Delete Button
                 Button(action: {
-                    if isPlayingThis { soundManager.stopPreview() }
-                    appState.soundClips.removeAll(where: { $0.id == clip.id })
-                    if selectedClipId == clip.id {
-                        selectedClipId = nil
-                    }
+                    deleteClip(clip)
                 }) {
                     Image(systemName: "trash")
                         .font(.system(size: 10))
@@ -872,8 +960,8 @@ public struct SoundMakerView: View {
                     .font(.system(size: 9, weight: .bold))
                     .padding(.horizontal, 5)
                     .padding(.vertical, 2)
-                    .background(clip.playbackRate != 1.0 ? Color.cyan.opacity(0.3) : Color.white.opacity(0.1))
-                    .foregroundColor(clip.playbackRate != 1.0 ? .cyan : .white.opacity(0.85))
+                    .background(clip.playbackRate != 1.0 ? Color.blue.opacity(0.12) : Color.gray.opacity(0.1))
+                    .foregroundColor(clip.playbackRate != 1.0 ? Color(hex: "#0066CC") : .primary)
                     .cornerRadius(3)
                 }
                 .menuStyle(.borderlessButton)
@@ -896,7 +984,7 @@ public struct SoundMakerView: View {
                     .font(.system(size: 9, weight: .bold))
                     .padding(.horizontal, 5)
                     .padding(.vertical, 2)
-                    .background(clip.isReversed ? Color.orange.opacity(0.4) : Color.white.opacity(0.1))
+                    .background(clip.isReversed ? Color.orange.opacity(0.2) : Color.gray.opacity(0.1))
                     .foregroundColor(clip.isReversed ? .orange : .secondary)
                     .cornerRadius(3)
                 }
@@ -918,8 +1006,8 @@ public struct SoundMakerView: View {
                     .font(.system(size: 9))
                     .padding(.horizontal, 4)
                     .padding(.vertical, 2)
-                    .background(clip.isLooping ? Color.purple.opacity(0.4) : Color.white.opacity(0.06))
-                    .foregroundColor(clip.isLooping ? Color(hex: "#DDA0DD") : .secondary)
+                    .background(clip.isLooping ? Color.purple.opacity(0.2) : Color.gray.opacity(0.1))
+                    .foregroundColor(clip.isLooping ? .purple : .secondary)
                     .cornerRadius(3)
                 }
                 .buttonStyle(.plain)
@@ -942,7 +1030,7 @@ public struct SoundMakerView: View {
                         ),
                         in: 0...1.0
                     )
-                    Text("\(Int(clip.volume * 100))%").font(.system(size: 8, design: .monospaced)).foregroundColor(.cyan)
+                    Text("\(Int(clip.volume * 100))%").font(.system(size: 8, design: .monospaced)).foregroundColor(Color(hex: "#0066CC"))
                 }
 
                 if clip.fadeInDuration > 0 || clip.fadeOutDuration > 0 {
@@ -952,13 +1040,38 @@ public struct SoundMakerView: View {
                     }
                 }
             }
+
+            // BGM File Badge
+            HStack(spacing: 4) {
+                if let p = clip.audioFilePath, FileManager.default.fileExists(atPath: p) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                        .font(.system(size: 8))
+                    Text("BGM音源: \((p as NSString).lastPathComponent)")
+                        .font(.system(size: 8, design: .monospaced))
+                        .foregroundColor(.purple)
+                        .lineLimit(1)
+                } else {
+                    Image(systemName: "music.note")
+                        .foregroundColor(.orange)
+                        .font(.system(size: 8))
+                    Text("プリセットBGM音源")
+                        .font(.system(size: 8))
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                Text(String(format: "%.1fs", clip.duration))
+                    .font(.system(size: 8, design: .monospaced))
+                    .foregroundColor(.secondary)
+            }
+            .padding(.top, 2)
         }
         .padding(6)
-        .background(Color.purple.opacity(0.12))
+        .background(isSelected ? Color.purple.opacity(0.10) : Color(white: 0.97))
         .cornerRadius(4)
         .overlay(
             RoundedRectangle(cornerRadius: 4)
-                .stroke(isSelected ? Color(hex: "#DDA0DD") : Color.purple.opacity(0.3), lineWidth: 1)
+                .stroke(isSelected ? Color.purple : Color.gray.opacity(0.2), lineWidth: 1)
         )
         .onTapGesture {
             selectedClipId = clip.id
@@ -978,19 +1091,19 @@ public struct SoundMakerView: View {
                 }) {
                     Image(systemName: isPlayingThis ? "stop.circle.fill" : "play.circle.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(isPlayingThis ? .green : .cyan)
+                        .foregroundColor(isPlayingThis ? .green : Color(hex: "#0066CC"))
                 }
                 .buttonStyle(.plain)
                 .help(isPlayingThis ? "再生を停止" : "この効果音を倍速・逆再生設定で試聴再生")
 
                 Image(systemName: "bolt.fill")
                     .font(.system(size: 10))
-                    .foregroundColor(.green)
+                    .foregroundColor(Color(red: 0.1, green: 0.6, blue: 0.2))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(clip.name)
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .lineLimit(1)
                     Text(String(format: "長さ: %.2fs", clip.duration))
                         .font(.system(size: 8))
@@ -1001,11 +1114,7 @@ public struct SoundMakerView: View {
 
                 // Delete
                 Button(action: {
-                    if isPlayingThis { soundManager.stopPreview() }
-                    appState.soundClips.removeAll(where: { $0.id == clip.id })
-                    if selectedClipId == clip.id {
-                        selectedClipId = nil
-                    }
+                    deleteClip(clip)
                 }) {
                     Image(systemName: "trash")
                         .font(.system(size: 9))
@@ -1043,8 +1152,8 @@ public struct SoundMakerView: View {
                     .font(.system(size: 8, weight: .bold))
                     .padding(.horizontal, 4)
                     .padding(.vertical, 2)
-                    .background(clip.playbackRate != 1.0 ? Color.cyan.opacity(0.3) : Color.white.opacity(0.1))
-                    .foregroundColor(clip.playbackRate != 1.0 ? .cyan : .white.opacity(0.85))
+                    .background(clip.playbackRate != 1.0 ? Color.blue.opacity(0.12) : Color.gray.opacity(0.1))
+                    .foregroundColor(clip.playbackRate != 1.0 ? Color(hex: "#0066CC") : .primary)
                     .cornerRadius(3)
                 }
                 .menuStyle(.borderlessButton)
@@ -1067,7 +1176,7 @@ public struct SoundMakerView: View {
                     .font(.system(size: 8, weight: .bold))
                     .padding(.horizontal, 4)
                     .padding(.vertical, 2)
-                    .background(clip.isReversed ? Color.orange.opacity(0.4) : Color.white.opacity(0.1))
+                    .background(clip.isReversed ? Color.orange.opacity(0.2) : Color.gray.opacity(0.1))
                     .foregroundColor(clip.isReversed ? .orange : .secondary)
                     .cornerRadius(3)
                 }
@@ -1091,16 +1200,41 @@ public struct SoundMakerView: View {
                         in: 0...1.0
                     )
                     .frame(width: 45)
-                    Text("\(Int(clip.volume * 100))%").font(.system(size: 7, design: .monospaced)).foregroundColor(.cyan)
+                    Text("\(Int(clip.volume * 100))%").font(.system(size: 7, design: .monospaced)).foregroundColor(Color(hex: "#0066CC"))
                 }
             }
+
+            // SE File Badge
+            HStack(spacing: 4) {
+                if let p = clip.audioFilePath, FileManager.default.fileExists(atPath: p) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                        .font(.system(size: 8))
+                    Text("効果音: \((p as NSString).lastPathComponent)")
+                        .font(.system(size: 8, design: .monospaced))
+                        .foregroundColor(Color(red: 0.1, green: 0.6, blue: 0.2))
+                        .lineLimit(1)
+                } else {
+                    Image(systemName: "bolt.fill")
+                        .foregroundColor(.orange)
+                        .font(.system(size: 8))
+                    Text("プリセットSE音源")
+                        .font(.system(size: 8))
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                Text(String(format: "%.2fs", clip.duration))
+                    .font(.system(size: 8, design: .monospaced))
+                    .foregroundColor(.secondary)
+            }
+            .padding(.top, 2)
         }
         .padding(6)
-        .background(Color.green.opacity(0.08))
+        .background(isSelected ? Color.green.opacity(0.12) : Color(white: 0.97))
         .cornerRadius(4)
         .overlay(
             RoundedRectangle(cornerRadius: 4)
-                .stroke(isSelected ? Color.green : Color.green.opacity(0.2), lineWidth: 1)
+                .stroke(isSelected ? Color(red: 0.1, green: 0.6, blue: 0.2) : Color.gray.opacity(0.2), lineWidth: 1)
         )
         .onTapGesture {
             selectedClipId = clip.id
@@ -1116,7 +1250,7 @@ public struct SoundMakerView: View {
             HStack {
                 Label("ムービープレビュー", systemImage: "film")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
 
                 if isPlaying {
                     HStack(spacing: 3) {
@@ -1138,7 +1272,7 @@ public struct SoundMakerView: View {
                 if let scene = activeScene {
                     Text("S\(sceneIndex(for: scene)): 16:9 HD")
                         .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(.cyan)
+                        .foregroundColor(Color(hex: "#0066CC"))
                 } else {
                     Text("16:9 HD")
                         .font(.system(size: 9))
@@ -1148,7 +1282,7 @@ public struct SoundMakerView: View {
 
             ZStack {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(red: 0.08, green: 0.09, blue: 0.11))
+                    .fill(Color(white: 0.95))
                     .aspectRatio(16/9, contentMode: .fit)
 
                 // 1. Keynote Native Recorded Movie Player
@@ -1200,7 +1334,7 @@ public struct SoundMakerView: View {
                                     .aspectRatio(contentMode: .fill)
                             } else {
                                 LinearGradient(
-                                    colors: [Color(red: 0.1, green: 0.14, blue: 0.22), Color(red: 0.05, green: 0.07, blue: 0.12)],
+                                    colors: [Color(white: 0.98), Color(white: 0.92)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -1217,21 +1351,20 @@ public struct SoundMakerView: View {
                                             .aspectRatio(contentMode: .fit)
                                             .frame(maxHeight: 110)
                                             .offset(y: charBounce)
-                                            .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
+                                            .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
                                         Spacer()
                                     }
                                 }
                             } else {
                                 VStack(spacing: 4) {
-                                    Image(systemName: "sparkles")
+                                    Image(systemName: "film.stack.fill")
                                         .font(.system(size: 24))
-                                        .foregroundColor(.cyan.opacity(0.8))
+                                        .foregroundColor(Color(hex: "#0066CC").opacity(0.85))
                                         .rotationEffect(.degrees(isPlaying ? (time * 60).truncatingRemainder(dividingBy: 360) : 0))
                                     if let scene = activeScene {
                                         Text(scene.title)
                                             .font(.system(size: 11, weight: .bold))
-                                            .foregroundColor(.white)
-                                            .shadow(radius: 2)
+                                            .foregroundColor(.primary)
                                     }
                                 }
                             }
@@ -1261,12 +1394,16 @@ public struct SoundMakerView: View {
             }
             .overlay(
                 RoundedRectangle(cornerRadius: 6)
-                    .stroke(isPlaying ? Color.cyan.opacity(0.8) : DAWTheme.trackBorder, lineWidth: 1)
+                    .stroke(isPlaying ? Color.blue : Color.gray.opacity(0.25), lineWidth: 1)
             )
         }
         .padding(8)
-        .background(Color(red: 0.16, green: 0.17, blue: 0.19))
+        .background(Color.white)
         .cornerRadius(6)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+        )
     }
 
     // MARK: - Region Inspector Card
@@ -1275,14 +1412,14 @@ public struct SoundMakerView: View {
             HStack {
                 Label("リージョン情報", systemImage: "slider.horizontal.below.rectangle")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 Spacer()
                 if let clip = selectedClip() {
                     Text(clip.type)
                         .font(.system(size: 9, weight: .bold))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(colorForType(clip.type).opacity(0.3))
+                        .background(colorForType(clip.type).opacity(0.18))
                         .foregroundColor(colorForType(clip.type))
                         .cornerRadius(3)
                 }
@@ -1293,17 +1430,17 @@ public struct SoundMakerView: View {
                     HStack {
                         Text("名前:").font(.caption2).foregroundColor(.secondary)
                         Spacer()
-                        Text(clip.name).font(.caption2).bold().lineLimit(1)
+                        Text(clip.name).font(.caption2).bold().foregroundColor(.primary).lineLimit(1)
                     }
                     HStack {
                         Text("開始位置:").font(.caption2).foregroundColor(.secondary)
                         Spacer()
-                        Text(String(format: "%.2f s", clip.startTime)).font(.caption2)
+                        Text(String(format: "%.2f s", clip.startTime)).font(.caption2).foregroundColor(.primary)
                     }
                     HStack {
                         Text("長さ:").font(.caption2).foregroundColor(.secondary)
                         Spacer()
-                        Text(String(format: "%.2f s", clip.duration)).font(.caption2)
+                        Text(String(format: "%.2f s", clip.duration)).font(.caption2).foregroundColor(.primary)
                     }
                     if let text = clip.text, !text.isEmpty {
                         HStack(alignment: .top) {
@@ -1311,7 +1448,7 @@ public struct SoundMakerView: View {
                             Spacer()
                             Text(text)
                                 .font(.caption2)
-                                .foregroundColor(.cyan)
+                                .foregroundColor(Color(hex: "#0066CC"))
                                 .lineLimit(2)
                                 .multilineTextAlignment(.trailing)
                         }
@@ -1333,7 +1470,7 @@ public struct SoundMakerView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(isPlayingThis ? Color.red : Color.cyan)
+                            .background(isPlayingThis ? Color.red : Color(hex: "#0066CC"))
                             .cornerRadius(4)
                         }
                         .buttonStyle(.plain)
@@ -1356,7 +1493,7 @@ public struct SoundMakerView: View {
                             .font(.caption2.bold())
                             .padding(.horizontal, 6)
                             .padding(.vertical, 4)
-                            .background(clip.isReversed ? Color.orange.opacity(0.4) : Color.white.opacity(0.1))
+                            .background(clip.isReversed ? Color.orange.opacity(0.2) : Color.gray.opacity(0.1))
                             .foregroundColor(clip.isReversed ? .orange : .secondary)
                             .cornerRadius(4)
                         }
@@ -1370,7 +1507,7 @@ public struct SoundMakerView: View {
                             Spacer()
                             Text(String(format: "%.2fx", clip.playbackRate))
                                 .font(.caption2.bold())
-                                .foregroundColor(clip.playbackRate != 1.0 ? .cyan : .white)
+                                .foregroundColor(clip.playbackRate != 1.0 ? Color(hex: "#0066CC") : .primary)
                         }
 
                         HStack(spacing: 4) {
@@ -1387,8 +1524,8 @@ public struct SoundMakerView: View {
                                         .font(.system(size: 8, weight: .bold))
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 2)
-                                        .background(clip.playbackRate == rate ? Color.cyan : Color.white.opacity(0.1))
-                                        .foregroundColor(clip.playbackRate == rate ? .black : .white)
+                                        .background(clip.playbackRate == rate ? Color.blue.opacity(0.15) : Color(white: 0.94))
+                                        .foregroundColor(clip.playbackRate == rate ? Color(hex: "#0066CC") : .primary)
                                         .cornerRadius(2)
                                 }
                                 .buttonStyle(.plain)
@@ -1410,7 +1547,7 @@ public struct SoundMakerView: View {
                             ),
                             in: 0...1.0
                         )
-                        Text("\(Int(clip.volume * 100))%").font(.caption2.monospaced()).foregroundColor(.cyan)
+                        Text("\(Int(clip.volume * 100))%").font(.caption2.monospaced()).foregroundColor(Color(hex: "#0066CC"))
                     }
                 }
             } else {
@@ -1422,8 +1559,12 @@ public struct SoundMakerView: View {
             }
         }
         .padding(8)
-        .background(Color(red: 0.16, green: 0.17, blue: 0.19))
+        .background(Color.white)
         .cornerRadius(6)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+        )
     }
 
     // MARK: - AquesTalk Quick Generator Card
@@ -1477,7 +1618,7 @@ public struct SoundMakerView: View {
                             }
                         }
                         .padding(6)
-                        .background(Color.white.opacity(0.04))
+                        .background(Color(white: 0.96))
                         .cornerRadius(4)
 
                         // Actions: Preview & Place on Timeline
@@ -1517,7 +1658,7 @@ public struct SoundMakerView: View {
                             .buttonStyle(.borderedProminent)
                         }
 
-                        Divider().background(Color.white.opacity(0.1))
+                        Divider().background(Color.gray.opacity(0.2))
 
                         // 全スライド一括生成ボタン
                         Button(action: {
@@ -1528,7 +1669,7 @@ public struct SoundMakerView: View {
                                 Text("スライド全音声一括生成...")
                             }
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.cyan)
+                            .foregroundColor(Color(hex: "#0066CC"))
                             .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
@@ -1538,13 +1679,17 @@ public struct SoundMakerView: View {
                 label: {
                     Label("AquesTalk ゆっくりボイス配置", systemImage: "character.bubble")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                 }
             )
         }
         .padding(8)
-        .background(Color(red: 0.16, green: 0.17, blue: 0.19))
+        .background(Color.white)
         .cornerRadius(6)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+        )
     }
 
     // MARK: - Dual Channel Strip (Track & Master Stereo Out)
@@ -1572,7 +1717,7 @@ public struct SoundMakerView: View {
                 )
             )
 
-            Divider().background(DAWTheme.trackBorder)
+            Divider().background(Color.gray.opacity(0.2))
 
             // Master Stereo Out Strip
             channelStripColumn(
@@ -1583,11 +1728,11 @@ public struct SoundMakerView: View {
             )
         }
         .padding(10)
-        .background(Color(red: 0.14, green: 0.15, blue: 0.17))
+        .background(Color.white)
         .cornerRadius(6)
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(DAWTheme.trackBorder, lineWidth: 1)
+                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
         )
     }
 
@@ -1595,18 +1740,18 @@ public struct SoundMakerView: View {
         VStack(spacing: 8) {
             Text(title)
                 .font(.system(size: 11, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(.primary)
                 .lineLimit(1)
 
             // Pan Knob
             VStack(spacing: 2) {
                 ZStack {
                     Circle()
-                        .fill(Color(red: 0.2, green: 0.22, blue: 0.25))
+                        .fill(Color(white: 0.92))
                         .frame(width: 28, height: 28)
-                        .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
+                        .overlay(Circle().stroke(Color.gray.opacity(0.3), lineWidth: 1))
                     Rectangle()
-                        .fill(Color.white)
+                        .fill(Color.primary)
                         .frame(width: 2, height: 10)
                         .offset(y: -6)
                         .rotationEffect(.degrees(pan.wrappedValue * 90.0))
@@ -1879,35 +2024,21 @@ public struct SoundMakerView: View {
     // MARK: - Scene Strip Lane (シーン分割トラック: 音声クリップ・ルーラーと絶対座標で完全一致)
     private func sceneThumbnailsLaneView(proxy: ScrollViewProxy, width: CGFloat) -> some View {
         let scenes = activeSceneList()
-        // 各シーンの開始時間（累積秒数）を計算
-        var accumulated: Double = 0.0
-        var sceneStarts: [Double] = []
-        for s in scenes {
-            sceneStarts.append(accumulated)
-            accumulated += s.duration
-        }
 
-        return ZStack(alignment: .topLeading) {
-            // 背景レーン
-            Rectangle()
-                .fill(DAWTheme.stripBackground)
-                .frame(width: width, height: 38)
-
-            // 各シーンを絶対座標で配置 (HStackの累積ズレを完全に排除)
+        return HStack(spacing: 0) {
             ForEach(Array(scenes.enumerated()), id: \.element.id) { index, scene in
                 let sNum = index + 1
-                let sStart = index < sceneStarts.count ? sceneStarts[index] : 0.0
-                let startX = CGFloat(sStart) * CGFloat(zoomScale)
                 let itemWidth = max(2.0, CGFloat(scene.duration) * CGFloat(zoomScale))
 
                 sceneStripItemView(scene: scene, index: index, width: itemWidth, proxy: proxy)
                     .frame(width: itemWidth, height: 32)
                     .clipped()
-                    .offset(x: startX, y: 3)
                     .id("scene_anchor_\(sNum)")
             }
+            Spacer(minLength: 0)
         }
-        .frame(width: width, height: 38, alignment: .topLeading)
+        .frame(width: width, height: 38, alignment: .leading)
+        .background(DAWTheme.stripBackground)
     }
 
     private func sceneStripItemView(scene: MovieScene, index: Int, width: CGFloat, proxy: ScrollViewProxy? = nil) -> some View {
@@ -1924,6 +2055,8 @@ public struct SoundMakerView: View {
             return cleanTitle
         }()
 
+        let hasAnimation = scene.animationDuration != nil || scene.animationNote != nil
+
         return Button(action: {
             selectScene(index: sNum, proxy: proxy)
         }) {
@@ -1936,18 +2069,24 @@ public struct SoundMakerView: View {
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ) :
-                            LinearGradient(
-                                colors: [Color.blue.opacity(0.40), Color.purple.opacity(0.30)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+                            (hasAnimation ?
+                                LinearGradient(
+                                    colors: [Color.purple.opacity(0.60), Color.blue.opacity(0.40)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ) :
+                                LinearGradient(
+                                    colors: [Color.blue.opacity(0.40), Color.purple.opacity(0.30)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ))
                     )
 
                 HStack(spacing: 3) {
                     if width >= 55 {
-                        Image(systemName: isSelected ? "checkmark.circle.fill" : "film")
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : (hasAnimation ? "film.stack.fill" : "film"))
                             .font(.system(size: 8))
-                            .foregroundColor(isSelected ? .white : .cyan)
+                            .foregroundColor(isSelected ? .white : (hasAnimation ? .yellow : .cyan))
                     }
 
                     VStack(alignment: .leading, spacing: 1) {
@@ -1964,10 +2103,16 @@ public struct SoundMakerView: View {
                         }
 
                         if width >= 40 {
-                            Text(String(format: "%.1fs", scene.duration))
-                                .font(.system(size: 7.5, design: .monospaced))
-                                .foregroundColor(.white.opacity(isSelected ? 0.95 : 0.7))
-                                .lineLimit(1)
+                            HStack(spacing: 2) {
+                                if hasAnimation {
+                                    Text("🎬")
+                                        .font(.system(size: 6))
+                                }
+                                Text(String(format: "%.1fs", scene.duration))
+                                    .font(.system(size: 7.5, design: .monospaced))
+                                    .foregroundColor(hasAnimation ? .yellow : .white.opacity(isSelected ? 0.95 : 0.7))
+                                    .lineLimit(1)
+                            }
                         }
                     }
                     Spacer(minLength: 0)
@@ -1978,7 +2123,7 @@ public struct SoundMakerView: View {
             .clipped()
             .overlay(
                 RoundedRectangle(cornerRadius: 3)
-                    .stroke(isSelected ? Color.cyan : Color.cyan.opacity(0.3), lineWidth: isSelected ? 2.5 : 1)
+                    .stroke(isSelected ? Color.cyan : (hasAnimation ? Color.yellow.opacity(0.5) : Color.cyan.opacity(0.3)), lineWidth: isSelected ? 2.5 : 1)
             )
             .shadow(color: isSelected ? Color.cyan.opacity(0.7) : Color.clear, radius: isSelected ? 3 : 0)
         }
@@ -2196,7 +2341,7 @@ public struct SoundMakerView: View {
             selectedClipId = clip.id
             selectedTrackId = track.id
             if let sIdx = clip.sceneIndex ?? clip.spanStartSceneIndex {
-                selectedSceneIndex = sIdx
+                selectScene(index: sIdx)
             }
         }
         .gesture(
@@ -2209,6 +2354,19 @@ public struct SoundMakerView: View {
                     }
                 }
         )
+        .contextMenu {
+            Button(action: {
+                soundManager.togglePreview(clip: clip)
+            }) {
+                Label(soundManager.currentlyPlayingClipId == clip.id && soundManager.isPreviewPlaying ? "停止" : "試聴再生", systemImage: soundManager.currentlyPlayingClipId == clip.id && soundManager.isPreviewPlaying ? "stop.circle" : "play.circle")
+            }
+            Divider()
+            Button(role: .destructive, action: {
+                deleteClip(clip)
+            }) {
+                Label("このクリップを削除", systemImage: "trash")
+            }
+        }
     }
 
     // MARK: - Playhead & Grid Lines
@@ -2339,6 +2497,27 @@ public struct SoundMakerView: View {
     }
 
     // MARK: - Scene Navigation & Helper Methods (2つの青枠連動)
+    private func syncSelectionToLoadedProject(scenes: [MovieScene]) {
+        guard !scenes.isEmpty else { return }
+
+        // 現在選択中のシーンが有効範囲内なら、勝手にジャンプさせない
+        if selectedSceneIndex >= 1 && selectedSceneIndex <= scenes.count {
+            return
+        }
+
+        // 読み込まれたクリップに所属シーン情報があれば、最初のクリップのシーン番号に自動選択
+        let validClips = appState.soundClips.filter { $0.sceneIndex != nil }
+        let targetIndex: Int
+        if let minSceneIdx = validClips.compactMap({ $0.sceneIndex }).min(),
+           minSceneIdx >= 1 && minSceneIdx <= scenes.count {
+            targetIndex = minSceneIdx
+        } else {
+            targetIndex = 1
+        }
+
+        selectScene(index: targetIndex)
+    }
+
     private func selectScene(index: Int, proxy: ScrollViewProxy? = nil) {
         let scenes = activeSceneList()
         guard index >= 1 && index <= scenes.count else { return }
@@ -2469,6 +2648,19 @@ public struct SoundMakerView: View {
         }
     }
 
+    /// クリップを削除し、タイムラインおよびムービーメーカーのシーン情報（BGM/SE/ボイス）と即時完全同期
+    private func deleteClip(_ clip: SoundClip) {
+        if soundManager.currentlyPlayingClipId == clip.id {
+            soundManager.stopPreview()
+        }
+        appState.soundClips.removeAll(where: { $0.id == clip.id })
+        if selectedClipId == clip.id {
+            selectedClipId = nil
+        }
+        // ムービーメーカー側のシーン音声情報（BGM/SE/ボイス）と即時完全同期
+        appState.syncClipsToMovieScenes(appState.soundClips)
+    }
+
     // 特定のシーンに属する、またはそのシーンをカバーしているBGM
     private func bgmClips(for sceneIdx: Int) -> [SoundClip] {
         let scenes = activeSceneList()
@@ -2521,11 +2713,13 @@ public struct SoundMakerView: View {
         let text = clip.text ?? clip.name
         let char = clip.character ?? "博麗霊夢"
         let vType = clip.voiceType ?? aquesTalk.voiceType(for: char)
+        let effectivePitch = clip.pitch != 100 ? clip.pitch : aquesTalk.characterPreset(for: char).pitch
 
         aquesTalk.synthesizeAndPlay(
             text: text,
             speed: clip.speed,
             voice: vType,
+            pitch: effectivePitch,
             quality: selectedQuality,
             effect: selectedEffect
         ) {
@@ -2545,18 +2739,33 @@ public struct SoundMakerView: View {
         let char = clip.character ?? targetCharacter
         let vType = clip.voiceType ?? aquesTalk.voiceType(for: char)
         let speed = clip.speed
+        let effectivePitch = clip.pitch != 100 ? clip.pitch : aquesTalk.characterPreset(for: char).pitch
 
         isRegeneratingVoice = true
-        appState.log("シーン \(selectedSceneIndex) の音声『\(text)』を再生成中...")
+        appState.log("シーン \(selectedSceneIndex) の音声『\(text)』を再生成中 (音程: \(effectivePitch)%)...")
 
         DispatchQueue.global(qos: .userInitiated).async {
             let wavData = self.aquesTalk.synthesizeToWavData(
                 text: text,
                 speed: speed,
                 voice: vType,
+                pitch: effectivePitch,
                 quality: self.selectedQuality,
                 effect: self.selectedEffect
             )
+
+            // 音声ファイル保存先を決定・更新
+            var targetFilePath: String? = clip.audioFilePath
+            if let data = wavData {
+                let audioDir = URL(fileURLWithPath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/GeneratedAudio")
+                try? FileManager.default.createDirectory(at: audioDir, withIntermediateDirectories: true)
+                let sIdx = clip.sceneIndex ?? self.selectedSceneIndex
+                let safeChar = char.replacingOccurrences(of: "/", with: "_")
+                let fileURL = audioDir.appendingPathComponent(String(format: "Slide_%03d_%@.wav", sIdx, safeChar))
+                if (try? data.write(to: fileURL)) != nil {
+                    targetFilePath = fileURL.path
+                }
+            }
 
             DispatchQueue.main.async {
                 self.isRegeneratingVoice = false
@@ -2575,7 +2784,15 @@ public struct SoundMakerView: View {
                 self.appState.soundClips[idx].voiceSymbol = self.aquesTalk.convertToVoiceSymbol(text: text)
                 self.appState.soundClips[idx].voiceType = vType
                 self.appState.soundClips[idx].speed = speed
-                self.appState.log("シーン \(self.selectedSceneIndex) の音声『\(text)』を再生成しました (長さ: \(String(format: "%.2f", self.appState.soundClips[idx].duration))秒)")
+                self.appState.soundClips[idx].pitch = effectivePitch
+                if let path = targetFilePath {
+                    self.appState.soundClips[idx].audioFilePath = path
+                }
+
+                // ムービーメーカーのシーン情報（voiceAudioPath）とも即時同期
+                self.appState.syncClipsToMovieScenes(self.appState.soundClips)
+
+                self.appState.log("シーン \(self.selectedSceneIndex) の音声『\(text)』を再生成しました (音程: \(effectivePitch)%, 長さ: \(String(format: "%.2f", self.appState.soundClips[idx].duration))秒)")
             }
         }
     }
@@ -2596,7 +2813,11 @@ public struct SoundMakerView: View {
         let trackId = voiceTrack?.id ?? "track_voice_reimu"
         let clipColor = voiceTrack?.colorHex ?? "#E74C3C"
 
-        let vType = aquesTalk.voiceType(for: effectiveChar)
+        let preset = aquesTalk.characterPreset(for: effectiveChar)
+        let vType = preset.voice
+        let effectiveSpeed = speechSpeed != 100 ? speechSpeed : preset.speed
+        let effectivePitch = preset.pitch
+
         let newClip = SoundClip(
             name: "[\(effectiveChar)] \(sampleText)",
             type: "Voice",
@@ -2605,18 +2826,20 @@ public struct SoundMakerView: View {
             voiceSymbol: aquesTalk.convertToVoiceSymbol(text: sampleText),
             duration: max(2.0, Double(sampleText.count) * 0.22),
             volume: 1.0,
-            speed: speechSpeed,
+            speed: effectiveSpeed,
             startTime: sRange.start + 0.2,
             trackId: trackId,
             pan: 0.0,
             colorHex: clipColor,
             waveformPoints: generateRandomWaveform(count: 20),
             sceneIndex: selectedSceneIndex,
-            voiceType: vType
+            voiceType: vType,
+            pitch: effectivePitch
         )
         appState.soundClips.append(newClip)
         selectedClipId = newClip.id
-        appState.log("シーン \(selectedSceneIndex) に新規音声『\(sampleText)』を追加しました")
+        appState.syncClipsToMovieScenes(appState.soundClips)
+        appState.log("シーン \(selectedSceneIndex) に新規音声『\(sampleText)』を追加しました (音程: \(effectivePitch)%)")
     }
 
     // 現在選択中のシーンに効果音を追加
@@ -2851,6 +3074,52 @@ public struct SoundMakerView: View {
                 AudioTrack(id: "track_se", name: "SE (効果音)", type: "se", icon: "bolt.fill", colorHex: "#2ECC71", volume: 0.8, pan: 0.0),
                 AudioTrack(id: "track_bgm", name: "BGM (背景音楽)", type: "bgm", icon: "music.note", colorHex: "#9B59B6", volume: 0.65, pan: 0.0)
             ]
+        }
+        ensureTracksForExistingClips()
+    }
+
+    /// クリップ内に存在するすべてのトラックをスキャンし、未登録のトラックがあれば自動追加して復元
+    private func ensureTracksForExistingClips() {
+        var existingTrackIds = Set(appState.audioTracks.map { $0.id })
+
+        if !existingTrackIds.contains("track_movie") {
+            appState.audioTracks.insert(AudioTrack(id: "track_movie", name: "video", type: "movie", icon: "film.fill", colorHex: "#3897F0", volume: 0.85, pan: 0.0), at: 0)
+            existingTrackIds.insert("track_movie")
+        }
+        if !existingTrackIds.contains("track_se") {
+            appState.audioTracks.append(AudioTrack(id: "track_se", name: "SE (効果音)", type: "se", icon: "bolt.fill", colorHex: "#2ECC71", volume: 0.8, pan: 0.0))
+            existingTrackIds.insert("track_se")
+        }
+        if !existingTrackIds.contains("track_bgm") {
+            appState.audioTracks.append(AudioTrack(id: "track_bgm", name: "BGM (背景音楽)", type: "bgm", icon: "music.note", colorHex: "#9B59B6", volume: 0.65, pan: 0.0))
+            existingTrackIds.insert("track_bgm")
+        }
+
+        for clip in appState.soundClips {
+            guard let tid = clip.trackId, !tid.isEmpty, !existingTrackIds.contains(tid) else { continue }
+            let charName = clip.character ?? clip.name
+            let color = clip.colorHex ?? (charName.contains("霊夢") ? "#E74C3C" : (charName.contains("魔理沙") ? "#F1C40F" : "#00CEC9"))
+            let icon = (clip.type == "SE") ? "bolt.fill" : ((clip.type == "BGM") ? "music.note" : "waveform")
+            let typeName = clip.type.lowercased()
+            let trackName = charName.isEmpty ? "トラック (\(clip.type))" : "\(charName) (\(clip.type))"
+
+            let newTrack = AudioTrack(
+                id: tid,
+                name: trackName,
+                type: typeName,
+                icon: icon,
+                colorHex: color,
+                volume: clip.volume > 0 ? clip.volume : 1.0,
+                pan: clip.pan,
+                characterName: clip.character
+            )
+
+            if let seIdx = appState.audioTracks.firstIndex(where: { $0.id == "track_se" || $0.type == "se" }) {
+                appState.audioTracks.insert(newTrack, at: seIdx)
+            } else {
+                appState.audioTracks.append(newTrack)
+            }
+            existingTrackIds.insert(tid)
         }
     }
 

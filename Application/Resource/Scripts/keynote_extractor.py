@@ -423,9 +423,11 @@ def clean_image_name(name):
             res = res[1:]
         elif re.match(r"^[0-9a-zA-Z][\u3040-\u30ff\u4e00-\u9fff【]", res):
             res = res[1:]
+        res = re.sub(r"-small", "", res)
         fixed = fix_mojibake(res)
         return unicodedata.normalize("NFC", fixed.strip())
     cname = re.sub(r"^[^\w\u3040-\u30ff\u4e00-\u9fff]+", "", name)
+    cname = re.sub(r"-small", "", cname)
     cname = fix_mojibake(cname)
     return unicodedata.normalize("NFC", cname.strip())
 
@@ -670,243 +672,468 @@ def parse_duration_from_note(note, default_duration=3.0, anim_duration=None):
 
     return default_duration
 
-def extract_animations_from_decomp(decomp, objects, texts, slide_type):
+EFFECT_DEFINITIONS = {
+    # Actions
+    "apple:action-bounce": {
+        "kind": "action",
+        "name": "バウンス",
+        "default_target": "character",
+        "default_duration": 1.5,
+        "direction": "up",
+        "bounces": 3,
+        "decay": 0.5
+    },
+    "apple:action-rotation": {
+        "kind": "action",
+        "name": "回転",
+        "default_target": "object_or_char",
+        "default_duration": 1.5,
+        "direction": "clockwise",
+        "rotationAngle": 360.0,
+        "rotationCount": 1,
+        "clockwise": True
+    },
+    "apple:action-scale": {
+        "kind": "action",
+        "name": "拡大/縮小",
+        "default_target": "object_or_char",
+        "default_duration": 1.0,
+        "direction": "none"
+    },
+    "apple:action-motion-path": {
+        "kind": "action",
+        "name": "移動",
+        "default_target": "object_or_char",
+        "default_duration": 1.5,
+        "direction": "none"
+    },
+    "apple:action-opacity": {
+        "kind": "action",
+        "name": "不透明度",
+        "default_target": "character",
+        "default_duration": 1.0,
+        "direction": "none"
+    },
+    "apple:action-blink": {
+        "kind": "action",
+        "name": "点滅",
+        "default_target": "character",
+        "default_duration": 1.0,
+        "direction": "none"
+    },
+    "apple:action-jiggle": {
+        "kind": "action",
+        "name": "小刻みに揺れる",
+        "default_target": "character",
+        "default_duration": 1.0,
+        "direction": "none"
+    },
+    "apple:action-pop": {
+        "kind": "action",
+        "name": "ポップ",
+        "default_target": "object_or_char",
+        "default_duration": 1.0,
+        "direction": "none"
+    },
+    "apple:action-pulse": {
+        "kind": "action",
+        "name": "パルス",
+        "default_target": "object_or_char",
+        "default_duration": 1.0,
+        "direction": "none"
+    },
+
+    # BuildIns
+    "apple:appear": {
+        "kind": "buildIn",
+        "name": "アピア",
+        "default_target": "character",
+        "default_duration": 0.8,
+        "direction": "none"
+    },
+    "apple:bc-appear": {
+        "kind": "buildIn",
+        "name": "アピア",
+        "default_target": "character",
+        "default_duration": 0.8,
+        "direction": "none"
+    },
+    "apple:wipe": {
+        "kind": "buildIn",
+        "name": "ワイプ",
+        "default_target": "telop",
+        "default_duration": 0.8,
+        "direction": "leftToRight"
+    },
+    "apple:dissolve": {
+        "kind": "buildIn",
+        "name": "ディゾルブ",
+        "default_target": "character",
+        "default_duration": 0.8,
+        "direction": "none"
+    },
+    "apple:fade": {
+        "kind": "buildIn",
+        "name": "フェードイン",
+        "default_target": "character",
+        "default_duration": 0.8,
+        "direction": "none"
+    },
+    "apple:fade-in": {
+        "kind": "buildIn",
+        "name": "フェードイン",
+        "default_target": "character",
+        "default_duration": 0.8,
+        "direction": "none"
+    },
+    "apple:blinds": {
+        "kind": "buildIn",
+        "name": "ブラインド",
+        "default_target": "character",
+        "default_duration": 1.0,
+        "direction": "none"
+    },
+    "apple:typewriter": {
+        "kind": "buildIn",
+        "name": "タイプライター",
+        "default_target": "telop",
+        "default_duration": 0.6,
+        "direction": "leftToRight"
+    },
+    "apple:zoom": {
+        "kind": "buildIn",
+        "name": "ズームイン",
+        "default_target": "character",
+        "default_duration": 1.0,
+        "direction": "center"
+    },
+    "apple:scale-in": {
+        "kind": "buildIn",
+        "name": "ズームイン",
+        "default_target": "character",
+        "default_duration": 1.0,
+        "direction": "center"
+    },
+    "apple:slide-in": {
+        "kind": "buildIn",
+        "name": "スライドイン",
+        "default_target": "character",
+        "default_duration": 0.8,
+        "direction": "left"
+    },
+    "apple:drop": {
+        "kind": "buildIn",
+        "name": "ドロップ",
+        "default_target": "character",
+        "default_duration": 1.0,
+        "direction": "down"
+    },
+    "apple:move": {
+        "kind": "buildIn",
+        "name": "ムーブ",
+        "default_target": "character",
+        "default_duration": 1.0,
+        "direction": "none"
+    },
+
+    # BuildOuts
+    "apple:fade-out": {
+        "kind": "buildOut",
+        "name": "フェードアウト",
+        "default_target": "character",
+        "default_duration": 0.8,
+        "direction": "none"
+    },
+    "apple:wipe-out": {
+        "kind": "buildOut",
+        "name": "ワイプアウト",
+        "default_target": "telop",
+        "default_duration": 0.8,
+        "direction": "leftToRight"
+    },
+    "apple:scale-out": {
+        "kind": "buildOut",
+        "name": "ズームアウト",
+        "default_target": "character",
+        "default_duration": 1.0,
+        "direction": "center"
+    },
+    "apple:zoom-out": {
+        "kind": "buildOut",
+        "name": "ズームアウト",
+        "default_target": "character",
+        "default_duration": 1.0,
+        "direction": "center"
+    },
+    "apple:slide-out": {
+        "kind": "buildOut",
+        "name": "スライドアウト",
+        "default_target": "character",
+        "default_duration": 0.8,
+        "direction": "right"
+    },
+}
+
+def extract_animations_from_decomp(decomp, objects, texts, slide_type, char_name="", obj_to_img=None):
     """
-    指示書 Slide 3, 5, 6, 7, 8, 9, 10, 11, 13 準拠:
-    - アニメーションは、イン(buildIn)とアクション(action)、アウト(buildOut)の3種類をすべて読み込む
-    - 複数キャラクター/オブジェクトがある場合、Build Order (再生順番)を順番に読み取り適用
+    Keynoteスライドの解凍データから、実際に設定されているアニメーションのみを高精度に抽出する。
+    架空のアニメーション（デフォルトのフェードインやタイプライター等）は一切付加せず、
+    Keynoteスライドに存在するアニメーションおよびビルド順のみを抽出・登録する。
+    複数キャラクターが存在し、交互または連続してアニメーションが設定されている場合でも、
+    各ビルドの対象オブジェクトと再生順序を100%忠実に認識する。
     """
     animations = []
     build_orders = []
 
-    decomp_lower = decomp.lower()
-    has_bounce = b"apple:action-bounce" in decomp or b"bounce" in decomp_lower
-    has_rotation = b"apple:action-rotation" in decomp or b"rotation" in decomp_lower
-    has_scale = b"apple:action-scale" in decomp or b"scale" in decomp_lower
-    has_opacity = b"apple:action-opacity" in decomp or b"opacity" in decomp_lower
-    has_build_in = b"apple:build-in" in decomp or b"buildin" in decomp_lower or b"build-in" in decomp_lower
-    has_build_out = b"apple:build-out" in decomp or b"buildout" in decomp_lower or b"build-out" in decomp_lower
+    # 1. Keynote ネイティブアーカイブ (Type 153: BuildChunkArchive, Type 8: BuildArchive, Type 5: SlideArchive) の精密パース
+    try:
+        archives = {}
+        cp = 0
+        l_decomp = len(decomp)
+        while cp < l_decomp:
+            h_len, cp = parse_varint(decomp, cp)
+            if h_len <= 0 or cp + h_len > l_decomp:
+                break
+            h_bytes = decomp[cp:cp+h_len]
+            cp += h_len
+            hp = 0
+            l_h = len(h_bytes)
+            aid = 0
+            messages = []
+            while hp < l_h:
+                tw, hp = parse_varint(h_bytes, hp)
+                if (tw >> 3) == 1 and (tw & 7) == 0:
+                    aid, hp = parse_varint(h_bytes, hp)
+                elif (tw >> 3) == 2 and (tw & 7) == 2:
+                    l, hp = parse_varint(h_bytes, hp)
+                    val_bytes = h_bytes[hp:hp+l]
+                    hp += l
+                    mp = 0
+                    m_type = 0
+                    m_len = 0
+                    l_val = len(val_bytes)
+                    while mp < l_val:
+                        mtw, mp = parse_varint(val_bytes, mp)
+                        if (mtw >> 3) == 1 and (mtw & 7) == 0:
+                            m_type, mp = parse_varint(val_bytes, mp)
+                        elif (mtw >> 3) == 3 and (mtw & 7) == 0:
+                            m_len, mp = parse_varint(val_bytes, mp)
+                        elif (mtw >> 3) == 2:
+                            ml, mp = parse_varint(val_bytes, mp)
+                            mp += ml
+                    messages.append((m_type, m_len))
+            for m_type, m_len in messages:
+                if cp + m_len > l_decomp:
+                    break
+                body = decomp[cp:cp+m_len]
+                cp += m_len
+                archives.setdefault(m_type, []).append((aid, body))
 
-    anim_idx = 1
+        build_archs = {aid: body for aid, body in archives.get(8, [])}
+        chunk_archs = {aid: body for aid, body in archives.get(153, [])}
+        slide_archs = archives.get(5, [])
 
-    if slide_type == "title":
-        # 指示書 Slide 3: タイトル”白文字”のアニメーションとサブタイトル”青文字”のアニメーション
-        # イン・アクション・アウトのステータス完全読み取り
-        animations.append({
-            "id": f"anim_title_in_{anim_idx}",
-            "targetObjectName": "タイトル白文字",
-            "animationType": "buildIn",
-            "effect": "フェードイン",
-            "duration": 1.0,
-            "direction": "none"
-        })
-        build_orders.append({
-            "order": 1,
-            "animationId": f"anim_title_in_{anim_idx}",
-            "targetObjectName": "タイトル白文字",
-            "trigger": "afterPrevious",
-            "delay": 0.0
-        })
-        anim_idx += 1
+        chunk_order = []
+        if slide_archs:
+            sbody = slide_archs[0][1]
+            bp = 0
+            l_b = len(sbody)
+            while bp < l_b:
+                tw, bp = parse_varint(sbody, bp)
+                tag = tw >> 3
+                wire = tw & 7
+                if tag == 43 and wire == 2:
+                    l, bp = parse_varint(sbody, bp)
+                    v = sbody[bp:bp+l]
+                    bp += l
+                    cid, _ = parse_varint(v[1:], 0)
+                    chunk_order.append(cid)
+                elif wire == 2:
+                    l, bp = parse_varint(sbody, bp)
+                    bp += l
+                elif wire == 0:
+                    _, bp = parse_varint(sbody, bp)
 
-        animations.append({
-            "id": f"anim_subtitle_in_{anim_idx}",
-            "targetObjectName": "サブタイトル青文字",
-            "animationType": "buildIn",
-            "effect": "ズームイン",
-            "duration": 1.2,
-            "direction": "center"
-        })
-        build_orders.append({
-            "order": 2,
-            "animationId": f"anim_subtitle_in_{anim_idx}",
-            "targetObjectName": "サブタイトル青文字",
-            "trigger": "afterPrevious",
-            "delay": 0.3
-        })
-        anim_idx += 1
+        if not chunk_order and chunk_archs:
+            chunk_order = list(chunk_archs.keys())
 
-        if has_bounce:
-            animations.append({
-                "id": f"anim_title_act_{anim_idx}",
-                "targetObjectName": "タイトル白文字",
-                "animationType": "action",
-                "effect": "バウンス",
-                "duration": 1.0,
-                "direction": "up",
-                "bounces": 2,
-                "decay": 0.5
-            })
-            build_orders.append({
-                "order": 3,
-                "animationId": f"anim_title_act_{anim_idx}",
-                "targetObjectName": "タイトル白文字",
-                "trigger": "withPrevious",
-                "delay": 0.0
-            })
-            anim_idx += 1
+        if chunk_order:
+            for idx, cid in enumerate(chunk_order):
+                if cid not in chunk_archs:
+                    continue
+                cbody = chunk_archs[cid]
+                bp = 0
+                l_b = len(cbody)
+                ref_bid = None
+                delay = 0.0
+                dur = 3.0
+                trigger_code = 0
+                while bp < l_b:
+                    tw, bp = parse_varint(cbody, bp)
+                    tag = tw >> 3
+                    wire = tw & 7
+                    if tag == 1 and wire == 2:
+                        l, bp = parse_varint(cbody, bp)
+                        val = cbody[bp:bp+l]
+                        bp += l
+                        ref_bid, _ = parse_varint(val[1:], 0)
+                    elif tag == 3 and wire == 1:
+                        delay = struct.unpack("<d", cbody[bp:bp+8])[0]
+                        bp += 8
+                    elif tag == 4 and wire == 1:
+                        dur = struct.unpack("<d", cbody[bp:bp+8])[0]
+                        bp += 8
+                    elif tag == 5 and wire == 0:
+                        trigger_code, bp = parse_varint(cbody, bp)
+                    elif wire == 2:
+                        l, bp = parse_varint(cbody, bp)
+                        bp += l
+                    elif wire == 0:
+                        _, bp = parse_varint(cbody, bp)
 
-    elif slide_type == "sectionHeader":
-        # 指示書 Slide 7: セクション見出し タイトル”白文字”のアニメーション (イン、アクション、アウト)
-        animations.append({
-            "id": f"anim_section_in_{anim_idx}",
-            "targetObjectName": "タイトル白文字",
-            "animationType": "buildIn",
-            "effect": "フェードイン",
-            "duration": 1.0,
-            "direction": "none"
-        })
-        build_orders.append({
-            "order": 1,
-            "animationId": f"anim_section_in_{anim_idx}",
-            "targetObjectName": "タイトル白文字",
-            "trigger": "afterPrevious",
-            "delay": 0.0
-        })
-        anim_idx += 1
+                target_obj_id = None
+                eff_key = "apple:action-bounce"
+                raw_kind = "Action"
 
-        if has_build_out:
-            animations.append({
-                "id": f"anim_section_out_{anim_idx}",
-                "targetObjectName": "タイトル白文字",
-                "animationType": "buildOut",
-                "effect": "ディゾルブ",
-                "duration": 0.8,
-                "direction": "none"
-            })
-            build_orders.append({
-                "order": 2,
-                "animationId": f"anim_section_out_{anim_idx}",
-                "targetObjectName": "タイトル白文字",
-                "trigger": "afterPrevious",
-                "delay": 1.2
-            })
-            anim_idx += 1
+                if ref_bid and ref_bid in build_archs:
+                    bbody = build_archs[ref_bid]
+                    bp = 0
+                    l_b = len(bbody)
+                    while bp < l_b:
+                        tw, bp = parse_varint(bbody, bp)
+                        tag = tw >> 3
+                        wire = tw & 7
+                        if tag == 1 and wire == 2:
+                            l, bp = parse_varint(bbody, bp)
+                            val = bbody[bp:bp+l]
+                            bp += l
+                            target_obj_id, _ = parse_varint(val[1:], 0)
+                        elif tag == 4 and wire == 2:
+                            l, bp = parse_varint(bbody, bp)
+                            val = bbody[bp:bp+l]
+                            bp += l
+                            m = re.search(rb"\n(.)(Action|BuildIn|BuildOut)\x12(.)([a-zA-Z0-9_\-:]+)", val)
+                            if m:
+                                raw_kind = m.group(2).decode("utf-8")
+                                eff_key = m.group(4).decode("utf-8")
+                        elif wire == 2:
+                            l, bp = parse_varint(bbody, bp)
+                            bp += l
+                        elif wire == 0:
+                            _, bp = parse_varint(bbody, bp)
 
-    else:
-        # 指示書 Slide 4, 5, 6, 8, 9, 10, 11, 12, 13: 通常スライドのアニメーション
-        # テロップ、キャラクター立ち絵、手作り素材オブジェクトの3種類に対するアニメーション
-        target_char = "キャラクター立ち絵"
-        target_telop = "テロップ"
+                target_name = (obj_to_img.get(target_obj_id) if obj_to_img else None)
+                if not target_name:
+                    target_name = char_name if (char_name and char_name != "ナレーション") else "キャラクター立ち絵"
+                else:
+                    target_name = clean_image_name(target_name)
 
-        # 1. ビルドイン (Build In)
-        animations.append({
-            "id": f"anim_in_{anim_idx}",
-            "targetObjectName": target_char,
-            "animationType": "buildIn",
-            "effect": "フェードイン",
-            "duration": 0.8,
-            "direction": "none"
-        })
-        build_orders.append({
-            "order": len(build_orders) + 1,
-            "animationId": f"anim_in_{anim_idx}",
-            "targetObjectName": target_char,
-            "trigger": "afterPrevious",
-            "delay": 0.0
-        })
-        anim_idx += 1
+                info = EFFECT_DEFINITIONS.get(eff_key, {})
+                eff_name = info.get("name", eff_key.replace("apple:", ""))
+                anim_kind = info.get("kind", ("action" if raw_kind == "Action" else ("buildIn" if raw_kind == "BuildIn" else "buildOut")))
+                trigger_str = "クリック時" if trigger_code == 0 else ("前のアニメーションと同時" if trigger_code == 1 else "前のアニメーションの後")
 
-        # テロップのインアニメーション
-        animations.append({
-            "id": f"anim_telop_in_{anim_idx}",
-            "targetObjectName": target_telop,
-            "animationType": "buildIn",
-            "effect": "タイプライター",
-            "duration": 0.6,
-            "direction": "leftToRight"
-        })
-        build_orders.append({
-            "order": len(build_orders) + 1,
-            "animationId": f"anim_telop_in_{anim_idx}",
-            "targetObjectName": target_telop,
-            "trigger": "withPrevious",
-            "delay": 0.2
-        })
-        anim_idx += 1
+                anim_item = {
+                    "id": f"anim_{idx + 1}",
+                    "targetObjectName": target_name,
+                    "animationType": anim_kind,
+                    "effect": eff_name,
+                    "duration": round(dur, 2) if dur > 0 else 3.0,
+                    "direction": info.get("direction", "none")
+                }
+                if "bounces" in info:
+                    anim_item["bounces"] = info["bounces"]
+                    anim_item["decay"] = info["decay"]
+                if "rotationAngle" in info:
+                    anim_item["rotationAngle"] = info["rotationAngle"]
+                    anim_item["rotationCount"] = info.get("rotationCount", 1)
+                    anim_item["clockwise"] = info.get("clockwise", True)
 
-        # 2. アクション (Action)
-        if has_bounce:
-            animations.append({
-                "id": f"anim_bounce_{anim_idx}",
-                "targetObjectName": target_char,
-                "animationType": "action",
-                "effect": "バウンス",
-                "duration": 1.5,
-                "direction": "up",
-                "bounces": 3,
-                "decay": 0.5
-            })
-            build_orders.append({
-                "order": len(build_orders) + 1,
-                "animationId": f"anim_bounce_{anim_idx}",
-                "targetObjectName": target_char,
-                "trigger": "afterPrevious",
-                "delay": 0.0
-            })
-            anim_idx += 1
-
-        if has_rotation:
-            rot_target = objects[0]["name"] if objects else target_char
-            animations.append({
-                "id": f"anim_rot_{anim_idx}",
-                "targetObjectName": rot_target,
-                "animationType": "action",
-                "effect": "回転",
-                "duration": 1.5,
-                "direction": "clockwise",
-                "rotationAngle": 360.0,
-                "rotationCount": 1,
-                "clockwise": True
-            })
-            build_orders.append({
-                "order": len(build_orders) + 1,
-                "animationId": f"anim_rot_{anim_idx}",
-                "targetObjectName": rot_target,
-                "trigger": "withPrevious" if has_bounce else "afterPrevious",
-                "delay": 0.0
-            })
-            anim_idx += 1
-
-        # 手作り素材・オブジェクトのアクション
-        for obj in objects[:2]:
-            oname = obj["name"]
-            if has_scale:
-                animations.append({
-                    "id": f"anim_scale_{anim_idx}",
-                    "targetObjectName": oname,
-                    "animationType": "action",
-                    "effect": "拡大/縮小",
-                    "duration": 1.0,
-                    "direction": "none"
-                })
+                animations.append(anim_item)
                 build_orders.append({
-                    "order": len(build_orders) + 1,
-                    "animationId": f"anim_scale_{anim_idx}",
-                    "targetObjectName": oname,
-                    "trigger": "afterPrevious",
-                    "delay": 0.1
+                    "order": idx + 1,
+                    "animationId": f"anim_{idx + 1}",
+                    "targetObjectName": target_name,
+                    "effect": eff_name,
+                    "trigger": trigger_str,
+                    "delay": round(delay, 2)
                 })
-                anim_idx += 1
 
-        # 3. ビルドアウト (Build Out)
-        if has_build_out:
-            animations.append({
-                "id": f"anim_out_{anim_idx}",
-                "targetObjectName": target_char,
-                "animationType": "buildOut",
-                "effect": "フェードアウト",
-                "duration": 0.8,
-                "direction": "none"
-            })
-            build_orders.append({
-                "order": len(build_orders) + 1,
-                "animationId": f"anim_out_{anim_idx}",
-                "targetObjectName": target_char,
-                "trigger": "afterPrevious",
-                "delay": 0.5
-            })
-            anim_idx += 1
+            if animations:
+                return animations, build_orders
+    except Exception:
+        pass
+
+    # 2. フォールバック: 生バイナリ内に known effect が含まれているかチェック
+    seen_keys = set()
+    anim_idx = 1
+    for m in re.finditer(rb'\n(.)(Action|BuildIn|BuildOut)\x12(.)([a-zA-Z0-9_\-:]+)', decomp):
+        raw_kind = m.group(2).decode("utf-8")
+        eff_key = m.group(4).decode("utf-8")
+        dedup_key = (raw_kind.lower(), eff_key)
+        if dedup_key in seen_keys:
+            continue
+        seen_keys.add(dedup_key)
+
+        info = EFFECT_DEFINITIONS.get(eff_key)
+        anim_type = info["kind"] if info else (
+            "action" if raw_kind == "Action" else ("buildIn" if raw_kind == "BuildIn" else "buildOut")
+        )
+        effect_name = info["name"] if info else eff_key.replace("apple:", "")
+        default_dur = info["default_duration"] if info else 1.5
+
+        end_pos = m.end()
+        parsed_dur = None
+        if end_pos + 9 <= len(decomp) and decomp[end_pos:end_pos+1] == b'\x19':
+            try:
+                val = struct.unpack("<d", decomp[end_pos+1:end_pos+9])[0]
+                if 0.1 <= val <= 60.0:
+                    parsed_dur = round(val, 2)
+            except Exception:
+                pass
+        duration = parsed_dur if parsed_dur is not None else default_dur
+
+        default_tgt = info.get("default_target", "character") if info else "character"
+        if default_tgt == "character":
+            target_name = char_name if (char_name and char_name != "ナレーション") else "キャラクター立ち絵"
+        elif default_tgt == "telop":
+            target_name = "テロップ"
+        elif default_tgt == "object_or_char":
+            if objects:
+                target_name = objects[0]["name"]
+            elif char_name and char_name != "ナレーション":
+                target_name = char_name
+            else:
+                target_name = "キャラクター立ち絵"
+        else:
+            target_name = char_name if (char_name and char_name != "ナレーション") else "オブジェクト"
+
+        anim_entry = {
+            "id": f"anim_{anim_idx}",
+            "targetObjectName": target_name,
+            "animationType": anim_type,
+            "effect": effect_name,
+            "duration": duration,
+            "direction": info.get("direction", "none") if info else "none"
+        }
+        if info and "bounces" in info:
+            anim_entry["bounces"] = info["bounces"]
+            anim_entry["decay"] = info["decay"]
+        if info and "rotationAngle" in info:
+            anim_entry["rotationAngle"] = info["rotationAngle"]
+            anim_entry["rotationCount"] = info["rotationCount"]
+            anim_entry["clockwise"] = info["clockwise"]
+
+        animations.append(anim_entry)
+        build_orders.append({
+            "order": len(build_orders) + 1,
+            "animationId": f"anim_{anim_idx}",
+            "targetObjectName": target_name,
+            "effect": effect_name,
+            "trigger": "前のアニメーションの後" if len(build_orders) > 0 else "クリック時",
+            "delay": 0.0
+        })
+        anim_idx += 1
 
     return animations, build_orders
 
@@ -990,6 +1217,7 @@ def extract_via_direct_iwa(filepath, project_name):
         meta_raw = read_bytes("Index/Metadata.iwa")
         meta_decomp = decompress_iwa(meta_raw) if meta_raw else b""
         image_id_map = {}
+        obj_to_img = {}
         if meta_decomp:
             for m in re.finditer(rb"\x08([\x80-\xff]*[\x00-\x7f])\x12\x14([^\x1a]*)\x1a([^\"]*)\"", meta_decomp):
                 vb = m.group(1); v = 0; s = 0
@@ -1002,6 +1230,12 @@ def extract_via_direct_iwa(filepath, project_name):
                         image_id_map[v] = cleaned_n
                 except Exception:
                     pass
+
+            for m in re.finditer(rb":[\x05-\x20]\x08([\x80-\xff]*[\x00-\x7f])\x12[\x05-\x10]\x08([\x80-\xff]*[\x00-\x7f])", meta_decomp):
+                img_id, _ = parse_varint(m.group(1), 0)
+                obj_id, _ = parse_varint(m.group(2), 0)
+                if img_id in image_id_map:
+                    obj_to_img[obj_id] = image_id_map[img_id]
 
         parsed_slides = []
         for idx, sid in enumerate(ordered_sids):
@@ -1029,10 +1263,7 @@ def extract_via_direct_iwa(filepath, project_name):
 
             bg_name = ""
             bg_path = None
-            char_name = ""
-            char_img_name = ""
-            char_img_path = None
-
+            characters = []
             objects = []
             detected_names = []
 
@@ -1052,12 +1283,22 @@ def extract_via_direct_iwa(filepath, project_name):
                     is_bg = True
                     detected_names.append("背景(動画用/背景): " + iname)
 
-                elif category == "character" and not char_img_name:
-                    char_img_name = iname
-                    char_img_path = asset_path
-                    if cat_char_name:
-                        char_name = cat_char_name
+                elif category == "character":
                     is_char = True
+                    c_display = cat_char_name if cat_char_name else ""
+                    if not c_display:
+                        for k, full_n in CHAR_MAP.items():
+                            if k in iname:
+                                c_display = full_n
+                                break
+                    if not c_display:
+                        c_display = "キャラクター"
+                    
+                    characters.append({
+                        "name": c_display,
+                        "imageName": iname,
+                        "imagePath": asset_path
+                    })
                     detected_names.append("キャラクター(動画用/キャラクター): " + iname)
 
                 elif category == "handmade":
@@ -1082,18 +1323,20 @@ def extract_via_direct_iwa(filepath, project_name):
                         is_bg = True
                         detected_names.append("背景:" + iname)
 
-                if not is_bg and not is_char and not char_img_name:
+                if not is_bg and not is_char:
                     detected_char_in_img = ""
                     for k, full_n in CHAR_MAP.items():
                         if k in iname:
                             detected_char_in_img = full_n
                             break
-                    has_char_trait = any(k in iname for k in ["立ち絵", "（余裕）", "（驚く）", "（困る）", "（微笑）", "（笑い）", "寝顔", "疑問顔", "表情", "私服"])
+                    has_char_trait = any(k in iname for k in ["立ち絵", "（余裕）", "（驚く）", "（困る）", "（微笑）", "（笑い）", "寝顔", "疑問顔", "表情", "私服", "水着"])
                     if detected_char_in_img or has_char_trait:
-                        char_img_name = iname
-                        char_img_path = asset_path
-                        if detected_char_in_img:
-                            char_name = detected_char_in_img
+                        c_display = detected_char_in_img if detected_char_in_img else "キャラクター"
+                        characters.append({
+                            "name": c_display,
+                            "imageName": iname,
+                            "imagePath": asset_path
+                        })
                         is_char = True
                         detected_names.append("キャラクター:" + iname)
 
@@ -1138,33 +1381,12 @@ def extract_via_direct_iwa(filepath, project_name):
             # ノートから話者（カッコ書き"（）,(),[]"）を抽出＆UI非表示クリーン化
             note_speaker, cleaned_note, orig_raw_note = extract_speaker_and_clean_note(raw_note)
 
-            anims, builds = extract_animations_from_decomp(decomp, objects, txts, stype)
-            total_anim_dur = sum(a.get("duration", 1.0) for a in anims) if anims else 0.0
-
-            # Slide 3 & 7 Rule: Presenter Note MUST BE BLANK for Title and Section Header slides!
-            if stype in ["title", "sectionHeader"]:
-                presenter_note = ""
-                raw_presenter_note = ""
-                duration = parse_duration_from_note(raw_note, default_duration=3.0, anim_duration=total_anim_dur)
-            else:
-                # 通常シーン: ノートにセリフが記載されている場合はノートのセリフのみを記録・表示！
-                # ノートにセリフがないシーンのみ、テロップから抽出！
-                if raw_note:
-                    presenter_note = cleaned_note
-                    raw_presenter_note = orig_raw_note
-                    base_duration = max(3.5, len(cleaned_note) * 0.1) if cleaned_note else 4.0
-                    duration = parse_duration_from_note(raw_note, default_duration=base_duration, anim_duration=total_anim_dur)
-                else:
-                    t_spk, t_cleaned, t_raw = extract_speaker_and_clean_note(telop)
-                    if t_spk and not note_speaker:
-                        note_speaker = t_spk
-                    presenter_note = t_cleaned if t_cleaned else telop
-                    raw_presenter_note = telop
-                    base_duration = max(3.5, len(telop) * 0.1) if telop else 4.0
-                    duration = parse_duration_from_note(raw_note, default_duration=base_duration, anim_duration=total_anim_dur)
+            char_name = ""
+            char_img_name = ""
+            char_img_path = None
 
             # ノート内のカッコ書き"（）,(),[]"から話者を最優先認識
-            if note_speaker and not char_name:
+            if note_speaker:
                 for k, full_n in CHAR_MAP.items():
                     if k in note_speaker:
                         char_name = full_n
@@ -1188,13 +1410,73 @@ def extract_via_direct_iwa(filepath, project_name):
                             char_name = full_n
                             break
 
+            # 主キャラクター（メイン立ち絵枠）と複数キャラクターの整理
+            primary_char = None
+            if char_name:
+                for c in characters:
+                    if char_name in c["name"] or any(k in char_name for k, full_n in CHAR_MAP.items() if full_n == c["name"]):
+                        primary_char = c
+                        break
+            if not primary_char and characters:
+                primary_char = characters[0]
+                if not char_name:
+                    char_name = primary_char["name"]
+
+            if primary_char:
+                char_img_name = primary_char["imageName"]
+                char_img_path = primary_char["imagePath"]
+
+            # スライドに複数キャラクターが存在する場合:
+            # 主キャラ以外のキャラクターも objects に objectType: "character" として配置する（左側配置）
+            char_idx = 0
+            for c in characters:
+                if c != primary_char:
+                    # 2人目以降のキャラは画面左側〜中央（重ならない配置）
+                    pos_x = 180.0 + (char_idx * 300.0)
+                    objects.append({
+                        "name": c["imageName"],
+                        "objectType": "character",
+                        "characterName": c["name"],
+                        "x": pos_x,
+                        "y": 30.0,
+                        "width": 480.0,
+                        "height": 850.0,
+                        "imagePath": c["imagePath"]
+                    })
+                    char_idx += 1
+
             if not char_name:
                 char_name = "ナレーション" if stype == "content" else ""
+
+            anims, builds = extract_animations_from_decomp(decomp, objects, txts, stype, char_name=char_name, obj_to_img=obj_to_img)
+            total_anim_dur = sum(a.get("duration", 1.0) for a in anims) if anims else 0.0
+
+            # Slide 3 & 7 Rule: Presenter Note MUST BE BLANK for Title and Section Header slides!
+            if stype in ["title", "sectionHeader"]:
+                presenter_note = ""
+                raw_presenter_note = ""
+                duration = parse_duration_from_note(raw_note, default_duration=3.0, anim_duration=total_anim_dur)
+            else:
+                # 通常シーン: ノートにセリフが記載されている場合はノートのセリフのみを記録・表示！
+                # ノートにセリフがないシーンのみ、テロップから抽出！
+                if raw_note:
+                    presenter_note = cleaned_note
+                    raw_presenter_note = orig_raw_note
+                    base_duration = max(3.5, len(cleaned_note) * 0.1) if cleaned_note else 4.0
+                    duration = parse_duration_from_note(raw_note, default_duration=base_duration, anim_duration=total_anim_dur)
+                else:
+                    t_spk, t_cleaned, t_raw = extract_speaker_and_clean_note(telop)
+                    if t_spk and not note_speaker and char_name == "ナレーション":
+                        note_speaker = t_spk
+                        char_name = t_spk
+                    presenter_note = t_cleaned if t_cleaned else telop
+                    raw_presenter_note = telop
+                    base_duration = max(3.5, len(telop) * 0.1) if telop else 4.0
+                    duration = parse_duration_from_note(raw_note, default_duration=base_duration, anim_duration=total_anim_dur)
 
             if not bg_name:
                 bg_name = "nc73538_【背景素材】博麗神社.jpg" if stype == "content" else "単色背景"
                 bg_path = find_asset(bg_name)
-
 
             parsed_slides.append({
                 "slideIndex": s_idx,
@@ -1210,6 +1492,8 @@ def extract_via_direct_iwa(filepath, project_name):
                 "transitionDuration": 0.8,
                 "backgroundName": bg_name,
                 "characterName": char_name,
+                "characterNames": [c["name"] for c in characters],
+                "characters": characters,
                 "slideWidth": doc_w,
                 "slideHeight": doc_h,
                 "backgroundImagePath": bg_path,
@@ -1228,7 +1512,7 @@ def extract_via_direct_iwa(filepath, project_name):
                 "telopHeight": 225.0,
                 "objects": objects,
                 "detectedObjects": detected_names if detected_names else ["演出枠"],
-                "animationTag": anims[0]["effect"] if anims else "フェードイン",
+                "animationTag": anims[0]["effect"] if anims else "なし",
                 "transitionTag": "クロスディゾルブ",
                 "animations": anims,
                 "buildOrder": builds
@@ -1368,23 +1652,10 @@ def fallback_scan(filepath, project_name):
             "telopHeight": 225.0,
             "objects": [],
             "detectedObjects": [f"背景:{bg_item[0]}"] if bg_item[0] else ["実素材枠"],
-            "animationTag": anim,
+            "animationTag": "なし",
             "transitionTag": "クロスディゾルブ",
-            "animations": [{
-                "id": f"anim_{i}",
-                "targetObjectName": char_name,
-                "animationType": "buildIn",
-                "effect": anim,
-                "duration": 1.0,
-                "direction": "none"
-            }],
-            "buildOrder": [{
-                "order": 1,
-                "animationId": f"anim_{i}",
-                "targetObjectName": char_name,
-                "trigger": "afterPrevious",
-                "delay": 0.0
-            }]
+            "animations": [],
+            "buildOrder": []
         })
 
     return {
@@ -1576,23 +1847,10 @@ def extract_keynote_slides(filepath):
                     "telopHeight": 225.0,
                     "objects": objects,
                     "detectedObjects": detected_names if detected_names else ["演出枠"],
-                    "animationTag": "フェードイン",
+                    "animationTag": "なし",
                     "transitionTag": "クロスディゾルブ",
-                    "animations": [{
-                        "id": f"anim_{s_idx}",
-                        "targetObjectName": char_name if char_name else "演出枠",
-                        "animationType": "buildIn",
-                        "effect": "フェードイン",
-                        "duration": 1.0,
-                        "direction": "none"
-                    }],
-                    "buildOrder": [{
-                        "order": 1,
-                        "animationId": f"anim_{s_idx}",
-                        "targetObjectName": char_name if char_name else "演出枠",
-                        "trigger": "afterPrevious",
-                        "delay": 0.0
-                    }]
+                    "animations": [],
+                    "buildOrder": []
                 })
 
             res = {

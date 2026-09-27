@@ -84,7 +84,7 @@ public struct BatchVoiceGenerationSheet: View {
             // Bottom Control & Progress Bar
             bottomControlView
         }
-        .frame(width: 1060, height: 720)
+        .frame(width: 1180, height: 720)
         .background(Color(red: 0.14, green: 0.15, blue: 0.17))
         .onAppear {
             loadInitialItems()
@@ -554,6 +554,11 @@ public struct BatchVoiceGenerationSheet: View {
                     .foregroundColor(.secondary)
                     .frame(width: 220, alignment: .leading)
 
+                Text("表示時間 / アニメ")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
+                    .frame(width: 130, alignment: .leading)
+
                 Text("試聴")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.secondary)
@@ -707,6 +712,34 @@ public struct BatchVoiceGenerationSheet: View {
                 .foregroundColor(item.isSkipped ? .secondary.opacity(0.5) : .cyan)
             }
             .frame(width: 220, alignment: .leading)
+
+            // 表示時間 / アニメーション演出
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Image(systemName: item.animationDuration != nil ? "film.stack.fill" : "clock")
+                        .font(.system(size: 8))
+                        .foregroundColor(item.animationDuration != nil ? .yellow : .cyan)
+                    Text(String(format: "%.1f秒", item.effectiveSceneDuration))
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(item.isSkipped ? .secondary : .white)
+                }
+                if let note = item.animationNote {
+                    Text("🎬 \(note)")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundColor(.yellow)
+                        .lineLimit(1)
+                } else if let animDur = item.animationDuration {
+                    Text("🎬 アニメ: \(String(format: "%.1f", animDur))秒")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundColor(.yellow)
+                        .lineLimit(1)
+                } else {
+                    Text("通常シーン")
+                        .font(.system(size: 8))
+                        .foregroundColor(.secondary.opacity(0.7))
+                }
+            }
+            .frame(width: 130, alignment: .leading)
 
             // Preview Play Button (Respects this item's specific template/custom settings)
             Button(action: {
@@ -980,6 +1013,7 @@ public struct BatchVoiceGenerationSheet: View {
             text: SlideItem.cleanDialogueText(from: item.text),
             speed: effectiveSpeed,
             voice: item.voiceType,
+            pitch: item.pitch,
             quality: globalQuality,
             effect: globalEffect
         ) {

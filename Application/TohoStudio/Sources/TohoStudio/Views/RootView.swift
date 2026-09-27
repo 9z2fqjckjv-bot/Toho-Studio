@@ -267,7 +267,7 @@ public struct RootView: View {
                 .font(.caption2)
                 .foregroundColor(.secondary)
 
-            Text("バージョン: v1.0.9")
+            Text("バージョン: v1.0.92")
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }
@@ -456,6 +456,16 @@ public struct RootView: View {
 
             case .spanAudioInsert:
                 SpanAudioInsertSheet(initialStartScene: max(1, appState.selectedSceneIndex + 1))
+
+            case .slideExtractor:
+                CommonModalContainer(title: "スライド抽出プログラム (有料機能)", icon: "line.3.horizontal.decrease.circle", isPresented: modalBinding) {
+                    SlideExtractorModalView()
+                }
+
+            case .aiSearch:
+                CommonModalContainer(title: "AI高度検索・生成・置換 (有料機能連携)", icon: "sparkles", isPresented: modalBinding) {
+                    AISearchModalView()
+                }
 
             case .slideRecognitionPopup, .slideLoader:
                 Color.clear

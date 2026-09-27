@@ -24,9 +24,24 @@ public struct BatchVoiceItem: Identifiable, Equatable {
     public var generatedWavURL: URL? = nil
     public var audioDuration: Double = 3.0
     public var waveformPoints: [Float] = []
+    public var animationDuration: Double? = nil
+    public var animationNote: String? = nil
+    public var slideDuration: Double = 3.0
 
     public var isTitleOrSectionHeader: Bool {
         return slideType == "title" || slideType == "sectionHeader" || (skipReason?.contains("タイトル") == true || skipReason?.contains("セクション") == true)
+    }
+
+    /// アニメーション指定時間または音声長に合わせたシーン表示時間（秒数）
+    public var effectiveSceneDuration: Double {
+        if let animDur = animationDuration, animDur > 0 {
+            if isSkipped {
+                return animDur
+            }
+            return max(animDur, audioDuration + 0.6)
+        }
+        let base = max(2.0, slideDuration)
+        return isSkipped ? max(3.0, base) : max(base, audioDuration + 0.6)
     }
 
     public init(
@@ -44,7 +59,10 @@ public struct BatchVoiceItem: Identifiable, Equatable {
         effect: AudioEffectType = .none,
         quality: AudioQualitySetting = .enhanced,
         isSkipped: Bool = false,
-        skipReason: String? = nil
+        skipReason: String? = nil,
+        animationDuration: Double? = nil,
+        animationNote: String? = nil,
+        slideDuration: Double = 3.0
     ) {
         self.id = id
         self.slideIndex = slideIndex
@@ -61,6 +79,9 @@ public struct BatchVoiceItem: Identifiable, Equatable {
         self.quality = quality
         self.isSkipped = isSkipped
         self.skipReason = skipReason
+        self.animationDuration = animationDuration
+        self.animationNote = animationNote
+        self.slideDuration = slideDuration
     }
 }
 
@@ -184,6 +205,9 @@ public final class SlideVoiceBatchService: ObservableObject {
             let isHeaderOrTitle = slide.isTitleOrSectionHeader
             let skipReason: String? = isHeaderOrTitle ? ((slide.slideType == "title" || slide.slideIndex == 1) ? "タイトルスライド (音声スキップ)" : "セクション見出し (音声スキップ)") : nil
 
+            let animDur = slide.animationTimingDuration
+            let animNote = slide.animationTimingNote
+
             let item = BatchVoiceItem(
                 slideIndex: slide.slideIndex,
                 slideTitle: slide.title.isEmpty ? "スライド #\(slide.slideIndex)" : slide.title,
@@ -198,7 +222,10 @@ public final class SlideVoiceBatchService: ObservableObject {
                 effect: defaultEffect,
                 quality: defaultQuality,
                 isSkipped: isHeaderOrTitle,
-                skipReason: skipReason
+                skipReason: skipReason,
+                animationDuration: animDur,
+                animationNote: animNote,
+                slideDuration: slide.duration
             )
             items.append(item)
         }
@@ -290,11 +317,12 @@ public final class SlideVoiceBatchService: ObservableObject {
                     onProgress?(i + 1, items.count, item)
                 }
 
-                // AquesTalkで音声を合成 (音質改善 & エフェクト適用)
+                // AquesTalkで音声を合成 (音質改善 & エフェクト適用 & ピッチシフト)
                 let wavData = AquesTalkBridge.shared.synthesizeToWavData(
                     text: item.text,
                     speed: item.speed,
                     voice: item.voiceType,
+                    pitch: item.pitch,
                     quality: quality,
                     effect: effect
                 )
@@ -352,8 +380,10 @@ public final class SlideVoiceBatchService: ObservableObject {
         var currentPosition: Double = 0.0
 
         for item in items {
-            // シーンの長さ決定: 音声がある場合は 音声長 + 0.6s、スキップの場合は 3.0s
-            let sceneDuration = item.isSkipped ? 3.0 : max(2.0, item.audioDuration + 0.6)
+            // シーンの長さ決定:
+            // スライド上のアニメーション指定時間表記（例: 15秒、25秒）や"アニメーションに合わせる"表記がある場合は、
+            // そのアニメーション時間に合わせてシーン表示時間を正確に設定！
+            let sceneDuration = item.effectiveSceneDuration
 
             // MovieScene の生成/更新
             let matchedSlide = appState.slides.first(where: { $0.slideIndex == item.slideIndex })
@@ -373,6 +403,8 @@ public final class SlideVoiceBatchService: ObservableObject {
             }
 
             let telopText = matchedSlide?.telop.isEmpty == false ? matchedSlide!.telop : item.text
+            let slideHasAnim = (matchedSlide?.animations.isEmpty == false) && (matchedSlide?.animationTag != "なし") && (matchedSlide?.animationTag.isEmpty == false)
+            let finalAnimName = slideHasAnim ? matchedSlide?.animationTag : "なし"
 
             let scene = MovieScene(
                 title: finalTitle,
@@ -381,7 +413,11 @@ public final class SlideVoiceBatchService: ObservableObject {
                 backgroundName: matchedSlide?.backgroundName ?? "神社",
                 characterName: item.characterName,
                 telop: telopText,
-                audioTrack: item.isSkipped ? nil : "track_voice"
+                audioTrack: item.isSkipped ? nil : "track_voice",
+                animationName: finalAnimName,
+                transitionName: matchedSlide?.transitionEffect,
+                animationDuration: item.animationDuration,
+                animationNote: item.animationNote
             )
             updatedScenes.append(scene)
 
@@ -438,6 +474,10 @@ public final class SlideVoiceBatchService: ObservableObject {
                 isLooping: true
             )
             appState.soundClips.append(bgmClip)
+        }
+
+        if let movieIdx = appState.soundClips.firstIndex(where: { $0.type == "Movie" }) {
+            appState.soundClips[movieIdx].duration = max(currentPosition, appState.soundClips[movieIdx].duration)
         }
 
         appState.log("全スライド (\(items.count) 件) の音声をシーンごとにタイムラインへ配置しました (総尺: \(String(format: "%.1f", currentPosition))秒)")

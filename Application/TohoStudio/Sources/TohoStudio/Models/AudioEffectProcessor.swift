@@ -50,11 +50,12 @@ public final class AudioEffectProcessor {
 
     private init() {}
 
-    /// WAVデータ(8kHz/16bit/Mono)を受け取り、音質改善およびエフェクト(エコー等)を適用した新しいWAVデータを返す
+    /// WAVデータ(8kHz/16bit/Mono)を受け取り、音質改善、ピッチシフト、エフェクト(エコー等)を適用した新しいWAVデータを返す
     public func process(
         wavData: Data,
         quality: AudioQualitySetting = .enhanced,
-        effect: AudioEffectType = .none
+        effect: AudioEffectType = .none,
+        pitch: Int = 100
     ) -> Data {
         // WAVヘッダ解析
         guard let parsed = parseWav(data: wavData) else {
@@ -65,24 +66,30 @@ public final class AudioEffectProcessor {
         var samples = parsed.samples
         var sampleRate = parsed.sampleRate
 
-        // 1. 音質改善 (Audio Quality Improvement)
-        if quality.isEnabled && sampleRate < 44100 {
-            // 8000Hz -> 44100Hz アップサンプリング（三次補間）
-            let targetSampleRate = 44100
-            samples = resample(samples: samples, from: sampleRate, to: targetSampleRate)
+        let pitchRatio = (pitch > 0 && pitch != 100) ? (Double(pitch) / 100.0) : 1.0
+        let targetSampleRate = quality.isEnabled ? 44100 : 8000
+
+        // 1. ピッチシフト & 音質改善（純粋なリサンプリングによる音程変更）
+        // フェーズボコーダー（FFT位相変換）を使わず、ゆっくりボイス標準のリサンプリング方式を採用。
+        // これにより金属音・コーラス・フランジャー・位相干渉などの不自然なエフェクトが完全にゼロになり、
+        // ゆっくり実況本来のクリアで澄んだキャラクター音声になります。
+        if pitchRatio != 1.0 || (quality.isEnabled && sampleRate != targetSampleRate) {
+            let effectiveSrcRate = Int(Double(sampleRate) * pitchRatio)
+            samples = resample(samples: samples, from: effectiveSrcRate, to: targetSampleRate)
             sampleRate = targetSampleRate
 
-            // 高域明瞭化イコライジング (AquesTalkのこもりを解消し、ゆっくりボイスメーカーのクリアな音質に)
-            samples = applyPresenceEnhancer(samples: samples, sampleRate: sampleRate)
+            // 高音質化時のプレゼンスエンハンサー (マイルドに適用)
+            if quality.isEnabled {
+                samples = applyPresenceEnhancer(samples: samples, sampleRate: sampleRate)
+            }
         }
 
-        // 2. エフェクト処理 (Effect)
+        // 2. エフェクト処理 (ユーザーが明示的にエコーを指定した場合のみ)
         if effect == .echo {
-            // エコー処理 (遅延: 約0.18秒, フィードバック: 0.35, ドライ/ウェットミックス)
             samples = applyEcho(samples: samples, sampleRate: sampleRate, delayTimeSeconds: 0.18, feedback: 0.36, wetLevel: 0.42)
         }
 
-        // ソフトリミッティング (音割れ防止)
+        // 3. ソフトリミッティング (音割れ防止)
         samples = applySoftLimiter(samples: samples)
 
         // 新しいWAVフォーマットにエンコード
@@ -211,8 +218,8 @@ public final class AudioEffectProcessor {
             let diff = hp - prevSample
             prevSample = hp
 
-            // Mix: 原音 80% + 高域強調成分 20%
-            let enhanced = hp * 0.82 + diff * 0.38
+            // Mix: 原音 92% + わずかな高域明瞭化 12% (自然で違和感のないクリアな声に調整)
+            let enhanced = hp * 0.92 + diff * 0.12
             output[i] = enhanced
         }
 

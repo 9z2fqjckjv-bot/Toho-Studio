@@ -324,8 +324,8 @@ public final class SlideRecognitionService: ObservableObject {
     }
 
     /// 互換用メソッド: スライド読み込みプログラム（統合メソッドへ委譲）
-    public func loadSlideProgram(filePath: String, replaceState: Bool = true, completion: @escaping (Bool, [SlideItem]) -> Void) {
-        loadAndRecognizeSlides(filePath: filePath, syncMovieMaker: true, syncGameMaker: true, syncSoundMaker: true, syncMaterialStudio: true, autoSave: true) { result in
+    public func loadSlideProgram(filePath: String, syncSoundMaker: Bool = true, replaceState: Bool = true, completion: @escaping (Bool, [SlideItem]) -> Void) {
+        loadAndRecognizeSlides(filePath: filePath, syncMovieMaker: true, syncGameMaker: true, syncSoundMaker: syncSoundMaker, syncMaterialStudio: true, autoSave: true) { result in
             completion(!result.processedSlides.isEmpty, result.processedSlides)
         }
     }
@@ -338,17 +338,42 @@ public final class SlideRecognitionService: ObservableObject {
     // MARK: - Cross-Module Synchronization (指示書 Slide 14 要件)
 
     public func syncToMovieMaker(slides: [SlideItem]) {
+        let currentClips = AppState.shared.soundClips
         let scenes: [MovieScene] = slides.map { slide in
-            MovieScene(
+            let matchedVoice = currentClips.first(where: {
+                $0.type == "Voice" && ($0.sceneIndex == slide.slideIndex || ($0.text != nil && !slide.telop.isEmpty && (slide.telop.contains($0.text!) || $0.text!.contains(SlideItem.cleanDialogueText(from: slide.telop)))))
+            })
+            let matchedSE = currentClips.first(where: {
+                $0.type == "SE" && ($0.sceneIndex == slide.slideIndex || ($0.spanStartSceneIndex != nil && $0.spanEndSceneIndex != nil && slide.slideIndex >= $0.spanStartSceneIndex! && slide.slideIndex <= $0.spanEndSceneIndex!))
+            })
+            let matchedBGM = currentClips.first(where: {
+                $0.type == "BGM" && ($0.sceneIndex == slide.slideIndex || ($0.spanStartSceneIndex != nil && $0.spanEndSceneIndex != nil && slide.slideIndex >= $0.spanStartSceneIndex! && slide.slideIndex <= $0.spanEndSceneIndex!) || $0.isLooping || $0.spanStartSceneIndex == nil)
+            })
+
+            let hasActualAnimation = !slide.animations.isEmpty && slide.animationTag != "なし" && !slide.animationTag.isEmpty
+            let actualAnimName = hasActualAnimation ? slide.animationTag : "なし"
+
+            return MovieScene(
                 title: slide.title,
                 duration: max(slide.duration, 2.0),
                 slideTitle: slide.slideType == "title" ? "タイトル" : (slide.slideType == "sectionHeader" ? "中扉" : "第\(slide.slideIndex)スライド"),
                 backgroundName: slide.backgroundName,
                 characterName: slide.characterName,
                 telop: SlideItem.cleanDialogueText(from: slide.telop), // ()書き表記（アニメーション）を完全に削除
-                audioTrack: nil,
-                animationName: slide.animationTag,
-                transitionName: slide.transitionEffect
+                audioTrack: matchedVoice != nil ? (matchedVoice?.trackId ?? "track_voice") : nil,
+                animationName: actualAnimName,
+                transitionName: slide.transitionEffect,
+                slideImagePath: slide.slideImagePath,
+                videoPath: slide.animationVideoPath,
+                backgroundImagePath: slide.backgroundImagePath,
+                characterImagePath: slide.characterImagePath,
+                voiceAudioPath: matchedVoice?.audioFilePath,
+                voiceCharacter: matchedVoice?.character ?? slide.characterName,
+                voiceDuration: matchedVoice?.duration,
+                bgmAudioPath: matchedBGM?.audioFilePath,
+                bgmName: matchedBGM?.name,
+                seAudioPath: matchedSE?.audioFilePath,
+                seName: matchedSE?.name
             )
         }
         AppState.shared.movieScenes = scenes
@@ -381,11 +406,39 @@ public final class SlideRecognitionService: ObservableObject {
     }
 
     public func syncToSoundMaker(slides: [SlideItem]) {
+        let existingClips = AppState.shared.soundClips
         var clips: [SoundClip] = []
-        // BGM クリップ枠
-        clips.append(SoundClip(name: "メインテーマ BGM", type: "BGM", duration: 180.0, volume: 0.6))
+
+        // 既存の BGM クリップおよび SE クリップを優先保持
+        let existingBGMs = existingClips.filter { $0.type == "BGM" }
+        let existingSEs = existingClips.filter { $0.type == "SE" }
+        let existingVoices = existingClips.filter { $0.type == "Voice" }
+
+        // BGM クリップ枠の確保
+        if !existingBGMs.isEmpty {
+            clips.append(contentsOf: existingBGMs)
+        } else {
+            // 動画用音楽フォルダから東方アレンジBGMを自動検出
+            let bgmPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/音楽/BGM/nc252690_少女綺想曲_Capriccio__【東方アレンジ】.mp3"
+            let hasBgmFile = FileManager.default.fileExists(atPath: bgmPath)
+            clips.append(SoundClip(
+                name: "BGM: 少女綺想曲",
+                type: "BGM",
+                duration: Double(max(1, slides.count)) * 8.0,
+                volume: 0.65,
+                startTime: 0.0,
+                trackId: "track_bgm",
+                colorHex: "#9B59B6",
+                isLooping: true,
+                audioFilePath: hasBgmFile ? bgmPath : nil
+            ))
+        }
+
+        // 既存 SE もそのまま復元
+        clips.append(contentsOf: existingSEs)
+
         // 音声セリフ枠
-        for slide in slides.prefix(100) {
+        for slide in slides.prefix(200) {
             // 指示書準拠: セクション見出しとタイトルスライドは音声を必ずスキップ
             if slide.isTitleOrSectionHeader {
                 continue
@@ -419,6 +472,18 @@ public final class SlideRecognitionService: ObservableObject {
             speechText = SlideItem.cleanDialogueText(from: speechText)
 
             if !speechText.isEmpty && !speaker.isEmpty && speaker != "ナレーション" {
+                // 既存の Voice クリップに対応するものがあれば引き継ぎ
+                let matchedExisting = existingVoices.first(where: {
+                    $0.sceneIndex == slide.slideIndex ||
+                    ($0.character == speaker && $0.text != nil && ($0.text == speechText || speechText.contains($0.text!) || $0.text!.contains(speechText)))
+                })
+
+                if var existing = matchedExisting {
+                    existing.sceneIndex = slide.slideIndex
+                    clips.append(existing)
+                    continue
+                }
+
                 let voiceSym = AquesTalkBridge.shared.convertToVoiceSymbol(text: speechText)
                 
                 // Track assignment based on speaker
@@ -431,7 +496,8 @@ public final class SlideRecognitionService: ObservableObject {
                     trackId = "track_voice_marisa"
                     colorHex = "#F1C40F"
                 } else {
-                    trackId = "track_voice_reimu"
+                    let sanitized = speaker.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? UUID().uuidString.prefix(6).description
+                    trackId = "track_voice_\(sanitized)"
                     colorHex = "#00CEC9"
                 }
 
@@ -450,12 +516,13 @@ public final class SlideRecognitionService: ObservableObject {
                     startTime: Double(slide.slideIndex - 1) * 8.0,
                     trackId: trackId,
                     colorHex: colorHex,
-                    waveformPoints: waveform
+                    waveformPoints: waveform,
+                    sceneIndex: slide.slideIndex
                 ))
             }
         }
         
-        // Ensure default movie video & BGM clips also present if needed
+        // Ensure default movie video clip present
         if !clips.contains(where: { $0.type == "Movie" }) {
             let movieClip = SoundClip(
                 name: "video (スライド映像音声)",
@@ -469,21 +536,12 @@ public final class SlideRecognitionService: ObservableObject {
             )
             clips.insert(movieClip, at: 0)
         }
-        if !clips.contains(where: { $0.type == "BGM" }) {
-            let bgmClip = SoundClip(
-                name: "BGM: テーマ曲",
-                type: "BGM",
-                duration: Double(max(1, slides.count)) * 8.0,
-                volume: 0.65,
-                startTime: 0.0,
-                trackId: "track_bgm",
-                colorHex: "#9B59B6",
-                waveformPoints: (0..<25).map { _ in Float.random(in: 0.3...0.85) }
-            )
-            clips.append(bgmClip)
-        }
 
-        AppState.shared.soundClips = clips
+        // 音声ファイルパスの自動検索・修復（Voice / BGM / SE）
+        let repaired = AppState.shared.resolveAndRepairAudioPaths(for: clips)
+        AppState.shared.soundClips = repaired
+        AppState.shared.ensureTracksForClips(repaired)
+        AppState.shared.syncClipsToMovieScenes(repaired)
     }
 
     public func syncToMaterialStudio(slides: [SlideItem]) {
@@ -709,7 +767,7 @@ public final class SlideRecognitionService: ObservableObject {
                         let bg = d["backgroundName"] as? String ?? "nc73538_【背景素材】博麗神社.jpg"
                         let char = d["characterName"] as? String ?? "ナレーション"
                         let objs = d["detectedObjects"] as? [String] ?? ["演出枠"]
-                        let anim = d["animationTag"] as? String ?? "フェードイン"
+                        let anim = d["animationTag"] as? String ?? "なし"
                         let trans = d["transitionTag"] as? String ?? "クロスディゾルブ"
 
                         let stype = d["slideType"] as? String ?? "content"
@@ -817,7 +875,7 @@ public final class SlideRecognitionService: ObservableObject {
                             backgroundName: bg,
                             characterName: char,
                             detectedObjects: objs,
-                            animationTag: anim,
+                            animationTag: animationItems.isEmpty ? "なし" : anim,
                             transitionTag: trans,
                             slideType: stype,
                             duration: dur,
@@ -870,8 +928,6 @@ public final class SlideRecognitionService: ObservableObject {
         for i in 1...count {
             let char = chars[(i - 1) % chars.count]
             let bg = bgs.isEmpty ? "nc73538_【背景素材】博麗神社.jpg" : bgs[(i - 1) % bgs.count]
-            let anim = ["フェードイン", "スライドイン左", "ズームアップ", "ディゾルブ", "バウンス"][(i - 1) % 5]
-
             let slide = SlideItem(
                 slideIndex: i,
                 title: "\(fileName) - シーン \(i): \(char)",
@@ -880,12 +936,12 @@ public final class SlideRecognitionService: ObservableObject {
                 backgroundName: bg,
                 characterName: char,
                 detectedObjects: ["オブジェクト\(i)", "演出アンカー"],
-                animationTag: anim,
+                animationTag: "なし",
                 transitionTag: "クロスディゾルブ",
                 slideType: i == 1 ? "title" : "content",
                 duration: i == 1 ? 3.0 : 4.0,
-                animations: [SlideAnimationItem(targetObjectName: char, animationKind: "action", effect: anim, duration: 1.5, order: 1)],
-                buildOrder: [BuildOrderItem(order: 1, objectName: char, effect: anim, trigger: "前のアニメーションの後", delay: 0.0)]
+                animations: [],
+                buildOrder: []
             )
             slides.append(slide)
         }

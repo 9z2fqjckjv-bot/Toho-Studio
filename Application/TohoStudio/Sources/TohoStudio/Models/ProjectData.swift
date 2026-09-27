@@ -1,4 +1,6 @@
 import Foundation
+import AVFoundation
+import CoreMedia
 
 // MARK: - Software Modules (内蔵ソフト)
 public enum SoftwareModule: String, CaseIterable, Identifiable {
@@ -75,6 +77,103 @@ public struct MovieScene: Identifiable, Codable, Equatable {
     public var audioTrack: String?
     public var animationName: String?
     public var transitionName: String?
+    public var animationDuration: Double? = nil
+    public var animationNote: String? = nil
+    public var slideImagePath: String? = nil
+    public var videoPath: String? = nil
+    public var backgroundImagePath: String? = nil
+    public var characterImagePath: String? = nil
+    public var voiceAudioPath: String? = nil
+    public var voiceCharacter: String? = nil
+    public var voiceDuration: Double? = nil
+    public var bgmAudioPath: String? = nil
+    public var bgmName: String? = nil
+    public var seAudioPath: String? = nil
+    public var seName: String? = nil
+
+    public init(
+        id: UUID = UUID(),
+        title: String,
+        duration: Double,
+        slideTitle: String,
+        backgroundName: String,
+        characterName: String,
+        telop: String,
+        audioTrack: String? = nil,
+        animationName: String? = nil,
+        transitionName: String? = nil,
+        animationDuration: Double? = nil,
+        animationNote: String? = nil,
+        slideImagePath: String? = nil,
+        videoPath: String? = nil,
+        backgroundImagePath: String? = nil,
+        characterImagePath: String? = nil,
+        voiceAudioPath: String? = nil,
+        voiceCharacter: String? = nil,
+        voiceDuration: Double? = nil,
+        bgmAudioPath: String? = nil,
+        bgmName: String? = nil,
+        seAudioPath: String? = nil,
+        seName: String? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.duration = duration
+        self.slideTitle = slideTitle
+        self.backgroundName = backgroundName
+        self.characterName = characterName
+        self.telop = telop
+        self.audioTrack = audioTrack
+        self.animationName = animationName
+        self.transitionName = transitionName
+        self.animationDuration = animationDuration
+        self.animationNote = animationNote
+        self.slideImagePath = slideImagePath
+        self.videoPath = videoPath
+        self.backgroundImagePath = backgroundImagePath
+        self.characterImagePath = characterImagePath
+        self.voiceAudioPath = voiceAudioPath
+        self.voiceCharacter = voiceCharacter
+        self.voiceDuration = voiceDuration
+        self.bgmAudioPath = bgmAudioPath
+        self.bgmName = bgmName
+        self.seAudioPath = seAudioPath
+        self.seName = seName
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        self.title = try container.decode(String.self, forKey: .title)
+        self.duration = try container.decode(Double.self, forKey: .duration)
+        self.slideTitle = try container.decodeIfPresent(String.self, forKey: .slideTitle) ?? ""
+        self.backgroundName = try container.decodeIfPresent(String.self, forKey: .backgroundName) ?? ""
+        self.characterName = try container.decodeIfPresent(String.self, forKey: .characterName) ?? ""
+        self.telop = try container.decodeIfPresent(String.self, forKey: .telop) ?? ""
+        self.audioTrack = try container.decodeIfPresent(String.self, forKey: .audioTrack)
+        self.animationName = try container.decodeIfPresent(String.self, forKey: .animationName)
+        self.transitionName = try container.decodeIfPresent(String.self, forKey: .transitionName)
+        self.animationDuration = try container.decodeIfPresent(Double.self, forKey: .animationDuration)
+        self.animationNote = try container.decodeIfPresent(String.self, forKey: .animationNote)
+        self.slideImagePath = try container.decodeIfPresent(String.self, forKey: .slideImagePath)
+        self.videoPath = try container.decodeIfPresent(String.self, forKey: .videoPath)
+        self.backgroundImagePath = try container.decodeIfPresent(String.self, forKey: .backgroundImagePath)
+        self.characterImagePath = try container.decodeIfPresent(String.self, forKey: .characterImagePath)
+        self.voiceAudioPath = try container.decodeIfPresent(String.self, forKey: .voiceAudioPath)
+        self.voiceCharacter = try container.decodeIfPresent(String.self, forKey: .voiceCharacter)
+        self.voiceDuration = try container.decodeIfPresent(Double.self, forKey: .voiceDuration)
+        self.bgmAudioPath = try container.decodeIfPresent(String.self, forKey: .bgmAudioPath)
+        self.bgmName = try container.decodeIfPresent(String.self, forKey: .bgmName)
+        self.seAudioPath = try container.decodeIfPresent(String.self, forKey: .seAudioPath)
+        self.seName = try container.decodeIfPresent(String.self, forKey: .seName)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, duration, slideTitle, backgroundName, characterName, telop
+        case audioTrack, animationName, transitionName, animationDuration, animationNote
+        case slideImagePath, videoPath, backgroundImagePath, characterImagePath
+        case voiceAudioPath, voiceCharacter, voiceDuration, bgmAudioPath, bgmName, seAudioPath, seName
+    }
 
     /// クリーンなテロップ/セリフ（()書き表記（アニメーション）や話者タグを除外したテキスト）
     public var displayTelop: String {
@@ -381,6 +480,29 @@ public struct SoundClip: Identifiable, Codable, Equatable {
     }
 }
 
+// MARK: - Sound Maker Project Document (完全保存・読み込み用)
+public struct SoundMakerProjectDocument: Codable {
+    public var version: String = "2.0"
+    public var clips: [SoundClip]
+    public var tracks: [AudioTrack]?
+    public var scenes: [MovieScene]?
+    public var totalDuration: Double?
+
+    public init(
+        version: String = "2.0",
+        clips: [SoundClip],
+        tracks: [AudioTrack]? = nil,
+        scenes: [MovieScene]? = nil,
+        totalDuration: Double? = nil
+    ) {
+        self.version = version
+        self.clips = clips
+        self.tracks = tracks
+        self.scenes = scenes
+        self.totalDuration = totalDuration
+    }
+}
+
 // MARK: - Audio Preset Models
 public struct AudioPresetItem: Identifiable, Equatable {
     public var id: String { name }
@@ -569,6 +691,19 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         return SlideItem.cleanDialogueText(from: telop)
     }
 
+    /// スライド上のアニメーション指定時間（秒数）
+    /// （例: "（アニメーション: 15秒）" -> 15.0, "（アニメーションに合わせる）" -> アニメーション動画尺）
+    public var animationTimingDuration: Double? {
+        let combined = "\(rawPresenterNote ?? "") \(presenterNote) \(telop)"
+        return SlideItem.extractAnimationDuration(from: combined, slide: self)
+    }
+
+    /// スライド上のアニメーション演出表記（例: "アニメーション: 15秒", "アニメーションに合わせる"）
+    public var animationTimingNote: String? {
+        let combined = "\(rawPresenterNote ?? "") \(presenterNote) \(telop)"
+        return SlideItem.extractAnimationNote(from: combined)
+    }
+
     /// セリフ文およびテロップから、話者カッコ表記（例: "[霊夢]", "（魔理沙）"）および
     /// セリフ文の後や文中に付加されたアニメーション・時間・演出に関する()書き表記
     /// （例: "（アニメーション）", "(アニメーション: 15秒)", "(アニメーションに合わせる)", "（アニメ）", "（フェードイン）", "(3秒)"）
@@ -631,6 +766,69 @@ public struct SlideItem: Identifiable, Codable, Equatable {
                     return extracted
                 }
             }
+        }
+        return nil
+    }
+
+    /// スライドテキスト（ノートやテロップ）からアニメーション指定時間（秒数）を抽出
+    /// 例:
+    /// - "（アニメーション: 15秒）" -> 15.0
+    /// - "[アニメーション：10秒]" -> 10.0
+    /// - "（アニメーション:12.35秒）" -> 12.35
+    /// - "（アニメーションに合わせる）" -> スライドのアニメーション動画またはアニメーション合計時間
+    public static func extractAnimationDuration(from text: String, slide: SlideItem? = nil) -> Double? {
+        // 1. "アニメーションに合わせる" 表記の判定
+        let fitPattern = "[（\\(\\[［]\\s*アニメ(?:ーション)?に合わせる\\s*[）\\)\\]］]"
+        if let regexFit = try? NSRegularExpression(pattern: fitPattern, options: .caseInsensitive) {
+            let range = NSRange(text.startIndex..., in: text)
+            if regexFit.firstMatch(in: text, options: [], range: range) != nil {
+                // アニメーション動画の実尺があれば優先
+                if let s = slide, let vPath = s.animationVideoPath, FileManager.default.fileExists(atPath: vPath) {
+                    let asset = AVURLAsset(url: URL(fileURLWithPath: vPath))
+                    let dur = CMTimeGetSeconds(asset.duration)
+                    if dur.isFinite && dur > 0.1 {
+                        return dur
+                    }
+                }
+                // アニメーション一覧の duration 合計
+                if let s = slide, !s.animations.isEmpty {
+                    let animTotal = s.animations.reduce(0.0) { $0 + $1.duration }
+                    if animTotal > 0.1 {
+                        return animTotal
+                    }
+                }
+                // スライド自身の duration があればそれを使用
+                if let s = slide, s.duration > 0.1 {
+                    return s.duration
+                }
+                return 3.5 // デフォルト
+            }
+        }
+
+        // 2. 秒数指定パターンの判定 (例: （アニメーション: 15秒）, [アニメーション：10秒], (15秒), (表示時間: 5秒))
+        let secPattern = "[（\\(\\[［]\\s*(?:アニメ(?:ーション)?|表示時間|時間)?\\s*[:：]?\\s*(\\d+(?:\\.\\d+)?)\\s*秒\\s*[）\\)\\]］]"
+        if let regexSec = try? NSRegularExpression(pattern: secPattern, options: .caseInsensitive) {
+            let nsStr = text as NSString
+            let range = NSRange(text.startIndex..., in: text)
+            if let match = regexSec.firstMatch(in: text, options: [], range: range), match.numberOfRanges > 1 {
+                let numStr = nsStr.substring(with: match.range(at: 1))
+                if let val = Double(numStr), val > 0.0 {
+                    return val
+                }
+            }
+        }
+
+        return nil
+    }
+
+    /// スライドテキストからアニメーションの注記テキストを抽出 (例: "アニメーション: 15秒", "アニメーションに合わせる")
+    public static func extractAnimationNote(from text: String) -> String? {
+        let pattern = "[（\\(\\[［]\\s*(アニメ(?:ーション)?(?:\\s*[:：]?\\s*\\d+(?:\\.\\d+)?\\s*秒|に合わせる)?|\\d+(?:\\.\\d+)?\\s*秒|表示時間\\s*[:：]\\s*\\d+(?:\\.\\d+)?\\s*秒)\\s*[）\\)\\]］]"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return nil }
+        let nsStr = text as NSString
+        let range = NSRange(text.startIndex..., in: text)
+        if let match = regex.firstMatch(in: text, options: [], range: range), match.numberOfRanges > 1 {
+            return nsStr.substring(with: match.range(at: 1)).trimmingCharacters(in: .whitespaces)
         }
         return nil
     }

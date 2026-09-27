@@ -78,13 +78,14 @@ public struct MenuBarCommands: Commands {
                                 appState.currentProjectName = url.deletingPathExtension().lastPathComponent
                                 appState.log("ムービーメーカープロジェクトを読み込みました: \(scenes.count)シーン")
                             }
-                        } else if ext == "tssm" && appState.currentModule == .soundMaker {
-                            if let data = try? Data(contentsOf: url),
-                               let clips = try? JSONDecoder().decode([SoundClip].self, from: data) {
-                                appState.soundClips = clips
-                                appState.currentProjectPath = url.path
-                                appState.currentProjectName = url.deletingPathExtension().lastPathComponent
-                                appState.log("サウンドメーカープロジェクトを読み込みました: \(clips.count)クリップ")
+                        } else if ext == "tssm" {
+                            if appState.currentModule == .movieMaker {
+                                appState.assignAudioFromSoundMaker(url: url)
+                            } else {
+                                if appState.currentModule != .soundMaker {
+                                    appState.currentModule = .soundMaker
+                                }
+                                appState.loadSoundMakerProject(from: url)
                             }
                         } else if ext == "tsgm" && appState.currentModule == .gameMaker {
                             if let data = try? Data(contentsOf: url),
@@ -137,12 +138,6 @@ public struct MenuBarCommands: Commands {
                 appState.performRollback()
             }
             .keyboardShortcut("b", modifiers: [.command, .option])
-
-            Button("バックアップ (cmd+f+shift+b)") {
-                appState.activeModal = .backupManager
-                appState.addHistory("ファイル: バックアップ管理を開きました")
-            }
-            .keyboardShortcut("b", modifiers: [.command, .option, .shift])
 
             Divider()
 
@@ -336,234 +331,11 @@ public struct MenuBarCommands: Commands {
                 appState.addHistory("表示: ソフト一覧を表示")
             }
 
-            Menu("機能リスト (cmd+d+option+l)") {
-                // 1. AquesTalkで音声を生成 (サブメニュー)
-                Menu("AquesTalkで音声を生成") {
-                    Button("スライド＆シナリオから全音声一括生成...") {
-                        appState.activeModal = .batchVoiceGenerator
-                        appState.addHistory("音声: スライドから全音声一括生成画面を表示")
-                    }
-                    .keyboardShortcut("b", modifiers: [.command, .control, .shift])
-
-                    Button("音声生成スタジオを開く...") {
-                        appState.activeModal = .aquesTalkGenerator
-                    }
-                    .keyboardShortcut("a", modifiers: [.command, .control, .shift])
-
-                    Button("複数シーン跨ぎBGM・SEを挿入...") {
-                        appState.activeModal = .spanAudioInsert
-                        appState.addHistory("音声: 複数シーン跨ぎBGM・SE挿入画面を表示")
-                    }
-                    .keyboardShortcut("m", modifiers: [.command, .control, .shift])
-
-                    Divider()
-
-                    // 東風谷早苗 (コゲの日記 特別指定)
-                    Button("東風谷早苗 [女性2 / 速度90%, 音程135] (コゲの日記)") {
-                        appState.applyVoiceTemplateByName("東風谷早苗 (コゲの日記)")
-                    }
-
-                    Divider()
-
-                    // 独自テンプレート4種 (imd1,100,115 / l1,100,115 / m1,100,115 / m2,100,115)
-                    Menu("独自テンプレート (4種)") {
-                        Button("imd1 (中性) - 速度100%, 音程115") {
-                            appState.applyVoiceTemplateByName("imd1,100,115 (独自)")
-                        }
-                        Button("l1 (児童/jgr) - 速度100%, 音程115") {
-                            appState.applyVoiceTemplateByName("l1,100,115 (独自)")
-                        }
-                        Button("m1 (男声1) - 速度100%, 音程115") {
-                            appState.applyVoiceTemplateByName("m1,100,115 (独自)")
-                        }
-                        Button("m2 (男声2) - 速度100%, 音程115") {
-                            appState.applyVoiceTemplateByName("m2,100,115 (独自)")
-                        }
-                    }
-
-                    // ゆっくりボイスメーカー テンプレート（第1優先）
-                    Menu("ゆっくりボイスメーカー テンプレート") {
-                        Button("博麗霊夢 [女性1 / 速度100%, 音程100]") {
-                            appState.applyVoiceTemplateByName("博麗霊夢 (ゆっくりボイスメーカー)")
-                        }
-                        Button("霧雨魔理沙 [女性2 / 速度100%, 音程100]") {
-                            appState.applyVoiceTemplateByName("霧雨魔理沙 (ゆっくりボイスメーカー)")
-                        }
-                        Button("魂魄妖夢 [女性2 / 速度115%, 音程120]") {
-                            appState.applyVoiceTemplateByName("魂魄妖夢 (ゆっくりボイスメーカー)")
-                        }
-                        Button("十六夜咲夜 [女性1 / 速度105%, 音程125]") {
-                            appState.applyVoiceTemplateByName("十六夜咲夜 (ゆっくりボイスメーカー)")
-                        }
-                        Button("チルノ [女性2 / 速度115%, 音程120]") {
-                            appState.applyVoiceTemplateByName("チルノ (ゆっくりボイスメーカー)")
-                        }
-                        Button("レミリア・スカーレット [女性1 / 速度80%, 音程150]") {
-                            appState.applyVoiceTemplateByName("レミリア・スカーレット (ゆっくりボイスメーカー)")
-                        }
-                        Button("フランドール・スカーレット [機械1 / 速度100%, 音程100]") {
-                            appState.applyVoiceTemplateByName("フランドール・スカーレット (ゆっくりボイスメーカー)")
-                        }
-                        Button("アリス・マーガトロイド [女性1 / 速度110%, 音程130]") {
-                            appState.applyVoiceTemplateByName("アリス・マーガトロイド (ゆっくりボイスメーカー)")
-                        }
-                        Button("パチュリー・ノーレッジ [女性2 / 速度120%, 音程115]") {
-                            appState.applyVoiceTemplateByName("パチュリー・ノーレッジ (ゆっくりボイスメーカー)")
-                        }
-                        Button("古明地さとり [機械1 / 速度115%, 音程125]") {
-                            appState.applyVoiceTemplateByName("古明地さとり (ゆっくりボイスメーカー)")
-                        }
-                        Button("古明地こいし [女性2 / 速度50%, 音程181]") {
-                            appState.applyVoiceTemplateByName("古明地こいし (ゆっくりボイスメーカー)")
-                        }
-                        Button("射命丸文 [女性2 / 速度100%, 音程125]") {
-                            appState.applyVoiceTemplateByName("射命丸文 (ゆっくりボイスメーカー)")
-                        }
-                        Button("犬走椛 [女性1 / 速度120%, 音程110]") {
-                            appState.applyVoiceTemplateByName("犬走椛 (ゆっくりボイスメーカー)")
-                        }
-                        Button("藤原妹紅 [女性2 / 速度100%, 音程120]") {
-                            appState.applyVoiceTemplateByName("藤原妹紅 (ゆっくりボイスメーカー)")
-                        }
-                        Button("八坂神奈子 [女性1 / 速度115%, 音程90]") {
-                            appState.applyVoiceTemplateByName("八坂神奈子 (ゆっくりボイスメーカー)")
-                        }
-                        Button("洩矢諏訪子 [女性1 / 速度80%, 音程175]") {
-                            appState.applyVoiceTemplateByName("洩矢諏訪子 (ゆっくりボイスメーカー)")
-                        }
-                        Button("河城にとり [機械1 / 速度105%, 音程105]") {
-                            appState.applyVoiceTemplateByName("河城にとり (ゆっくりボイスメーカー)")
-                        }
-                        Button("多々良小傘 [中性 / 速度110%, 音程130]") {
-                            appState.applyVoiceTemplateByName("多々良小傘 (ゆっくりボイスメーカー)")
-                        }
-                        Button("聖白蓮 [中性 / 速度102%, 音程97]") {
-                            appState.applyVoiceTemplateByName("聖白蓮 (ゆっくりボイスメーカー)")
-                        }
-                        Button("伊吹萃香 [中性 / 速度100%, 音程150]") {
-                            appState.applyVoiceTemplateByName("伊吹萃香 (ゆっくりボイスメーカー)")
-                        }
-                        Button("鈴仙・優曇華院 [女性1 / 速度80%, 音程120]") {
-                            appState.applyVoiceTemplateByName("鈴仙・優曇華院・イナバ (ゆっくりボイスメーカー)")
-                        }
-                        Button("蓬莱山輝夜 [女性1 / 速度100%, 音程120]") {
-                            appState.applyVoiceTemplateByName("蓬莱山輝夜 (ゆっくりボイスメーカー)")
-                        }
-                        Button("因幡てゐ [中性 / 速度110%, 音程120]") {
-                            appState.applyVoiceTemplateByName("因幡てゐ (ゆっくりボイスメーカー)")
-                        }
-                        Button("霊烏路空 [中性 / 速度80%, 音程170]") {
-                            appState.applyVoiceTemplateByName("霊烏路空 (ゆっくりボイスメーカー)")
-                        }
-                        Button("四季映姫 [女性2 / 速度87%, 音程117]") {
-                            appState.applyVoiceTemplateByName("四季映姫 (ゆっくりボイスメーカー)")
-                        }
-                        Button("封獣ぬえ [女性2 / 速度100%, 音程180]") {
-                            appState.applyVoiceTemplateByName("封獣ぬえ (ゆっくりボイスメーカー)")
-                        }
-                        Button("比那名居天子 [女性2 / 速度75%, 音程134]") {
-                            appState.applyVoiceTemplateByName("比那名居天子 (ゆっくりボイスメーカー)")
-                        }
-                    }
-
-                    // コゲの日記 テンプレート（第2優先: ゆっくりボイスメーカー未収録キャラ）
-                    Menu("コゲの日記 テンプレート") {
-                        Button("八雲紫 [女性2 / 速度96%, 音程127]") {
-                            appState.applyVoiceTemplateByName("八雲紫 (コゲの日記)")
-                        }
-                        Button("西行寺幽々子 [女性2 / 速度96%, 音程127]") {
-                            appState.applyVoiceTemplateByName("西行寺幽々子 (コゲの日記)")
-                        }
-                        Button("八雲藍 [女性2 / 速度115%, 音程113]") {
-                            appState.applyVoiceTemplateByName("八雲藍 (コゲの日記)")
-                        }
-                        Button("橙 [女性1 / 速度80%, 音程160]") {
-                            appState.applyVoiceTemplateByName("橙 (コゲの日記)")
-                        }
-                        Button("大妖精 [女性1 / 速度96%, 音程138]") {
-                            appState.applyVoiceTemplateByName("大妖精 (コゲの日記)")
-                        }
-                        Button("ルーミア [女性1 / 速度63%, 音程165]") {
-                            appState.applyVoiceTemplateByName("ルーミア (コゲの日記)")
-                        }
-                        Button("上白沢慧音 [中性 / 速度95%, 音程145]") {
-                            appState.applyVoiceTemplateByName("上白沢慧音 (コゲの日記)")
-                        }
-                        Button("八意永琳 [中性 / 速度97%, 音程106]") {
-                            appState.applyVoiceTemplateByName("八意永琳 (コゲの日記)")
-                        }
-                        Button("火焔猫燐 [女性2 / 速度130%, 音程125]") {
-                            appState.applyVoiceTemplateByName("火焔猫燐 (コゲの日記)")
-                        }
-                        Button("風見幽香 [中性 / 速度100%, 音程160]") {
-                            appState.applyVoiceTemplateByName("風見幽香 (コゲの日記)")
-                        }
-                        Button("本居小鈴 [女性1 / 速度99%, 音程130]") {
-                            appState.applyVoiceTemplateByName("本居小鈴 (コゲの日記)")
-                        }
-                        Button("紅美鈴 [中性 / 速度110%, 音程155]") {
-                            appState.applyVoiceTemplateByName("紅美鈴 (コゲの日記)")
-                        }
-                        Button("小悪魔 [女性1 / 速度95%, 音程165]") {
-                            appState.applyVoiceTemplateByName("小悪魔 (コゲの日記)")
-                        }
-                        Button("物部布都 [女性1 / 速度110%, 音程123]") {
-                            appState.applyVoiceTemplateByName("物部布都 (コゲの日記)")
-                        }
-                        Button("豊聡耳神子 [女性1 / 速度130%, 音程103]") {
-                            appState.applyVoiceTemplateByName("豊聡耳神子 (コゲの日記)")
-                        }
-                        Button("鬼人正邪 [中性 / 速度110%, 音程133]") {
-                            appState.applyVoiceTemplateByName("鬼人正邪 (コゲの日記)")
-                        }
-                    }
-
-                    // Gスカブログ テンプレート（第3優先: ゆっくりボイスメーカー・コゲの日記未収録キャラ）
-                    Menu("Gスカブログ テンプレート") {
-                        Button("茨木華扇 [女性1 / 速度100%, 音程140]") {
-                            appState.applyVoiceTemplateByName("茨木華扇 (Gスカブログ)")
-                        }
-                        Button("高麗野あうん [女性1 / 速度83%, 音程140]") {
-                            appState.applyVoiceTemplateByName("高麗野あうん (Gスカブログ)")
-                        }
-                        Button("スターサファイア [女性2 / 速度60%, 音程150]") {
-                            appState.applyVoiceTemplateByName("スターサファイア (Gスカブログ)")
-                        }
-                        Button("飯綱丸龍 [女性2 / 速度93%, 音程116]") {
-                            appState.applyVoiceTemplateByName("飯綱丸龍 (Gスカブログ)")
-                        }
-                        Button("菅牧典 [女性1 / 速度90%, 音程130]") {
-                            appState.applyVoiceTemplateByName("菅牧典 (Gスカブログ)")
-                        }
-                        Button("豪徳寺ミケ [女性1 / 速度80%, 音程180]") {
-                            appState.applyVoiceTemplateByName("豪徳寺ミケ (Gスカブログ)")
-                        }
-                    }
-                }
-
-                // 2. レイアウト切り替え (仕様書準拠)
-                Menu("レイアウト切り替え (仕様書準拠)") {
-                    ForEach(AppState.LayoutPresets, id: \.self) { preset in
-                        Button(action: {
-                            appState.setLayout(preset)
-                        }) {
-                            HStack {
-                                Text(preset)
-                                if appState.layoutMode == preset {
-                                    Text("✓")
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Divider()
-
-                Button("機能リスト＆ショートカット一覧を開く...") {
-                    appState.activeModal = .featureList
-                    appState.addHistory("表示: 機能リストを表示")
-                }
+            Button("機能リスト (cmd+d+option+l)") {
+                appState.activeModal = .featureList
+                appState.addHistory("表示: 機能リストを表示")
             }
+            .keyboardShortcut("l", modifiers: [.command, .option])
 
             Button("オプション (cmd+d+option)") {
                 appState.activeModal = .contextOptions

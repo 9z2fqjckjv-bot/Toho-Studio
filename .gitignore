@@ -14,12 +14,16 @@ client_secret*.json
 *.keychain
 
 # Large media & project resources (exceeding GitHub limits or managed separately)
-/動画用/
-/東方操夢録/
-/東方惑情録/
-/幼き日の夢/
-/彷徨う二人/
-/交換夫婦/
-/PodCast/
+動画用/
+東方操夢録/
+東方惑情録/
+幼き日の夢/
+彷徨う二人/
+交換夫婦/
+PodCast/
+*.mp4
+*.mov
+*.wav
+Application/Resource/GeneratedAudio/
 .cache/
 .build/

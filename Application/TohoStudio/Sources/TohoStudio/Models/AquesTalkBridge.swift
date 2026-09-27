@@ -463,11 +463,12 @@ public final class AquesTalkBridge: ObservableObject {
         }
     }
 
-    /// 音声を合成してWAVデータ（Data）を返す（音質改善およびエフェクトを適用）
+    /// 音声を合成してWAVデータ（Data）を返す（音質改善、ピッチシフト、エフェクトを適用）
     public func synthesizeToWavData(
         text: String,
         speed: Int = 100,
         voice: VoiceType? = nil,
+        pitch: Int = 100,
         quality: AudioQualitySetting = .enhanced,
         effect: AudioEffectType = .none
     ) -> Data? {
@@ -489,18 +490,19 @@ public final class AquesTalkBridge: ObservableObject {
                 let rawSoundData = Data(bytes: resultPtr, count: Int(dataSize))
                 sym.freeWave(resultPtr)
 
-                // 音質改善およびエフェクト処理を適用 (ゆっくりボイスメーカー準拠)
+                // 音質改善、ピッチシフト、エフェクト処理を適用 (ゆっくりボイスメーカー準拠)
                 let processedData = AudioEffectProcessor.shared.process(
                     wavData: rawSoundData,
                     quality: quality,
-                    effect: effect
+                    effect: effect,
+                    pitch: pitch
                 )
                 return processedData
             }
         }
 
         // フォールバック: 合成データが取得できない場合の擬似PCM/標準合成
-        return generateFallbackWavData(text: targetText, speed: speed, quality: quality, effect: effect)
+        return generateFallbackWavData(text: targetText, speed: speed, quality: quality, effect: effect, pitch: pitch)
     }
 
     /// Synthesize speech and play via AVAudioPlayer, or fallback to NSSpeechSynthesizer
@@ -508,20 +510,22 @@ public final class AquesTalkBridge: ObservableObject {
         text: String,
         speed: Int = 100,
         voice: VoiceType? = nil,
+        pitch: Int = 100,
         quality: AudioQualitySetting = .enhanced,
         effect: AudioEffectType = .none,
         onComplete: (() -> Void)? = nil
     ) {
         let cleanedText = SlideItem.cleanDialogueText(from: text)
         let targetText = cleanedText.isEmpty ? text : cleanedText
-        if let wavData = synthesizeToWavData(text: targetText, speed: speed, voice: voice, quality: quality, effect: effect) {
+        if let wavData = synthesizeToWavData(text: targetText, speed: speed, voice: voice, pitch: pitch, quality: quality, effect: effect) {
             do {
                 audioPlayer = try AVAudioPlayer(data: wavData)
                 audioPlayer?.prepareToPlay()
                 audioPlayer?.play()
                 let effectDesc = effect == .echo ? " [エコー]" : ""
                 let qualityDesc = quality == .enhanced ? " [高音質改善]" : " [原音]"
-                lastLog = "AquesTalk再生成功: [\(targetText)] (\(wavData.count) bytes)\(qualityDesc)\(effectDesc)"
+                let pitchDesc = pitch != 100 ? " [音程\(pitch)%]" : ""
+                lastLog = "AquesTalk再生成功: [\(targetText)] (\(wavData.count) bytes)\(pitchDesc)\(qualityDesc)\(effectDesc)"
                 onComplete?()
                 return
             } catch {
@@ -544,14 +548,17 @@ public final class AquesTalkBridge: ObservableObject {
         text: String,
         speed: Int,
         quality: AudioQualitySetting,
-        effect: AudioEffectType
+        effect: AudioEffectType,
+        pitch: Int = 100
     ) -> Data {
         let sampleRate = quality.isEnabled ? 44100 : 8000
         let duration = max(0.5, Double(text.count) * 0.15 * (100.0 / Double(max(50, speed))))
         let sampleCount = Int(duration * Double(sampleRate))
 
         var samples = [Float](repeating: 0, count: sampleCount)
-        let freq: Float = 440.0
+        let baseFreq: Float = 440.0
+        let pitchMultiplier = Float(pitch) / 100.0
+        let freq = baseFreq * pitchMultiplier
         for i in 0..<sampleCount {
             let t = Float(i) / Float(sampleRate)
             // 優しいビープトーン
@@ -561,7 +568,7 @@ public final class AquesTalkBridge: ObservableObject {
 
         // エンコード
         let rawWav = encodeSimpleWav(samples: samples, sampleRate: sampleRate)
-        return AudioEffectProcessor.shared.process(wavData: rawWav, quality: quality, effect: effect)
+        return AudioEffectProcessor.shared.process(wavData: rawWav, quality: quality, effect: effect, pitch: pitch)
     }
 
     private func encodeSimpleWav(samples: [Float], sampleRate: Int) -> Data {

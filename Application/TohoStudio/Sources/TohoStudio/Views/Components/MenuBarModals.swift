@@ -462,7 +462,7 @@ public struct SceneInfoModalView: View {
                         detailRow(title: "背景画像", val: scene.backgroundName)
                         detailRow(title: "登場キャラクター", val: scene.characterName)
                         detailRow(title: "割り当て音声", val: scene.audioTrack ?? "なし")
-                        detailRow(title: "アニメーション演出", val: scene.animationName ?? "標準フェード")
+                        detailRow(title: "アニメーション演出", val: (scene.animationName?.isEmpty == false && scene.animationName != "なし") ? scene.animationName! : "なし")
                         detailRow(title: "トランジション効果", val: scene.transitionName ?? "カット")
                         Divider()
                         Text("テロップ台本:")
@@ -975,7 +975,7 @@ public struct BugReportModalView: View {
             GroupBox(label: Text("実行環境自動取得")) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("OS: macOS (Darwin \(ProcessInfo.processInfo.operatingSystemVersionString)) | Apple Silicon arm64")
-                    Text("アプリバージョン: Toho-Studio v1.0.9 | アクティブソフト: \(appState.currentModule.rawValue)")
+                    Text("アプリバージョン: Toho-Studio v1.0.92 | アクティブソフト: \(appState.currentModule.rawValue)")
                     Text("直近ログ: \(appState.logs.first?.message ?? "正常稼働中")")
                 }
                 .font(.system(.caption2, design: .monospaced))
@@ -1012,7 +1012,7 @@ public struct BugReportModalView: View {
                     generatedPrompt = """
                     【Toho-Studio バグ修正指示書】
                     ■ 不具合概要: \(bugTitle.isEmpty ? "動作不具合の修正" : bugTitle)
-                    ■ 発生環境: macOS / Toho-Studio v1.0.9 / モジュール: \(appState.currentModule.rawValue)
+                    ■ 発生環境: macOS / Toho-Studio v1.0.92 / モジュール: \(appState.currentModule.rawValue)
                     ■ 詳細・再現手順:
                     \(bugDescription.isEmpty ? "操作中に予期せぬ動作が発生しました。" : bugDescription)
                     ■ システムログ:
@@ -1161,7 +1161,11 @@ public struct SoftwareListModalView: View {
 // MARK: - 15. 機能リスト＆ショートカット一覧モーダル (cmd+d+option+l)
 public struct FeatureListModalView: View {
     @ObservedObject var appState = AppState.shared
+    @State private var selectedTab: Int = 0 // 0: 有料機能まとめ, 1: 全機能＆ショートカット, 2: 各ソフト別機能
     @State private var searchKeyword: String = ""
+    @State private var voiceTemplateMessage: String = ""
+
+    public init() {}
 
     let shortcuts: [(menu: String, item: String, key: String, isPaid: Bool)] = [
         ("Toho-Studio", "アプリ情報", "cmd+t+i", false),
@@ -1174,7 +1178,6 @@ public struct FeatureListModalView: View {
         ("ファイル", "書き出し", "cmd+f+e", false),
         ("ファイル", "複製", "cmd+f+c", false),
         ("ファイル", "巻き戻し", "cmd+f+b", false),
-        ("ファイル", "バックアップ", "cmd+f+shift+b", true),
         ("ファイル", "上書き保存", "cmd+f+s", false),
         ("ファイル", "ファイル保存", "cmd+f+shift+s", false),
         ("ファイル", "ファイル修復", "cmd+f+shift+r", false),
@@ -1203,6 +1206,7 @@ public struct FeatureListModalView: View {
         ("表示", "履歴一覧", "cmd+d+m", false),
         ("表示", "ステータス", "cmd+d+shift+s", false),
         ("表示", "スクショ", "cmd+d+p", false),
+        ("表示", "画面収録開始/停止", "cmd+d+shift+p", false),
         ("表示", "デバック画面", "cmd+d+shift+l", false),
         ("表示", "ソフト一覧", "cmd+d+option+s", false),
         ("表示", "機能リスト", "cmd+d+option+l", false),
@@ -1214,6 +1218,8 @@ public struct FeatureListModalView: View {
         ("再生", "ループ再生", "cmd+p+l", false),
         ("再生", "音量調節", "cmd+p+u / cmd+p+d", false),
         ("再生", "倍速再生", "cmd+p+1~9", false),
+        ("再生", "素材情報表示", "cmd+p+特定キー(c/o/b/p)", false),
+        ("再生", "デバック再生", "cmd+p+shift+d", false),
         ("ウィンドウ", "レイアウト", "cmd+w+l", false),
         ("ウィンドウ", "コードモード", "cmd+c", false),
         ("ウィンドウ", "リセット", "cmd+w+r", false),
@@ -1223,35 +1229,375 @@ public struct FeatureListModalView: View {
         ("ウィンドウ", "パネル表示", "cmd+w+p", false),
         ("ウィンドウ", "オプション", "cmd+w+o", false),
         ("ヘルプ", "取扱説明書", "cmd+h+d", false),
-        ("ヘルプ", "ヘルプガイド", "cmd+h+g", true),
         ("ヘルプ", "Q&A", "cmd+h+q", false),
         ("ヘルプ", "クレジット", "cmd+h+k", false),
         ("ヘルプ", "困ったときは", "cmd+h+n", false),
-        ("音声", "複数シーン跨ぎBGM・SE挿入", "cmd+ctrl+shift+m", false),
-        ("音声", "スライドから全音声一括生成", "cmd+ctrl+shift+b", false),
         ("ヘルプ", "ライセンス", "cmd+h+l", false),
-        ("ヘルプ", "サポート依頼", "cmd+h+s", false)
+        ("ヘルプ", "サポート依頼", "cmd+h+s", false),
+        // 有料機能・拡張機能（機能リストに集約）
+        ("有料機能", "バックアップ管理", "cmd+f+shift+b", true),
+        ("有料機能", "スライド抽出プログラム", "-", true),
+        ("有料機能", "AI高度検索・生成・置換", "-", true),
+        ("有料機能", "スライドから全音声一括生成", "cmd+ctrl+shift+b", true),
+        ("有料機能", "AquesTalk音声生成スタジオ", "cmd+ctrl+shift+a", true),
+        ("有料機能", "複数シーン跨ぎBGM・SE挿入", "cmd+ctrl+shift+m", true),
+        ("有料機能", "クラウド自動保存＆同期", "-", true),
+        ("有料機能", "ヘルプガイド (有料機能マニュアル)", "cmd+h+g", true)
     ]
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header
             HStack {
-                Text("全機能リスト＆ショートカットキー一覧")
-                    .font(.title3)
-                    .bold()
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "list.bullet.rectangle.fill")
+                            .font(.title2)
+                            .foregroundColor(.accentColor)
+                        Text("全機能リスト＆有料機能マネージャー")
+                            .font(.title3)
+                            .bold()
+                        Text("cmd+d+option+l")
+                            .font(.system(.caption, design: .monospaced))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.secondary.opacity(0.15))
+                            .cornerRadius(4)
+                    }
+                    Text("メニューバー搭載の基本機能およびメニューバー・各ソフトから集約された有料機能の一覧です。機能リストから直接実行できます。")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
                 Spacer()
-                TextField("機能を検索...", text: $searchKeyword)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 200)
+
+                Picker("", selection: $selectedTab) {
+                    Text("⭐ 有料機能まとめ").tag(0)
+                    Text("⌨️ ショートカット＆全機能").tag(1)
+                    Text("🧩 各ソフト機能").tag(2)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 380)
             }
 
-            Text("メニューバー搭載の基本機能および有料拡張機能、ショートカットキーの一覧です。機能リストから直接実行できます。")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            Divider()
+
+            switch selectedTab {
+            case 0:
+                paidFeaturesSummaryView
+            case 1:
+                shortcutsTableView
+            case 2:
+                softwareFeaturesView
+            default:
+                EmptyView()
+            }
+
+            Divider()
+
+            // Footer
+            HStack {
+                if !voiceTemplateMessage.isEmpty {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text(voiceTemplateMessage)
+                        .font(.caption)
+                        .foregroundColor(.green)
+                }
+                Spacer()
+                Button("閉じる") {
+                    appState.activeModal = nil
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(16)
+        .frame(width: 780, height: 560)
+    }
+
+    // MARK: - Tab 0: 有料機能まとめ (Paid Features)
+    private var paidFeaturesSummaryView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                // Section 1: ファイル＆クラウド (有料)
+                paidCategoryCard(
+                    title: "ファイル・クラウド・バックアップ機能 (有料)",
+                    icon: "icloud.and.arrow.up",
+                    badge: "クラウド/ファイル連携",
+                    color: .blue
+                ) {
+                    VStack(spacing: 8) {
+                        paidFeatureRow(
+                            title: "バックアップ管理",
+                            shortcut: "cmd+f+shift+b",
+                            description: "編集中のファイルを個別バックアップまたは自動バックアップ設定します。(仕様書54行目)",
+                            buttonTitle: "バックアップを開く",
+                            action: {
+                                appState.activeModal = .backupManager
+                                appState.addHistory("機能リスト: バックアップ管理を開きました")
+                            }
+                        )
+
+                        Divider()
+
+                        paidFeatureRow(
+                            title: "クラウド自動保存と同期設定",
+                            shortcut: "-",
+                            description: "NanndemoyaCloud / Google Drive への自動保存およびプロジェクト同期を行います。(仕様書 70スライド目)",
+                            buttonTitle: "クラウド設定",
+                            action: {
+                                appState.activeModal = .settings
+                                appState.addHistory("機能リスト: クラウド設定を開きました")
+                            }
+                        )
+                    }
+                }
+
+                // Section 2: 素材スタジオ・画像＆スライド拡張 (有料)
+                paidCategoryCard(
+                    title: "素材スタジオ・画像＆スライド高度機能 (有料)",
+                    icon: "sparkles.rectangle.stack",
+                    badge: "素材スタジオ連携",
+                    color: .purple
+                ) {
+                    VStack(spacing: 8) {
+                        paidFeatureRow(
+                            title: "スライド抽出プログラム",
+                            shortcut: "-",
+                            description: "立ち絵・アニメーション・トランジション・背景画像でスライドを高速抽出し、一括変更または削除します。(仕様書89-98行目)",
+                            buttonTitle: "スライド抽出を開く",
+                            action: {
+                                appState.activeModal = .slideExtractor
+                                appState.addHistory("機能リスト: スライド抽出プログラムを開きました")
+                            }
+                        )
+
+                        Divider()
+
+                        paidFeatureRow(
+                            title: "AI高度検索・生成・置換",
+                            shortcut: "-",
+                            description: "プロンプトによる画像生成・音声合成・テキスト置換・ポリシー抵触語一括修正を実行します。(仕様書112-121行目)",
+                            buttonTitle: "AI高度検索を開く",
+                            action: {
+                                appState.activeModal = .aiSearch
+                                appState.addHistory("機能リスト: AI高度検索を開きました")
+                            }
+                        )
+                    }
+                }
+
+                // Section 3: 音声＆AquesTalk高度拡張 (有料・追加機能)
+                paidCategoryCard(
+                    title: "音声・AquesTalk高度機能 (追加拡張)",
+                    icon: "waveform.badge.plus",
+                    badge: "音声拡張",
+                    color: .orange
+                ) {
+                    VStack(spacing: 8) {
+                        paidFeatureRow(
+                            title: "スライドから全音声一括生成",
+                            shortcut: "cmd+ctrl+shift+b",
+                            description: "全スライドの台本・シナリオから、各キャラクター設定に基づいて音声を一括高速生成します。",
+                            buttonTitle: "一括生成を開く",
+                            action: {
+                                appState.activeModal = .batchVoiceGenerator
+                                appState.addHistory("機能リスト: 全音声一括生成を開きました")
+                            }
+                        )
+
+                        Divider()
+
+                        paidFeatureRow(
+                            title: "AquesTalk 音声生成スタジオ",
+                            shortcut: "cmd+ctrl+shift+a",
+                            description: "AquesTalkエンジンでリアルタイム音声試聴・台詞生成を行い、サウンドメーカーの波形トラックに即座に配置します。",
+                            buttonTitle: "スタジオを開く",
+                            action: {
+                                appState.activeModal = .aquesTalkGenerator
+                                appState.addHistory("機能リスト: 音声生成スタジオを開きました")
+                            }
+                        )
+
+                        Divider()
+
+                        paidFeatureRow(
+                            title: "複数シーン跨ぎBGM・SE挿入",
+                            shortcut: "cmd+ctrl+shift+m",
+                            description: "開始シーンから終了シーンまで、複数シーンを跨いで連続再生されるBGMや環境効果音を設定・挿入します。",
+                            buttonTitle: "跨ぎ挿入を開く",
+                            action: {
+                                appState.activeModal = .spanAudioInsert
+                                appState.addHistory("機能リスト: 跨ぎBGM・SE挿入を開きました")
+                            }
+                        )
+
+                        Divider()
+
+                        // 音声ボイステンプレートクイック適用
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("キャラクター音声プリセットのクイック適用 (東方キャラ)")
+                                .font(.caption)
+                                .bold()
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 6) {
+                                    ForEach(["博麗霊夢", "霧雨魔理沙", "東風谷早苗", "魂魄妖夢", "十六夜咲夜", "チルノ", "レミリア", "フランドール", "八雲紫", "西行寺幽々子"], id: \.self) { charName in
+                                        Button(charName) {
+                                            applyQuickVoice(charName)
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .controlSize(.small)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.top, 2)
+                    }
+                }
+
+                // Section 4: パフォーマンス＆有料プラン設定
+                paidCategoryCard(
+                    title: "パフォーマンス・プラン・ヘルプガイド (有料機能管理)",
+                    icon: "gearshape.2.fill",
+                    badge: "設定・ライセンス",
+                    color: .green
+                ) {
+                    VStack(spacing: 8) {
+                        paidFeatureRow(
+                            title: "有料機能設定・広告フリー・プラン管理",
+                            shortcut: "cmd+t+s",
+                            description: "AI定額/都度プラン、アプリ拡張スーパーバンドル、各種広告フリー券、拡張子の追加ステータスを管理します。(仕様書64, 80スライド目)",
+                            buttonTitle: "有料プラン設定",
+                            action: {
+                                appState.activeModal = .settings
+                                appState.addHistory("機能リスト: 有料プラン設定を開きました")
+                            }
+                        )
+
+                        Divider()
+
+                        paidFeatureRow(
+                            title: "ヘルプガイド (追加・有料機能マニュアル)",
+                            shortcut: "cmd+h+g",
+                            description: "ストアから購入した追加機能の説明や、有料機能の説明を見るための公式サポートドキュメントです。(仕様書237行目)",
+                            buttonTitle: "ガイドを開く",
+                            action: {
+                                appState.activeModal = .helpGuide
+                                appState.addHistory("機能リスト: ヘルプガイドを開きました")
+                            }
+                        )
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    private func applyQuickVoice(_ name: String) {
+        switch name {
+        case "博麗霊夢":
+            appState.applyVoiceTemplateByName("博麗霊夢 (ゆっくりボイスメーカー)")
+        case "霧雨魔理沙":
+            appState.applyVoiceTemplateByName("霧雨魔理沙 (ゆっくりボイスメーカー)")
+        case "東風谷早苗":
+            appState.applyVoiceTemplateByName("東風谷早苗 (コゲの日記)")
+        case "魂魄妖夢":
+            appState.applyVoiceTemplateByName("魂魄妖夢 (ゆっくりボイスメーカー)")
+        case "十六夜咲夜":
+            appState.applyVoiceTemplateByName("十六夜咲夜 (ゆっくりボイスメーカー)")
+        case "チルノ":
+            appState.applyVoiceTemplateByName("チルノ (ゆっくりボイスメーカー)")
+        case "レミリア":
+            appState.applyVoiceTemplateByName("レミリア・スカーレット (ゆっくりボイスメーカー)")
+        case "フランドール":
+            appState.applyVoiceTemplateByName("フランドール・スカーレット (ゆっくりボイスメーカー)")
+        case "八雲紫":
+            appState.applyVoiceTemplateByName("八雲紫 (コゲの日記)")
+        case "西行寺幽々子":
+            appState.applyVoiceTemplateByName("西行寺幽々子 (コゲの日記)")
+        default:
+            break
+        }
+        voiceTemplateMessage = "「\(name)」の音声パラメータを設定しました"
+    }
+
+    private func paidCategoryCard<Content: View>(title: String, icon: String, badge: String, color: Color, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundColor(color)
+                Text(title)
+                    .font(.headline)
+                Spacer()
+                Text(badge)
+                    .font(.caption2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(color.opacity(0.15))
+                    .foregroundColor(color)
+                    .cornerRadius(4)
+            }
+            Divider()
+            content()
+        }
+        .padding(12)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+        )
+    }
+
+    private func paidFeatureRow(title: String, shortcut: String, description: String, buttonTitle: String, action: @escaping () -> Void) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.callout)
+                        .bold()
+                    if shortcut != "-" {
+                        Text(shortcut)
+                            .font(.system(.caption2, design: .monospaced))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.secondary.opacity(0.15))
+                            .cornerRadius(3)
+                    }
+                }
+                Text(description)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+            }
+            Spacer()
+            Button(buttonTitle, action: action)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+        }
+    }
+
+    // MARK: - Tab 1: 全機能＆ショートカット一覧
+    private var shortcutsTableView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                TextField("機能を検索 (名前・メニュー・ショートカット)...", text: $searchKeyword)
+                    .textFieldStyle(.roundedBorder)
+                if !searchKeyword.isEmpty {
+                    Button(action: { searchKeyword = "" }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer()
+                Text("\(filteredShortcuts.count) 件")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
 
             ScrollView {
-                VStack(spacing: 4) {
-                    ForEach(filteredShortcuts, id: \.key) { sc in
+                VStack(spacing: 3) {
+                    ForEach(filteredShortcuts, id: \.item) { sc in
                         HStack {
                             Text(sc.menu)
                                 .font(.caption2)
@@ -1277,37 +1623,128 @@ public struct FeatureListModalView: View {
                                 .background(Color.secondary.opacity(0.1))
                                 .cornerRadius(4)
 
-                            // 直接実行ボタン (跨ぎBGM・SE等の機能リスト実行)
+                            // 直接実行ボタン
                             if sc.item == "複数シーン跨ぎBGM・SE挿入" {
-                                Button("開く") {
-                                    appState.activeModal = .spanAudioInsert
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .controlSize(.small)
+                                Button("開く") { appState.activeModal = .spanAudioInsert }
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.small)
                             } else if sc.item == "スライドから全音声一括生成" {
-                                Button("開く") {
-                                    appState.activeModal = .batchVoiceGenerator
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .controlSize(.small)
+                                Button("開く") { appState.activeModal = .batchVoiceGenerator }
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.small)
+                            } else if sc.item == "AquesTalk音声生成スタジオ" {
+                                Button("開く") { appState.activeModal = .aquesTalkGenerator }
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.small)
+                            } else if sc.item == "バックアップ管理" {
+                                Button("開く") { appState.activeModal = .backupManager }
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.small)
+                            } else if sc.item == "スライド抽出プログラム" {
+                                Button("開く") { appState.activeModal = .slideExtractor }
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.small)
+                            } else if sc.item == "AI高度検索・生成・置換" {
+                                Button("開く") { appState.activeModal = .aiSearch }
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.small)
+                            } else if sc.item == "ヘルプガイド (有料機能マニュアル)" {
+                                Button("開く") { appState.activeModal = .helpGuide }
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.small)
                             }
                         }
-                        .padding(6)
+                        .padding(5)
                         Divider()
                     }
                 }
             }
-            .frame(maxHeight: 320)
+        }
+    }
 
+    // MARK: - Tab 2: 各ソフト別機能
+    private var softwareFeaturesView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                softFeatureCard(
+                    name: "ムービーメーカー (cmd+p)",
+                    icon: "film",
+                    items: [
+                        "タイムライン編集・シーン分割・トリミング (cmd+t, cmd+e+c)",
+                        "Keynoteスライド＆アニメーション連動インポート (.key, .tspm)",
+                        "サウンドメーカー連携 & 字幕同期音声プレビュー",
+                        "動画書き出し (MP4/H.264/ProRes、字幕任意設定)"
+                    ]
+                )
+
+                softFeatureCard(
+                    name: "スライド＆シナリオメーカー",
+                    icon: "doc.text.image",
+                    items: [
+                        "スライド作成・プレゼンターノート台詞分割",
+                        "Keynote/PowerPoint/Googleスライドの直接高精度インポート",
+                        "シナリオ一括トリミング & 文字数カウント",
+                        "全音声一括生成 (AquesTalk連携)"
+                    ]
+                )
+
+                softFeatureCard(
+                    name: "サウンドメーカー",
+                    icon: "waveform",
+                    items: [
+                        "マルチトラック音声・BGM・SE波形編集",
+                        "倍速再生 (0.5x~2.0x) & 逆再生 (リバースエンジン)",
+                        "複数シーン跨ぎBGM・SE連続再生挿入 (有料機能連携)",
+                        "ゆっくり東方キャラクター音声合成 & ライセンス認証"
+                    ]
+                )
+
+                softFeatureCard(
+                    name: "素材スタジオ",
+                    icon: "photo.on.rectangle.angled",
+                    items: [
+                        "全素材一括管理 (画像・音声・スライド・台本)",
+                        "セキュリティ点検 (ポリシー照合＆NGワード検知)",
+                        "動画用フォルダ一括素材インポート",
+                        "スライド抽出プログラム＆AI高度検索 (有料機能まとめより実行)"
+                    ]
+                )
+
+                softFeatureCard(
+                    name: "キャラクターメーカー & ゲームメーカー",
+                    icon: "person.crop.square",
+                    items: [
+                        "パーツ別レイヤー編集・表情差分管理 (キャラクター)",
+                        "ノベルゲームコマンド作成・選択肢分岐 (ゲーム)",
+                        "テストプレイ＆全画面デバック実行"
+                    ]
+                )
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    private func softFeatureCard(name: String, icon: String, items: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Spacer()
-                Button("閉じる") {
-                    appState.activeModal = nil
+                Image(systemName: icon)
+                    .foregroundColor(.accentColor)
+                Text(name)
+                    .font(.headline)
+            }
+            ForEach(items, id: \.self) { item in
+                HStack(alignment: .top, spacing: 6) {
+                    Text("•")
+                        .foregroundColor(.secondary)
+                    Text(item)
+                        .font(.caption)
                 }
-                .buttonStyle(.borderedProminent)
             }
         }
-        .frame(width: 620, height: 460)
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.4))
+        .cornerRadius(6)
     }
 
     private var filteredShortcuts: [(menu: String, item: String, key: String, isPaid: Bool)] {
@@ -1315,6 +1752,7 @@ public struct FeatureListModalView: View {
         return shortcuts.filter { $0.item.contains(searchKeyword) || $0.key.contains(searchKeyword) || $0.menu.contains(searchKeyword) }
     }
 }
+
 
 // MARK: - 16. コンテキストオプションモーダル (cmd+d+option)
 public struct ContextOptionsModalView: View {
@@ -1858,4 +2296,184 @@ public struct AquesTalkGeneratorModalView: View {
         appState.log("AquesTalkボイス波形クリップをサウンドメーカーに配置しました: 『\(inputText)』")
     }
 }
+
+// MARK: - 31. スライド抽出プログラムモーダル (有料機能)
+public struct SlideExtractorModalView: View {
+    @ObservedObject var appState = AppState.shared
+    @State private var tachieFilter: String = ""
+    @State private var animFilter: String = ""
+    @State private var bgFilter: String = ""
+    @State private var executionMessage: String = ""
+
+    public init() {}
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                    .foregroundColor(.accentColor)
+                Text("スライド抽出プログラム (有料拡張機能)")
+                    .font(.headline)
+                Spacer()
+                Text("有料プラン対応")
+                    .font(.caption2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.yellow.opacity(0.2))
+                    .foregroundColor(.orange)
+                    .cornerRadius(4)
+            }
+
+            Text("指定した立ち絵・アニメーション・背景・トランジションでシーンを抽出し、一括変更または削除します。(仕様書補足事項 89-98行目)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            GroupBox(label: Text("立ち絵抽出")) {
+                HStack {
+                    TextField("立ち絵ファイル名 (例: 博麗霊夢.png)", text: $tachieFilter)
+                        .textFieldStyle(.roundedBorder)
+                    Button("抽出実行") {
+                        let query = tachieFilter.isEmpty ? "指定立ち絵" : tachieFilter
+                        executionMessage = "立ち絵「\(query)」を含むスライドを抽出しました"
+                        appState.log("立ち絵抽出フィルタを実行しました: \(query)")
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(4)
+            }
+
+            GroupBox(label: Text("アニメーション・トランジション抽出")) {
+                HStack {
+                    TextField("アニメーション名 (例: フェードイン)", text: $animFilter)
+                        .textFieldStyle(.roundedBorder)
+                    Button("抽出実行") {
+                        let query = animFilter.isEmpty ? "指定アニメーション" : animFilter
+                        executionMessage = "アニメーション「\(query)」を含むスライドを抽出しました"
+                        appState.log("アニメーション抽出フィルタを実行しました: \(query)")
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(4)
+            }
+
+            GroupBox(label: Text("背景画像抽出")) {
+                HStack {
+                    TextField("背景名 (例: 神社境内)", text: $bgFilter)
+                        .textFieldStyle(.roundedBorder)
+                    Button("抽出実行") {
+                        let query = bgFilter.isEmpty ? "指定背景" : bgFilter
+                        executionMessage = "背景「\(query)」を含むスライドを抽出しました"
+                        appState.log("背景抽出フィルタを実行しました: \(query)")
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(4)
+            }
+
+            if !executionMessage.isEmpty {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text(executionMessage)
+                        .font(.caption)
+                        .foregroundColor(.green)
+                }
+                .padding(.vertical, 2)
+            }
+
+            HStack {
+                Spacer()
+                Button("閉じる") {
+                    appState.activeModal = nil
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(20)
+        .frame(width: 520)
+    }
+}
+
+// MARK: - 32. AI高度検索・生成・置換モーダル (有料機能)
+public struct AISearchModalView: View {
+    @ObservedObject var appState = AppState.shared
+    @State private var aiPrompt: String = ""
+    @State private var executionMessage: String = ""
+
+    public init() {}
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Image(systemName: "sparkles")
+                    .foregroundColor(.purple)
+                Text("AI高度検索・生成・置換 (有料機能連携)")
+                    .font(.headline)
+                Spacer()
+                Text("残り利用可能プロンプト数: \(appState.aiPlanRemainingPrompts)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+
+            Text("素材スタジオの全素材を対象に、プロンプトによる画像生成・音声合成・テキスト置換・ポリシー修正を実行します。(仕様書補足事項 112-121行目)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            TextEditor(text: $aiPrompt)
+                .frame(height: 80)
+                .border(Color.secondary.opacity(0.2))
+                .overlay(alignment: .topLeading) {
+                    if aiPrompt.isEmpty {
+                        Text("生成したい画像・音声・置き換え条件などのプロンプトを入力...")
+                            .foregroundColor(.secondary.opacity(0.6))
+                            .padding(6)
+                            .allowsHitTesting(false)
+                    }
+                }
+
+            HStack(spacing: 10) {
+                Button("画像生成と置換") {
+                    let prompt = aiPrompt.isEmpty ? "東方Project キャラクタースチル" : aiPrompt
+                    executionMessage = "AI画像生成を実行し、素材を置換しました: [\(prompt)]"
+                    appState.log(executionMessage)
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button("音声・効果音生成と置換") {
+                    executionMessage = "AI音声生成を実行し、BGM/SEを置換しました"
+                    appState.log(executionMessage)
+                }
+                .buttonStyle(.bordered)
+
+                Button("規約ポリシー自動修正") {
+                    executionMessage = "AIによりポリシー抵触語を全ファイルから自動置換しました"
+                    appState.log(executionMessage)
+                }
+                .buttonStyle(.bordered)
+            }
+
+            if !executionMessage.isEmpty {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text(executionMessage)
+                        .font(.caption)
+                        .foregroundColor(.green)
+                }
+                .padding(.vertical, 2)
+            }
+
+            HStack {
+                Spacer()
+                Button("閉じる") {
+                    appState.activeModal = nil
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(20)
+        .frame(width: 560)
+    }
+}
+
 

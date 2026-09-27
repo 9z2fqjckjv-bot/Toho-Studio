@@ -9,9 +9,6 @@ public struct MaterialStudioView: View {
     @State private var selectedFilterType: String = "全素材"
     @State private var searchKeyword: String = ""
     @State private var showSecurityScanModal: Bool = false
-    @State private var showSlideExtractorModal: Bool = false
-    @State private var showAiSearchModal: Bool = false
-    @State private var aiPrompt: String = ""
 
     public var body: some View {
         VStack(spacing: 0) {
@@ -34,12 +31,6 @@ public struct MaterialStudioView: View {
                 }
                 .buttonStyle(.bordered)
 
-                // Slide Extractor Filter Button
-                Button(action: { showSlideExtractorModal = true }) {
-                    Label("スライド抽出プログラム", systemImage: "line.3.horizontal.decrease.circle")
-                }
-                .buttonStyle(.bordered)
-
                 // 指示書 Slide 34: 動画用フォルダ内の各ファイルの一括素材スタジオ追加
                 Button(action: {
                     SlideRecognitionService.shared.importAllVideoAssetsToMaterialStudio { count in
@@ -50,9 +41,12 @@ public struct MaterialStudioView: View {
                 }
                 .buttonStyle(.bordered)
 
-                // AI Advanced Search Button
-                Button(action: { showAiSearchModal = true }) {
-                    Label("AI高度検索・置換", systemImage: "sparkles")
+                // 有料機能 (機能リストへ集約)
+                Button(action: {
+                    appState.activeModal = .featureList
+                    appState.addHistory("素材スタジオ: 有料機能リストを開きました")
+                }) {
+                    Label("有料機能 (機能リスト)", systemImage: "star.circle.fill")
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -104,12 +98,6 @@ public struct MaterialStudioView: View {
         }
         .sheet(isPresented: $showSecurityScanModal) {
             securityScanModalView
-        }
-        .sheet(isPresented: $showSlideExtractorModal) {
-            slideExtractorModalView
-        }
-        .sheet(isPresented: $showAiSearchModal) {
-            aiSearchModalView
         }
     }
 
@@ -193,100 +181,5 @@ public struct MaterialStudioView: View {
         .padding(24)
         .frame(width: 440)
     }
-
-    // MARK: - Slide Extractor Modal (仕様書補足事項 89-98行目)
-    private var slideExtractorModalView: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("スライド抽出プログラム (フィルター)")
-                .font(.headline)
-            Text("指定した立ち絵・アニメーション・背景・トランジションでシーンを抽出し、一括変更または削除します。")
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-            GroupBox(label: Text("立ち絵抽出")) {
-                HStack {
-                    TextField("立ち絵ファイル名 (例: 博麗霊夢.png)", text: .constant(""))
-                        .textFieldStyle(.roundedBorder)
-                    Button("抽出実行") {
-                        appState.log("立ち絵抽出フィルタを実行しました")
-                    }
-                }
-                .padding(4)
-            }
-
-            GroupBox(label: Text("アニメーション・トランジション抽出")) {
-                HStack {
-                    TextField("アニメーション名 (例: フェードイン)", text: .constant(""))
-                        .textFieldStyle(.roundedBorder)
-                    Button("抽出実行") {
-                        appState.log("アニメーション抽出フィルタを実行しました")
-                    }
-                }
-                .padding(4)
-            }
-
-            GroupBox(label: Text("背景画像抽出")) {
-                HStack {
-                    TextField("背景名 (例: 神社境内)", text: .constant(""))
-                        .textFieldStyle(.roundedBorder)
-                    Button("抽出実行") {
-                        appState.log("背景抽出フィルタを実行しました")
-                    }
-                }
-                .padding(4)
-            }
-
-            HStack {
-                Spacer()
-                Button("閉じる") { showSlideExtractorModal = false }
-            }
-        }
-        .padding(20)
-        .frame(width: 500)
-    }
-
-    // MARK: - AI Advanced Search Modal (仕様書補足事項 112-121行目)
-    private var aiSearchModalView: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Label("AI高度検索・生成・置換 (有料機能連携)", systemImage: "sparkles")
-                .font(.headline)
-            Text("素材スタジオの全素材を対象に、プロンプトによる画像生成・音声合成・テキスト置換を実行します。")
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-            TextEditor(text: $aiPrompt)
-                .frame(height: 80)
-                .border(Color.secondary.opacity(0.2))
-
-            HStack(spacing: 12) {
-                Button("画像生成と置換") {
-                    appState.log("AI画像生成を実行し、素材を置換しました: [\(aiPrompt)]")
-                    showAiSearchModal = false
-                }
-                .buttonStyle(.borderedProminent)
-
-                Button("音声・効果音生成と置換") {
-                    appState.log("AI音声生成を実行し、BGM/SEを置換しました")
-                    showAiSearchModal = false
-                }
-                .buttonStyle(.bordered)
-
-                Button("規約ポリシー自動修正") {
-                    appState.log("AIによりポリシー抵触語を全ファイルから自動置換しました")
-                    showAiSearchModal = false
-                }
-                .buttonStyle(.bordered)
-            }
-
-            HStack {
-                Text("残り利用可能プロンプト数: \(appState.aiPlanRemainingPrompts)")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                Spacer()
-                Button("キャンセル") { showAiSearchModal = false }
-            }
-        }
-        .padding(20)
-        .frame(width: 540)
-    }
 }
+

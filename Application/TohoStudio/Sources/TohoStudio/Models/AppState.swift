@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import AppKit
+import AVFoundation
 
 public enum ActiveModal: String, CaseIterable, Identifiable {
     case tour = "初回ツアー"
@@ -41,6 +42,8 @@ public enum ActiveModal: String, CaseIterable, Identifiable {
     case aquesTalkGenerator = "AquesTalkで音声を生成"
     case batchVoiceGenerator = "スライドから全音声一括生成"
     case spanAudioInsert = "複数シーン跨ぎBGM・SE挿入"
+    case slideExtractor = "スライド抽出プログラム"
+    case aiSearch = "AI高度検索・生成・置換"
 
     public var id: String { rawValue }
 }
@@ -92,7 +95,22 @@ public final class AppState: ObservableObject {
     @Published public var hasCompletedTour: Bool = true // Set to true by default, toggleable
 
     // Playback state (cmd+p commands for MovieMaker)
-    @Published public var isPlaying: Bool = false
+    private var moviePlaybackTimer: Timer? = nil
+    @Published public var isPlaying: Bool = false {
+        didSet {
+            if isPlaying != oldValue {
+                if isPlaying {
+                    if moviePlaybackTimer == nil {
+                        startMoviePlayback()
+                    }
+                } else {
+                    if moviePlaybackTimer != nil {
+                        stopMoviePlayback()
+                    }
+                }
+            }
+        }
+    }
     @Published public var currentTime: Double = 0.0
     @Published public var totalDuration: Double = 120.0
     @Published public var playbackSpeed: Double = 1.0
@@ -172,7 +190,7 @@ public final class AppState: ObservableObject {
         initializeSampleData()
         initializeVoiceTemplates()
         initializeAchievements()
-        addHistory("アプリケーション起動: Toho-Studio v1.0.9 正常起動")
+        addHistory("アプリケーション起動: Toho-Studio v1.0.92 正常起動")
         saveUndoSnapshot()
     }
 
@@ -338,8 +356,20 @@ public final class AppState: ObservableObject {
                 success = false
             }
         case .soundMaker:
-            if let data = try? JSONEncoder().encode(soundClips) {
+            syncClipsToMovieScenes(soundClips)
+            let doc = SoundMakerProjectDocument(
+                version: "2.0",
+                clips: soundClips,
+                tracks: audioTracks,
+                scenes: movieScenes,
+                totalDuration: totalDuration
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted]
+            if let data = try? encoder.encode(doc) {
                 success = StorageManager.shared.saveProjectFile(module: .soundMaker, fileName: fileNameWithExt, data: data)
+            } else if let fallbackData = try? encoder.encode(soundClips) {
+                success = StorageManager.shared.saveProjectFile(module: .soundMaker, fileName: fileNameWithExt, data: fallbackData)
             } else {
                 success = false
             }
@@ -1396,6 +1426,727 @@ public final class AppState: ObservableObject {
             AchievementItem(title: "同人ゲームクリエイター", description: "ゲームメーカーで分岐コマンドを設定した", unlockedAt: nil),
             AchievementItem(title: "東方Project公認クリエイター", description: "二次創作ガイドラインに完全適合した作品を出力した", unlockedAt: nil)
         ]
+    }
+
+    // MARK: - SoundMaker Project Loading & Path Repair
+    public func loadSoundMakerProject(from url: URL) {
+        guard let data = try? Data(contentsOf: url) else {
+            log("サウンドメーカーファイルを開けませんでした: \(url.path)", level: "WARN")
+            return
+        }
+
+        let decoder = JSONDecoder()
+        var loadedClips: [SoundClip] = []
+        var loadedTracks: [AudioTrack]? = nil
+        var loadedScenes: [MovieScene]? = nil
+
+        if let doc = try? decoder.decode(SoundMakerProjectDocument.self, from: data) {
+            loadedClips = doc.clips
+            loadedTracks = doc.tracks
+            loadedScenes = doc.scenes
+            if let tot = doc.totalDuration {
+                self.totalDuration = tot
+            }
+        } else if let clips = try? decoder.decode([SoundClip].self, from: data) {
+            loadedClips = clips
+        }
+
+        guard !loadedClips.isEmpty || (loadedScenes?.isEmpty == false) else {
+            log("サウンドメーカーのデータ解析に失敗しました: \(url.lastPathComponent)", level: "WARN")
+            return
+        }
+
+        // 音声ファイルパスの自動検証・修復 (SE / BGM / Voice)
+        let repairedClips = resolveAndRepairAudioPaths(for: loadedClips)
+        self.soundClips = repairedClips
+
+        // トラック設定の復元
+        if let tr = loadedTracks, !tr.isEmpty {
+            self.audioTracks = tr
+        }
+        ensureTracksForClips(repairedClips)
+
+        // シーン設定の復元: loadedScenes が存在すれば反映、なければクリップ情報から自動再構築
+        if let sc = loadedScenes, !sc.isEmpty {
+            self.movieScenes = sc
+            self.totalDuration = sc.reduce(0.0) { $0 + $1.duration }
+        } else {
+            // クリップ情報（全シーン）から確実に再構築
+            rebuildScenesFromClips(repairedClips)
+        }
+
+        // 各シーンへの音声ファイル割り当て (Voice, SE, BGM) を確実に同期反映
+        syncClipsToMovieScenes(repairedClips)
+
+        let cleanName = url.deletingPathExtension().lastPathComponent
+        self.currentProjectPath = url.path
+        self.currentProjectName = cleanName
+
+        // 同名または類似のスライドファイル (.tspm) があれば素材情報のみ安全に連動補完
+        let slideDir = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Slide&ScenarioMarker"
+        let normClean = cleanName.replacingOccurrences(of: ",", with: "").replacingOccurrences(of: "，", with: "")
+        var matchedTspmPath: String? = nil
+
+        if let files = try? FileManager.default.contentsOfDirectory(atPath: slideDir) {
+            // 1. 完全一致・カンマ除去一致
+            for f in files where f.hasSuffix(".tspm") {
+                let fBase = (f as NSString).deletingPathExtension
+                let normF = fBase.replacingOccurrences(of: ",", with: "").replacingOccurrences(of: "，", with: "")
+                if normF == normClean || fBase == cleanName {
+                    matchedTspmPath = (slideDir as NSString).appendingPathComponent(f)
+                    break
+                }
+            }
+            // 2. 表記揺れ（21話22話 <-> 21.22話目）での探索
+            if matchedTspmPath == nil {
+                let variant1 = normClean.replacingOccurrences(of: "話目", with: "話")
+                let variant2 = normClean.replacingOccurrences(of: "21話22話", with: "21.22話目")
+                let variant3 = normClean.replacingOccurrences(of: "21.22話目", with: "21話22話")
+                for f in files where f.hasSuffix(".tspm") {
+                    let normF = f.replacingOccurrences(of: ",", with: "").replacingOccurrences(of: "，", with: "")
+                    if normF.contains(variant1) || normF.contains(variant2) || normF.contains(variant3) ||
+                       (normClean.contains("交換夫婦") && normF.contains("交換夫婦")) {
+                        matchedTspmPath = (slideDir as NSString).appendingPathComponent(f)
+                        break
+                    }
+                }
+            }
+        }
+
+        if let tPath = matchedTspmPath, FileManager.default.fileExists(atPath: tPath) {
+            // syncSoundMaker: false を指定して、復元した soundClips が上書き消去されるのを完全に防止
+            SlideRecognitionService.shared.loadSlideProgram(filePath: tPath, syncSoundMaker: false, replaceState: false) { success, loadedSlides in
+                if success && !loadedSlides.isEmpty {
+                    DispatchQueue.main.async {
+                        self.supplementSlideAssetsToMovieScenes(loadedSlides)
+                        self.log("スライドファイル連携: 『\((tPath as NSString).lastPathComponent)』から \(loadedSlides.count) シーンの素材情報を補完同期しました")
+                    }
+                }
+            }
+        }
+
+        log("サウンドメーカープロジェクト『\(cleanName)』を読み込みました (\(repairedClips.count)クリップ, \(self.audioTracks.count)トラック, \(self.movieScenes.count)シーン)")
+        addHistory("ファイル: サウンドメーカー読み込み (\(cleanName))")
+    }
+
+    /// soundClips の各音声クリップ（Voice, SE, BGM）の割り当てを movieScenes の各シーンに安全同期
+    public func syncClipsToMovieScenes(_ clips: [SoundClip]) {
+        guard !movieScenes.isEmpty else { return }
+        for idx in 0..<movieScenes.count {
+            let sceneNum = idx + 1
+            var scene = movieScenes[idx]
+
+            // 1. Voice
+            if let voice = clips.first(where: { $0.type == "Voice" && $0.sceneIndex == sceneNum }) {
+                scene.voiceAudioPath = voice.audioFilePath
+                scene.voiceCharacter = voice.character ?? scene.characterName
+                scene.voiceDuration = voice.duration
+                scene.audioTrack = voice.trackId ?? "track_voice"
+            }
+
+            // 2. SE
+            if let se = clips.first(where: { $0.type == "SE" && ($0.sceneIndex == sceneNum || ($0.spanStartSceneIndex != nil && $0.spanEndSceneIndex != nil && sceneNum >= $0.spanStartSceneIndex! && sceneNum <= $0.spanEndSceneIndex!)) }) {
+                scene.seAudioPath = se.audioFilePath
+                scene.seName = se.name
+            } else {
+                scene.seAudioPath = nil
+                scene.seName = nil
+            }
+
+            // 3. BGM (BGMが削除されている場合は確実にnilへクリア)
+            let matchingBGM = clips.first(where: { clip in
+                guard clip.type == "BGM" else { return false }
+                if let s = clip.spanStartSceneIndex, let e = clip.spanEndSceneIndex {
+                    return sceneNum >= s && sceneNum <= e
+                }
+                if let sIdx = clip.sceneIndex {
+                    return sIdx == sceneNum
+                }
+                return clip.isLooping || (clip.sceneIndex == nil && clip.spanStartSceneIndex == nil)
+            })
+            if let bgm = matchingBGM {
+                scene.bgmAudioPath = bgm.audioFilePath
+                scene.bgmName = bgm.name
+            } else {
+                scene.bgmAudioPath = nil
+                scene.bgmName = nil
+            }
+
+            movieScenes[idx] = scene
+        }
+    }
+
+    /// スライドから背景画像・立ち絵・動画等のアセット情報のみを MovieScene に安全補完（音声割り当ては保護）
+    public func supplementSlideAssetsToMovieScenes(_ slides: [SlideItem]) {
+        for slide in slides {
+            if let idx = movieScenes.firstIndex(where: { $0.title == slide.title || $0.slideTitle == "スライド #\(slide.slideIndex)" || $0.slideTitle == "第\(slide.slideIndex)スライド" }) {
+                var sc = movieScenes[idx]
+                if sc.slideImagePath == nil || sc.slideImagePath?.isEmpty == true {
+                    sc.slideImagePath = slide.slideImagePath
+                }
+                if sc.videoPath == nil || sc.videoPath?.isEmpty == true {
+                    sc.videoPath = slide.animationVideoPath
+                }
+                if sc.backgroundImagePath == nil || sc.backgroundImagePath?.isEmpty == true {
+                    sc.backgroundImagePath = slide.backgroundImagePath
+                }
+                if sc.characterImagePath == nil || sc.characterImagePath?.isEmpty == true {
+                    sc.characterImagePath = slide.characterImagePath
+                }
+                movieScenes[idx] = sc
+            }
+        }
+    }
+
+    /// SE, BGM, Voice のオーディオファイルパスを検索・自動修復
+    public func resolveAndRepairAudioPaths(for clips: [SoundClip]) -> [SoundClip] {
+        let fm = FileManager.default
+        let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let generatedAudioDir = appSupport.appendingPathComponent("TohoStudio/GeneratedAudio", isDirectory: true).path
+
+        let bgmDirs = [
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/音楽/BGM",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/素材/BGM",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/音楽"
+        ]
+
+        let seDirs = [
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/音楽/効果音",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/素材/効果音",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/音楽"
+        ]
+
+        let genAudioFiles = (try? fm.contentsOfDirectory(atPath: generatedAudioDir)) ?? []
+        let bgmFiles: [(dir: String, file: String)] = bgmDirs.flatMap { dir in
+            ((try? fm.contentsOfDirectory(atPath: dir)) ?? []).map { (dir, $0) }
+        }
+        let seFiles: [(dir: String, file: String)] = seDirs.flatMap { dir in
+            ((try? fm.contentsOfDirectory(atPath: dir)) ?? []).map { (dir, $0) }
+        }
+
+        var result: [SoundClip] = []
+
+        for var clip in clips {
+            let path = clip.audioFilePath
+
+            // すでに有効なファイルが存在していれば波形と長さを確認してそのまま利用
+            if let p = path, fm.fileExists(atPath: p) {
+                if (clip.duration <= 0.5 || clip.waveformPoints == nil || clip.waveformPoints?.isEmpty == true),
+                   let player = try? AVAudioPlayer(contentsOf: URL(fileURLWithPath: p)) {
+                    if clip.duration <= 0.5 { clip.duration = max(0.5, player.duration) }
+                }
+                result.append(clip)
+                continue
+            }
+
+            var resolvedPath: String? = nil
+
+            // 1. Voice（キャラクター音声）の検索・自動紐付け
+            if clip.type == "Voice" {
+                // パス名がすでに存在する場合のファイル名マッチ
+                if let p = path, !p.isEmpty {
+                    let fname = (p as NSString).lastPathComponent
+                    for f in genAudioFiles {
+                        if f.precomposedStringWithCanonicalMapping == fname.precomposedStringWithCanonicalMapping ||
+                           f.decomposedStringWithCanonicalMapping == fname.decomposedStringWithCanonicalMapping {
+                            resolvedPath = (generatedAudioDir as NSString).appendingPathComponent(f)
+                            break
+                        }
+                    }
+                }
+
+                // sceneIndex および character から検索
+                if resolvedPath == nil {
+                    var sIdx = clip.sceneIndex
+                    if sIdx == nil {
+                        let name = clip.name
+                        if let range = name.range(of: "#\\d+", options: .regularExpression) {
+                            let numStr = String(name[range].dropFirst())
+                            sIdx = Int(numStr)
+                        }
+                    }
+
+                    let rawChar = clip.character ?? ""
+                    let cleanChar = rawChar.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                    if let idx = sIdx {
+                        let prefix3 = String(format: "Slide_%03d", idx)
+                        let prefix1 = "Slide_\(idx)_"
+                        let prefixAlt = "Slide_\(idx)."
+
+                        // 候補1: prefix + キャラ名 (例: Slide_011_操夢.wav)
+                        for f in genAudioFiles {
+                            let fNFC = f.precomposedStringWithCanonicalMapping
+                            let charNFC = cleanChar.precomposedStringWithCanonicalMapping
+
+                            if fNFC.hasPrefix(prefix3) || fNFC.hasPrefix(prefix1) {
+                                if cleanChar.isEmpty || fNFC.contains(charNFC) {
+                                    resolvedPath = (generatedAudioDir as NSString).appendingPathComponent(f)
+                                    break
+                                }
+                            }
+                        }
+
+                        // 候補2: キャラ名表記揺れまたはシーン番号のみでのファイル検索
+                        if resolvedPath == nil {
+                            for f in genAudioFiles {
+                                let fNFC = f.precomposedStringWithCanonicalMapping
+                                if fNFC.hasPrefix(prefix3) || fNFC.hasPrefix(prefix1) || fNFC.hasPrefix(prefixAlt) {
+                                    resolvedPath = (generatedAudioDir as NSString).appendingPathComponent(f)
+                                    break
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // 2. BGM の検索・自動紐付け
+            else if clip.type == "BGM" {
+                let clean = clip.name
+                    .replacingOccurrences(of: "[BGM] ", with: "")
+                    .replacingOccurrences(of: "BGM: ", with: "")
+                    .replacingOccurrences(of: "BGM", with: "")
+                    .trimmingCharacters(in: .whitespaces)
+
+                for (dir, f) in bgmFiles {
+                    guard f.hasSuffix(".mp3") || f.hasSuffix(".wav") || f.hasSuffix(".m4a") else { continue }
+                    let fNFC = f.precomposedStringWithCanonicalMapping
+                    let cleanNFC = clean.precomposedStringWithCanonicalMapping
+
+                    if !cleanNFC.isEmpty && (fNFC.contains(cleanNFC) || cleanNFC.contains(fNFC.replacingOccurrences(of: ".mp3", with: ""))) {
+                        resolvedPath = (dir as NSString).appendingPathComponent(f)
+                        break
+                    }
+                }
+
+                // 代表的な東方BGMのフォールバック
+                if resolvedPath == nil {
+                    for (dir, f) in bgmFiles {
+                        if f.contains("少女綺想曲") || f.contains("神々が恋した幻想郷") || f.contains("緋色の影") {
+                            resolvedPath = (dir as NSString).appendingPathComponent(f)
+                            break
+                        }
+                    }
+                }
+            }
+            // 3. SE (効果音) の検索・自動紐付け
+            else if clip.type == "SE" {
+                let clean = clip.name
+                    .replacingOccurrences(of: "[SE] ", with: "")
+                    .replacingOccurrences(of: "SE: ", with: "")
+                    .replacingOccurrences(of: "SE", with: "")
+                    .trimmingCharacters(in: .whitespaces)
+
+                for (dir, f) in seFiles {
+                    guard f.hasSuffix(".mp3") || f.hasSuffix(".wav") || f.hasSuffix(".m4a") else { continue }
+                    let fNFC = f.precomposedStringWithCanonicalMapping
+                    let cleanNFC = clean.precomposedStringWithCanonicalMapping
+
+                    if !cleanNFC.isEmpty && (fNFC.contains(cleanNFC) || cleanNFC.contains(fNFC.replacingOccurrences(of: ".mp3", with: ""))) {
+                        resolvedPath = (dir as NSString).appendingPathComponent(f)
+                        break
+                    }
+                }
+
+                if resolvedPath == nil {
+                    if clean.contains("決定") || clean.contains("選択") || clean.contains("ボタン") || clean.contains("飲む") {
+                        for (dir, f) in seFiles {
+                            if f.contains("決定") || f.contains("ボタン") || f.contains("飲む") {
+                                resolvedPath = (dir as NSString).appendingPathComponent(f)
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+
+            if let rPath = resolvedPath {
+                clip.audioFilePath = rPath
+                if let player = try? AVAudioPlayer(contentsOf: URL(fileURLWithPath: rPath)) {
+                    if clip.duration <= 1.0 || clip.type == "Voice" {
+                        clip.duration = max(0.5, player.duration)
+                    }
+                }
+            }
+
+            result.append(clip)
+        }
+
+        return result
+    }
+
+    /// クリップ内に存在する全トラックを自動復元・追加
+    public func ensureTracksForClips(_ clips: [SoundClip]) {
+        var existingTrackIds = Set(audioTracks.map { $0.id })
+
+        if !existingTrackIds.contains("track_movie") {
+            audioTracks.insert(AudioTrack(id: "track_movie", name: "video", type: "movie", icon: "film.fill", colorHex: "#3897F0", volume: 0.85, pan: 0.0), at: 0)
+            existingTrackIds.insert("track_movie")
+        }
+        if !existingTrackIds.contains("track_se") {
+            audioTracks.append(AudioTrack(id: "track_se", name: "SE (効果音)", type: "se", icon: "bolt.fill", colorHex: "#2ECC71", volume: 0.8, pan: 0.0))
+            existingTrackIds.insert("track_se")
+        }
+        if !existingTrackIds.contains("track_bgm") {
+            audioTracks.append(AudioTrack(id: "track_bgm", name: "BGM (背景音楽)", type: "bgm", icon: "music.note", colorHex: "#9B59B6", volume: 0.65, pan: 0.0))
+            existingTrackIds.insert("track_bgm")
+        }
+
+        for clip in clips {
+            guard let tid = clip.trackId, !tid.isEmpty, !existingTrackIds.contains(tid) else { continue }
+            let charName = clip.character ?? clip.name
+            let color = clip.colorHex ?? (charName.contains("霊夢") ? "#E74C3C" : (charName.contains("魔理沙") ? "#F1C40F" : "#00CEC9"))
+            let icon = (clip.type == "SE") ? "bolt.fill" : ((clip.type == "BGM") ? "music.note" : "waveform")
+            let typeName = clip.type.lowercased()
+            let trackName = charName.isEmpty ? "トラック (\(clip.type))" : "\(charName) (\(clip.type))"
+
+            let newTrack = AudioTrack(
+                id: tid,
+                name: trackName,
+                type: typeName,
+                icon: icon,
+                colorHex: color,
+                volume: clip.volume > 0 ? clip.volume : 1.0,
+                pan: clip.pan,
+                characterName: clip.character
+            )
+
+            if let seIdx = audioTracks.firstIndex(where: { $0.id == "track_se" || $0.type == "se" }) {
+                audioTracks.insert(newTrack, at: seIdx)
+            } else {
+                audioTracks.append(newTrack)
+            }
+            existingTrackIds.insert(tid)
+        }
+    }
+
+    /// クリップ情報から MovieScene 一覧を自動再構築
+    public func rebuildScenesFromClips(_ clips: [SoundClip]) {
+        var sceneMap: [Int: [SoundClip]] = [:]
+        for c in clips {
+            if let sIdx = c.sceneIndex {
+                sceneMap[sIdx, default: []].append(c)
+            }
+        }
+
+        guard !sceneMap.isEmpty else { return }
+        let sortedSceneIndices = sceneMap.keys.sorted()
+        let maxScene = sortedSceneIndices.last ?? 1
+
+        var reconstructed: [MovieScene] = []
+        for sNum in 1...maxScene {
+            let sceneClips = sceneMap[sNum] ?? []
+            let voiceClip = sceneClips.first(where: { $0.type == "Voice" })
+            let seClip = sceneClips.first(where: { $0.type == "SE" })
+
+            let title: String
+            let characterName: String
+            let telop: String
+            let duration: Double
+
+            if let vc = voiceClip {
+                characterName = vc.character ?? "博麗霊夢"
+                telop = vc.text ?? vc.name
+                let cleanT = vc.name.replacingOccurrences(of: "[\(characterName)] ", with: "")
+                title = "シーン \(sNum): \(cleanT.prefix(20))"
+                duration = max(3.0, vc.duration + 0.6)
+            } else if let sc = seClip {
+                characterName = "博麗霊夢"
+                telop = sc.name
+                title = "シーン \(sNum)"
+                duration = max(3.0, sc.duration + 0.5)
+            } else {
+                characterName = "ナレーション"
+                telop = ""
+                title = "シーン \(sNum)"
+                duration = 3.0
+            }
+
+            let scene = MovieScene(
+                title: title,
+                duration: duration,
+                slideTitle: "スライド #\(sNum)",
+                backgroundName: "博麗神社_境内.png",
+                characterName: characterName,
+                telop: telop,
+                audioTrack: voiceClip != nil ? "track_voice" : nil
+            )
+            reconstructed.append(scene)
+        }
+
+        self.movieScenes = reconstructed
+        self.totalDuration = reconstructed.reduce(0.0) { $0 + $1.duration }
+        self.resolveMovieScenesMedia()
+        self.syncClipsToMovieScenes(clips)
+    }
+
+    // MARK: - サウンドメーカーからの音声読み込み・自動割り当て機能 (Auto-Assign)
+    @discardableResult
+    public func assignAudioFromSoundMaker(url: URL? = nil, autoFitDuration: Bool = true) -> (assignedVoiceCount: Int, assignedSECount: Int, assignedBGMCount: Int, message: String) {
+        var sourceClips: [SoundClip] = []
+        var sourceDocName: String = "現在のサウンドメーカーデータ"
+
+        if let fileUrl = url {
+            sourceDocName = fileUrl.lastPathComponent
+            guard let data = try? Data(contentsOf: fileUrl) else {
+                let msg = "サウンドメーカーファイルを開けませんでした: \(fileUrl.lastPathComponent)"
+                log(msg, level: "WARN")
+                return (0, 0, 0, msg)
+            }
+            let decoder = JSONDecoder()
+            if let doc = try? decoder.decode(SoundMakerProjectDocument.self, from: data) {
+                sourceClips = doc.clips
+                if let tr = doc.tracks, !tr.isEmpty {
+                    self.audioTracks = tr
+                }
+            } else if let clips = try? decoder.decode([SoundClip].self, from: data) {
+                sourceClips = clips
+            } else {
+                let msg = "サウンドメーカーのデータ解析に失敗しました: \(fileUrl.lastPathComponent)"
+                log(msg, level: "WARN")
+                return (0, 0, 0, msg)
+            }
+        } else {
+            sourceClips = self.soundClips
+        }
+
+        // 音声ファイルパスの修復
+        let repairedClips = resolveAndRepairAudioPaths(for: sourceClips)
+        self.soundClips = repairedClips
+        ensureTracksForClips(repairedClips)
+
+        // もしムービーシーンが空の場合は、クリップから再構築
+        if self.movieScenes.isEmpty {
+            rebuildScenesFromClips(repairedClips)
+            let msg = "\(sourceDocName) から \(self.movieScenes.count) シーンを生成し、音声を配置しました。"
+            log(msg)
+            addHistory("ムービーメーカー: サウンドメーカーから音声を自動割り当て (\(sourceDocName))")
+            return (repairedClips.filter { $0.type == "Voice" }.count, repairedClips.filter { $0.type == "SE" }.count, repairedClips.filter { $0.type == "BGM" }.count, msg)
+        }
+
+        var voiceCount = 0
+        var seCount = 0
+        var bgmCount = 0
+
+        // スライド情報（画像・動画）の補完用マップ
+        let slideMap = Dictionary(uniqueKeysWithValues: self.slides.map { ($0.slideIndex, $0) })
+
+        var accumulatedTime = 0.0
+        var updatedClips: [SoundClip] = []
+        var remainingClips = repairedClips
+
+        for idx in 0..<self.movieScenes.count {
+            var scene = self.movieScenes[idx]
+            let sceneNum = idx + 1
+            let sceneCleanTelop = scene.displayTelop.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // スライド画像・アニメーション動画の補完
+            if let matchedSlide = slideMap[sceneNum] {
+                if scene.slideImagePath == nil || scene.slideImagePath?.isEmpty == true {
+                    scene.slideImagePath = matchedSlide.slideImagePath
+                }
+                if scene.videoPath == nil || scene.videoPath?.isEmpty == true {
+                    scene.videoPath = matchedSlide.animationVideoPath
+                }
+                if scene.backgroundImagePath == nil || scene.backgroundImagePath?.isEmpty == true {
+                    scene.backgroundImagePath = matchedSlide.backgroundImagePath
+                }
+                if scene.characterImagePath == nil || scene.characterImagePath?.isEmpty == true {
+                    scene.characterImagePath = matchedSlide.characterImagePath
+                }
+            }
+
+            // 1. Voice（ボイス）マッチング
+            // 優先度1: sceneIndex が一致
+            // 優先度2: テキスト（セリフ）の完全一致または部分一致
+            var matchedVoiceIndex = remainingClips.firstIndex(where: {
+                $0.type == "Voice" && $0.sceneIndex == sceneNum
+            })
+            if matchedVoiceIndex == nil && !sceneCleanTelop.isEmpty {
+                matchedVoiceIndex = remainingClips.firstIndex(where: { clip in
+                    guard clip.type == "Voice", let text = clip.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return false }
+                    return sceneCleanTelop.contains(text) || text.contains(sceneCleanTelop)
+                })
+            }
+
+            if let vIdx = matchedVoiceIndex {
+                var voiceClip = remainingClips.remove(at: vIdx)
+                voiceClip.sceneIndex = sceneNum
+                voiceClip.startTime = accumulatedTime + 0.2 // シーン開始0.2秒後に発音
+                
+                scene.voiceAudioPath = voiceClip.audioFilePath
+                scene.voiceCharacter = voiceClip.character ?? scene.characterName
+                scene.voiceDuration = voiceClip.duration
+                scene.audioTrack = voiceClip.trackId ?? "track_voice"
+
+                if autoFitDuration {
+                    let requiredDuration = max(2.5, voiceClip.duration + 0.6)
+                    if scene.duration < requiredDuration {
+                        scene.duration = requiredDuration
+                    }
+                }
+                voiceCount += 1
+                updatedClips.append(voiceClip)
+            }
+
+            // 2. SE（効果音）マッチング
+            let matchedSEIndex = remainingClips.firstIndex(where: {
+                $0.type == "SE" && ($0.sceneIndex == sceneNum || ($0.spanStartSceneIndex != nil && $0.spanEndSceneIndex != nil && sceneNum >= $0.spanStartSceneIndex! && sceneNum <= $0.spanEndSceneIndex!))
+            })
+            if let sIdx = matchedSEIndex {
+                var seClip = remainingClips.remove(at: sIdx)
+                seClip.sceneIndex = sceneNum
+                seClip.startTime = accumulatedTime + 0.3
+                scene.seAudioPath = seClip.audioFilePath
+                scene.seName = seClip.name
+                seCount += 1
+                updatedClips.append(seClip)
+            } else {
+                scene.seAudioPath = nil
+                scene.seName = nil
+            }
+
+            // 3. BGM（背景音楽）マッチング (BGMが削除されている場合は確実にnilへクリア)
+            let matchingBGM = repairedClips.first(where: { clip in
+                guard clip.type == "BGM" else { return false }
+                if let s = clip.spanStartSceneIndex, let e = clip.spanEndSceneIndex {
+                    return sceneNum >= s && sceneNum <= e
+                }
+                if let sIdx = clip.sceneIndex {
+                    return sIdx == sceneNum
+                }
+                return clip.isLooping || (clip.sceneIndex == nil && clip.spanStartSceneIndex == nil)
+            })
+            if let bgmClip = matchingBGM {
+                scene.bgmAudioPath = bgmClip.audioFilePath
+                scene.bgmName = bgmClip.name
+                bgmCount += 1
+            } else {
+                scene.bgmAudioPath = nil
+                scene.bgmName = nil
+            }
+
+            self.movieScenes[idx] = scene
+            accumulatedTime += scene.duration
+        }
+
+        // BGM クリップなどのシーン跨ぎクリップも追加
+        for bgm in repairedClips.filter({ $0.type == "BGM" }) {
+            if !updatedClips.contains(where: { $0.id == bgm.id }) {
+                updatedClips.append(bgm)
+            }
+        }
+        // 未割り当ての残余クリップも保持
+        for remain in remainingClips {
+            if !updatedClips.contains(where: { $0.id == remain.id }) {
+                updatedClips.append(remain)
+            }
+        }
+
+        self.soundClips = updatedClips
+        self.totalDuration = accumulatedTime
+        self.saveUndoSnapshot()
+
+        let summary = "『\(sourceDocName)』から音声を自動割り当てしました（ボイス: \(voiceCount)件, SE: \(seCount)件, BGM: \(bgmCount)件）"
+        log(summary)
+        addHistory("ムービーメーカー: 音声自動割り当て (\(summary))")
+        return (voiceCount, seCount, bgmCount, summary)
+    }
+
+    /// ムービーシーンのスライド画像や動画、背景・立ち絵パスを現在のスライド一覧から自動補完・再解決
+    public func resolveMovieScenesMedia() {
+        guard !movieScenes.isEmpty else { return }
+        let slideMap = Dictionary(uniqueKeysWithValues: slides.map { ($0.slideIndex, $0) })
+        for idx in 0..<movieScenes.count {
+            let sceneNum = idx + 1
+            if let slide = slideMap[sceneNum] {
+                if movieScenes[idx].slideImagePath == nil || movieScenes[idx].slideImagePath?.isEmpty == true {
+                    movieScenes[idx].slideImagePath = slide.slideImagePath
+                }
+                if movieScenes[idx].videoPath == nil || movieScenes[idx].videoPath?.isEmpty == true {
+                    movieScenes[idx].videoPath = slide.animationVideoPath
+                }
+                if movieScenes[idx].backgroundImagePath == nil || movieScenes[idx].backgroundImagePath?.isEmpty == true {
+                    movieScenes[idx].backgroundImagePath = slide.backgroundImagePath
+                }
+                if movieScenes[idx].characterImagePath == nil || movieScenes[idx].characterImagePath?.isEmpty == true {
+                    movieScenes[idx].characterImagePath = slide.characterImagePath
+                }
+            }
+        }
+    }
+
+    // MARK: - ムービーメーカー再生管理 (Play/Pause/Seek/Timer)
+    public func toggleMoviePlayback() {
+        if isPlaying {
+            stopMoviePlayback()
+        } else {
+            startMoviePlayback()
+        }
+    }
+
+    public func startMoviePlayback() {
+        if !isPlaying {
+            isPlaying = true
+        }
+        // タイムライン音声の同期再生を開始
+        SoundMakerAudioManager.shared.startTimelinePlayback(from: currentTime, clips: soundClips)
+        moviePlaybackTimer?.invalidate()
+        let interval: Double = 0.05
+        moviePlaybackTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            guard let self = self, self.isPlaying else { return }
+            let step = interval * self.playbackSpeed
+            let newTime = self.currentTime + step
+            if newTime >= self.totalDuration {
+                if self.isLooping {
+                    self.currentTime = 0.0
+                    self.syncSceneToCurrentTime()
+                    SoundMakerAudioManager.shared.startTimelinePlayback(from: 0.0, clips: self.soundClips)
+                } else {
+                    self.stopMoviePlayback()
+                }
+                return
+            }
+            self.currentTime = newTime
+            self.syncSceneToCurrentTime()
+            SoundMakerAudioManager.shared.updateTimelinePlayback(currentTime: newTime, clips: self.soundClips)
+        }
+    }
+
+    public func stopMoviePlayback() {
+        if isPlaying {
+            isPlaying = false
+        }
+        moviePlaybackTimer?.invalidate()
+        moviePlaybackTimer = nil
+        SoundMakerAudioManager.shared.stopTimelinePlayback()
+    }
+
+    public func seekMoviePlayback(to time: Double) {
+        let clamped = max(0.0, min(time, totalDuration))
+        currentTime = clamped
+        syncSceneToCurrentTime()
+        if isPlaying {
+            SoundMakerAudioManager.shared.startTimelinePlayback(from: clamped, clips: soundClips)
+        }
+    }
+
+    public func syncSceneToCurrentTime() {
+        guard !movieScenes.isEmpty else { return }
+        var accumulated: Double = 0.0
+        for (idx, scene) in movieScenes.enumerated() {
+            let nextAccum = accumulated + scene.duration
+            if currentTime >= accumulated && currentTime < nextAccum {
+                if selectedSceneIndex != idx {
+                    selectedSceneIndex = idx
+                }
+                return
+            }
+            accumulated = nextAccum
+        }
+        if selectedSceneIndex != movieScenes.count - 1 {
+            selectedSceneIndex = max(0, movieScenes.count - 1)
+        }
     }
 }
 
