@@ -67,7 +67,10 @@ public struct KeynoteColumnButton: View {
     }
 
     private var textColor: Color {
-        return .white
+        if isDanger {
+            return isSelected ? .white : Color(red: 0.65, green: 0.12, blue: 0.20)
+        }
+        return isSelected ? .white : Color(red: 0.08, green: 0.18, blue: 0.32)
     }
 }
 

@@ -26,11 +26,13 @@ public struct SettingsView: View {
             categoryDetailArea
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(red: 0.96, green: 0.97, blue: 0.99))
+                .foregroundColor(Color(red: 0.12, green: 0.14, blue: 0.18))
         }
         .frame(minWidth: 980, idealWidth: 1080, maxWidth: .infinity, minHeight: 640, idealHeight: 700, maxHeight: .infinity)
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(Color.white)
         .cornerRadius(10)
         .shadow(color: Color.black.opacity(0.35), radius: 18, x: 0, y: 8)
+        .environment(\.colorScheme, .light)
     }
 
     // MARK: - Column 1: Control Bar View

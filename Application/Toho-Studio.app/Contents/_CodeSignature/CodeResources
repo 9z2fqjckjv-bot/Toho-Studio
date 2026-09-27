@@ -4,6 +4,10 @@
 <dict>
 	<key>files</key>
 	<dict>
+		<key>Resources/AppIcon.png</key>
+		<data>
+		aDV0rbEk5tXZGlohqgj3kgoSMfk=
+		</data>
 		<key>Resources/keynote_extractor.py</key>
 		<data>
 		TcYUc/NmzWt4/Gheb5SoKE/kAWI=
@@ -11,6 +15,13 @@
 	</dict>
 	<key>files2</key>
 	<dict>
+		<key>Resources/AppIcon.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			Vz19rXb/4oSzvF8tQn88+Zq8SMMwDiteqSip8qVfm+4=
+			</data>
+		</dict>
 		<key>Resources/keynote_extractor.py</key>
 		<dict>
 			<key>hash2</key>
