@@ -34,13 +34,13 @@ public struct MovieMakerView: View {
                     previewCanvas
                     playbackControlBar
                 }
-                .frame(minWidth: 380, maxWidth: .infinity)
+                .frame(minWidth: 420, maxWidth: .infinity)
                 .padding(appState.layoutMode == "プレビュー最大化" ? 6 : 12)
 
                 // Right: Inspector / Scene Properties
-                if appState.layoutMode != "プレビュー最大化" || true {
+                if appState.layoutMode != "プレビュー最大化" {
                     sceneInspectorView
-                        .frame(width: inspectorWidthForLayout)
+                        .frame(minWidth: 260, idealWidth: inspectorWidthForLayout, maxWidth: 420)
                         .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
                 }
             }
@@ -209,7 +209,6 @@ public struct MovieMakerView: View {
         ZStack {
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color(white: 0.08))
-                .aspectRatio(canvasAspectRatio, contentMode: .fit)
 
             if !appState.movieScenes.isEmpty, appState.selectedSceneIndex < appState.movieScenes.count {
                 let scene = appState.movieScenes[appState.selectedSceneIndex]
@@ -396,6 +395,10 @@ public struct MovieMakerView: View {
                 .padding(8)
             }
         }
+        .aspectRatio(canvasAspectRatio, contentMode: .fit)
+        .cornerRadius(8)
+        .clipped()
+        .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 3)
     }
 
     // MARK: - Playback Control Bar
@@ -1137,6 +1140,7 @@ public struct MovieLayerCompositeView: View {
                 Image(nsImage: bg)
                     .resizable()
                     .aspectRatio(aspectRatio, contentMode: .fill)
+                    .clipped()
             } else {
                 LinearGradient(
                     colors: [Color(hex: "#1e272e"), Color(hex: "#2f3640"), Color(hex: "#1a1e24")],
@@ -1172,6 +1176,8 @@ public struct MovieLayerCompositeView: View {
                 }
             }
         }
+        .aspectRatio(aspectRatio, contentMode: .fit)
+        .clipped()
     }
 }
 

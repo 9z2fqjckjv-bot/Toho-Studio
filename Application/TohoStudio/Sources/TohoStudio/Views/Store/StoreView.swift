@@ -29,6 +29,7 @@ public struct StoreView: View {
                 Text("アプリ拡張＆バンドル").tag(1)
                 Text("東方素材＆テンプレート").tag(2)
                 Text("販売・出品管理").tag(3)
+                Text("ストア用語定義・審査規約").tag(4)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
@@ -44,14 +45,16 @@ public struct StoreView: View {
                         storeExtensionsTab
                     } else if selectedTab == 2 {
                         storeMaterialsTab
-                    } else {
+                    } else if selectedTab == 3 {
                         storeSellerManagementTab
+                    } else {
+                        storeTermsDefinitionTab
                     }
                 }
                 .padding(20)
             }
         }
-        .frame(width: 800, height: 560)
+        .frame(width: 820, height: 580)
     }
 
     // MARK: - 1. 新作＆おすすめ
@@ -218,6 +221,121 @@ public struct StoreView: View {
         }
         .padding(10)
         .background(Color.secondary.opacity(0.08))
+        .cornerRadius(6)
+    }
+
+    // MARK: - 5. ストア用語定義・審査規約 (アプリ改善指示書 実施事項)
+    private var storeTermsDefinitionTab: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Label("Toho-Studio ストア関連用語の定義と掲載規約", systemImage: "text.book.closed.fill")
+                    .font(.headline)
+                    .foregroundColor(.accentColor)
+                Spacer()
+            }
+
+            Text("ストアにおける取引、出品、二次創作作品および素材の流通に関する公式定義です。出品・購入・配信前に必ずご確認ください。")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            VStack(spacing: 12) {
+                termDefinitionCard(
+                    term: "作品",
+                    reading: "さくひん",
+                    definition: "このアプリケーション（Toho-Studio）を用いて、利用者（開発者を含む）が作成した完成動画、ゲームプログラム、スライド作品などを指します。"
+                )
+
+                termDefinitionCard(
+                    term: "素材",
+                    reading: "そざい",
+                    definition: "作品を作成する際に利用した、動画、画像、立ち絵、スライド、音声ファイル、テキストファイルなど、作品の制作に使用したすべてのファイルを指します。"
+                )
+
+                termDefinitionCard(
+                    term: "配信（配布）",
+                    reading: "はいしん / はいふ",
+                    definition: "完成した作品あるいは素材を、非営利目的かつ利用料無料（¥0）で他の利用者が利用できるように公開することを指します。"
+                )
+
+                termDefinitionCard(
+                    term: "販売",
+                    reading: "はんばい",
+                    definition: "完成した作品あるいは素材を、非営利目的かつ有料（ストアポイント/ベースパック決済）で利用できるように公開することを指します。"
+                )
+
+                termDefinitionCard(
+                    term: "商用",
+                    reading: "しょうよう",
+                    definition: "完成した作品あるいは素材を、営利目的（企業プロモーション、商用ライセンス、収益化プロジェクト等）かつ有料利用できるように公開することを指します。"
+                )
+
+                termDefinitionCard(
+                    term: "審査",
+                    reading: "しんさ",
+                    definition: "完成した作品あるいは素材をストアに掲載する前には、必ず「何でも屋」側に作品あるいは素材を送付して審査を受ける必要があります。審査で拒絶された場合はストア上への掲載はできません。また、ストア掲載には「何でも屋」のパートナー規約に合意しパートナー登録を完了している必要があります。"
+                )
+            }
+
+            GroupBox(label: Label("「何でも屋」パートナー規約と審査窓口", systemImage: "person.2.badge.gearshape.fill")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("ストアへの素材・作品の掲載および有料販売には、「何でも屋」公式パートナー契約が必要です。ガイドライン・パートナー契約書は以下のリンクよりアプリ内ブラウザで閲覧できます。")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 16) {
+                        Button(action: {
+                            if let url = URL(string: "https://docs.google.com/document/d/1ub4_g_pOUCQjDzUXKBBmzWqC6zexBFOltoHFabZo-HU/edit?usp=sharing") {
+                                appState.openInAppBrowser(url: url, title: "「何でも屋」パートナー利用規定・審査ガイド")
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "safari")
+                                Text("パートナー利用規定を開く (内部ブラウザ) ↗️")
+                            }
+                            .font(.caption)
+                            .bold()
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button(action: {
+                            appState.log("ストア審査申請フォームを開きました")
+                            if let url = URL(string: "https://forms.gle/hJ9EuapUVQik4qgG9") {
+                                appState.openInAppBrowser(url: url, title: "ストア審査申請フォーム")
+                            }
+                        }) {
+                            Text("審査申請フォームを開く ↗️")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding(8)
+            }
+        }
+    }
+
+    private func termDefinitionCard(term: String, reading: String, definition: String) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(term)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.primary)
+                Text(reading)
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+            .frame(width: 100, alignment: .leading)
+
+            Divider()
+
+            Text(definition)
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(10)
+        .background(Color.secondary.opacity(0.06))
         .cornerRadius(6)
     }
 }

@@ -84,17 +84,17 @@ public struct SlideScenarioMakerView: View {
             HSplitView {
                 // Left: Slide Thumbnails
                 slideThumbnailListView
-                    .frame(width: 250)
+                    .frame(minWidth: 200, idealWidth: 240, maxWidth: 300)
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
 
                 // Center: Slide Visual Canvas
                 slideCanvasView
-                    .frame(minWidth: 420, maxWidth: .infinity)
-                    .padding()
+                    .frame(minWidth: 380, maxWidth: .infinity)
+                    .padding(8)
 
                 // Right: Scenario & Presenter Notes
                 scenarioNotesView
-                    .frame(width: 320)
+                    .frame(minWidth: 260, idealWidth: 300, maxWidth: 400)
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
             }
         }
@@ -283,13 +283,14 @@ public struct SlideScenarioMakerView: View {
 
                 // Mode Selector & Status Header Bar
                 HStack(spacing: 12) {
-                    Picker("画面表示", selection: $canvasViewMode) {
+                    Picker("", selection: $canvasViewMode) {
                         ForEach(CanvasViewMode.allCases) { mode in
                             Text(mode.rawValue).tag(mode)
                         }
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 320)
+                    .labelsHidden()
+                    .frame(width: 290)
 
                     if let videoPath = slide.animationVideoPath, FileManager.default.fileExists(atPath: videoPath) {
                         Button(action: {
@@ -386,20 +387,34 @@ public struct SlideScenarioMakerView: View {
                 .padding(.horizontal, 4)
 
                 VStack(spacing: 6) {
-                    // Visual Canvas with exact relative coordinates
+                    // Visual Canvas with exact relative coordinates (aspectRatio maintained)
                     GeometryReader { geo in
-                        let canvasW = geo.size.width
-                        let canvasH = geo.size.height
+                        let availW = geo.size.width
+                        let availH = geo.size.height
                         let origW = max(slide.slideWidth, 1.0)
                         let origH = max(slide.slideHeight, 1.0)
+                        let targetRatio = origW / origH
+                        let (canvasW, canvasH): (CGFloat, CGFloat) = {
+                            if availW / availH > targetRatio {
+                                let h = max(availH, 40.0)
+                                return (h * targetRatio, h)
+                            } else {
+                                let w = max(availW, 40.0)
+                                return (w, w / targetRatio)
+                            }
+                        }()
                         let scaleX = canvasW / origW
                         let scaleY = canvasH / origH
 
-                        ZStack(alignment: .topLeading) {
-                            // 1. Base Canvas Background
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.black)
-                                .frame(width: canvasW, height: canvasH)
+                        VStack(alignment: .center) {
+                            Spacer(minLength: 0)
+                            HStack {
+                                Spacer(minLength: 0)
+                                ZStack(alignment: .topLeading) {
+                                    // 1. Base Canvas Background
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color.black)
+                                        .frame(width: canvasW, height: canvasH)
 
                             // 2. Main Visual Render
                             if canvasViewMode == .animationVideo {
@@ -638,13 +653,21 @@ public struct SlideScenarioMakerView: View {
                                 .frame(width: canvasW, alignment: .top)
                             }
                         }
+                        .frame(width: canvasW, height: canvasH)
+                        .clipped()
                         .cornerRadius(8)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
                                 .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
                         )
+                        .shadow(color: Color.black.opacity(0.4), radius: 6, x: 0, y: 3)
+                        Spacer(minLength: 0)
                     }
-                    .aspectRatio(16/9, contentMode: .fit)
+                    Spacer(minLength: 0)
+                }
+                .frame(width: availW, height: availH)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     // Elements & Layout Details Inspector Bar
                     HStack(spacing: 8) {

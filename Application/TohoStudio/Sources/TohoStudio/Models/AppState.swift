@@ -194,6 +194,10 @@ public final class AppState: ObservableObject {
         saveUndoSnapshot()
     }
 
+    public func addSystemLog(level: String, message: String) {
+        log(message, level: level)
+    }
+
     public func log(_ message: String, level: String = "INFO") {
         let item = SystemLogItem(level: level, message: message)
         logs.insert(item, at: 0)

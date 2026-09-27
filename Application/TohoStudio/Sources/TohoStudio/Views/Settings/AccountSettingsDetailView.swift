@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct AccountSettingsDetailView: View {
     @ObservedObject var appState = AppState.shared
+    @ObservedObject var cloudService = NanndemoyaCloudService.shared
     @Binding var activeCategory: SettingsCategory
 
     @State private var selectedAccountTab: AccountTab = .nanndemoyaCloud
@@ -157,11 +158,42 @@ public struct AccountSettingsDetailView: View {
                         .background(Color(NSColor.controlBackgroundColor))
                         .cornerRadius(6)
 
+                    // NanndemoyaCloud Device Registration Status
+                    GroupBox(label: Label("利用端末登録ステータス", systemImage: "macbook.and.iphone")) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("現在のMac:")
+                                    .font(.caption)
+                                Spacer()
+                                if cloudService.isCurrentDeviceRegistered {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "checkmark.seal.fill").foregroundColor(.green)
+                                        Text("正規端末として認証登録済み").bold().foregroundColor(.green)
+                                    }
+                                    .font(.caption)
+                                } else {
+                                    Button("このMacを端末登録する") {
+                                        cloudService.registerCurrentDevice { _ in }
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.small)
+                                }
+                            }
+                            Text("※有料機能をご利用の際は、NanndemoyaCloudでのアカウント認証および利用端末登録が必須となります。")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(6)
+                    }
+
                     HStack(spacing: 16) {
-                        Link("料金表スプレッドシートを開く ↗️", destination: URL(string: "https://docs.google.com/spreadsheets/d/1V4FQ2rtK3L2-qI5_4HL00IpbIROZ5BsQlTzOTYRoLOg/edit?usp=sharing")!)
-                            .font(.system(size: 12))
-                        Button("料金表PDFパスを開く") {
-                            NSWorkspace.shared.open(URL(fileURLWithPath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/NanndemoyaCloud利用料金表.pdf"))
+                        Button("料金表スプレッドシートを開く (内部ブラウザ) ↗️") {
+                            cloudService.openPricingInAppBrowser()
+                        }
+                        .font(.system(size: 12))
+
+                        Button("サービス利用規定を開く ↗️") {
+                            cloudService.openTermsInAppBrowser()
                         }
                         .font(.system(size: 12))
                     }
@@ -187,42 +219,65 @@ public struct AccountSettingsDetailView: View {
                     .foregroundColor(Color(red: 0.3, green: 0.35, blue: 0.4))
 
                 VStack(spacing: 4) {
-                    Text(appState.userName)
+                    Text(GoogleAuthService.shared.userProfile?.name ?? appState.userName)
                         .font(.system(size: 24, weight: .bold))
-                    Text("user@gmail.com")
+                    Text(GoogleAuthService.shared.userProfile?.email ?? (appState.currentAccountType == "Google" ? appState.userEmail : "未ログイン (@gmail.com)"))
                         .font(.system(size: 14))
                         .foregroundColor(.secondary)
-                    Text("※個人アカウントのみ（@gmail.com）が対象です")
+                    Text("※個人アカウントのみ（@gmail.com）が対象です (client_secret連携)")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
 
                 VStack(spacing: 14) {
-                    Link(destination: URL(string: "https://myaccount.google.com")!) {
+                    Button(action: {
+                        if let url = URL(string: "https://myaccount.google.com") {
+                            appState.openInAppBrowser(url: url, title: "Googleアカウント管理")
+                        }
+                    }) {
                         Text("ブラウザで確認")
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(width: 220, height: 42)
                             .background(RoundedRectangle(cornerRadius: 8).fill(Color(red: 0.25, green: 0.6, blue: 0.95)))
                     }
+                    .buttonStyle(.plain)
 
                     HStack(spacing: 12) {
-                        Button(action: {
-                            appState.log("Googleアカウントのログイン/ログアウト操作を実行しました")
-                        }) {
-                            Text("ログアウト")
+                        if GoogleAuthService.shared.isAuthenticated || (appState.isLoggedIn && appState.currentAccountType == "Google") {
+                            Button(action: {
+                                GoogleAuthService.shared.signOut()
+                                appState.log("Googleアカウントからログアウトしました")
+                            }) {
+                                Text("ログアウト")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(Color(red: 0.3, green: 0.1, blue: 0.15))
+                                    .frame(width: 170, height: 42)
+                                    .background(RoundedRectangle(cornerRadius: 8).fill(Color(red: 0.98, green: 0.68, blue: 0.78)))
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            Button(action: {
+                                GoogleAuthService.shared.startLoginInAppBrowser()
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "person.crop.circle.badge.plus")
+                                    Text("Googleでログイン")
+                                }
                                 .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(Color(red: 0.3, green: 0.1, blue: 0.15))
+                                .foregroundColor(.white)
                                 .frame(width: 170, height: 42)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(Color(red: 0.98, green: 0.68, blue: 0.78)))
+                                .background(RoundedRectangle(cornerRadius: 8).fill(Color.blue))
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
 
-                        KeynoteAnnotationBubble("ログアウト済みの場合は「ログイン」と表示")
+                        KeynoteAnnotationBubble("Google OAuth 2.0 クライアント認証連携")
                     }
 
                     Button(action: {
-                        appState.log("Googleアカウント情報を更新しました")
+                        GoogleAuthService.shared.loadConfig()
+                        appState.log("Googleアカウント設定とOAuthクライアント情報を更新しました")
                     }) {
                         VStack(spacing: 4) {
                             Image(systemName: "arrow.triangle.2.circlepath")

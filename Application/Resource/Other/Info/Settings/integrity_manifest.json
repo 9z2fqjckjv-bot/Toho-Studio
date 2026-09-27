@@ -1,0 +1,1088 @@
+[
+  {
+    "relativePath": "GeneratedAudio/Slide_002_博麗霊夢.wav",
+    "sha256": "600b8350d8648e858883ef984ab9adb1e86b6914f52544fd043832af6060b8fd",
+    "fileSize": 906694,
+    "lastModified": 1790500884.3398237
+  },
+  {
+    "relativePath": "Other/Info/Settings/reset.txt",
+    "sha256": "0dd5efa38953baabcca131407bd29cb8d2da6c8d7d63e2e1eebe1872b2ba1516",
+    "fileSize": 54,
+    "lastModified": 1790334617.7073286
+  },
+  {
+    "relativePath": "Other/Info/Settings/Storage & Performance/Storage/delete-option.txt",
+    "sha256": "1880869c4b2cf82424aa170e8a4615cde94b39d221042af12469bcb6090b9033",
+    "fileSize": 207,
+    "lastModified": 1790316500.6547966
+  },
+  {
+    "relativePath": "Other/Info/Settings/Storage & Performance/Storage/details.txt",
+    "sha256": "1618ae17e1ba95ea9619c8ea80e5208044c2a6940c833822801c70335d45d0a0",
+    "fileSize": 96,
+    "lastModified": 1790316501.872183
+  },
+  {
+    "relativePath": "Other/Info/Settings/Storage & Performance/Performance/flamelate.txt",
+    "sha256": "b41ffc6e42510bd8222e581ff152b87b27c56608cce0b390ad69c7082a062351",
+    "fileSize": 604,
+    "lastModified": 1790316498.8978705
+  },
+  {
+    "relativePath": "Other/Info/Settings/Storage & Performance/Performance/memory-info.txt",
+    "sha256": "fcbc98f02cf2fd294c88e307b4038b734d9fea32809a3dbbb2abb5da480a97b4",
+    "fileSize": 99,
+    "lastModified": 1790316497.6383638
+  },
+  {
+    "relativePath": "Other/Info/Settings/Billing & Usage/Usage/usage.txt",
+    "sha256": "d19c6283425510fcecc17fc67e959a00cc617d8bfef609604ef4c2ac133a7d27",
+    "fileSize": 186,
+    "lastModified": 1790316503.126088
+  },
+  {
+    "relativePath": "Other/Info/Settings/Billing & Usage/Billing/official.txt",
+    "sha256": "f656a7bbde5655b57015b6f3fcd85984988f0bd0d657c6e775d3952f73fc4e8e",
+    "fileSize": 1325,
+    "lastModified": 1790316504.2813485
+  },
+  {
+    "relativePath": "Other/Info/Settings/Billing & Usage/Billing/store.txt",
+    "sha256": "7d54fff431a3e46ce3e07eea59a13a57f9dc28e3e688162b86f463c78b310a87",
+    "fileSize": 1241,
+    "lastModified": 1790316505.6578543
+  },
+  {
+    "relativePath": "Other/Info/Settings/License/Google.txt",
+    "sha256": "88e46475ba4d8042da1a85048e1feb82a7b3a174f3c9433bf32fcfcdbc5fd446",
+    "fileSize": 926,
+    "lastModified": 1790334618.8119562
+  },
+  {
+    "relativePath": "Other/Info/Settings/License/NanndemoyaCloud/独自ドメイン/license.txt",
+    "sha256": "84e1c95b5b489a6afa1c3838d3d07ca13d4d6a90040705cbb9a146a23a668a87",
+    "fileSize": 746,
+    "lastModified": 1790334621.1085181
+  },
+  {
+    "relativePath": "Other/Info/Settings/License/NanndemoyaCloud/Nanndemoyaドメイン/license.txt",
+    "sha256": "84e1c95b5b489a6afa1c3838d3d07ca13d4d6a90040705cbb9a146a23a668a87",
+    "fileSize": 746,
+    "lastModified": 1790334622.2759607
+  },
+  {
+    "relativePath": "Other/Info/Settings/License/AquesTalk/AquesTalk2KanjiKoe/license.txt",
+    "sha256": "824710a814bf4f78b1217f4e5a0a581389b5ea25de87ebbd1d4e13d85588409d",
+    "fileSize": 669,
+    "lastModified": 1790333435.1770332
+  },
+  {
+    "relativePath": "Other/Info/Settings/License/AquesTalk/AquesTalk1/license.txt",
+    "sha256": "19d9a3c563423c9878930495a80093b135e0bfbf9ced4aabba4498cd1f8a9805",
+    "fileSize": 661,
+    "lastModified": 1790332689.0800953
+  },
+  {
+    "relativePath": "Other/Info/Settings/License/AquesTalk/AquesTalkESP32/license.txt",
+    "sha256": "66c13e9e9d80e29cd5d44d6d99526a720603517b0e6432d9047394ebf7a3910e",
+    "fileSize": 666,
+    "lastModified": 1790333438.6165767
+  },
+  {
+    "relativePath": "Other/Info/Settings/License/AquesTalk/AquesTalk10/license.txt",
+    "sha256": "5c29b6f731da05831ded75ea52dfcaed76adb583b51067293de78b8808379a0d",
+    "fileSize": 662,
+    "lastModified": 1790333437.4236283
+  },
+  {
+    "relativePath": "Other/Info/Settings/License/AquesTalk/AquesTalkPi/license.txt",
+    "sha256": "afb74d7fe43f9611ae806adff7827da0e7b00757f19d8d4745184b6a9a76e05e",
+    "fileSize": 662,
+    "lastModified": 1790333434.0089972
+  },
+  {
+    "relativePath": "Other/Info/Settings/License/AquesTalk/関連製品/lincense.txt",
+    "sha256": "15d460247f399b9c4adce1368a5f902ada1d727a102bf92eff6eba25465a5394",
+    "fileSize": 91,
+    "lastModified": 1790333941.3664012
+  },
+  {
+    "relativePath": "Other/Info/Settings/License/AquesTalk/AquesTalk2/license.txt",
+    "sha256": "9df78247ff28cd63cabae06ed48c690556821e88afb3ede134ff9d8a2469adbf",
+    "fileSize": 661,
+    "lastModified": 1790333439.9572551
+  },
+  {
+    "relativePath": "Other/Info/Settings/License/AquesTalk/使用ライセンス/license.txt",
+    "sha256": "2514379ce453a4d45851fe33e29389f7fd442c2c85236fbf3d2965f36f119a7b",
+    "fileSize": 669,
+    "lastModified": 1790333432.9700253
+  },
+  {
+    "relativePath": "Other/Info/Settings/License/AquesTalk/開発ライセンス/lincense.txt",
+    "sha256": "dfd7873bead89fc91e3f4e9fceca1a04c95b9f4570ddbf45d13316e16b182059",
+    "fileSize": 90,
+    "lastModified": 1790333431.766525
+  },
+  {
+    "relativePath": "Other/Info/Settings/Default-settings _for_publishing- works/complete.txt",
+    "sha256": "424febb5fbd4a8738fafba49be2944f321629623798afe8a8a520a71526d5232",
+    "fileSize": 1083,
+    "lastModified": 1790332468.2801218
+  },
+  {
+    "relativePath": "Other/Info/Settings/Default-settings _for_publishing- works/maiking.txt",
+    "sha256": "56e67ae81a6804d8cc190f54e7498531d02a0ae1540ebaf6f576071e1efda541",
+    "fileSize": 516,
+    "lastModified": 1790332469.589314
+  },
+  {
+    "relativePath": "Other/Info/Settings/Default-settings _for_publishing- works/new.txt",
+    "sha256": "f3d83bd805e3bca4c7708597e09a7cd18968d1df0a5e87207f8472b1b367b158",
+    "fileSize": 546,
+    "lastModified": 1790331782.0340245
+  },
+  {
+    "relativePath": "Other/Info/Settings/Legal Regulations & Compliance/Compliance/Plicy-Check.txt",
+    "sha256": "fcaf1002ff61514845d00d57e9729975ba1717600cc3eafabf236b081a05dc36",
+    "fileSize": 1110,
+    "lastModified": 1790330576.9732459
+  },
+  {
+    "relativePath": "Other/Info/Settings/Legal Regulations & Compliance/Compliance/Verification_of_regulatory-compliance.txt",
+    "sha256": "38888942d791a3eebbd0c8c77d9340834560717041e76b22a2c2d41eacf4c1f0",
+    "fileSize": 1054,
+    "lastModified": 1790330573.8862698
+  },
+  {
+    "relativePath": "Other/Info/Settings/Legal Regulations & Compliance/Compliance/Nanndemoya-Policys/Nanndemoya365.md",
+    "sha256": "eaef93ab60d23d69a4a99f9019cdac279d657042342c0d059b91f445f073c1f3",
+    "fileSize": 3989,
+    "lastModified": 1790330854.3007858
+  },
+  {
+    "relativePath": "Other/Info/Settings/Legal Regulations & Compliance/Compliance/Nanndemoya-Policys/NanndemoyaCloud.md",
+    "sha256": "bd09f474a847f94fe948a19274948443d1108c318ef5bb728ebe4b2242e4a8d6",
+    "fileSize": 3298,
+    "lastModified": 1790330950.4053779
+  },
+  {
+    "relativePath": "Other/Info/Settings/Legal Regulations & Compliance/Compliance/Nanndemoya-Policys/NanndemoyaHouse.md",
+    "sha256": "bbd13ac701358ec652752e35eb57eb3fe4dbd7dd6f224f980efe09bcb260b374",
+    "fileSize": 6748,
+    "lastModified": 1790331481.4851716
+  },
+  {
+    "relativePath": "Other/Info/Settings/Legal Regulations & Compliance/Compliance/Nanndemoya-Policys/Partner_RuleBook.md",
+    "sha256": "51f7572d488517579d5d936c92df00991f6e756bc5ae959ea610bd5a6536bc5c",
+    "fileSize": 35113,
+    "lastModified": 1790331469.7628126
+  },
+  {
+    "relativePath": "Other/Info/Settings/Legal Regulations & Compliance/Compliance/Nanndemoya-Policys/act-on-specified-commercial-transactions.md",
+    "sha256": "4bb00ec4b365eee80029ff498eaef3490c27cceb415d12bc90a278b123de4340",
+    "fileSize": 5803,
+    "lastModified": 1790330714.4984872
+  },
+  {
+    "relativePath": "Other/Info/Settings/Legal Regulations & Compliance/Compliance/Nanndemoya-Policys/ncf.md",
+    "sha256": "e4d305ee3461d36690958715feb71e040991991cdcb90d0bcb68a9771bd8132e",
+    "fileSize": 2523,
+    "lastModified": 1790331062.075412
+  },
+  {
+    "relativePath": "Other/Info/Settings/Legal Regulations & Compliance/Compliance/Nanndemoya-Policys/privacy-policy.md",
+    "sha256": "f4b15d522bba9b191ecc73f8683dc3f13661f8f7a0a82209b9ae19b2e1d0b11c",
+    "fileSize": 8115,
+    "lastModified": 1790330714.5069761
+  },
+  {
+    "relativePath": "Other/Info/Settings/Legal Regulations & Compliance/Compliance/Nanndemoya-Policys/terms.md",
+    "sha256": "6d172c38f25c1d0f2af72574784d9ef96d7428261b1eeec2b91f89aa4e85b8cc",
+    "fileSize": 5305,
+    "lastModified": 1790330714.5190284
+  },
+  {
+    "relativePath": "Other/Info/Settings/Legal Regulations & Compliance/Legal Regulations /Management_of- Specified_ Commercial Transactions Act Disclosures.txt",
+    "sha256": "da0ca637c80d73dc67c1c62bc309478d7a83402bcaccd1e47e6c8f185677b025",
+    "fileSize": 344,
+    "lastModified": 1790328762.1300602
+  },
+  {
+    "relativePath": "Other/Info/Settings/Legal Regulations & Compliance/Legal Regulations /Rights-Management.txt",
+    "sha256": "38d140a0df36fedd820fd12e99260628ca2270ca7c263d04bb12df8d15c74a88",
+    "fileSize": 93,
+    "lastModified": 1790330034.2208574
+  },
+  {
+    "relativePath": "Other/Info/Settings/Paid/AI機能-定額式プラン.csv",
+    "sha256": "7a2602e9b8f7ed32d70c67d8727c864dc263a4ddd04cf88e04ad5705e0ffd6e5",
+    "fileSize": 2145,
+    "lastModified": 1790325180.7199152
+  },
+  {
+    "relativePath": "Other/Info/Settings/Paid/AI機能-都度課金式プラン.csv",
+    "sha256": "69e08ad1d033890abe8d185103d6a3245dca7c0ba7302c6adc11d587643d6467",
+    "fileSize": 1852,
+    "lastModified": 1790324889.537477
+  },
+  {
+    "relativePath": "Other/Info/Settings/Paid/アプリ拡張-キャラクターメーカー.csv",
+    "sha256": "9b347fecfc1f7d082446f55aa1cc9f1e8a1102ab2e0a2d32752b3ef2f107e07d",
+    "fileSize": 2586,
+    "lastModified": 1790324889.5383565
+  },
+  {
+    "relativePath": "Other/Info/Settings/Paid/アプリ拡張-サウンドメーカー.csv",
+    "sha256": "3eb0c8078c8a23c8fea2cf3426adfc5396301e22275ef5bc4cf34338bd8ca353",
+    "fileSize": 2579,
+    "lastModified": 1790324889.5387719
+  },
+  {
+    "relativePath": "Other/Info/Settings/Paid/アプリ拡張-スライド&シナリオメーカー.csv",
+    "sha256": "b40ecd418e26c16224e68ef4019b7e2a4834c604bd6965036bafe6bd544d6edc",
+    "fileSize": 2588,
+    "lastModified": 1790324889.5390687
+  },
+  {
+    "relativePath": "Other/Info/Settings/Paid/アプリ拡張-スーパーバンドル.csv",
+    "sha256": "c69e034dee6a9b290dade086e57480f2c2ba20846fbfcb5481a718478e822eaa",
+    "fileSize": 3198,
+    "lastModified": 1790324889.5394592
+  },
+  {
+    "relativePath": "Other/Info/Settings/Paid/アプリ拡張-ムービーメーカー.csv",
+    "sha256": "d118514a3072ba03ff403c0bb5ed9a78168bc1bc5624b437e73a67d35f1a47bd",
+    "fileSize": 2580,
+    "lastModified": 1790324889.5379674
+  },
+  {
+    "relativePath": "Other/Info/Settings/Paid/バックアップ、同期フリー券-バックアップ（サービス利用券の購入ボタン）.csv",
+    "sha256": "e1282002a902f4d60462ceebb323f3d746056bf73577dec6abf14e3e1c67d16a",
+    "fileSize": 2240,
+    "lastModified": 1790324889.535766
+  },
+  {
+    "relativePath": "Other/Info/Settings/Paid/バックアップ、同期フリー券-同期（サービス利用券の購入ボタン）.csv",
+    "sha256": "17afc965f99c2b813b759e00600453523fd7b00feb187aa26ba122edb0c79c4c",
+    "fileSize": 2228,
+    "lastModified": 1790324889.5361319
+  },
+  {
+    "relativePath": "Other/Info/Settings/Paid/対応拡張子の追加-Status.csv",
+    "sha256": "cbaded1b1decadf4326c88a61040af01ebcac822e7b7052f2b6feff4cfc05c53",
+    "fileSize": 2081,
+    "lastModified": 1790324889.536649
+  },
+  {
+    "relativePath": "Other/Info/Settings/Paid/広告-3種類広告まとめてフリー券（フリー券の購入ボタン）.csv",
+    "sha256": "e78248580b193c6b073d5da396e0624f6c3f58e8486f76a80acc4952caa515b4",
+    "fileSize": 2250,
+    "lastModified": 1790324889.5351093
+  },
+  {
+    "relativePath": "Other/Info/Settings/Paid/広告-お試し広告（フリー券の購入ボタン）.csv",
+    "sha256": "934356ecb8cbfb4299ce01f644af5150b040d6859800ed2eaa390cc693320611",
+    "fileSize": 2228,
+    "lastModified": 1790324889.5346515
+  },
+  {
+    "relativePath": "Other/Info/Settings/Paid/広告-ファイル処理広告（フリー券の購入ボタン）.csv",
+    "sha256": "4f151d3a9cf127bb1e1d8d7d25ba2e9fd53ec8b3bb0bbecf56a11c1bee3d1467",
+    "fileSize": 2237,
+    "lastModified": 1790324889.5336046
+  },
+  {
+    "relativePath": "Other/Info/Settings/Paid/広告-長時間処理広告（フリー券の購入ボタン）.csv",
+    "sha256": "02a9b3007032f193ae1f2f054189c25ead80a8e57a08079b01bc10ef3ef11d28",
+    "fileSize": 2234,
+    "lastModified": 1790324889.534187
+  },
+  {
+    "relativePath": "Other/Info/Settings/Language & Area/Area/country_or_area.txt",
+    "sha256": "d2002eab1454477421c88543abde7c4e96434203765d562b1ec655bbb5a552d5",
+    "fileSize": 186,
+    "lastModified": 1790328213.780888
+  },
+  {
+    "relativePath": "Other/Info/Settings/Language & Area/Area/maps.txt",
+    "sha256": "96ab431a9bdb2a5a7b2dca532e107d6f42d8bea9d1de3e7cd549a5713d4a25ef",
+    "fileSize": 216,
+    "lastModified": 1790328325.3926456
+  },
+  {
+    "relativePath": "Other/Info/Settings/Language & Area/Area/policy.txt",
+    "sha256": "4dd4ea866d7dd74c4f5d378d15d3b50a9ec8805cc1d7b18808ce0a91f9dee716",
+    "fileSize": 1858,
+    "lastModified": 1790328209.9778938
+  },
+  {
+    "relativePath": "Other/Info/Settings/Language & Area/Area/reset.txt",
+    "sha256": "8b96b44823f33ee08ea99d08833fa58b94b8c85533ad39a468fe1fb2020a16eb",
+    "fileSize": 390,
+    "lastModified": 1790328625.1091275
+  },
+  {
+    "relativePath": "Other/Info/Settings/Language & Area/Area/time_zorn.txt",
+    "sha256": "ddd866ddba2a770d24be6b734fd61634458a931b410676115163dc5229838a52",
+    "fileSize": 289,
+    "lastModified": 1790326628.8421803
+  },
+  {
+    "relativePath": "Other/Info/Settings/Language & Area/Area/作品設定.md",
+    "sha256": "a8b9d97fb14b23cfea4f20388d714688783f066671c9606e09b433d4c39efb55",
+    "fileSize": 1035107,
+    "lastModified": 1790328321.1518157
+  },
+  {
+    "relativePath": "Other/Info/Settings/Language & Area/Language/apps.txt",
+    "sha256": "719730b3093c42d1793c5af2dfbcdc93e1f954ba64f9c9521e7e09f631fae314",
+    "fileSize": 812,
+    "lastModified": 1790326126.5999966
+  },
+  {
+    "relativePath": "Other/Info/Settings/Language & Area/Language/cheker.txt",
+    "sha256": "05e077db19a21b61f8cb6fafd5c3d1266b6cc1c5368123c1d87e8d7576f329be",
+    "fileSize": 983,
+    "lastModified": 1790326128.146877
+  },
+  {
+    "relativePath": "Other/Info/Settings/Language & Area/Language/document.txt",
+    "sha256": "b351e556d698640e69c04806cbdb991dfa07be64cd254439653456a3b8103cf2",
+    "fileSize": 821,
+    "lastModified": 1790326125.4077585
+  },
+  {
+    "relativePath": "Other/Info/Settings/Language & Area/Language/media.txt",
+    "sha256": "d2847bfad3bd9b548e8859ef4db110261e6fd4cbb4c55b77df19f4dd71006c79",
+    "fileSize": 815,
+    "lastModified": 1790325420.483672
+  },
+  {
+    "relativePath": "Other/Info/Settings/Language & Area/Language/reset.txt",
+    "sha256": "a291443a92374f43d0d35c4877c3ee8024c4ae23c6653a9748a45a66d2de7ba1",
+    "fileSize": 1136,
+    "lastModified": 1790326124.0265539
+  },
+  {
+    "relativePath": "Other/Info/Settings/Cloud-Connection/NanndemoyaCloud/cloud-save.md",
+    "sha256": "3137fb90833c716fafdf400a3a5ca8b859bb4c67f14acdfd8ef735879be41fbc",
+    "fileSize": 870,
+    "lastModified": 1790316495.6242974
+  },
+  {
+    "relativePath": "Other/Info/Settings/Cloud-Connection/NanndemoyaCloud/inport-for-google-accounts.md",
+    "sha256": "90afa6927c7c3258260b31f9e90e8fceb0cdb75bfee392add6011214870154a3",
+    "fileSize": 783,
+    "lastModified": 1790316438.8379867
+  },
+  {
+    "relativePath": "Other/Info/Settings/Cloud-Connection/Googleアカウント/default-saving.txt",
+    "sha256": "cdaea3b6c4e4d1d5c9fbab67337d94fd41ad8bbc777cc287061374ba337b5adb",
+    "fileSize": 232,
+    "lastModified": 1790325182.4637256
+  },
+  {
+    "relativePath": "Other/Info/Settings/Account/Google.txt",
+    "sha256": "f3d4730c3b0bdf01f85000257d14df60a05700e5d1869407a80d897290c2176d",
+    "fileSize": 737,
+    "lastModified": 1790334619.9443986
+  },
+  {
+    "relativePath": "Other/Info/Settings/Account/NanndemoyaCloud.txt",
+    "sha256": "aa2b6bf4caa2c24d8303c62020fec9a0161de147aca513b4e080ffcbe303c3be",
+    "fileSize": 713,
+    "lastModified": 1790334623.406868
+  },
+  {
+    "relativePath": "Other/Info/Settings/Account/LocalAccount/IdentityVerification.txt",
+    "sha256": "7d053c33db3cbd20f55b13559fec146c87b2a335ff3fabdb634cf560ab2ce646",
+    "fileSize": 1204,
+    "lastModified": 1790313528.1471798
+  },
+  {
+    "relativePath": "Other/Info/Settings/Account/LocalAccount/PhoneNumber.txt",
+    "sha256": "54730000530e44b730e84e1ad1e3cc0ba97d12f4247f9dc3ee2254c72d7699d7",
+    "fileSize": 569,
+    "lastModified": 1790313526.6647425
+  },
+  {
+    "relativePath": "Other/Info/Settings/Account/LocalAccount/birthday.txt",
+    "sha256": "1f348c5266dccbf6afe38514982600b51c24b9bc6f3aa74791b6b1245136b9c5",
+    "fileSize": 539,
+    "lastModified": 1790313529.7134037
+  },
+  {
+    "relativePath": "Other/Info/Settings/Account/LocalAccount/change.txt",
+    "sha256": "56da8f25d7bee37ceaf9ee354bb219ed6c006a271c560ddbd59ad3d2caaa4c53",
+    "fileSize": 439,
+    "lastModified": 1790313522.6420972
+  },
+  {
+    "relativePath": "Other/Info/Settings/Account/LocalAccount/name.txt",
+    "sha256": "057b79bb12a32b493b270a8de7eff9cd5ee7000e2efc91ddb0f4c9ebd5d86056",
+    "fileSize": 584,
+    "lastModified": 1790313531.2427301
+  },
+  {
+    "relativePath": "Other/Info/Settings/Account/LocalAccount/security.txt",
+    "sha256": "ee4fcbb2fbeaf9d4929ef45078975dc2e2ff77bc9b4a33265a40722ccfe022d6",
+    "fileSize": 1804,
+    "lastModified": 1790313524.8345947
+  },
+  {
+    "relativePath": "Other/Info/Settings/Policy/act-on-specified-commercial-transactions.md",
+    "sha256": "4bb00ec4b365eee80029ff498eaef3490c27cceb415d12bc90a278b123de4340",
+    "fileSize": 5803,
+    "lastModified": 1790313520.5341177
+  },
+  {
+    "relativePath": "Other/Info/Settings/Policy/privacy-policy.md",
+    "sha256": "f4b15d522bba9b191ecc73f8683dc3f13661f8f7a0a82209b9ae19b2e1d0b11c",
+    "fileSize": 8115,
+    "lastModified": 1790313516.0051308
+  },
+  {
+    "relativePath": "Other/Info/Settings/Policy/terms.md",
+    "sha256": "6d172c38f25c1d0f2af72574784d9ef96d7428261b1eeec2b91f89aa4e85b8cc",
+    "fileSize": 5305,
+    "lastModified": 1790313518.2753563
+  },
+  {
+    "relativePath": "Other/Info/rboot/rboot.txt",
+    "sha256": "0dd5efa38953baabcca131407bd29cb8d2da6c8d7d63e2e1eebe1872b2ba1516",
+    "fileSize": 54,
+    "lastModified": 1790335945.2936187
+  },
+  {
+    "relativePath": "Other/Info/ApplicationInfo/credit/credit.txt",
+    "sha256": "b16c6d67de0121916b88d7450035d1b0d2cdf72f1b2c4fc89ce4f6bbac525452",
+    "fileSize": 1037,
+    "lastModified": 1790311014.4214518
+  },
+  {
+    "relativePath": "Other/Info/ApplicationInfo/license/Google.txt",
+    "sha256": "f3d4730c3b0bdf01f85000257d14df60a05700e5d1869407a80d897290c2176d",
+    "fileSize": 737,
+    "lastModified": 1790311001.6361
+  },
+  {
+    "relativePath": "Other/Info/ApplicationInfo/license/NanndemoyaCloud/nanndemoya.site/license.txt",
+    "sha256": "da98bc12b4c746079f3951468cd2fa8aa6c4113af6d58330d5de9a97c729f7d1",
+    "fileSize": 993,
+    "lastModified": 1790311525.235597
+  },
+  {
+    "relativePath": "Other/Info/ApplicationInfo/license/NanndemoyaCloud/独自ドメイン/license.txt",
+    "sha256": "da98bc12b4c746079f3951468cd2fa8aa6c4113af6d58330d5de9a97c729f7d1",
+    "fileSize": 993,
+    "lastModified": 1790311523.57454
+  },
+  {
+    "relativePath": "Other/Info/ApplicationInfo/license/NanndemoyaCloud/nanndemoya.jp/license.txt",
+    "sha256": "da98bc12b4c746079f3951468cd2fa8aa6c4113af6d58330d5de9a97c729f7d1",
+    "fileSize": 993,
+    "lastModified": 1790311529.9627125
+  },
+  {
+    "relativePath": "Other/Info/ApplicationInfo/license/NanndemoyaCloud/nanndemoya.online/license.txt",
+    "sha256": "da98bc12b4c746079f3951468cd2fa8aa6c4113af6d58330d5de9a97c729f7d1",
+    "fileSize": 993,
+    "lastModified": 1790311531.3411736
+  },
+  {
+    "relativePath": "Other/Info/ApplicationInfo/license/NanndemoyaCloud/nanndemoya.org/license.txt",
+    "sha256": "da98bc12b4c746079f3951468cd2fa8aa6c4113af6d58330d5de9a97c729f7d1",
+    "fileSize": 993,
+    "lastModified": 1790311527.049997
+  },
+  {
+    "relativePath": "Other/Info/ApplicationInfo/license/NanndemoyaCloud/nanndemoya.net/license.txt",
+    "sha256": "da98bc12b4c746079f3951468cd2fa8aa6c4113af6d58330d5de9a97c729f7d1",
+    "fileSize": 993,
+    "lastModified": 1790311528.5499752
+  },
+  {
+    "relativePath": "Other/Info/ApplicationInfo/license/AquesTalk/AquesTalk2KanjiKoe/license.txt",
+    "sha256": "f26fb99590bab722b12bb2ed873b37e48e595be073a1395e8b92a1ca6f7f6e68",
+    "fileSize": 556,
+    "lastModified": 1790311005.5928056
+  },
+  {
+    "relativePath": "Other/Info/ApplicationInfo/license/AquesTalk/AquesTalk1/license.txt",
+    "sha256": "c8a75543690c414ac4e5cc8212f68041a9123c83c10792d55b41ca044bcc28de",
+    "fileSize": 548,
+    "lastModified": 1790311003.5408926
+  },
+  {
+    "relativePath": "Other/Info/ApplicationInfo/license/AquesTalk/AquesTalkESP32/license.txt",
+    "sha256": "ad484b31dbd98638879f8517534d84622b0fee7287bcca12e2ab51b580edeed0",
+    "fileSize": 552,
+    "lastModified": 1790311008.8106608
+  },
+  {
+    "relativePath": "Other/Info/ApplicationInfo/license/AquesTalk/AquesTalk10/license.txt",
+    "sha256": "c9fc283cb530e8e3fec3b3feb1677f09d295c122d4c8de0209ced5131956639e",
+    "fileSize": 549,
+    "lastModified": 1790311006.610255
+  },
+  {
+    "relativePath": "Other/Info/ApplicationInfo/license/AquesTalk/AquesTalkPi/license.txt",
+    "sha256": "ab206fb7f765ff93411fa92b9e93b4a1ea5d9c06410d44bbde1873f1408152f9",
+    "fileSize": 549,
+    "lastModified": 1790311009.8812084
+  },
+  {
+    "relativePath": "Other/Info/ApplicationInfo/license/AquesTalk/AquesTalk2/license.txt",
+    "sha256": "9da7f56884cf85fda41186a5da722e5302c06ecaa2998a250d616bc0b300573f",
+    "fileSize": 548,
+    "lastModified": 1790311004.621445
+  },
+  {
+    "relativePath": "Other/Info/ApplicationInfo/version/version.txt",
+    "sha256": "fc20b238080d3b8d08a3652b9b716f7739dd886bdb77cdd14af91cede881b143",
+    "fileSize": 966,
+    "lastModified": 1790311015.4295092
+  },
+  {
+    "relativePath": "Other/Info/ApplicationInfo/report/report.txt",
+    "sha256": "5e2b69332241f130932eea95acaefc5c3995d1092dcb0315697f8967dab3d6db",
+    "fileSize": 322,
+    "lastModified": 1790311018.7466817
+  },
+  {
+    "relativePath": "Other/Info/Store/Store.txt",
+    "sha256": "0dd5efa38953baabcca131407bd29cb8d2da6c8d7d63e2e1eebe1872b2ba1516",
+    "fileSize": 54,
+    "lastModified": 1790343532.8385527
+  },
+  {
+    "relativePath": "Other/Cloud/llm_server_daemon.py",
+    "sha256": "31453e2789c77e2cd9de3beac5b782ae62136174ba7f87fdf6d5086c99927160",
+    "fileSize": 3706,
+    "lastModified": 1790505445.4896693
+  },
+  {
+    "relativePath": "Other/Cloud/setup_gcp_llm_linux.sh",
+    "sha256": "8348a7d5fb5ede23b4879b6bc72dc13869120a6786fa19fa4843690439f8bef8",
+    "fileSize": 2821,
+    "lastModified": 1790505434.4582896
+  },
+  {
+    "relativePath": "Other/Cloud/user_provisioning.py",
+    "sha256": "15fbf15cc4eeb478a913a3b3ed0626a4dfdd8c306f372efc61fc95b47f86347a",
+    "fileSize": 2311,
+    "lastModified": 1790505452.4964874
+  },
+  {
+    "relativePath": "SoundMarker/txt.txt",
+    "sha256": "7643ea62855b93cae267f8aa8696a8cf97c5e6a2f34501a5dc08bc72fe2a89a6",
+    "fileSize": 66,
+    "lastModified": 1790343533.9410605
+  },
+  {
+    "relativePath": "SoundMarker/交換夫婦（21話22話）.tssm",
+    "sha256": "e817ecbd840db1659160d5d0105db802dcfd1a29e946fab8a9787347b19eb85e",
+    "fileSize": 332668,
+    "lastModified": 1790486689.5716214
+  },
+  {
+    "relativePath": "SoundMarker/幼き日の夢（第12話）.tssm",
+    "sha256": "9b38b78ea1ed7fb004534411423b08c05045f23f16b4aca0fa82bc41c21a2fff",
+    "fileSize": 70914,
+    "lastModified": 1790500893.5441234
+  },
+  {
+    "relativePath": "SoundMarker/東方惑情録_第1話.tssm",
+    "sha256": "35eeae091f85e7f8ef6d068591d2ab4c3ac8e5e27ce3e0fcb7a305fda3ec21cf",
+    "fileSize": 70691,
+    "lastModified": 1790498908.7037795
+  },
+  {
+    "relativePath": "MovieMarker/txt.txt",
+    "sha256": "7643ea62855b93cae267f8aa8696a8cf97c5e6a2f34501a5dc08bc72fe2a89a6",
+    "fileSize": 66,
+    "lastModified": 1790343536.1052544
+  },
+  {
+    "relativePath": "MovieMarker/交換夫婦（21.22話目）叡智シーンのみ.key.tsvm",
+    "sha256": "05b3f8aba3d855c8742e39fd5599e7b333d4a40f730e5e12f258d54fe168fac4",
+    "fileSize": 113604,
+    "lastModified": 1790486580.5469277
+  },
+  {
+    "relativePath": "MovieMarker/交換夫婦（21.22話目）叡智シーンのみ.key_movie_sync.json",
+    "sha256": "05b3f8aba3d855c8742e39fd5599e7b333d4a40f730e5e12f258d54fe168fac4",
+    "fileSize": 113604,
+    "lastModified": 1790486580.5483434
+  },
+  {
+    "relativePath": "MovieMarker/交換夫婦（21話22話）.tspm.tsvm",
+    "sha256": "57cde83a80d634bf610598a23f471ccca6b512ae9feff80c4be7c7e260b2c787",
+    "fileSize": 102406,
+    "lastModified": 1790486611.0968773
+  },
+  {
+    "relativePath": "MovieMarker/交換夫婦（21話22話）.tspm_movie_sync.json",
+    "sha256": "57cde83a80d634bf610598a23f471ccca6b512ae9feff80c4be7c7e260b2c787",
+    "fileSize": 102406,
+    "lastModified": 1790486611.0976787
+  },
+  {
+    "relativePath": "MovieMarker/交換夫婦（21話22話）.tsvm",
+    "sha256": "ffd055d5b28dd7ac42ae7fbdae19bb79d1ddc5b70d564a2f890306bc76705049",
+    "fileSize": 106769,
+    "lastModified": 1790486331.1906729
+  },
+  {
+    "relativePath": "MovieMarker/第12話.key.tsvm",
+    "sha256": "71405384c0e3345ee0b6c67745097f0921b60331deed5b0c4ebfcfd3b078b335",
+    "fileSize": 25463,
+    "lastModified": 1790499603.6539743
+  },
+  {
+    "relativePath": "MovieMarker/第12話.key_movie_sync.json",
+    "sha256": "71405384c0e3345ee0b6c67745097f0921b60331deed5b0c4ebfcfd3b078b335",
+    "fileSize": 25463,
+    "lastModified": 1790499603.6556275
+  },
+  {
+    "relativePath": "GameMarker/txt.txt",
+    "sha256": "7643ea62855b93cae267f8aa8696a8cf97c5e6a2f34501a5dc08bc72fe2a89a6",
+    "fileSize": 66,
+    "lastModified": 1790343537.101366
+  },
+  {
+    "relativePath": "Scripts/keynote_extractor.py",
+    "sha256": "ec14c60120167d97d8f55948a7bfd4f9e7efaf7a732bf904592c84ff7d715d63",
+    "fileSize": 76500,
+    "lastModified": 1790498704.7636876
+  },
+  {
+    "relativePath": "MaterialStudio/txt.txt",
+    "sha256": "fe750cc0b364a9c3ce91dc05eb0cd6b16eef83aef078483512a5f4dc0a83d71d",
+    "fileSize": 168,
+    "lastModified": 1790343531.0663192
+  },
+  {
+    "relativePath": "MaterialStudio/交換夫婦（21話22話）.mp4",
+    "sha256": "276047928d17f37ad8faeb41cf54f2233cfa309933f5a5869789608a84d81edb",
+    "fileSize": 252236139,
+    "lastModified": 1790489065.509046
+  },
+  {
+    "relativePath": "MaterialStudio/交換夫婦（21話22話）.srt",
+    "sha256": "bea28ddfaf9cdfd488531affac4ad6acf69411992938e1c65c868d0d9f50af55",
+    "fileSize": 11474,
+    "lastModified": 1790489066.7032092
+  },
+  {
+    "relativePath": "MaterialStudio/幼き日の夢（第12話）.mp4",
+    "sha256": "15fb1fe3222d090af28a23078a89cd45fbd919d59ea10f98fb247dd1c2b165fd",
+    "fileSize": 11340060,
+    "lastModified": 1790501040.985082
+  },
+  {
+    "relativePath": "MaterialStudio/幼き日の夢（第12話）.srt",
+    "sha256": "5be296b9545351004f7d817fa7a685f48cf07021ea9244081469e20b75ca7b68",
+    "fileSize": 3971,
+    "lastModified": 1790501041.0310266
+  },
+  {
+    "relativePath": "Slide&ScenarioMarker/txt.txt",
+    "sha256": "7643ea62855b93cae267f8aa8696a8cf97c5e6a2f34501a5dc08bc72fe2a89a6",
+    "fileSize": 66,
+    "lastModified": 1790343535.0330906
+  },
+  {
+    "relativePath": "Slide&ScenarioMarker/交換夫婦（21.22話目）叡智シーンのみ.key.tspm",
+    "sha256": "c98125538535bfbefab597d4e092df67351d99aed966565689c309ea0d2851ef",
+    "fileSize": 259653,
+    "lastModified": 1790486580.5380487
+  },
+  {
+    "relativePath": "Slide&ScenarioMarker/交換夫婦（21.22話目）叡智シーンのみ.key_sync.json",
+    "sha256": "c98125538535bfbefab597d4e092df67351d99aed966565689c309ea0d2851ef",
+    "fileSize": 259653,
+    "lastModified": 1790486580.5404515
+  },
+  {
+    "relativePath": "Slide&ScenarioMarker/交換夫婦（21話22話）.tspm",
+    "sha256": "9f2d0f2e7d5b67903ccdf29e9bfce8d909d8000383b243f78cb85a9606e261a2",
+    "fileSize": 258197,
+    "lastModified": 1790486341.9794295
+  },
+  {
+    "relativePath": "Slide&ScenarioMarker/交換夫婦（21話22話）.tspm.tspm",
+    "sha256": "0c1ec7712055b90170bcc63db9e36cc1d3fc52172d867a8945b9c507802f8a70",
+    "fileSize": 258197,
+    "lastModified": 1790486611.0927036
+  },
+  {
+    "relativePath": "Slide&ScenarioMarker/交換夫婦（21話22話）.tspm_sync.json",
+    "sha256": "0c1ec7712055b90170bcc63db9e36cc1d3fc52172d867a8945b9c507802f8a70",
+    "fileSize": 258197,
+    "lastModified": 1790486611.094615
+  },
+  {
+    "relativePath": "Slide&ScenarioMarker/第12話.key.tspm",
+    "sha256": "6e16fc02ae138fb3643028c23077dd2296dbc2b1a2c2db932efcc0160cd0ac04",
+    "fileSize": 60776,
+    "lastModified": 1790499603.6495569
+  },
+  {
+    "relativePath": "Slide&ScenarioMarker/第12話.key_sync.json",
+    "sha256": "6e16fc02ae138fb3643028c23077dd2296dbc2b1a2c2db932efcc0160cd0ac04",
+    "fileSize": 60776,
+    "lastModified": 1790499603.650623
+  },
+  {
+    "relativePath": "Slide&ScenarioMarker/Scripts/keynote_extractor.py",
+    "sha256": "ec14c60120167d97d8f55948a7bfd4f9e7efaf7a732bf904592c84ff7d715d63",
+    "fileSize": 76500,
+    "lastModified": 1790505251.5289412
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21.22話目）.key_sync_backup_20260926_145540.json",
+    "sha256": "47ad07c4f49faf232b2b9279ce16f7be4610e8bf822afeac97a9c8b72e23756f",
+    "fileSize": 62,
+    "lastModified": 1790402140.1391737
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21.22話目）.tspm_backup_20260926_153728.json",
+    "sha256": "04645e9d51d36aa5cb52c95cb9ecda06522479a87d4c385aec5074bf2842041d",
+    "fileSize": 151,
+    "lastModified": 1790404648.8899856
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21.22話目）.tspm_backup_20260926_171701.json",
+    "sha256": "c796583c598aceb1270811705439678dbd1a1ce6d0ea8851fc834abdc0c182f6",
+    "fileSize": 151,
+    "lastModified": 1790410621.8138547
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21.22話目）.tspm_backup_20260926_182855.json",
+    "sha256": "b7544e6728b8b6e8eb00cdcf31fa9e1b50f7eb9703502412d16fb852aa499b02",
+    "fileSize": 151,
+    "lastModified": 1790414935.516333
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21.22話目）.tssm_backup_20260926_175332.json",
+    "sha256": "e6ee8291f958f9a0a4d7333beb1e6ff5994ac214cc2e660bea9b0c97a6ebdce9",
+    "fileSize": 136,
+    "lastModified": 1790412812.960436
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21.22話目）.tssm_backup_20260926_183423.json",
+    "sha256": "a15328e1f1c8a78d1f29258106535e6298d10464cdaf61c526f68ccd68ac3f06",
+    "fileSize": 136,
+    "lastModified": 1790415263.4306405
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21.22話目）.tssm_backup_20260926_183434.json",
+    "sha256": "9675994bd51f94aa32a13f93c2aa213e60d9704d8196775f6764ecb67ea1326f",
+    "fileSize": 136,
+    "lastModified": 1790415274.9993887
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21.22話目）.tssm_backup_20260926_183448.json",
+    "sha256": "55bcbd76c3be014b22df85a76489d6d2bfff1eba8e5ecde41017c017809c88fc",
+    "fileSize": 136,
+    "lastModified": 1790415288.3985906
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21.22話目）_backup_20260926_145614.json",
+    "sha256": "9b9ee6fc9d0d42667d81b60b88fe2e49d6de3ffc7890e7319a41bc86698dbf0c",
+    "fileSize": 61,
+    "lastModified": 1790402174.899763
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21.22話目）_backup_20260926_145657.json",
+    "sha256": "9b9ee6fc9d0d42667d81b60b88fe2e49d6de3ffc7890e7319a41bc86698dbf0c",
+    "fileSize": 61,
+    "lastModified": 1790402217.2609534
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21.22話目）_backup_20260926_153710.json",
+    "sha256": "47ad07c4f49faf232b2b9279ce16f7be4610e8bf822afeac97a9c8b72e23756f",
+    "fileSize": 62,
+    "lastModified": 1790404630.763452
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話,22話）.tssm_backup_20260927_104822.json",
+    "sha256": "2d260d797a159d12818ecb3b136bd0686c493594447b7075ca48600fcd744e17",
+    "fileSize": 136,
+    "lastModified": 1790473702.3721933
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tspm_backup_20260926_202121.json",
+    "sha256": "480dd345e84a2eb330286f3f3165d591d4bbc392877757b89c5fbb1fe4045e51",
+    "fileSize": 150,
+    "lastModified": 1790421681.2160354
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tspm_backup_20260927_115400.json",
+    "sha256": "a626a174ae4f278f6a196f5939943ffa0bb8f466507aa2892aff3d1b8ff78716",
+    "fileSize": 150,
+    "lastModified": 1790477640.6023138
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tspm_backup_20260927_141901.json",
+    "sha256": "627aa973d6870675ec86ceab750a9c86dd56c35fee86ccd8673e3e0184f4bbc1",
+    "fileSize": 150,
+    "lastModified": 1790486341.982256
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260926_204608.json",
+    "sha256": "a1e020580a5fe0fafc62e38e98ba6e23bc528a92be225815e7b2dbd3ecc1981b",
+    "fileSize": 135,
+    "lastModified": 1790423168.427062
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260926_210537.json",
+    "sha256": "b67ce77c2a126062549a6753b54db6dc2245060a7d707f60439753810a12a8dd",
+    "fileSize": 135,
+    "lastModified": 1790424337.810706
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260926_210554.json",
+    "sha256": "5c8c5eaeb31f0724fda9db657f9498eaeec15ca9832ebf093a7ae64852abed6f",
+    "fileSize": 135,
+    "lastModified": 1790424354.8077044
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_082325.json",
+    "sha256": "09a51170b0ae42ca7418537ed64be888240d1fe7ef76a695d4a4dd021cdc310e",
+    "fileSize": 135,
+    "lastModified": 1790465005.2397852
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_082349.json",
+    "sha256": "67f915e0a706b3cdba5e4359df8367ebac79aa27cbe0f74c40be32c8ea5e7d16",
+    "fileSize": 135,
+    "lastModified": 1790465029.8447268
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_082606.json",
+    "sha256": "86e6db0d6d77c24396b37a4c3849e381f56427ea4cfb320db826ba53a9e4035f",
+    "fileSize": 135,
+    "lastModified": 1790465166.5622077
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_091243.json",
+    "sha256": "7da610bd0326312b076330d95c7e27001f0894fc5aba3fc1bddccd715e8e635a",
+    "fileSize": 135,
+    "lastModified": 1790467963.9501917
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_115245.json",
+    "sha256": "3de1d250fe5c4109b0b242b1c936a8d28593472dbc2b83a0cdfbce626a5fd2f7",
+    "fileSize": 135,
+    "lastModified": 1790477565.6927512
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_122806.json",
+    "sha256": "1d9e56b25f9da0d54a4d5e8fb74a37c9f03930e154de2774bfc43796d8cba46d",
+    "fileSize": 135,
+    "lastModified": 1790479686.7310796
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_122848.json",
+    "sha256": "2788452eaab62b29e7ce8ac69348f44b77b3c9f0953eec61f4a6c07592fc2a66",
+    "fileSize": 135,
+    "lastModified": 1790479728.3092475
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_131753.json",
+    "sha256": "fd9484deeda1765460bc2bfecb734b96f0bcb4fcb7037843ad89ce60fcfa618f",
+    "fileSize": 135,
+    "lastModified": 1790482673.235506
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_131829.json",
+    "sha256": "52453e9e3e0bf6e10fdb6a0d5d756dc623add6cf9df05be436ad6b15f6726808",
+    "fileSize": 135,
+    "lastModified": 1790482709.4631526
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_134324.json",
+    "sha256": "59a45802f91cb5e577f1f9c9df71dffa26982136bd34a113fbfb1a50cbb94cf2",
+    "fileSize": 135,
+    "lastModified": 1790484204.6501696
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_135434.json",
+    "sha256": "1f3797ba9be5320f1d99dfbe2248d4b29c431fa306594feddeb9a8840e863a62",
+    "fileSize": 135,
+    "lastModified": 1790484874.2246144
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_140750.json",
+    "sha256": "c1c86a91cf8e06d909d8fdc631aa3464de97950b55496c4a89c053c990af5e60",
+    "fileSize": 135,
+    "lastModified": 1790485670.9666197
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_141151.json",
+    "sha256": "776f211848f90b29af61f4c9180072ed0f21e0cb19ad97f8edb44ef93b65521e",
+    "fileSize": 135,
+    "lastModified": 1790485911.1638124
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_141213.json",
+    "sha256": "eabd814e13f2b697e59396568cafc76088efb96da59a6d77319a93e68aeeed3a",
+    "fileSize": 135,
+    "lastModified": 1790485933.3906748
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_141813.json",
+    "sha256": "1e26454ca046104c23ebecce8846782e401c1e2144400a799d6ee72a664508be",
+    "fileSize": 135,
+    "lastModified": 1790486293.6183608
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_141814.json",
+    "sha256": "8545d38aa6711d3c3ed409a9b0e0ef630a5cac416cd5e54c8437c7ce38daa864",
+    "fileSize": 135,
+    "lastModified": 1790486294.9748871
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_141859.json",
+    "sha256": "1f41f563186446d0a5c245dbb66a4c2ecccc0b006b527d407c9d15c46933f461",
+    "fileSize": 135,
+    "lastModified": 1790486339.2541816
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_142359.json",
+    "sha256": "b2352d39ce8f9809402874b29848db27a3a8cd32c1d8ae3dd6ff64292cd48b70",
+    "fileSize": 135,
+    "lastModified": 1790486639.427083
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_142428.json",
+    "sha256": "1d0926e22bb1583cd71b94e9d66b011a41f9af39baa41092865c3ed704ee9a6a",
+    "fileSize": 135,
+    "lastModified": 1790486668.9660912
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tssm_backup_20260927_142449.json",
+    "sha256": "4e341f9d55fe62569ab103a4073dc8c44a706a19fc01b143d9bed0f040c16423",
+    "fileSize": 135,
+    "lastModified": 1790486689.5756247
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tsvm_backup_20260927_132042.json",
+    "sha256": "18a0308728b1be98ffdd3137008902f739fb944036d9a8ace1939e79eb9b24e1",
+    "fileSize": 135,
+    "lastModified": 1790482842.0211618
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tsvm_backup_20260927_140743.json",
+    "sha256": "61c68d4a6730d216b1e6cb615c31296db1f13027a1b6c502e6e2eccb0a3c6999",
+    "fileSize": 135,
+    "lastModified": 1790485663.6844869
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）.tsvm_backup_20260927_141851.json",
+    "sha256": "c1799490b24ff16cd044714b57f39c59ccb9c6038fc258583943f35a47fd60d4",
+    "fileSize": 135,
+    "lastModified": 1790486331.1926916
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）_backup_20260927_115226.json",
+    "sha256": "3b91ecf5dac12529f3cbba6a741a5cb29fe31e173d90f81f97d8f6e483c765b9",
+    "fileSize": 61,
+    "lastModified": 1790477546.7132094
+  },
+  {
+    "relativePath": "Backups/交換夫婦（21話22話）_backup_20260927_142812.json",
+    "sha256": "3b91ecf5dac12529f3cbba6a741a5cb29fe31e173d90f81f97d8f6e483c765b9",
+    "fileSize": 61,
+    "lastModified": 1790486892.9612012
+  },
+  {
+    "relativePath": "Backups/交換夫婦（22話、23話）.tspm_backup_20260926_152953.json",
+    "sha256": "d27dc1777dc367c9a31f908d11d5dcd77279ed58fc62057ab2864144a64477ad",
+    "fileSize": 153,
+    "lastModified": 1790404193.8349469
+  },
+  {
+    "relativePath": "Backups/交換夫婦（22話、23話）_backup_20260926_153004.json",
+    "sha256": "47ad07c4f49faf232b2b9279ce16f7be4610e8bf822afeac97a9c8b72e23756f",
+    "fileSize": 62,
+    "lastModified": 1790404204.5606647
+  },
+  {
+    "relativePath": "Backups/幼き日の夢（第12話）.tssm_backup_20260927_171904.json",
+    "sha256": "a5d53550293e4f5ae42951802b212a1433448a210669553a58cfeeb01379fcc7",
+    "fileSize": 136,
+    "lastModified": 1790497144.1444018
+  },
+  {
+    "relativePath": "Backups/幼き日の夢（第12話）.tssm_backup_20260927_171935.json",
+    "sha256": "1c829f843e5d2d8ba0e476ed4552ba46800a2fcad91c3aec0e51196a15a6ca29",
+    "fileSize": 136,
+    "lastModified": 1790497175.5084517
+  },
+  {
+    "relativePath": "Backups/幼き日の夢（第12話）.tssm_backup_20260927_172115.json",
+    "sha256": "5ba57ba6547ed8f90cc2cf6b04f0b14e455d578e7c1060f5e5dc0682bd06471d",
+    "fileSize": 136,
+    "lastModified": 1790497275.7674422
+  },
+  {
+    "relativePath": "Backups/幼き日の夢（第12話）.tssm_backup_20260927_172139.json",
+    "sha256": "3aae6ae4ad37238facae7ecf110ce6c00133293e344a4db86b05194b47a8ad7c",
+    "fileSize": 136,
+    "lastModified": 1790497299.1038868
+  },
+  {
+    "relativePath": "Backups/幼き日の夢（第12話）.tssm_backup_20260927_174852.json",
+    "sha256": "a22f7997cab09162738d4aed1d3cb43c3320f4868b6f468ebf9843fada4b4a7f",
+    "fileSize": 136,
+    "lastModified": 1790498932.5669017
+  },
+  {
+    "relativePath": "Backups/幼き日の夢（第12話）.tssm_backup_20260927_181934.json",
+    "sha256": "ba533e6bd978842ae55fe5aec45df2c4edb6e35da46d9adcaca893c311e55b9b",
+    "fileSize": 136,
+    "lastModified": 1790500774.938815
+  },
+  {
+    "relativePath": "Backups/幼き日の夢（第12話）.tssm_backup_20260927_182133.json",
+    "sha256": "a62339b796ae78351f27ab1abae45ddd8ef59ecfcc48d4610afe7790a97ca242",
+    "fileSize": 136,
+    "lastModified": 1790500893.5458353
+  },
+  {
+    "relativePath": "Backups/東方惑情録_第1話.tspm_backup_20260926_202037.json",
+    "sha256": "201f735d3850ca290b3df52cfa8a0a2dad0fa04171301adf4e799b7ade3163ba",
+    "fileSize": 75,
+    "lastModified": 1790481669.8472373
+  },
+  {
+    "relativePath": "Backups/東方惑情録_第1話.tssm_backup_20260927_174828.json",
+    "sha256": "9b165440a652d378123bd888061a14517fcf605ebae7e7eb53598ba224448639",
+    "fileSize": 130,
+    "lastModified": 1790498908.7050562
+  },
+  {
+    "relativePath": "Backups/東方惑情録_第1話_backup_20260926_135557.json",
+    "sha256": "476ee57dc8cf6cfed9c22b12f81fe0e0c6c2822d987e136e9a3b08feab32b437",
+    "fileSize": 55,
+    "lastModified": 1790398557.45315
+  },
+  {
+    "relativePath": "Backups/東方惑情録_第1話_backup_20260926_135622.json",
+    "sha256": "476ee57dc8cf6cfed9c22b12f81fe0e0c6c2822d987e136e9a3b08feab32b437",
+    "fileSize": 55,
+    "lastModified": 1790398582.0099723
+  },
+  {
+    "relativePath": "Backups/東方惑情録_第1話_backup_20260926_151235.json",
+    "sha256": "476ee57dc8cf6cfed9c22b12f81fe0e0c6c2822d987e136e9a3b08feab32b437",
+    "fileSize": 55,
+    "lastModified": 1790403155.6229904
+  }
+]

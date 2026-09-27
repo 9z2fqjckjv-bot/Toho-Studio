@@ -7,10 +7,8 @@ public struct AppTourView: View {
     public var body: some View {
         VStack(spacing: 0) {
             // Header
-            HStack {
-                Image(systemName: "sparkles")
-                    .foregroundColor(.yellow)
-                    .font(.title2)
+            HStack(spacing: 10) {
+                AppLogoView(size: 26, cornerRadius: 6)
                 Text("Toho-Studio へようこそ")
                     .font(.title2)
                     .bold()
@@ -80,9 +78,7 @@ public struct AppTourView: View {
     // Step 0: Welcome & Overview
     private var tourIntroductionStep: some View {
         VStack(spacing: 16) {
-            Image(systemName: "wand.and.stars")
-                .font(.system(size: 64))
-                .foregroundColor(.accentColor)
+            AppLogoView(size: 88, cornerRadius: 18)
             Text("東方Project 二次創作クリエイティブスイート")
                 .font(.title3)
                 .bold()

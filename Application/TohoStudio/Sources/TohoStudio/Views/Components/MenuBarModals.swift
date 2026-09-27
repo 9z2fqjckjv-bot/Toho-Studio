@@ -1161,9 +1161,15 @@ public struct SoftwareListModalView: View {
 // MARK: - 15. 機能リスト＆ショートカット一覧モーダル (cmd+d+option+l)
 public struct FeatureListModalView: View {
     @ObservedObject var appState = AppState.shared
-    @State private var selectedTab: Int = 0 // 0: 有料機能まとめ, 1: 全機能＆ショートカット, 2: 各ソフト別機能
+    @ObservedObject var paidService = PaidFeatureService.shared
+    @ObservedObject var nanndemoyaService = NanndemoyaCloudService.shared
+    @ObservedObject var cloudLinuxService = CloudVirtualLinuxService.shared
+    @ObservedObject var adManager = AdManager.shared
+
+    @State private var selectedTab: Int = 0 // 0: 有料機能マネージャー(CSV連携), 1: 全機能＆ショートカット, 2: 各ソフト別機能
     @State private var searchKeyword: String = ""
     @State private var voiceTemplateMessage: String = ""
+    @State private var selectedCategoryFilter: String = "すべて"
 
     public init() {}
 
@@ -1264,26 +1270,67 @@ public struct FeatureListModalView: View {
                             .background(Color.secondary.opacity(0.15))
                             .cornerRadius(4)
                     }
-                    Text("メニューバー搭載の基本機能およびメニューバー・各ソフトから集約された有料機能の一覧です。機能リストから直接実行できます。")
+                    Text("有料機能と無料機能は完全に分離されています。有料機能はResource内の設定CSVおよびNanndemoyaCloud認証に基づきここで管理・実行されます。")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
                 Spacer()
 
                 Picker("", selection: $selectedTab) {
-                    Text("⭐ 有料機能まとめ").tag(0)
+                    Text("⭐ 有料機能 (CSV管理)").tag(0)
                     Text("⌨️ ショートカット＆全機能").tag(1)
                     Text("🧩 各ソフト機能").tag(2)
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 380)
+                .frame(width: 400)
+            }
+
+            // Status bar for NanndemoyaCloud & GCP Virtual Linux
+            HStack(spacing: 12) {
+                // NanndemoyaCloud Status
+                HStack(spacing: 6) {
+                    Image(systemName: nanndemoyaService.isCurrentDeviceRegistered ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                        .foregroundColor(nanndemoyaService.isCurrentDeviceRegistered ? .green : .orange)
+                    Text("NanndemoyaCloud: \(nanndemoyaService.isCurrentDeviceRegistered ? "端末認証済み" : "端末未登録")")
+                        .font(.caption2)
+                        .bold()
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(4)
+
+                // Virtual Linux LLM Status
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(cloudLinuxService.connectionStatus == .connected ? Color.green : Color.red)
+                        .frame(width: 7, height: 7)
+                    Text("仮想Linux: \(cloudLinuxService.connectionStatus.rawValue) (\(cloudLinuxService.latencyMs)ms)")
+                        .font(.caption2)
+                    Text("残プロンプト: \(cloudLinuxService.remainingPrompts)回")
+                        .font(.caption2)
+                        .bold()
+                        .foregroundColor(.blue)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(4)
+
+                Spacer()
+
+                Button("CSV再読込") {
+                    paidService.loadAllPaidCSVs()
+                    appState.log("有料機能CSVを再読み込みしました")
+                }
+                .controlSize(.small)
             }
 
             Divider()
 
             switch selectedTab {
             case 0:
-                paidFeaturesSummaryView
+                paidFeaturesCSVManagedView
             case 1:
                 shortcutsTableView
             case 2:
@@ -1311,185 +1358,153 @@ public struct FeatureListModalView: View {
             }
         }
         .padding(16)
-        .frame(width: 780, height: 560)
+        .frame(width: 820, height: 600)
     }
 
-    // MARK: - Tab 0: 有料機能まとめ (Paid Features)
-    private var paidFeaturesSummaryView: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                // Section 1: ファイル＆クラウド (有料)
-                paidCategoryCard(
-                    title: "ファイル・クラウド・バックアップ機能 (有料)",
-                    icon: "icloud.and.arrow.up",
-                    badge: "クラウド/ファイル連携",
-                    color: .blue
-                ) {
-                    VStack(spacing: 8) {
-                        paidFeatureRow(
-                            title: "バックアップ管理",
-                            shortcut: "cmd+f+shift+b",
-                            description: "編集中のファイルを個別バックアップまたは自動バックアップ設定します。(仕様書54行目)",
-                            buttonTitle: "バックアップを開く",
-                            action: {
-                                appState.activeModal = .backupManager
-                                appState.addHistory("機能リスト: バックアップ管理を開きました")
-                            }
-                        )
-
-                        Divider()
-
-                        paidFeatureRow(
-                            title: "クラウド自動保存と同期設定",
-                            shortcut: "-",
-                            description: "NanndemoyaCloud / Google Drive への自動保存およびプロジェクト同期を行います。(仕様書 70スライド目)",
-                            buttonTitle: "クラウド設定",
-                            action: {
-                                appState.activeModal = .settings
-                                appState.addHistory("機能リスト: クラウド設定を開きました")
-                            }
-                        )
+    // MARK: - Tab 0: 有料機能マネージャー (Paid Features CSV Managed)
+    private var paidFeaturesCSVManagedView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Category Filter
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    Button("すべて (\(paidService.featureItems.count))") {
+                        selectedCategoryFilter = "すべて"
                     }
-                }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
 
-                // Section 2: 素材スタジオ・画像＆スライド拡張 (有料)
-                paidCategoryCard(
-                    title: "素材スタジオ・画像＆スライド高度機能 (有料)",
-                    icon: "sparkles.rectangle.stack",
-                    badge: "素材スタジオ連携",
-                    color: .purple
-                ) {
-                    VStack(spacing: 8) {
-                        paidFeatureRow(
-                            title: "スライド抽出プログラム",
-                            shortcut: "-",
-                            description: "立ち絵・アニメーション・トランジション・背景画像でスライドを高速抽出し、一括変更または削除します。(仕様書89-98行目)",
-                            buttonTitle: "スライド抽出を開く",
-                            action: {
-                                appState.activeModal = .slideExtractor
-                                appState.addHistory("機能リスト: スライド抽出プログラムを開きました")
+                    ForEach(paidService.categories, id: \.self) { cat in
+                        if selectedCategoryFilter == cat {
+                            Button(cat) {
+                                selectedCategoryFilter = cat
                             }
-                        )
-
-                        Divider()
-
-                        paidFeatureRow(
-                            title: "AI高度検索・生成・置換",
-                            shortcut: "-",
-                            description: "プロンプトによる画像生成・音声合成・テキスト置換・ポリシー抵触語一括修正を実行します。(仕様書112-121行目)",
-                            buttonTitle: "AI高度検索を開く",
-                            action: {
-                                appState.activeModal = .aiSearch
-                                appState.addHistory("機能リスト: AI高度検索を開きました")
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                        } else {
+                            Button(cat) {
+                                selectedCategoryFilter = cat
                             }
-                        )
-                    }
-                }
-
-                // Section 3: 音声＆AquesTalk高度拡張 (有料・追加機能)
-                paidCategoryCard(
-                    title: "音声・AquesTalk高度機能 (追加拡張)",
-                    icon: "waveform.badge.plus",
-                    badge: "音声拡張",
-                    color: .orange
-                ) {
-                    VStack(spacing: 8) {
-                        paidFeatureRow(
-                            title: "スライドから全音声一括生成",
-                            shortcut: "cmd+ctrl+shift+b",
-                            description: "全スライドの台本・シナリオから、各キャラクター設定に基づいて音声を一括高速生成します。",
-                            buttonTitle: "一括生成を開く",
-                            action: {
-                                appState.activeModal = .batchVoiceGenerator
-                                appState.addHistory("機能リスト: 全音声一括生成を開きました")
-                            }
-                        )
-
-                        Divider()
-
-                        paidFeatureRow(
-                            title: "AquesTalk 音声生成スタジオ",
-                            shortcut: "cmd+ctrl+shift+a",
-                            description: "AquesTalkエンジンでリアルタイム音声試聴・台詞生成を行い、サウンドメーカーの波形トラックに即座に配置します。",
-                            buttonTitle: "スタジオを開く",
-                            action: {
-                                appState.activeModal = .aquesTalkGenerator
-                                appState.addHistory("機能リスト: 音声生成スタジオを開きました")
-                            }
-                        )
-
-                        Divider()
-
-                        paidFeatureRow(
-                            title: "複数シーン跨ぎBGM・SE挿入",
-                            shortcut: "cmd+ctrl+shift+m",
-                            description: "開始シーンから終了シーンまで、複数シーンを跨いで連続再生されるBGMや環境効果音を設定・挿入します。",
-                            buttonTitle: "跨ぎ挿入を開く",
-                            action: {
-                                appState.activeModal = .spanAudioInsert
-                                appState.addHistory("機能リスト: 跨ぎBGM・SE挿入を開きました")
-                            }
-                        )
-
-                        Divider()
-
-                        // 音声ボイステンプレートクイック適用
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("キャラクター音声プリセットのクイック適用 (東方キャラ)")
-                                .font(.caption)
-                                .bold()
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 6) {
-                                    ForEach(["博麗霊夢", "霧雨魔理沙", "東風谷早苗", "魂魄妖夢", "十六夜咲夜", "チルノ", "レミリア", "フランドール", "八雲紫", "西行寺幽々子"], id: \.self) { charName in
-                                        Button(charName) {
-                                            applyQuickVoice(charName)
-                                        }
-                                        .buttonStyle(.bordered)
-                                        .controlSize(.small)
-                                    }
-                                }
-                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                         }
-                        .padding(.top, 2)
-                    }
-                }
-
-                // Section 4: パフォーマンス＆有料プラン設定
-                paidCategoryCard(
-                    title: "パフォーマンス・プラン・ヘルプガイド (有料機能管理)",
-                    icon: "gearshape.2.fill",
-                    badge: "設定・ライセンス",
-                    color: .green
-                ) {
-                    VStack(spacing: 8) {
-                        paidFeatureRow(
-                            title: "有料機能設定・広告フリー・プラン管理",
-                            shortcut: "cmd+t+s",
-                            description: "AI定額/都度プラン、アプリ拡張スーパーバンドル、各種広告フリー券、拡張子の追加ステータスを管理します。(仕様書64, 80スライド目)",
-                            buttonTitle: "有料プラン設定",
-                            action: {
-                                appState.activeModal = .settings
-                                appState.addHistory("機能リスト: 有料プラン設定を開きました")
-                            }
-                        )
-
-                        Divider()
-
-                        paidFeatureRow(
-                            title: "ヘルプガイド (追加・有料機能マニュアル)",
-                            shortcut: "cmd+h+g",
-                            description: "ストアから購入した追加機能の説明や、有料機能の説明を見るための公式サポートドキュメントです。(仕様書237行目)",
-                            buttonTitle: "ガイドを開く",
-                            action: {
-                                appState.activeModal = .helpGuide
-                                appState.addHistory("機能リスト: ヘルプガイドを開きました")
-                            }
-                        )
                     }
                 }
             }
-            .padding(.vertical, 4)
+
+            ScrollView {
+                VStack(spacing: 10) {
+                    let filtered = paidService.featureItems.filter {
+                        selectedCategoryFilter == "すべて" || $0.category == selectedCategoryFilter
+                    }
+
+                    ForEach(filtered) { item in
+                        paidCSVFeatureCard(item: item)
+                    }
+
+                    if filtered.isEmpty {
+                        Text("該当する有料機能はありません。")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(20)
+                    }
+                }
+            }
         }
+    }
+
+    private func paidCSVFeatureCard(item: PaidFeatureItem) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text(item.category)
+                        .font(.caption2)
+                        .bold()
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.12))
+                        .foregroundColor(.blue)
+                        .cornerRadius(4)
+
+                    Text(item.planName)
+                        .font(.subheadline)
+                        .bold()
+
+                    if item.isEnabledByUser {
+                        Text("有効 (User: on)")
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.green.opacity(0.2))
+                            .foregroundColor(.green)
+                            .cornerRadius(4)
+                    }
+                }
+
+                Text(item.details)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                HStack(spacing: 8) {
+                    Text("価格: \(item.priceDescription)")
+                        .font(.caption2)
+                        .bold()
+                    Text("販売状況: \(item.sellingStatus)")
+                        .font(.caption2)
+                        .foregroundColor(item.isAvailableForPurchase ? .green : .secondary)
+                    Text("CSV: \(item.csvFileName)")
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundColor(.gray)
+                }
+            }
+
+            Spacer()
+
+            VStack(spacing: 6) {
+                if item.isEnabledByUser {
+                    Button(action: {
+                        paidService.purchaseOrToggleFeature(item: item) { success, msg in
+                            voiceTemplateMessage = msg
+                        }
+                    }) {
+                        Text("設定切替 (オフへ)")
+                            .font(.caption)
+                            .bold()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                } else {
+                    Button(action: {
+                        paidService.purchaseOrToggleFeature(item: item) { success, msg in
+                            voiceTemplateMessage = msg
+                        }
+                    }) {
+                        Text(item.isAvailableForPurchase ? "購入・有効化" : "販売休止中")
+                            .font(.caption)
+                            .bold()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!item.isAvailableForPurchase)
+                    .controlSize(.small)
+                }
+
+                Button(action: {
+                    adManager.triggerTrialAd(featureName: item.planName) {
+                        voiceTemplateMessage = "お試し広告視聴により \(item.planName) が1回無料解放されました！"
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "play.rectangle.fill")
+                        Text("お試し広告で1回無料")
+                    }
+                    .font(.caption2)
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.orange)
+            }
+        }
+        .padding(12)
+        .background(Color.secondary.opacity(0.06))
+        .cornerRadius(8)
     }
 
     private func applyQuickVoice(_ name: String) {
@@ -1911,41 +1926,72 @@ public struct HelpCenterModalView: View {
     }
 
     private var manualContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Toho-Studio 取扱説明書").font(.headline)
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Toho-Studio 取扱説明書 (第1.0版)").font(.headline)
             Text("Toho-Studioは、Keynote・スライド認識・ゆっくり音声合成・動画・同人ゲーム制作をワンストップで行える総合スタジオソフトです。")
                 .font(.caption).foregroundColor(.secondary)
 
-            GroupBox(label: Text("基本ワークフロー")) {
+            GroupBox(label: Text("1. 基本制作ワークフロー")) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("1. 【スライド＆シナリオメーカー】でKeynoteファイル(.key)またはスライドを読み込みます。")
-                    Text("2. 【サウンドメーカー】でキャラクターボイスやBGM・SEを割り当てます。")
-                    Text("3. 【キャラクターメーカー】で立ち絵のポーズや表情を調整します。")
-                    Text("4. 【ムービーメーカー】でタイムラインを編集し、MP4動画として書き出します。")
-                    Text("5. 【ゲームメーカー】でコマンド分岐を加えて同人ゲームとして出力できます。")
+                    Text("①【スライド＆シナリオメーカー】でKeynoteファイル(.key)またはスライドをインポートします。高精度認識(99%)によりオブジェクト・背景・キャラ・アニメーションが自動抽出されます。")
+                    Text("②【サウンドメーカー】でキャラクターボイス(AquesTalk)やBGM・SEを割り当てます。演出指示の()書き表記は自動除去されクリーンなセリフから音声を一括生成できます。")
+                    Text("③【キャラクターメーカー】で立ち絵のポーズや表情差分を調整・トリミングします。")
+                    Text("④【ムービーメーカー】でプレビュー再生(cmd+p)を確認しながらタイムラインを編集し、MP4動画として書き出します。")
+                    Text("⑤【ゲームメーカー】でコマンド分岐を加えてRPG風同人ノベルゲームとして出力できます。")
                 }
                 .font(.caption)
+                .padding(6)
+            }
+
+            GroupBox(label: Text("2. プログラム保護とセキュリティ規定")) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("• アプリケーションのResourceフォルダ内には各ソフトのプログラムおよび有料機能管理CSVが格納されています。")
+                    Text("• 利用者がResource内のファイルを直接編集・改変した場合、即座にセキュリティブロックが作動し、利用停止となります。")
+                    Text("• 利用停止の解除は開発者のMac (IOPlatformUUID照合) からのみ実行可能です。")
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
                 .padding(6)
             }
         }
     }
 
     private var helpGuideContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             Text("ヘルプガイド (追加・有料機能マニュアル)").font(.headline)
-            Text("ストアから購入・契約した追加プランや拡張機能の詳しい操作ガイドです。")
+            Text("ストアおよび設定画面から利用可能な有料機能とプランの詳細仕様です。")
                 .font(.caption).foregroundColor(.secondary)
 
-            GroupBox(label: Text("解放済み拡張機能")) {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(appState.unlockedExtensions, id: \.self) { ext in
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-                            Text(ext).font(.caption).bold()
-                        }
+            VStack(alignment: .leading, spacing: 10) {
+                GroupBox(label: Label("AI定額プラン仕様とプロンプト管理", systemImage: "sparkles")) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("• Google Cloud上の仮想Linux環境 (LLM搭載) と常時通信して動作します。")
+                        Text("• プロンプト残数が1000件を下回ると第1回減少通知メール、500件で第2回通知、100件で都度課金移行推奨通知が送信されます。")
+                        Text("• プロンプト残数が0になると通信が強制遮断されます。購入日から1ヶ月後に更新されます。")
                     }
+                    .font(.caption)
+                    .padding(6)
                 }
-                .padding(6)
+
+                GroupBox(label: Label("NanndemoyaCloud必須認証と端末登録", systemImage: "cloud.fill")) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("• 有料機能の利用にはNanndemoyaCloudのアカウント認証と端末登録が必須です。")
+                        Text("• 正規ルート以外からの有料機能利用が検知された場合、即座に利用停止処置が実行されます。")
+                    }
+                    .font(.caption)
+                    .padding(6)
+                }
+
+                GroupBox(label: Label("広告機能と広告フリー券", systemImage: "megaphone.fill")) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("• ファイル処理広告: ファイル読み込みやホーム画面で表示されます。")
+                        Text("• 長時間処理広告: 1分以上のエンコード・一括解析処理時に表示されます。")
+                        Text("• お試し広告: 動画広告を1本視聴することで有料機能を1回無料で利用できます。")
+                        Text("• 広告フリー券を購入することで広告を非表示にできます。")
+                    }
+                    .font(.caption)
+                    .padding(6)
+                }
             }
         }
     }
@@ -1954,9 +2000,11 @@ public struct HelpCenterModalView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("よくある質問 (Q&A)").font(.headline)
 
-            qaItem(q: "Q. Keynoteスライドの読み込みがうまくいかないときは？", a: "A. メニューバーの「編集」>「再生成 (cmd+e+p)」を実行するか、スライド認識プログラムで「高精度認識 (99%超)」を選択して再試行してください。")
-            qaItem(q: "Q. ゆっくりボイスの音声が出ないときは？", a: "A. AquesTalkのライセンスおよびdylibの配置を確認してください。環境設定画面の「音声テスト」からテスト発声を行えます。")
-            qaItem(q: "Q. 商用利用や動画配信プラットフォームでの収益化は可能ですか？", a: "A. 公式の東方Project二次創作ガイドラインおよび各音声合成エンジンの利用規約に準拠することで、YouTubeやニコニコ動画等の配信にご利用いただけます。")
+            qaItem(q: "Q. 有料機能はどこから利用できますか？", a: "A. メニューバーの「表示」>「機能リスト (cmd+d+option+l)」から利用できます。無料機能と完全に分離して管理されています。")
+            qaItem(q: "Q. Googleアカウントでのログイン方法は？", a: "A. 「設定」>「アカウント」>「Googleアカウント」から、client_secret連携によりアプリ内ブラウザで安全にログインできます。")
+            qaItem(q: "Q. 利用停止ブロック画面が表示されて操作できません。", a: "A. Resourceフォルダ内の改竄が検知された状態です。解除は開発者のMacからのみ可能です。開発者へお問い合わせください。")
+            qaItem(q: "Q. ストアに作品や素材を出品するには？", a: "A. 「ストア」>「ストア用語定義・審査規約」を確認の上、「何でも屋」パートナー登録を完了し、審査申請を行ってください。")
+            qaItem(q: "Q. ゆっくりボイスの演出指示()書きがセリフに残ってしまいます。", a: "A. Toho-Studioでは（アニメーション）等の演出指示を自動除去してクリーンなセリフのみから音声合成する仕様になっています。")
         }
     }
 
@@ -1978,24 +2026,42 @@ public struct HelpCenterModalView: View {
                 Text("• 操作を誤って消してしまった: 「編集」>「やり直す (cmd+z)」または「ファイル」>「巻き戻し (cmd+f+b)」で直前の状態に復元できます。")
                 Text("• ファイルが破損した恐れがある: 「ファイル」>「整合性確認 (cmd+f+shift+c)」で検査し、「ファイル修復」を実行してください。")
                 Text("• アプリの動作が重い: 「表示」>「ステータス」でメモリを確認し、「ウィンドウ」>「リセット (cmd+w+r)」を実行してください。")
+                Text("• AI生成が進まない: プロンプト残数を確認してください。残数0時は都度課金プランへのチャージが必要です。")
             }
             .font(.caption)
-            .padding(8)
+            .padding(10)
             .background(Color.orange.opacity(0.1))
             .cornerRadius(8)
         }
     }
 
     private var supportRequestContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("サポート依頼・問い合わせフォーム").font(.headline)
-            Text("問題が解決しない場合は、こちらのフォームより開発チームへ直接お問い合わせいただけます。")
+        VStack(alignment: .leading, spacing: 14) {
+            Text("サポート依頼・問い合わせ窓口").font(.headline)
+            Text("不具合のご報告、ストア審査のお問い合わせ、開発者へのメッセージは以下のフォームより送信いただけます。")
                 .font(.caption).foregroundColor(.secondary)
 
-            Button("バグレポート画面を開く") {
-                appState.activeModal = .bugReport
+            GroupBox(label: Text("サポートフォーム一覧 (内部ブラウザで開きます)")) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Button(action: {
+                        if let url = URL(string: "https://forms.gle/hJ9EuapUVQik4qgG9") {
+                            appState.openInAppBrowser(url: url, title: "Toho-Studio サポート・お問い合わせ窓口")
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: "envelope.fill")
+                            Text("サポート・お問い合わせフォームを開く ↗️")
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button("バグレポート詳細画面を開く") {
+                        appState.activeModal = .bugReport
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(8)
             }
-            .buttonStyle(.borderedProminent)
         }
     }
 }

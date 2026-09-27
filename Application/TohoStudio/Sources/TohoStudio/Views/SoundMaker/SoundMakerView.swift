@@ -93,7 +93,7 @@ public struct SoundMakerView: View {
                 if showInspector {
                     // Left Inspector & Mixer (白背景テーマで視認性を向上)
                     dawInspectorAndMixerView
-                        .frame(width: inspectorWidthForLayout)
+                        .frame(minWidth: 280, idealWidth: inspectorWidthForLayout, maxWidth: 450)
                         .background(Color(white: 0.95))
                 }
 
@@ -1332,6 +1332,7 @@ public struct SoundMakerView: View {
                                 Image(nsImage: bg)
                                     .resizable()
                                     .aspectRatio(contentMode: .fill)
+                                    .clipped()
                             } else {
                                 LinearGradient(
                                     colors: [Color(white: 0.98), Color(white: 0.92)],

@@ -67,9 +67,7 @@ public struct AppInfoView: View {
     private var versionInfoTab: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 16) {
-                Image(systemName: "app.badge.checkmark.fill")
-                    .font(.system(size: 48))
-                    .foregroundColor(.accentColor)
+                AppLogoView(size: 56, cornerRadius: 10)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Toho-Studio Ver. 1.0.92 (通常版 - Release)")
                         .font(.title3)
@@ -103,8 +101,12 @@ public struct AppInfoView: View {
                         }
                         .buttonStyle(.bordered)
 
-                        Link("更新情報 ↗️ (GitHubリソース)", destination: URL(string: "https://github.com/9z2fqjckjv-bot/Toho-Studio")!)
-                            .font(.caption)
+                        Button("更新情報 ↗️ (GitHubリソース)") {
+                            if let url = URL(string: "https://github.com/9z2fqjckjv-bot/Toho-Studio") {
+                                appState.openInAppBrowser(url: url, title: "Toho-Studio GitHub リポジトリ")
+                            }
+                        }
+                        .font(.caption)
                     }
                 }
                 .padding(8)

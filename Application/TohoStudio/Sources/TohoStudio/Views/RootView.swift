@@ -92,8 +92,21 @@ public struct RootView: View {
                     }
                 }
             }
+
+            // Ad Overlay (File processing, Long processing, Trial Video)
+            if AdManager.shared.hasActiveAd {
+                AdOverlayView()
+            }
+
+            // Application Tamper Security Block (Restricted: Unlocked ONLY from Developer Mac)
+            if ResourceIntegrityProtectionService.shared.isBlocked {
+                ApplicationBlockedView()
+            }
         }
         .frame(minWidth: 1024, minHeight: 680)
+        .onAppear {
+            _ = ResourceIntegrityProtectionService.shared.verifyIntegrity()
+        }
         .sheet(isPresented: Binding(
             get: { !appState.hasCompletedTour },
             set: { _ in }
@@ -105,24 +118,24 @@ public struct RootView: View {
     // MARK: - Custom Control Bar (Slide 26-28)
     private var customControlBarView: some View {
         HStack(spacing: 12) {
-            // App Logo & Dropdown
-            Menu {
-                Button("アプリ情報 (cmd+t+i)") { appState.activeModal = .appInfo }
-                Button("設定画面 (cmd+t+s)") { appState.activeModal = .settings }
-                Button("ストア (cmd+t+shift+s)") { appState.activeModal = .store }
-                Button("再起動 (cmd+t+r)") { appState.activeModal = .reboot }
-                Divider()
-                Button("開発者コンソール (cmd+t+e)") { appState.activeModal = .developer }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "sparkles")
-                        .foregroundColor(.yellow)
+            // App Official Logo (image11.png) & Dropdown
+            HStack(spacing: 8) {
+                AppLogoView(size: 24, cornerRadius: 5)
+
+                Menu {
+                    Button("アプリ情報 (cmd+t+i)") { appState.activeModal = .appInfo }
+                    Button("設定画面 (cmd+t+s)") { appState.activeModal = .settings }
+                    Button("ストア (cmd+t+shift+s)") { appState.activeModal = .store }
+                    Button("再起動 (cmd+t+r)") { appState.activeModal = .reboot }
+                    Divider()
+                    Button("開発者コンソール (cmd+t+e)") { appState.activeModal = .developer }
+                } label: {
                     Text("Toho-Studio")
                         .font(.headline)
                         .bold()
                 }
+                .menuStyle(.borderlessButton)
             }
-            .menuStyle(.borderlessButton)
 
             Divider().frame(height: 20)
 
