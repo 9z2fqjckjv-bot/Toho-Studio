@@ -975,7 +975,7 @@ public struct BugReportModalView: View {
             GroupBox(label: Text("実行環境自動取得")) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("OS: macOS (Darwin \(ProcessInfo.processInfo.operatingSystemVersionString)) | Apple Silicon arm64")
-                    Text("アプリバージョン: Toho-Studio v1.0.92 | アクティブソフト: \(appState.currentModule.rawValue)")
+                    Text("アプリバージョン: Toho-Studio v2.0.0 | アクティブソフト: \(appState.currentModule.rawValue)")
                     Text("直近ログ: \(appState.logs.first?.message ?? "正常稼働中")")
                 }
                 .font(.system(.caption2, design: .monospaced))
@@ -1012,7 +1012,7 @@ public struct BugReportModalView: View {
                     generatedPrompt = """
                     【Toho-Studio バグ修正指示書】
                     ■ 不具合概要: \(bugTitle.isEmpty ? "動作不具合の修正" : bugTitle)
-                    ■ 発生環境: macOS / Toho-Studio v1.0.92 / モジュール: \(appState.currentModule.rawValue)
+                    ■ 発生環境: macOS / Toho-Studio v2.0.0 / モジュール: \(appState.currentModule.rawValue)
                     ■ 詳細・再現手順:
                     \(bugDescription.isEmpty ? "操作中に予期せぬ動作が発生しました。" : bugDescription)
                     ■ システムログ:

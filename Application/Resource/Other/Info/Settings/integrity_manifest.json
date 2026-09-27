@@ -636,6 +636,12 @@
     "lastModified": 1790486331.1906729
   },
   {
+    "relativePath": "MovieMarker/東方惑情録_第1話.tsvm",
+    "sha256": "4c7c5fc9858d59ec9aa042fc1b18542036335aba32531f2efe96f92ca0f12e88",
+    "fileSize": 1131,
+    "lastModified": 1790508800.1051276
+  },
+  {
     "relativePath": "MovieMarker/第12話.key.tsvm",
     "sha256": "71405384c0e3345ee0b6c67745097f0921b60331deed5b0c4ebfcfd3b078b335",
     "fileSize": 25463,
@@ -1066,6 +1072,12 @@
     "sha256": "9b165440a652d378123bd888061a14517fcf605ebae7e7eb53598ba224448639",
     "fileSize": 130,
     "lastModified": 1790498908.7050562
+  },
+  {
+    "relativePath": "Backups/東方惑情録_第1話.tsvm_backup_20260927_203320.json",
+    "sha256": "68874020b55502ab5f9e4066780321e9b3f0a76552bce55925d68ad132e9475b",
+    "fileSize": 130,
+    "lastModified": 1790508800.1096056
   },
   {
     "relativePath": "Backups/東方惑情録_第1話_backup_20260926_135557.json",

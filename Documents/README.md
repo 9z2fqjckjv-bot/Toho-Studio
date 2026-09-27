@@ -2,7 +2,7 @@
 
 ![Toho-Studio](https://img.shields.io/badge/Platform-macOS%2013%2B-blue.svg)
 ![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)
-![Version](https://img.shields.io/badge/Version-v1.0.2-green.svg)
+![Version](https://img.shields.io/badge/Version-v2.0.0-green.svg)
 ![License](https://img.shields.io/badge/License-Touhou%20Project%20Guideline-red.svg)
 
 > **Powered By zuyasi & Nanndemoya**
@@ -70,14 +70,16 @@ Toho-Studio は、東方Projectの二次創作活動を総合的に支援する�
 ## 📦 公開リソース・インストール方法
 
 ### リソース公開パス
-`/Volumes/ZSSD/GitHub/repository/TohoStudio/Application`
+`/Volumes/ZSSD/GitHub/repository/TohoStudio/Application` および `/Volumes/ZSSD/GitHub/repository/TohoStudio/DMG&ZIP`
 
 ### 構成
 - `Application/Toho-Studio.app`: macOS ネイティブアプリケーション（すぐに実行可能）
 - `Application/TohoStudio/`: Swift Package ソースコード一式
 - `Application/AquesTalk/`: AquesTalk 音声ライブラリおよび辞書
-- `v1.0.92.dmg`: GitHub リリース公開用 macOS インストーラーイメージ（スライド内の複数キャラクター同時抽出および複数アニメーション・ビルド順完全抽出対応版）
-- `v1.0.92.zip`: GitHub リリース公開用アーカイブ（AquesTalkライセンスキーを除去したサニタイズ済み完全版）
+- `DMG&ZIP/v2.0.0.dmg`: GitHub リリース公開用 macOS インストーラーイメージ（v2.0.0 メジャーアップデート版：NanndemoyaCloud連携、Google認証、有料機能整合性保護、スライド動画高度抽出、UI視認性向上）
+- `DMG&ZIP/v2.0.0.zip`: GitHub リリース公開用アーカイブ（AquesTalkライセンスキーを除去したサニタイズ済み完全版）
+- `DMG&ZIP/v1.0.92.dmg`: GitHub リリース公開用 macOS インストーラーイメージ（スライド内の複数キャラクター同時抽出および複数アニメーション・ビルド順完全抽出対応版）
+- `DMG&ZIP/v1.0.92.zip`: GitHub リリース公開用アーカイブ（AquesTalkライセンスキーを除去したサニタイズ済み完全版）
 - `v1.0.91.dmg`: GitHub リリース公開用 macOS インストーラーイメージ（サウンドメーカーデータ保存・読み込み完全対応、アニメーション時間表記とシーン表示時間連動、上部シーンクリック時スクロール不具合修正完全版）
 - `v1.0.91.zip`: GitHub リリース公開用アーカイブ（AquesTalkライセンスキーを除去したサニタイズ済み完全版）
 - `v1.0.9.dmg`: GitHub リリース公開用 macOS インストーラーイメージ（スライド＆シナリオメーカーファイルのムービー・サウンド・ゲームメーカーへのシームレス直接インポート対応完全版）

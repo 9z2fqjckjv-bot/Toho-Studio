@@ -69,7 +69,7 @@ public struct AppInfoView: View {
             HStack(spacing: 16) {
                 AppLogoView(size: 56, cornerRadius: 10)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Toho-Studio Ver. 1.0.92 (通常版 - Release)")
+                    Text("Toho-Studio Ver. 2.0.0 (メジャーアップデート - Release)")
                         .font(.title3)
                         .bold()
                     Text(updateStatusMessage)
@@ -88,7 +88,7 @@ public struct AppInfoView: View {
                             isCheckingUpdate = true
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                                 isCheckingUpdate = false
-                                updateStatusMessage = "最新バージョンです。(v1.0.92)"
+                                updateStatusMessage = "最新バージョンです。(v2.0.0)"
                                 appState.log("GitHub上のリソースを確認し、最新であることを検証しました")
                             }
                         }) {
