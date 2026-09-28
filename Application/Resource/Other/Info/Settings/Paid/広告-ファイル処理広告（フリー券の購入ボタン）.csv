@@ -1,5 +1,6 @@
 ファイル処理広告（フリー券の購入ボタン）
 Data-Label,時間券,日券,週間券,月間券,年間券,Tatal
+Selling,no,no,no,no,no,no
 Data-Type,Number,Number,Number,Number,Number,Number
 Default,0,0,0,0,0,0
 Sample,1,3,6,12,3,33337

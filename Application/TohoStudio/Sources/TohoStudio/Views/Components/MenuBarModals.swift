@@ -1367,11 +1367,19 @@ public struct FeatureListModalView: View {
             // Category Filter
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    Button("すべて (\(paidService.featureItems.count))") {
-                        selectedCategoryFilter = "すべて"
+                    if selectedCategoryFilter == "すべて" {
+                        Button("すべて (\(paidService.featureItems.count))") {
+                            selectedCategoryFilter = "すべて"
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    } else {
+                        Button("すべて (\(paidService.featureItems.count))") {
+                            selectedCategoryFilter = "すべて"
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
 
                     ForEach(paidService.categories, id: \.self) { cat in
                         if selectedCategoryFilter == cat {
@@ -1392,7 +1400,7 @@ public struct FeatureListModalView: View {
             }
 
             ScrollView {
-                VStack(spacing: 10) {
+                VStack(spacing: 8) {
                     let filtered = paidService.featureItems.filter {
                         selectedCategoryFilter == "すべて" || $0.category == selectedCategoryFilter
                     }
@@ -1402,10 +1410,16 @@ public struct FeatureListModalView: View {
                     }
 
                     if filtered.isEmpty {
-                        Text("該当する有料機能はありません。")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .padding(20)
+                        VStack(spacing: 8) {
+                            Image(systemName: "tray")
+                                .font(.largeTitle)
+                                .foregroundColor(.secondary)
+                            Text("該当する有料機能はありません。")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(40)
                     }
                 }
             }
@@ -1413,7 +1427,19 @@ public struct FeatureListModalView: View {
     }
 
     private func paidCSVFeatureCard(item: PaidFeatureItem) -> some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: 14) {
+            // Icon / Status Indicator
+            VStack {
+                Circle()
+                    .fill(item.isEnabledByUser ? Color.green : (item.isAvailableForPurchase ? Color.orange : Color.gray.opacity(0.4)))
+                    .frame(width: 10, height: 10)
+                Text(item.isEnabledByUser ? "ON" : "OFF")
+                    .font(.system(size: 9, weight: .heavy, design: .monospaced))
+                    .foregroundColor(item.isEnabledByUser ? .green : .secondary)
+            }
+            .frame(width: 28)
+
+            // Info Column
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Text(item.category)
@@ -1429,13 +1455,29 @@ public struct FeatureListModalView: View {
                         .font(.subheadline)
                         .bold()
 
-                    if item.isEnabledByUser {
+                    if item.isFreeDefaultPlan {
+                        Text("標準搭載 (無料)")
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.green.opacity(0.15))
+                            .foregroundColor(.green)
+                            .cornerRadius(4)
+                    } else if item.isEnabledByUser {
                         Text("有効 (User: on)")
                             .font(.caption2)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(Color.green.opacity(0.2))
                             .foregroundColor(.green)
+                            .cornerRadius(4)
+                    } else if !item.isAvailableForPurchase {
+                        Text("販売休止中 (OFF固定)")
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.secondary.opacity(0.15))
+                            .foregroundColor(.secondary)
                             .cornerRadius(4)
                     }
                 }
@@ -1444,13 +1486,16 @@ public struct FeatureListModalView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
 
-                HStack(spacing: 8) {
+                HStack(spacing: 12) {
                     Text("価格: \(item.priceDescription)")
                         .font(.caption2)
                         .bold()
-                    Text("販売状況: \(item.sellingStatus)")
+                    Text("販売: \(item.sellingStatus.uppercased())")
                         .font(.caption2)
                         .foregroundColor(item.isAvailableForPurchase ? .green : .secondary)
+                    Text("設定値: \(item.userValue)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                     Text("CSV: \(item.csvFileName)")
                         .font(.system(size: 9, design: .monospaced))
                         .foregroundColor(.gray)
@@ -1459,47 +1504,82 @@ public struct FeatureListModalView: View {
 
             Spacer()
 
-            VStack(spacing: 6) {
-                if item.isEnabledByUser {
-                    Button(action: {
-                        paidService.purchaseOrToggleFeature(item: item) { success, msg in
-                            voiceTemplateMessage = msg
-                        }
-                    }) {
-                        Text("設定切替 (オフへ)")
+            // Controls Column: Switch & Trial Ad
+            VStack(alignment: .trailing, spacing: 6) {
+                HStack(spacing: 8) {
+                    // Switch Control
+                    if item.isFreeDefaultPlan {
+                        Text("標準有効 (ON)")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.green.opacity(0.1))
+                            .cornerRadius(4)
+                    } else if item.isEnabledByUser {
+                        Button(action: {
+                            paidService.purchaseOrToggleFeature(item: item) { success, msg in
+                                voiceTemplateMessage = msg
+                            }
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "switch.2")
+                                Text("スイッチ OFF")
+                            }
                             .font(.caption)
                             .bold()
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                } else {
-                    Button(action: {
-                        paidService.purchaseOrToggleFeature(item: item) { success, msg in
-                            voiceTemplateMessage = msg
                         }
-                    }) {
-                        Text(item.isAvailableForPurchase ? "購入・有効化" : "販売休止中")
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    } else if item.isAvailableForPurchase {
+                        Button(action: {
+                            paidService.purchaseOrToggleFeature(item: item) { success, msg in
+                                voiceTemplateMessage = msg
+                            }
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "power")
+                                Text("購入・スイッチ ON")
+                            }
                             .font(.caption)
                             .bold()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    } else {
+                        Button(action: {
+                            paidService.purchaseOrToggleFeature(item: item) { success, msg in
+                                voiceTemplateMessage = msg
+                            }
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "lock.fill")
+                                Text("販売休止中 (OFF)")
+                            }
+                            .font(.caption)
+                            .bold()
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(true)
+                        .controlSize(.small)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!item.isAvailableForPurchase)
-                    .controlSize(.small)
                 }
 
-                Button(action: {
-                    adManager.triggerTrialAd(featureName: item.planName) {
-                        voiceTemplateMessage = "お試し広告視聴により \(item.planName) が1回無料解放されました！"
+                if !item.isFreeDefaultPlan && !item.isEnabledByUser {
+                    Button(action: {
+                        adManager.triggerTrialAd(featureName: item.planName) {
+                            voiceTemplateMessage = "お試し広告視聴により \(item.planName) が1回無料解放されました！"
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "play.rectangle.fill")
+                            Text("お試し広告で1回無料")
+                        }
+                        .font(.caption2)
                     }
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "play.rectangle.fill")
-                        Text("お試し広告で1回無料")
-                    }
-                    .font(.caption2)
+                    .buttonStyle(.plain)
+                    .foregroundColor(.orange)
                 }
-                .buttonStyle(.plain)
-                .foregroundColor(.orange)
             }
         }
         .padding(12)

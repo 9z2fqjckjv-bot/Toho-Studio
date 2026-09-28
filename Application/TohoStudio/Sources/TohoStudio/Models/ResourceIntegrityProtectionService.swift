@@ -176,14 +176,44 @@ public final class ResourceIntegrityProtectionService: ObservableObject {
                     let csvPath = "\(resourceRootPath)/Other/Info/Settings/Paid/\(item)"
                     if let content = try? String(contentsOfFile: csvPath, encoding: .utf8) {
                         // Validate unauthorized direct switch to 'on' when selling is 'no'
-                        for line in content.components(separatedBy: "\n") {
-                            let cols = line.components(separatedBy: ",")
-                            if cols.count >= 5 {
-                                let user = cols[3].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                                let selling = cols[4].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                        let lines = content.components(separatedBy: "\n")
+                        if lines.count >= 2 && !lines[1].contains("Data-Type") {
+                            let header = lines[1].components(separatedBy: ",")
+                            let userIdx: Int?
+                            let sellingIdx: Int?
+                            let defaultIdx: Int?
+                            let planIdx: Int = 0
+
+                            if let u = header.firstIndex(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "user" }),
+                               let s = header.firstIndex(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "selling" }) {
+                                userIdx = u
+                                sellingIdx = s
+                                defaultIdx = header.firstIndex(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "default" })
+                            } else {
+                                userIdx = 3
+                                sellingIdx = 4
+                                defaultIdx = 2
+                            }
+
+                            for line in lines.dropFirst(2) {
+                                let cols = line.components(separatedBy: ",")
+                                guard let uIdx = userIdx, let sIdx = sellingIdx, cols.count > max(uIdx, sIdx) else { continue }
+                                let plan = cols[planIdx].trimmingCharacters(in: .whitespacesAndNewlines)
+                                if plan.contains("Info") || plan.contains("注意事項") || plan.contains("Warning") || plan.contains("不正") {
+                                    continue
+                                }
+                                let user = cols[uIdx].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                                let selling = cols[sIdx].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                                let def = (defaultIdx != nil && cols.count > defaultIdx!) ? cols[defaultIdx!].trimmingCharacters(in: .whitespacesAndNewlines).lowercased() : ""
+
+                                // Free standard plans (e.g. Plan 0) or items whose default is 'on' are authorized to be 'on' even if selling is 'no'
+                                if plan == "0" || def == "on" {
+                                    continue
+                                }
+
                                 if selling == "no" && user == "on" {
                                     triggerTamperBlock(
-                                        reason: "販売休止中プランまたは未認可の有料機能[\(cols[0])]がCSV上で直接\"on\"に不正改竄されています。",
+                                        reason: "販売休止中プランまたは未認可の有料機能[\(plan)]がCSV上で直接\"on\"に不正改竄されています。",
                                         filePath: item,
                                         details: "Unauthorized state bypass in \(item)"
                                     )

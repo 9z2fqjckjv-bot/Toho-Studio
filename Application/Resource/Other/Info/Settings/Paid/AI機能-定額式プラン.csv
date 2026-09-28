@@ -1,6 +1,6 @@
 定額式プラン
 Plan,Data-Type,Default,User,Selling
-0,Switch,on,on,yes
+0,Switch,off,off,no
 1000,Switch,off,off,no
 2000,Switch,off,off,no
 3000,Switch,off,off,no
