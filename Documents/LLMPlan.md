@@ -363,10 +363,10 @@ Mac側に戻り、[CloudVirtualLinuxService.swift](file:///Volumes/ZSSD/GitHub/r
 ```swift
 // CloudVirtualLinuxService.swift
 public struct VirtualLinuxMachineStatus: Codable {
-    public var hostIP: String = "34.135.xxx.xxx" // ← Step 1で払い出された固定IPを入力
+    public var hostIP: String = "34.134.96.84" // ← 払い出された固定IP
     public var gcpZone: String = "us-central1-a"
     public var machineType: String = "e2-standard-2 (2 vCPU, 8GB RAM)"
-    public var llmModel: String = "DeepSeek-R1-Distill / Gemma-2-9B"
+    public var llmModel: String = "DeepSeek-R1-Distill-Qwen (8B) / Gemma-2 (9B)"
     // ...
 ```
 

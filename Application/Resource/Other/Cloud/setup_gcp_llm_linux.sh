@@ -1,30 +1,32 @@
 #!/bin/bash
 # ==============================================================================
 # Toho-Studio: Google Cloud Virtual Linux (LLM-enabled) Auto-Setup & Deployment
-# Optimized strictly within $100/month Google AI Pro Ultra monthly credit budget
-# Target: GCP Compute Engine (asia-northeast1-b Tokyo)
+# Optimized for Recommended Plan B: us-central1 / e2-standard-2 / 50GB pd-balanced
+# Fixed External IPv4: 34.134.96.84
 # ==============================================================================
 
 set -euo pipefail
 
-echo ">>> [1/5] Initializing GCP Compute Engine Instance for Toho-Studio LLM Service..."
+echo ">>> [1/5] Initializing GCP Compute Engine Configuration..."
 INSTANCE_NAME="tohostudio-llm-linux"
-ZONE="asia-northeast1-b"
-MACHINE_TYPE="e2-standard-4" # 4 vCPU, 16 GB Memory (~$96/mo on Spot/Committed, fits within $100 credit)
+ZONE="us-central1-a"
+STATIC_IP="34.134.96.84"
+MACHINE_TYPE="e2-standard-2" # 2 vCPU, 8 GB Memory (1-Year CUD ~$30.81/mo, Total ~$40/mo with IP & Disk)
 IMAGE_FAMILY="ubuntu-2204-lts"
 IMAGE_PROJECT="ubuntu-os-cloud"
-BOOT_DISK_SIZE="80GB"
+BOOT_DISK_SIZE="50GB"
+BOOT_DISK_TYPE="pd-balanced"
 
-echo "Configuring VM within $100/month credit boundary..."
-# Cost protection: Automatic power-capping and idle scaling
-cat << 'EOF' > /tmp/budget_control.conf
-MONTHLY_BUDGET_USD=100.00
-CREDIT_SOURCE="GoogleAIProUltra"
-AUTO_SHUTDOWN_ON_QUOTA_EXCEED=true
-ALERT_THRESHOLD_USD=95.00
-EOF
+echo ">>> [2/5] Creating 8GB Swap File & Installing Runtime Packages..."
+# Prevent OOM for 8B models on 8GB RAM VM
+if [ ! -f /swapfile ]; then
+    fallocate -l 8G /swapfile
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile
+    echo "/swapfile swap swap defaults 0 0" >> /etc/fstab
+fi
 
-echo ">>> [2/5] Installing Runtime Environment (Python 3.10, PyTorch, Ollama / vLLM)..."
 sudo apt-get update -y && sudo apt-get upgrade -y
 sudo apt-get install -y curl wget git jq htop ufw fail2ban python3-pip python3-venv
 

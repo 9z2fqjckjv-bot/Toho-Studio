@@ -10,10 +10,10 @@ public enum ServerConnectionStatus: String, Codable {
 }
 
 public struct VirtualLinuxMachineStatus: Codable {
-    public var hostIP: String = "34.85.120.91"
-    public var gcpZone: String = "asia-northeast1-b (Tokyo)"
-    public var machineType: String = "e2-standard-4 (4 vCPU, 16GB RAM)"
-    public var llmModel: String = "DeepSeek-R1-Distill / Gemma-2-27B-IT"
+    public var hostIP: String = "34.134.96.84"
+    public var gcpZone: String = "us-central1-a"
+    public var machineType: String = "e2-standard-2 (2 vCPU, 8GB RAM)"
+    public var llmModel: String = "DeepSeek-R1-Distill-Qwen (8B) / Gemma-2 (9B)"
     public var uptimeHours: Double = 720.0
     public var cpuUsagePercent: Double = 28.5
     public var memoryUsagePercent: Double = 62.0
