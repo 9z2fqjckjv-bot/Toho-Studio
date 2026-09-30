@@ -510,6 +510,12 @@ public struct TrimmingModalView: View {
     @State private var replaceWord: String = ""
     @State private var trimRangeStart: Double = 0.0
     @State private var trimRangeEnd: Double = 15.0
+    @State private var charCropPreset: String = "顔・表情（拡大）"
+    @State private var charCropX: Double = 0.2
+    @State private var charCropY: Double = 0.4
+    @State private var charCropW: Double = 0.6
+    @State private var charCropH: Double = 0.5
+    @State private var charZoomFactor: Double = 1.5
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -545,15 +551,62 @@ public struct TrimmingModalView: View {
                 }
 
             case .characterMaker:
-                GroupBox(label: Text("立ち絵画像の切り取り・拡大")) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("表示中のキャラクター立ち絵の一部分をクロップ・拡大します。")
+                GroupBox(label: Text("立ち絵画像の切り取り・拡大 (cmd+t)")) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("表示中のキャラクター画像の一部分を切り取り、拡大します。(仕様書補足事項 69行目準拠)")
                             .font(.caption)
-                        HStack {
-                            Text("拡大率:")
-                            Slider(value: $trimRangeEnd, in: 1.0...3.0, step: 0.1)
-                            Text("\(String(format: "%.1f", trimRangeEnd))x")
+                            .foregroundColor(.secondary)
+
+                        Picker("切り取り対象プリセット", selection: $charCropPreset) {
+                            Text("顔・表情（拡大）").tag("顔・表情（拡大）")
+                            Text("目元・視線（拡大）").tag("目元・視線（拡大）")
+                            Text("上半身・ポーズ").tag("上半身・ポーズ")
+                            Text("カスタム範囲").tag("カスタム範囲")
                         }
+                        .pickerStyle(.segmented)
+                        .onChange(of: charCropPreset) { preset in
+                            switch preset {
+                            case "顔・表情（拡大）":
+                                charCropX = 0.25; charCropY = 0.45; charCropW = 0.50; charCropH = 0.45; charZoomFactor = 1.6
+                            case "目元・視線（拡大）":
+                                charCropX = 0.28; charCropY = 0.58; charCropW = 0.44; charCropH = 0.20; charZoomFactor = 2.2
+                            case "上半身・ポーズ":
+                                charCropX = 0.10; charCropY = 0.20; charCropW = 0.80; charCropH = 0.75; charZoomFactor = 1.2
+                            default:
+                                break
+                            }
+                        }
+
+                        HStack(spacing: 20) {
+                            VStack(alignment: .leading) {
+                                Text("横位置 X: \(Int(charCropX * 100))%")
+                                Slider(value: $charCropX, in: 0.0...0.8)
+                            }
+                            VStack(alignment: .leading) {
+                                Text("縦位置 Y: \(Int(charCropY * 100))%")
+                                Slider(value: $charCropY, in: 0.0...0.8)
+                            }
+                        }
+                        .font(.caption)
+
+                        HStack(spacing: 20) {
+                            VStack(alignment: .leading) {
+                                Text("幅 W: \(Int(charCropW * 100))%")
+                                Slider(value: $charCropW, in: 0.1...1.0)
+                            }
+                            VStack(alignment: .leading) {
+                                Text("高さ H: \(Int(charCropH * 100))%")
+                                Slider(value: $charCropH, in: 0.1...1.0)
+                            }
+                        }
+                        .font(.caption)
+
+                        HStack {
+                            Text("拡大倍率:")
+                            Slider(value: $charZoomFactor, in: 1.0...3.0, step: 0.1)
+                            Text("\(String(format: "%.1f", charZoomFactor))x").bold()
+                        }
+                        .font(.caption)
                     }
                     .padding(8)
                 }
@@ -647,6 +700,9 @@ public struct TrimmingModalView: View {
                     appState.saveUndoSnapshot()
                     if appState.currentModule == .movieMaker && appState.movieScenes.indices.contains(appState.selectedSceneIndex) {
                         appState.movieScenes[appState.selectedSceneIndex].duration = trimRangeEnd
+                    } else if appState.currentModule == .characterMaker {
+                        let rect = CGRect(x: charCropX, y: charCropY, width: charCropW, height: charCropH)
+                        appState.performCharacterCrop(normalizedRect: rect, zoomFactor: charZoomFactor)
                     }
                     appState.log("トリミング設定を適用しました")
                     appState.addHistory("編集: トリミング適用")
@@ -742,6 +798,8 @@ public struct SplitModalView: View {
                         newScene.duration = max(original.duration - splitTime, 1.0)
                         appState.movieScenes[appState.selectedSceneIndex].duration = splitTime
                         appState.movieScenes.insert(newScene, at: appState.selectedSceneIndex + 1)
+                    } else if appState.currentModule == .characterMaker {
+                        appState.performCharacterSplit()
                     }
                     appState.log("要素の分割処理を正常に完了しました")
                     appState.addHistory("編集: 分割実行 (\(appState.currentModule.rawValue))")
@@ -2204,6 +2262,13 @@ public struct AquesTalkGeneratorModalView: View {
                     HStack(spacing: 6) {
                         Button("東風谷早苗(コゲの日記)") {
                             appState.applyVoiceTemplateByName("東風谷早苗 (コゲの日記)")
+                            syncFromActiveTemplate()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                        Button("操夢(imd1,100,115)") {
+                            appState.applyVoiceTemplateByName("操夢 (交換夫婦)")
                             syncFromActiveTemplate()
                         }
                         .buttonStyle(.bordered)

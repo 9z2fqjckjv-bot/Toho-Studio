@@ -60,21 +60,26 @@ CHAR_MAP = {
     "うどんげ": "鈴仙・優曇華院・イナバ",
     "てゐ": "因幡てゐ",
     "永琳": "八意永琳",
-    "輝夜": "蓬莱山輝夜"
+    "輝夜": "蓬莱山輝夜",
+    "操夢": "操夢"
 }
 
 def clean_dialogue_text(text):
     """
     セリフ文やテロップから、話者カッコ表記（[魔理沙]等）および
-    セリフ文の後や文中に付加された()書き表記（アニメーション・時間・演出）を完全に除去し、
+    セリフ文の後や文中に付加された()書き表記（アニメーション・時間・演出）、
+    および「今回の迷シーン１」などの演出ラベルを完全に除去し、
     クリーンなセリフテキストを返す。
     """
     if not text:
         return ""
     raw = str(text).strip()
+    # 0. 迷シーン・演出ラベルの除去 (例: "今回の迷シーン１", "今回の迷シーン２", "今回の名シーン３")
+    label_re = re.compile(r'今回の(?:迷|名)?シーン\s*\d+', re.IGNORECASE)
+    cleaned = label_re.sub("", raw)
     # 1. アニメーション表記・時間指定・演出カッコ書きの除去
     anim_re = re.compile(r'[（\(\[［][^）\)\]］]*(?:アニメーション|アニメ|表示時間|時間|\d+(?:\.\d+)?\s*秒|フェード|ズーム|タイプライター|スライド|アクション|イン|アウト|カット)[^）\)\]］]*[）\)\]］]', re.IGNORECASE)
-    cleaned = anim_re.sub("", raw)
+    cleaned = anim_re.sub("", cleaned)
     # 2. 話者指定カッコ書きの除去
     bracket_re = re.compile(r'[（\(\[［][^）\)\]］\s]{1,20}[）\)\]］]')
     cleaned = bracket_re.sub("", cleaned).strip()
@@ -608,22 +613,36 @@ def extract_slide_texts_and_note(decomp):
 
     return telop_texts, note_text
 
-def detect_slide_type(slide_idx, texts, slide_name):
+def detect_slide_type(slide_idx, texts, slide_name, note_text=""):
     combined = "\n".join(texts)
+    note_speaker, _, _ = extract_speaker_and_clean_note(note_text) if note_text else ("", "", "")
+
+    # Check End Credits / Ending (クレジット・エンドロールスライドはセクション見出し扱いにして音声を自動スキップ)
+    if any(k in combined for k in ["ご視聴ありがとうございました", "出典", "立ち絵：", "立ち絵:", "製作者：", "製作者:"]):
+        return "sectionHeader"
+
+    # Check Next Episode Preview (次回予告見出し)
+    if "次回予告" in combined and len(combined) <= 30 and not note_speaker:
+        return "sectionHeader"
+
     # Check Section Header (中扉)
-    if any(combined.startswith(k) or k in combined for k in [
-        "その頃、さとりとこいしは", "その頃、文たちは", "その頃、妹紅たちは",
-        "その頃、霊夢たちは", "その頃、魔理沙たちは", "一方、その頃", "その頃、"
-    ]):
-        if len(texts) <= 3 and len(combined) <= 60:
-            return "sectionHeader"
+    # 例: "その頃フランたちは…", "その頃、操夢は…", "霊夢の列車が駅に止まると…", "一方、その頃"
+    is_section_phrase = (
+        combined.startswith("その頃") or "その頃" in combined or
+        combined.startswith("一方") or "一方、" in combined or
+        (combined.endswith("…") and any(k in combined for k in ["たちは", "止まると", "着くと", "なると", "すると"]))
+    )
+    if is_section_phrase and len(texts) <= 3 and len(combined) <= 60 and not note_speaker:
+        return "sectionHeader"
 
     # Check Title Slide
-    if slide_idx == 1:
-        return "title"
-    if any(k in combined for k in ["東方Project二次創作", "第21話", "第22話", "第1話", "第2話", "交換夫婦", "目次", "サブタイトル"]):
-        if len(texts) <= 4 and ("東方" in combined or "話" in combined):
+    # スライド1でも、ノートに明確なセリフ（話者カッコ）がある場合や、ダイジェスト会話の場合は通常コンテンツ扱い！
+    if any(k in combined for k in ["東方Project二次創作", "第21話", "第22話", "第23話", "第24話", "第1話", "第2話", "交換夫婦", "目次", "サブタイトル"]):
+        if len(texts) <= 4 and ("東方" in combined or "話" in combined) and not note_speaker:
             return "title"
+
+    if slide_idx == 1 and not note_speaker and not any(k in combined for k in ["「", "」", "迷シーン", "シーン"]):
+        return "title"
 
     return "content"
 
@@ -1247,7 +1266,7 @@ def extract_via_direct_iwa(filepath, project_name):
             else:
                 txts = telop_texts
 
-            stype = detect_slide_type(s_idx, txts if txts else ([note_text] if note_text else []), fname)
+            stype = detect_slide_type(s_idx, txts if txts else ([note_text] if note_text else []), fname, note_text=note_text)
 
             slide_images = []
             for v, iname in image_id_map.items():
@@ -1357,15 +1376,22 @@ def extract_via_direct_iwa(filepath, project_name):
             telop = ""
             raw_note = (note_text or "").strip()
 
+            # ノートから話者（カッコ書き"（）,(),[]"）を抽出＆UI非表示クリーン化
+            note_speaker, cleaned_note, orig_raw_note = extract_speaker_and_clean_note(raw_note)
+
             if stype == "title":
-                if telop_texts:
-                    title = telop_texts[0]
-                    if len(telop_texts) >= 2:
-                        telop = telop_texts[1]
-                elif txts:
-                    title = txts[0]
-                    if len(txts) >= 2:
-                        telop = txts[1]
+                if not note_speaker:
+                    if telop_texts:
+                        title = telop_texts[0]
+                        if len(telop_texts) >= 2:
+                            telop = telop_texts[1]
+                    elif txts:
+                        title = txts[0]
+                        if len(txts) >= 2:
+                            telop = txts[1]
+                else:
+                    title = f"シーン {s_idx}"
+                    telop = clean_dialogue_text("\n".join(telop_texts if telop_texts else txts))
             elif stype == "sectionHeader":
                 if telop_texts:
                     title = telop_texts[0]
@@ -1377,9 +1403,6 @@ def extract_via_direct_iwa(filepath, project_name):
                     telop = "\n".join(telop_texts)
                 elif txts:
                     telop = "\n".join(txts)
-
-            # ノートから話者（カッコ書き"（）,(),[]"）を抽出＆UI非表示クリーン化
-            note_speaker, cleaned_note, orig_raw_note = extract_speaker_and_clean_note(raw_note)
 
             char_name = ""
             char_img_name = ""
@@ -1453,8 +1476,12 @@ def extract_via_direct_iwa(filepath, project_name):
 
             # Slide 3 & 7 Rule: Presenter Note MUST BE BLANK for Title and Section Header slides!
             if stype in ["title", "sectionHeader"]:
-                presenter_note = ""
-                raw_presenter_note = ""
+                if note_speaker:
+                    presenter_note = cleaned_note
+                    raw_presenter_note = orig_raw_note
+                else:
+                    presenter_note = ""
+                    raw_presenter_note = ""
                 duration = parse_duration_from_note(raw_note, default_duration=3.0, anim_duration=total_anim_dur)
             else:
                 # 通常シーン: ノートにセリフが記載されている場合はノートのセリフのみを記録・表示！
@@ -1704,15 +1731,18 @@ def extract_keynote_slides(filepath):
                     if txt:
                         all_texts.append(txt)
 
-                stype = detect_slide_type(s_idx, all_texts, "")
+                note_speaker, cleaned_note, orig_raw_note = extract_speaker_and_clean_note(note)
+                stype = detect_slide_type(s_idx, all_texts, "", note_text=note)
                 title = all_texts[0] if all_texts else f"シーン {s_idx}"
                 telop = "\n".join(all_texts[1:]) if len(all_texts) > 1 else (all_texts[0] if all_texts else "")
 
-                note_speaker, cleaned_note, orig_raw_note = extract_speaker_and_clean_note(note)
-
                 if stype in ["title", "sectionHeader"]:
-                    presenter_note = ""
-                    raw_presenter_note = ""
+                    if note_speaker:
+                        presenter_note = cleaned_note
+                        raw_presenter_note = orig_raw_note
+                    else:
+                        presenter_note = ""
+                        raw_presenter_note = ""
                     duration = parse_duration_from_note(note, default_duration=3.0)
                 else:
                     if note:

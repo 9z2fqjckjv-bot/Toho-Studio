@@ -87,6 +87,11 @@ public struct MenuBarCommands: Commands {
                                 }
                                 appState.loadSoundMakerProject(from: url)
                             }
+                        } else if ext == "tscm" {
+                            if appState.currentModule != .characterMaker {
+                                appState.currentModule = .characterMaker
+                            }
+                            appState.loadCharacterProject(from: url)
                         } else if ext == "tsgm" && appState.currentModule == .gameMaker {
                             if let data = try? Data(contentsOf: url),
                                let cmds = try? JSONDecoder().decode([GameCommand].self, from: data) {

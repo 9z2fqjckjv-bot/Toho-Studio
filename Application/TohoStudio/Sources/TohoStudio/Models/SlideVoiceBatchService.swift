@@ -144,7 +144,8 @@ public final class SlideVoiceBatchService: ObservableObject {
             "幽々子": "西行寺幽々子", "紫": "八雲紫", "パチュリー": "パチュリー・ノーレッジ",
             "フラン": "フランドール・スカーレット", "レミリア": "レミリア・スカーレット",
             "早苗": "東風谷早苗", "さとり": "古明地さとり", "こいし": "古明地こいし",
-            "アリス": "アリス・マーガトロイド", "チルノ": "チルノ", "文": "射命丸文"
+            "アリス": "アリス・マーガトロイド", "チルノ": "チルノ", "文": "射命丸文",
+            "操夢": "操夢", "ナレーション": "ナレーション"
         ]
 
         for slide in slides {
@@ -156,7 +157,7 @@ public final class SlideVoiceBatchService: ObservableObject {
                 speaker = telopBracketSpeaker
             }
 
-            if speaker.isEmpty || speaker == "ナレーション" || speaker == "なし" {
+            if speaker.isEmpty || speaker == "なし" {
                 speaker = "博麗霊夢"
             }
             if let mapped = charDictionary[speaker] {
@@ -203,7 +204,7 @@ public final class SlideVoiceBatchService: ObservableObject {
 
             // セクション見出しとタイトルスライドは音声を必ずスキップ
             let isHeaderOrTitle = slide.isTitleOrSectionHeader
-            let skipReason: String? = isHeaderOrTitle ? ((slide.slideType == "title" || slide.slideIndex == 1) ? "タイトルスライド (音声スキップ)" : "セクション見出し (音声スキップ)") : nil
+            let skipReason: String? = isHeaderOrTitle ? (slide.slideType == "title" ? "タイトルスライド (音声スキップ)" : "セクション見出し・クレジット (音声スキップ)") : nil
 
             let animDur = slide.animationTimingDuration
             let animNote = slide.animationTimingNote

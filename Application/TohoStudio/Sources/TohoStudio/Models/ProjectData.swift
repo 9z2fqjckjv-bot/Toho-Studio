@@ -198,20 +198,140 @@ public struct MovieScene: Identifiable, Codable, Equatable {
 // MARK: - Character Maker Models
 public struct CharacterPart: Identifiable, Codable, Equatable {
     public var id: UUID = UUID()
-    public var name: String // "目", "口", "顔輪郭", "体", "装飾", "髪"
+    public var name: String // "目", "口", "顔輪郭", "体", "装飾", "髪", "箒", "第3の目", "帽子", "背景", "テロップ"
     public var assetPath: String
     public var offsetX: Double = 0.0
     public var offsetY: Double = 0.0
     public var scale: Double = 1.0
+    public var rotation: Double = 0.0 // 回転角度 (-180...180)
+    public var opacity: Double = 1.0  // 不透明度 (0.0...1.0)
     public var colorTintHex: String = "#FFFFFF"
+    public var hue: Double = 0.0       // 色相 (-180...180)
+    public var saturation: Double = 1.0 // 彩度 (0.0...2.0)
+    public var brightness: Double = 0.0 // 明度 (-1.0...1.0)
+    public var contrast: Double = 1.0   // コントラスト (0.0...2.0)
+    public var cropX: Double = 0.0      // トリミング矩形 (正規化 0...1)
+    public var cropY: Double = 0.0
+    public var cropW: Double = 1.0
+    public var cropH: Double = 1.0
     public var isVisible: Bool = true
+    public var blendMode: String = "通常" // 通常, 乗算, スクリーン, オーバーレイ
+    public var filterEffects: [String] = [] // Photoshop/Pixelmator: ドロップシャドウ, 境界線, ぼかし, シャープ, セピア, モノクロ
+
+    public init(
+        id: UUID = UUID(),
+        name: String,
+        assetPath: String,
+        offsetX: Double = 0.0,
+        offsetY: Double = 0.0,
+        scale: Double = 1.0,
+        rotation: Double = 0.0,
+        opacity: Double = 1.0,
+        colorTintHex: String = "#FFFFFF",
+        hue: Double = 0.0,
+        saturation: Double = 1.0,
+        brightness: Double = 0.0,
+        contrast: Double = 1.0,
+        cropX: Double = 0.0,
+        cropY: Double = 0.0,
+        cropW: Double = 1.0,
+        cropH: Double = 1.0,
+        isVisible: Bool = true,
+        blendMode: String = "通常",
+        filterEffects: [String] = []
+    ) {
+        self.id = id
+        self.name = name
+        self.assetPath = assetPath
+        self.offsetX = offsetX
+        self.offsetY = offsetY
+        self.scale = scale
+        self.rotation = rotation
+        self.opacity = opacity
+        self.colorTintHex = colorTintHex
+        self.hue = hue
+        self.saturation = saturation
+        self.brightness = brightness
+        self.contrast = contrast
+        self.cropX = cropX
+        self.cropY = cropY
+        self.cropW = cropW
+        self.cropH = cropH
+        self.isVisible = isVisible
+        self.blendMode = blendMode
+        self.filterEffects = filterEffects
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        self.name = try container.decode(String.self, forKey: .name)
+        self.assetPath = try container.decode(String.self, forKey: .assetPath)
+        self.offsetX = try container.decodeIfPresent(Double.self, forKey: .offsetX) ?? 0.0
+        self.offsetY = try container.decodeIfPresent(Double.self, forKey: .offsetY) ?? 0.0
+        self.scale = try container.decodeIfPresent(Double.self, forKey: .scale) ?? 1.0
+        self.rotation = try container.decodeIfPresent(Double.self, forKey: .rotation) ?? 0.0
+        self.opacity = try container.decodeIfPresent(Double.self, forKey: .opacity) ?? 1.0
+        self.colorTintHex = try container.decodeIfPresent(String.self, forKey: .colorTintHex) ?? "#FFFFFF"
+        self.hue = try container.decodeIfPresent(Double.self, forKey: .hue) ?? 0.0
+        self.saturation = try container.decodeIfPresent(Double.self, forKey: .saturation) ?? 1.0
+        self.brightness = try container.decodeIfPresent(Double.self, forKey: .brightness) ?? 0.0
+        self.contrast = try container.decodeIfPresent(Double.self, forKey: .contrast) ?? 1.0
+        self.cropX = try container.decodeIfPresent(Double.self, forKey: .cropX) ?? 0.0
+        self.cropY = try container.decodeIfPresent(Double.self, forKey: .cropY) ?? 0.0
+        self.cropW = try container.decodeIfPresent(Double.self, forKey: .cropW) ?? 1.0
+        self.cropH = try container.decodeIfPresent(Double.self, forKey: .cropH) ?? 1.0
+        self.isVisible = try container.decodeIfPresent(Bool.self, forKey: .isVisible) ?? true
+        self.blendMode = try container.decodeIfPresent(String.self, forKey: .blendMode) ?? "通常"
+        self.filterEffects = try container.decodeIfPresent([String].self, forKey: .filterEffects) ?? []
+    }
 }
 
 public struct CharacterModel: Identifiable, Codable, Equatable {
     public var id: UUID = UUID()
     public var name: String
+    public var baseImagePath: String = ""
     public var parts: [CharacterPart]
     public var expression: String = "通常"
+    public var canvasWidth: Double = 1080
+    public var canvasHeight: Double = 1080
+    public var backgroundColor: String = "透過市松模様"
+    public var initialSnapshotData: Data? = nil // 再生成(cmd+e+p)用の初期状態スナップショット
+
+    public init(
+        id: UUID = UUID(),
+        name: String,
+        baseImagePath: String = "",
+        parts: [CharacterPart],
+        expression: String = "通常",
+        canvasWidth: Double = 1080,
+        canvasHeight: Double = 1080,
+        backgroundColor: String = "透過市松模様",
+        initialSnapshotData: Data? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.baseImagePath = baseImagePath
+        self.parts = parts
+        self.expression = expression
+        self.canvasWidth = canvasWidth
+        self.canvasHeight = canvasHeight
+        self.backgroundColor = backgroundColor
+        self.initialSnapshotData = initialSnapshotData
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        self.name = try container.decode(String.self, forKey: .name)
+        self.baseImagePath = try container.decodeIfPresent(String.self, forKey: .baseImagePath) ?? ""
+        self.parts = try container.decodeIfPresent([CharacterPart].self, forKey: .parts) ?? []
+        self.expression = try container.decodeIfPresent(String.self, forKey: .expression) ?? "通常"
+        self.canvasWidth = try container.decodeIfPresent(Double.self, forKey: .canvasWidth) ?? 1080
+        self.canvasHeight = try container.decodeIfPresent(Double.self, forKey: .canvasHeight) ?? 1080
+        self.backgroundColor = try container.decodeIfPresent(String.self, forKey: .backgroundColor) ?? "透過市松模様"
+        self.initialSnapshotData = try container.decodeIfPresent(Data.self, forKey: .initialSnapshotData)
+    }
 }
 
 // MARK: - Sound Maker Models
@@ -223,9 +343,35 @@ public enum VoiceType: String, CaseIterable, Identifiable, Codable {
     case m2 = "男声2"
     case r1 = "ロボット"
     case imd1 = "中性"
-    case jgr = "児童"
+    case jgr = "機械1 (jgr)"
 
     public var id: String { rawValue }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(String.self)
+        if let match = VoiceType(rawValue: raw) {
+            self = match
+        } else if raw == "児童" || raw == "jgr" || raw == "機械1" {
+            self = .jgr
+        } else if raw == "f1" || raw == "女声1" {
+            self = .f1
+        } else if raw == "f2" || raw == "女声2" {
+            self = .f2
+        } else if raw == "f3" || raw == "女声3" {
+            self = .f3
+        } else if raw == "m1" || raw == "男声1" {
+            self = .m1
+        } else if raw == "m2" || raw == "男声2" {
+            self = .m2
+        } else if raw == "imd1" || raw == "中性" {
+            self = .imd1
+        } else if raw == "r1" || raw == "ロボット" {
+            self = .r1
+        } else {
+            self = .f1
+        }
+    }
 
     public var dylibSuffix: String {
         switch self {
@@ -380,12 +526,19 @@ public struct SoundClip: Identifiable, Codable, Equatable {
     public var pitch: Int = 100 // 音程
     public var playbackRate: Double = 1.0 // 倍速再生レート (0.5x〜2.0x、デフォルト1.0)
     public var isReversed: Bool = false // 逆再生モード (デフォルトfalse)
+    public var isCutOffOnSceneEnd: Bool = true // シーンの長さより効果音が長い場合にシーン切り替えと同時に即切り (デフォルトtrue)
 
     public var isSpanningScenes: Bool {
         if let s = spanStartSceneIndex, let e = spanEndSceneIndex, e > s {
             return true
         }
         return false
+    }
+
+    /// 再生速度を考慮した実効再生秒数
+    public var effectiveDuration: Double {
+        let rate = max(0.25, playbackRate)
+        return max(0.1, duration / rate)
     }
 
     public init(
@@ -413,7 +566,8 @@ public struct SoundClip: Identifiable, Codable, Equatable {
         voiceType: VoiceType? = nil,
         pitch: Int = 100,
         playbackRate: Double = 1.0,
-        isReversed: Bool = false
+        isReversed: Bool = false,
+        isCutOffOnSceneEnd: Bool = true
     ) {
         self.id = id
         self.name = name
@@ -440,6 +594,7 @@ public struct SoundClip: Identifiable, Codable, Equatable {
         self.pitch = pitch
         self.playbackRate = playbackRate
         self.isReversed = isReversed
+        self.isCutOffOnSceneEnd = isCutOffOnSceneEnd
     }
 
     // 後方互換性デコーダー
@@ -470,6 +625,7 @@ public struct SoundClip: Identifiable, Codable, Equatable {
         self.pitch = try container.decodeIfPresent(Int.self, forKey: .pitch) ?? 100
         self.playbackRate = try container.decodeIfPresent(Double.self, forKey: .playbackRate) ?? 1.0
         self.isReversed = try container.decodeIfPresent(Bool.self, forKey: .isReversed) ?? false
+        self.isCutOffOnSceneEnd = try container.decodeIfPresent(Bool.self, forKey: .isCutOffOnSceneEnd) ?? (self.type == "SE")
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -477,6 +633,7 @@ public struct SoundClip: Identifiable, Codable, Equatable {
         case startTime, trackId, pan, colorHex, waveformPoints, sceneIndex
         case spanStartSceneIndex, spanEndSceneIndex, fadeInDuration, fadeOutDuration
         case isLooping, audioFilePath, voiceType, pitch, playbackRate, isReversed
+        case isCutOffOnSceneEnd
     }
 }
 
@@ -710,6 +867,13 @@ public struct SlideItem: Identifiable, Codable, Equatable {
     /// を完全に除去し、クリーンなセリフテキストを返す共通ユーティリティ。
     public static func cleanDialogueText(from text: String) -> String {
         var result = text
+        // 0. 迷シーン・演出ラベルの除去 (例: "今回の迷シーン１", "今回の迷シーン２", "今回の名シーン３")
+        let labelPattern = "今回の(?:迷|名)?シーン\\s*\\d+"
+        if let regexLabel = try? NSRegularExpression(pattern: labelPattern, options: .caseInsensitive) {
+            let range = NSRange(result.startIndex..., in: result)
+            result = regexLabel.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "")
+        }
+
         // 1. アニメーション表記・時間指定・演出カッコ書きの除去
         // （アニメーション）、(アニメーション: 15秒)、(アニメーションに合わせる)、(アニメ)、(表示時間: 5秒)、(時間: 3秒)、(3秒)、(フェードイン)など
         let animPattern = "[（\\(\\[［][^）\\)\\]］]*(?:アニメーション|アニメ|表示時間|時間|\\d+(?:\\.\\d+)?\\s*秒|フェード|ズーム|タイプライター|スライド|アクション|イン|アウト|カット)[^）\\)\\]］]*[）\\)\\]］]"
@@ -838,16 +1002,34 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         if slideType == "title" || slideType == "sectionHeader" {
             return true
         }
-        // スライド番号1はタイトルスライドとして判定
-        if slideIndex == 1 {
+        // ノートまたはテロップに明確なセリフがあるか判定
+        let noteRaw = rawPresenterNote ?? presenterNote
+        let hasNoteSpeaker = SlideItem.extractSpeakerFromBrackets(from: noteRaw) != nil
+        let cleanNote = SlideItem.cleanDialogueText(from: presenterNote)
+
+        // スライド番号1: ノートにセリフや話者が存在する場合は通常スライドとして音声を生成する
+        if slideIndex == 1 && !hasNoteSpeaker && cleanNote.isEmpty && (title.contains("タイトル") || telop.contains("東方") || telop.contains("第")) {
             return true
         }
-        // テキスト内容からのフォールバック判定
+
+        // エンドロール・クレジットスライドのスキップ判定
         let combined = "\(title) \(telop) \(presenterNote)".lowercased()
-        if combined.contains("その頃") || combined.contains("一方") || combined.contains("中扉") || combined.contains("セクション見出し") {
+        if combined.contains("ご視聴ありがとうございました") || combined.contains("出典") || combined.contains("立ち絵：") || combined.contains("立ち絵:") || combined.contains("製作者：") || combined.contains("製作者:") {
             return true
         }
-        if title.contains("タイトル") || (title.contains("第") && title.contains("話")) {
+
+        // 次回予告見出しスライドのスキップ判定
+        if (title.contains("次回予告") || telop.contains("次回予告")) && !hasNoteSpeaker && cleanNote.count <= 10 {
+            return true
+        }
+
+        // テキスト内容からの中扉フォールバック判定
+        if combined.contains("その頃") || combined.contains("一方") || combined.contains("中扉") || combined.contains("セクション見出し") {
+            if !hasNoteSpeaker && cleanNote.count <= 25 {
+                return true
+            }
+        }
+        if title.contains("タイトル") || (title.contains("第") && title.contains("話") && presenterNote.isEmpty) {
             return true
         }
         return false

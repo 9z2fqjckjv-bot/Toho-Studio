@@ -462,7 +462,8 @@ public final class SlideRecognitionService: ObservableObject {
                 "幽々子": "西行寺幽々子", "紫": "八雲紫", "パチュリー": "パチュリー・ノーレッジ",
                 "フラン": "フランドール・スカーレット", "レミリア": "レミリア・スカーレット",
                 "早苗": "東風谷早苗", "さとり": "古明地さとり", "こいし": "古明地こいし",
-                "アリス": "アリス・マーガトロイド", "チルノ": "チルノ", "文": "射命丸文"
+                "アリス": "アリス・マーガトロイド", "チルノ": "チルノ", "文": "射命丸文",
+                "操夢": "操夢"
             ]
             if let mapped = charDictionary[speaker] {
                 speaker = mapped
@@ -489,7 +490,8 @@ public final class SlideRecognitionService: ObservableObject {
                 }
 
                 let voiceSym = AquesTalkBridge.shared.convertToVoiceSymbol(text: speechText)
-                
+                let preset = AquesTalkBridge.shared.characterPreset(for: speaker)
+
                 // Track assignment based on speaker
                 let trackId: String
                 let colorHex: String
@@ -499,6 +501,9 @@ public final class SlideRecognitionService: ObservableObject {
                 } else if speaker.contains("魔理沙") {
                     trackId = "track_voice_marisa"
                     colorHex = "#F1C40F"
+                } else if speaker.contains("操夢") {
+                    trackId = "track_voice_soumu"
+                    colorHex = "#3498DB"
                 } else {
                     let sanitized = speaker.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? UUID().uuidString.prefix(6).description
                     trackId = "track_voice_\(sanitized)"
@@ -516,12 +521,14 @@ public final class SlideRecognitionService: ObservableObject {
                     voiceSymbol: voiceSym,
                     duration: max(slide.duration, 2.5),
                     volume: 1.0,
-                    speed: 100,
+                    speed: preset.speed,
                     startTime: Double(slide.slideIndex - 1) * 8.0,
                     trackId: trackId,
                     colorHex: colorHex,
                     waveformPoints: waveform,
-                    sceneIndex: slide.slideIndex
+                    sceneIndex: slide.slideIndex,
+                    voiceType: preset.voice,
+                    pitch: preset.pitch
                 ))
             }
         }

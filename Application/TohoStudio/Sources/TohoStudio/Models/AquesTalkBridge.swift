@@ -335,6 +335,8 @@ public final class AquesTalkBridge: ObservableObject {
         if name.contains("魅魔") { return .f2 }
         if name.contains("神綺") { return .f1 }
         if name.contains("夢美") { return .f1 }
+        if name.contains("操夢") { return .imd1 }
+        if name == "ナレーション" || name.contains("ナレーション") { return .f1 }
 
         return .f1
     }
@@ -344,6 +346,10 @@ public final class AquesTalkBridge: ObservableObject {
     public func characterPreset(for characterName: String) -> (voice: VoiceType, speed: Int, pitch: Int) {
         let v = voiceType(for: characterName)
         let name = characterName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // 0. 交換夫婦・二次創作登場人物
+        if name.contains("操夢") { return (.imd1, 100, 115) }
+        if name == "ナレーション" || name.contains("ナレーション") { return (.f1, 100, 100) }
 
         // 1. 東風谷早苗: コゲの日記準拠（女性2, 速度90, 音程135）
         if name.contains("早苗") { return (.f2, 90, 135) }

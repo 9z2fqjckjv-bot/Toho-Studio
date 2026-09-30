@@ -549,9 +549,20 @@ public final class AppState: ObservableObject {
             type = "動画"
             cat = "シーン"
         case .characterMaker:
-            materialTitle = "\(currentCharacter.name)_カスタムパーツ_\(formatter.string(from: timestamp))"
+            materialTitle = "\(currentCharacter.name)_カスタム立ち絵_\(formatter.string(from: timestamp))"
             type = "画像"
             cat = "キャラクター"
+            let savedPath = CharacterImageService.shared.saveToMaterialStudio(model: currentCharacter, appState: self)
+            let newMat = MaterialItem(
+                title: materialTitle,
+                type: type,
+                category: cat,
+                filePath: savedPath,
+                fileSize: 524288,
+                createdAt: timestamp
+            )
+            materials.insert(newMat, at: 0)
+            return
         case .soundMaker:
             materialTitle = "合成音声素材_\(formatter.string(from: timestamp))"
             type = "音声"
@@ -581,6 +592,80 @@ public final class AppState: ObservableObject {
         materials.insert(newMat, at: 0)
         log("編集中のデータから新規素材『\(materialTitle)』を作成し素材スタジオに登録しました")
         addHistory("編集: 素材作成 (\(materialTitle))")
+    }
+
+    // MARK: - Character Maker Operations
+    public func performCharacterSplit() {
+        saveUndoSnapshot()
+        CharacterImageService.shared.splitCharacterIntoParts(model: &currentCharacter)
+        log("キャラクターメーカー: 立ち絵画像から顔・体・目・口・髪・装飾等にパーツ分割を完了しました")
+        addHistory("編集: パーツ分割 (キャラクターメーカー)")
+    }
+
+    public func performCharacterCrop(normalizedRect: CGRect, zoomFactor: Double = 1.0) {
+        saveUndoSnapshot()
+        guard let baseImg = CharacterImageService.shared.loadImage(from: currentCharacter.baseImagePath) else {
+            log("キャラクターメーカー: クロップ対象の画像が見つかりません", level: "WARN")
+            return
+        }
+
+        if let cropped = CharacterImageService.shared.cropAndScaleImage(sourceImage: baseImg, cropRectNormalized: normalizedRect, zoomFactor: zoomFactor) {
+            let timestamp = Int(Date().timeIntervalSince1970)
+            let cacheDir = "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/character_parts"
+            try? FileManager.default.createDirectory(atPath: cacheDir, withIntermediateDirectories: true)
+            let cachePath = "\(cacheDir)/crop_\(currentCharacter.name)_\(timestamp).png"
+
+            if let tiff = cropped.tiffRepresentation,
+               let rep = NSBitmapImageRep(data: tiff),
+               let png = rep.representation(using: .png, properties: [:]) {
+                try? png.write(to: URL(fileURLWithPath: cachePath))
+            }
+
+            let newPart = CharacterPart(
+                name: "トリミングパーツ (\(String(format: "%.1f", zoomFactor))x)",
+                assetPath: cachePath,
+                offsetX: 0.0,
+                offsetY: 0.0,
+                scale: 1.0,
+                isVisible: true
+            )
+            currentCharacter.parts.append(newPart)
+            log("キャラクターメーカー: 指定範囲を切り取り・拡大して新規パーツとして配置しました (拡大率: \(String(format: "%.1f", zoomFactor))x)")
+            addHistory("編集: トリミング (キャラクターメーカー)")
+        }
+    }
+
+    public func loadCharacterPreset(name: String) {
+        saveUndoSnapshot()
+        currentCharacter = CharacterImageService.shared.createPresetCharacter(name: name)
+        log("キャラクターメーカー: 『\(name)』の立ち絵プリセットを読み込みました")
+        addHistory("読込: キャラクタープリセット (\(name))")
+    }
+
+    public func loadCharacterProject(from url: URL) {
+        guard let data = try? Data(contentsOf: url),
+              let model = try? JSONDecoder().decode(CharacterModel.self, from: data) else {
+            log("キャラクターメーカー: 編集ファイル『\(url.lastPathComponent)』の読み込みに失敗しました", level: "WARN")
+            return
+        }
+        saveUndoSnapshot()
+        currentCharacter = model
+        log("キャラクターメーカー: 編集ファイル『\(url.lastPathComponent)』を読み込みました")
+        addHistory("読込: キャラクターファイル (.tscm)")
+    }
+
+    public func saveCharacterProject(to url: URL) {
+        guard let data = try? JSONEncoder().encode(currentCharacter) else {
+            log("キャラクターメーカー: ファイルのシリアライズに失敗しました", level: "WARN")
+            return
+        }
+        do {
+            try data.write(to: url)
+            log("キャラクターメーカー: 編集ファイルを保存しました: \(url.lastPathComponent)")
+            addHistory("保存: キャラクターファイル (.tscm)")
+        } catch {
+            log("キャラクターメーカー: 保存エラー - \(error.localizedDescription)", level: "ERROR")
+        }
     }
 
     public func performImportMaterials() {
@@ -638,18 +723,14 @@ public final class AppState: ObservableObject {
                 log("ムービーメーカー: シーンを再生成しました")
             }
         case .characterMaker:
-            currentCharacter = CharacterModel(
-                name: "博麗霊夢",
-                parts: [
-                    CharacterPart(name: "体", assetPath: "body.png"),
-                    CharacterPart(name: "顔輪郭", assetPath: "face.png"),
-                    CharacterPart(name: "目", assetPath: "eyes_normal.png"),
-                    CharacterPart(name: "口", assetPath: "mouth_smile.png"),
-                    CharacterPart(name: "髪", assetPath: "hair.png"),
-                    CharacterPart(name: "装飾", assetPath: "ribbon.png")
-                ]
-            )
-            log("キャラクターメーカー: すべての変更を取り消し、読み込み直後の初期状態に戻しました")
+            if let snapshot = currentCharacter.initialSnapshotData,
+               let restored = try? JSONDecoder().decode(CharacterModel.self, from: snapshot) {
+                currentCharacter = restored
+                log("キャラクターメーカー: すべての変更を取り消し、ファイルの読み込み直後の初期状態に復元しました")
+            } else {
+                currentCharacter = CharacterImageService.shared.createPresetCharacter(name: currentCharacter.name)
+                log("キャラクターメーカー: すべての変更を取り消し、読み込み直後の初期状態に戻しました")
+            }
         case .soundMaker:
             log("サウンドメーカー: キャラクター音声およびBGM/SEの波形データを再生成しました")
         case .slideScenarioMaker:
@@ -792,7 +873,7 @@ public final class AppState: ObservableObject {
                 source: "コゲの日記",
                 description: "コゲの日記準拠・女性2・速度90%・音程135"
             ),
-            // 2. 独自テンプレート4種（ユーザー指定）
+            // 2. 独自テンプレート（ユーザー指定）
             VoiceTemplate(
                 name: "imd1,100,115 (独自)",
                 characterName: "独自: imd1",
@@ -805,11 +886,20 @@ public final class AppState: ObservableObject {
             VoiceTemplate(
                 name: "l1,100,115 (独自)",
                 characterName: "独自: l1",
-                voiceType: .jgr,
+                voiceType: .f1,
                 speed: 100,
                 pitch: 115,
                 source: "独自テンプレート",
-                description: "児童(l1/jgr)・速度100%・音程115"
+                description: "女声1(f1/l1)・速度100%・音程115"
+            ),
+            VoiceTemplate(
+                name: "f1,100,115 (独自)",
+                characterName: "独自: f1",
+                voiceType: .f1,
+                speed: 100,
+                pitch: 115,
+                source: "独自テンプレート",
+                description: "女声1(f1)・速度100%・音程115"
             ),
             VoiceTemplate(
                 name: "m1,100,115 (独自)",
@@ -828,6 +918,16 @@ public final class AppState: ObservableObject {
                 pitch: 115,
                 source: "独自テンプレート",
                 description: "男声2(m2)・速度100%・音程115"
+            ),
+            // 交換夫婦・主人公
+            VoiceTemplate(
+                name: "操夢 (交換夫婦)",
+                characterName: "操夢",
+                voiceType: .imd1,
+                speed: 100,
+                pitch: 115,
+                source: "交換夫婦",
+                description: "交換夫婦主人公・中性(imd1)・速度100%・音程115"
             ),
             // 3. ゆっくりボイスメーカー準拠 テンプレート（第1優先）
             VoiceTemplate(
@@ -1419,6 +1519,9 @@ public final class AppState: ObservableObject {
             MaterialItem(title: "博麗神社_夕景背景", type: "画像", category: "背景", filePath: "/動画用/背景/神社境内_夕景.png", fileSize: 2097152, createdAt: Date()),
             MaterialItem(title: "東方惑情録_BGMパック", type: "音声", category: "BGM", filePath: "/動画用/音楽/bgm_pack.mp3", fileSize: 8388608, createdAt: Date())
         ]
+
+        // Initialize Character Maker preset
+        currentCharacter = CharacterImageService.shared.createPresetCharacter(name: "博麗霊夢")
     }
 
     private func initializeAchievements() {

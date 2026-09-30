@@ -1082,32 +1082,61 @@ public struct SoundMakerView: View {
     private func sceneSeClipRow(clip: SoundClip) -> some View {
         let isSelected = selectedClipId == clip.id
         let isPlayingThis = soundManager.currentlyPlayingClipId == clip.id && soundManager.isPreviewPlaying
+        let sRange = sceneTimeRange(index: max(0, selectedSceneIndex - 1))
+        let sceneDuration = max(0.1, sRange.end - sRange.start)
+        let isExceedingScene = clip.effectiveDuration > (sceneDuration + 0.05)
 
-        return VStack(alignment: .leading, spacing: 5) {
+        return VStack(alignment: .leading, spacing: 6) {
+            // Header: Preview Button, Icon, Title, Duration, Exceeding Warning, Delete
             HStack(spacing: 6) {
-                // Preview Play Button (SoundMakerAudioManager で本物のSE音を流す)
+                // Preview Play Button (SoundMakerAudioManager で本物のSE音を流す: 即切りシミュレート付き)
                 Button(action: {
-                    soundManager.togglePreview(clip: clip)
+                    soundManager.togglePreview(clip: clip, sceneDuration: sceneDuration)
                 }) {
                     Image(systemName: isPlayingThis ? "stop.circle.fill" : "play.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.system(size: 15))
                         .foregroundColor(isPlayingThis ? .green : Color(red: 0.1, green: 0.8, blue: 0.3))
                 }
                 .buttonStyle(.plain)
-                .help(isPlayingThis ? "再生を停止" : "この効果音を倍速・逆再生設定で試聴再生")
+                .help(isPlayingThis ? "再生を停止" : "この効果音を倍速・逆再生・フェード・即切り設定で試聴再生")
 
                 Image(systemName: "bolt.fill")
                     .font(.system(size: 10))
                     .foregroundColor(Color(red: 0.1, green: 0.8, blue: 0.3))
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(clip.name)
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-                    Text(String(format: "長さ: %.2fs", clip.duration))
-                        .font(.system(size: 8))
-                        .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 4) {
+                        Text(clip.name)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+
+                        if clip.isCutOffOnSceneEnd {
+                            HStack(spacing: 2) {
+                                Image(systemName: "scissors")
+                                    .font(.system(size: 7))
+                                Text("即切り")
+                                    .font(.system(size: 7, weight: .bold))
+                            }
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.cyan.opacity(0.25))
+                            .foregroundColor(.cyan)
+                            .cornerRadius(3)
+                        }
+                    }
+
+                    HStack(spacing: 4) {
+                        Text(String(format: "実効長: %.2fs", clip.effectiveDuration))
+                            .font(.system(size: 8))
+                            .foregroundColor(.secondary)
+
+                        if isExceedingScene {
+                            Text("(シーン: \(String(format: "%.1f", sceneDuration))s)")
+                                .font(.system(size: 8, weight: .medium))
+                                .foregroundColor(.orange)
+                        }
+                    }
                 }
 
                 Spacer()
@@ -1121,9 +1150,126 @@ public struct SoundMakerView: View {
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
+                .help("この効果音を削除")
             }
 
-            // Controls: 倍速再生セレクター & 逆再生トグル & 音量
+            // シーン長超過警告バッジ & 即切り案内
+            if isExceedingScene {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 8))
+                        .foregroundColor(.orange)
+                    Text("効果音の長さがシーン長を超過しています")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundColor(.orange)
+                    Spacer()
+                    Text(clip.isCutOffOnSceneEnd ? "✂️ シーン切替時に即切り" : "⚠️ 次シーンへ鳴り継続")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(clip.isCutOffOnSceneEnd ? .cyan : .orange)
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(Color.orange.opacity(0.12))
+                .cornerRadius(3)
+            }
+
+            // Controls 1: 即切りトグル & フェードイン (FI) & フェードアウト (FO)
+            HStack(spacing: 6) {
+                // シーン終了時 即切りトグルボタン
+                Button(action: {
+                    if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                        appState.soundClips[idx].isCutOffOnSceneEnd.toggle()
+                        let newState = appState.soundClips[idx].isCutOffOnSceneEnd
+                        appState.log("SE『\(clip.name)』のシーン切替時即切りを \(newState ? "有効 (ON)" : "無効 (OFF)") に設定しました")
+                    }
+                }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: clip.isCutOffOnSceneEnd ? "scissors" : "scissors.badge.ellipsis")
+                            .font(.system(size: 8))
+                        Text(clip.isCutOffOnSceneEnd ? "即切り: ON" : "即切り: OFF")
+                            .font(.system(size: 8, weight: .bold))
+                    }
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(clip.isCutOffOnSceneEnd ? Color.cyan.opacity(0.25) : Color.white.opacity(0.06))
+                    .foregroundColor(clip.isCutOffOnSceneEnd ? .cyan : .secondary)
+                    .cornerRadius(3)
+                }
+                .buttonStyle(.plain)
+                .help("シーンの長さより効果音が長い場合に、シーン切り替えと同時に即座に再生を停止（即切り）します")
+
+                // フェードイン (FI) 設定メニュー
+                Menu {
+                    ForEach([0.0, 0.1, 0.2, 0.5, 1.0, 1.5, 2.0], id: \.self) { fi in
+                        Button(action: {
+                            if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                appState.soundClips[idx].fadeInDuration = fi
+                                appState.log("SE『\(clip.name)』のフェードイン時間を \(String(format: "%.1f", fi))秒に設定しました")
+                            }
+                        }) {
+                            HStack {
+                                Text(fi == 0.0 ? "フェードインなし (0.0s)" : String(format: "%.1f 秒", fi))
+                                if abs(clip.fadeInDuration - fi) < 0.01 {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .font(.system(size: 7))
+                        Text("FI: \(clip.fadeInDuration, specifier: "%.1f")s")
+                    }
+                    .font(.system(size: 8, weight: .bold))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(clip.fadeInDuration > 0 ? Color.cyan.opacity(0.25) : Color.white.opacity(0.06))
+                    .foregroundColor(clip.fadeInDuration > 0 ? .cyan : .secondary)
+                    .cornerRadius(3)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("効果音のフェードイン秒数を設定（シーン跨ぎSEと同様に設定可能）")
+
+                // フェードアウト (FO) 設定メニュー
+                Menu {
+                    ForEach([0.0, 0.1, 0.2, 0.5, 1.0, 1.5, 2.0, 3.0], id: \.self) { fo in
+                        Button(action: {
+                            if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                appState.soundClips[idx].fadeOutDuration = fo
+                                appState.log("SE『\(clip.name)』のフェードアウト時間を \(String(format: "%.1f", fo))秒に設定しました")
+                            }
+                        }) {
+                            HStack {
+                                Text(fo == 0.0 ? "フェードアウトなし (0.0s)" : String(format: "%.1f 秒", fo))
+                                if abs(clip.fadeOutDuration - fo) < 0.01 {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: "chart.line.downtrend.xyaxis")
+                            .font(.system(size: 7))
+                        Text("FO: \(clip.fadeOutDuration, specifier: "%.1f")s")
+                    }
+                    .font(.system(size: 8, weight: .bold))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(clip.fadeOutDuration > 0 ? Color.purple.opacity(0.25) : Color.white.opacity(0.06))
+                    .foregroundColor(clip.fadeOutDuration > 0 ? Color(hex: "#DDA0DD") : .secondary)
+                    .cornerRadius(3)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("効果音のフェードアウト秒数を設定（シーン跨ぎSEと同様に設定可能）")
+
+                Spacer()
+            }
+
+            // Controls 2: 倍速再生セレクター & 逆再生トグル & 音量スライダー
             HStack(spacing: 6) {
                 // 倍速再生セレクター
                 Menu {
@@ -1132,7 +1278,7 @@ public struct SoundMakerView: View {
                             if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
                                 appState.soundClips[idx].playbackRate = rate
                                 if isPlayingThis {
-                                    soundManager.playPreview(clip: appState.soundClips[idx])
+                                    soundManager.playPreview(clip: appState.soundClips[idx], sceneDuration: sceneDuration)
                                 }
                             }
                         }) {
@@ -1165,7 +1311,7 @@ public struct SoundMakerView: View {
                     if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
                         appState.soundClips[idx].isReversed.toggle()
                         if isPlayingThis {
-                            soundManager.playPreview(clip: appState.soundClips[idx])
+                            soundManager.playPreview(clip: appState.soundClips[idx], sceneDuration: sceneDuration)
                         }
                     }
                 }) {
@@ -1549,6 +1695,90 @@ public struct SoundMakerView: View {
                             in: 0...1.0
                         )
                         Text("\(Int(clip.volume * 100))%").font(.caption2.monospaced()).foregroundColor(.cyan)
+                    }
+
+                    // フェードイン (FI) スライダー
+                    HStack {
+                        Text("フェードイン:").font(.caption2).foregroundColor(Color(white: 0.7))
+                        Slider(
+                            value: Binding(
+                                get: { clip.fadeInDuration },
+                                set: { val in
+                                    if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                        appState.soundClips[idx].fadeInDuration = (val * 10).rounded() / 10
+                                    }
+                                }
+                            ),
+                            in: 0...3.0,
+                            step: 0.1
+                        )
+                        Text(String(format: "%.1fs", clip.fadeInDuration)).font(.caption2.monospaced()).foregroundColor(.cyan)
+                    }
+
+                    // フェードアウト (FO) スライダー
+                    HStack {
+                        Text("フェードアウト:").font(.caption2).foregroundColor(Color(white: 0.7))
+                        Slider(
+                            value: Binding(
+                                get: { clip.fadeOutDuration },
+                                set: { val in
+                                    if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                        appState.soundClips[idx].fadeOutDuration = (val * 10).rounded() / 10
+                                    }
+                                }
+                            ),
+                            in: 0...3.0,
+                            step: 0.1
+                        )
+                        Text(String(format: "%.1fs", clip.fadeOutDuration)).font(.caption2.monospaced()).foregroundColor(Color(hex: "#DDA0DD"))
+                    }
+
+                    // SEクリップ専用: シーン切替時即切りトグル
+                    if clip.type == "SE" {
+                        Divider().background(DAWTheme.trackBorder).padding(.vertical, 2)
+
+                        Toggle(isOn: Binding(
+                            get: { clip.isCutOffOnSceneEnd },
+                            set: { val in
+                                if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                    appState.soundClips[idx].isCutOffOnSceneEnd = val
+                                }
+                            }
+                        )) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "scissors")
+                                    .foregroundColor(.cyan)
+                                Text("シーン切替時に即切り")
+                                    .font(.caption2.bold())
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .help("シーンの長さより効果音が長い場合に、シーン終了時刻で即座に再生を停止します")
+
+                        // シーン超過判定表示
+                        let scenes = activeSceneList()
+                        let sIdx = clip.sceneIndex ?? selectedSceneIndex
+                        if sIdx >= 1 && sIdx <= scenes.count {
+                            let sDur = scenes[sIdx - 1].duration
+                            if clip.effectiveDuration > sDur {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .font(.system(size: 8))
+                                        .foregroundColor(.orange)
+                                    Text("SE長(\(String(format: "%.1f", clip.effectiveDuration))s) > シーン長(\(String(format: "%.1f", sDur))s)")
+                                        .font(.system(size: 8, weight: .bold))
+                                        .foregroundColor(.orange)
+                                    Spacer()
+                                    Text(clip.isCutOffOnSceneEnd ? "✂️ 即切り有効" : "⚠️ 跨いで継続")
+                                        .font(.system(size: 8, weight: .bold))
+                                        .foregroundColor(clip.isCutOffOnSceneEnd ? .cyan : .orange)
+                                }
+                                .padding(4)
+                                .background(Color.orange.opacity(0.12))
+                                .cornerRadius(3)
+                            }
+                        }
                     }
                 }
             } else {
@@ -2155,7 +2385,7 @@ public struct SoundMakerView: View {
             let clickedSeconds = Double(location.x) / zoomScale
             currentTime = max(0, min(totalTimelineDuration, clickedSeconds))
             if isPlaying {
-                soundManager.startTimelinePlayback(from: currentTime, clips: appState.soundClips)
+                soundManager.startTimelinePlayback(from: currentTime, clips: appState.soundClips, scenes: activeSceneList())
             }
         }
     }
@@ -2260,6 +2490,20 @@ public struct SoundMakerView: View {
         let clipColor = Color(hex: clip.colorHex ?? track.colorHex)
         let isSpanning = clip.isSpanningScenes
 
+        // シーン長超過 & 即切りカットオフ判定
+        let scenes = activeSceneList()
+        var sceneEndOffsetInClip: CGFloat? = nil
+        var isCutOffApplicable = false
+        if clip.type == "SE", let sIdx = clip.sceneIndex, sIdx >= 1 && sIdx <= scenes.count {
+            let sRange = sceneTimeRange(index: sIdx - 1)
+            let sceneEndT = sRange.end
+            if (clip.startTime + clip.effectiveDuration) > sceneEndT {
+                isCutOffApplicable = true
+                let cutSeconds = max(0, sceneEndT - clip.startTime)
+                sceneEndOffsetInClip = CGFloat(cutSeconds) * CGFloat(zoomScale)
+            }
+        }
+
         return ZStack(alignment: .topLeading) {
             // Region Box Background
             RoundedRectangle(cornerRadius: 4)
@@ -2267,7 +2511,7 @@ public struct SoundMakerView: View {
 
             // Upper Title Ribbon
             VStack(spacing: 0) {
-                HStack(spacing: 4) {
+                HStack(spacing: 3) {
                     Image(systemName: isSpanning ? "arrow.triangle.merge" : "waveform")
                         .font(.system(size: 8))
 
@@ -2288,6 +2532,19 @@ public struct SoundMakerView: View {
                             .cornerRadius(2)
                     }
 
+                    // SE 即切りバッジ
+                    if clip.type == "SE" && clip.isCutOffOnSceneEnd {
+                        HStack(spacing: 1) {
+                            Image(systemName: "scissors").font(.system(size: 6))
+                            Text("即切").font(.system(size: 6.5, weight: .bold))
+                        }
+                        .padding(.horizontal, 3)
+                        .padding(.vertical, 1)
+                        .background(Color.cyan.opacity(0.40))
+                        .foregroundColor(.white)
+                        .cornerRadius(2)
+                    }
+
                     Text(clip.name)
                         .font(.system(size: 9, weight: .bold))
                         .lineLimit(1)
@@ -2301,6 +2558,24 @@ public struct SoundMakerView: View {
                             .background(Color.cyan.opacity(0.35))
                             .foregroundColor(.cyan)
                             .cornerRadius(2)
+                    }
+
+                    // フェードバッジ
+                    if clip.fadeInDuration > 0 || clip.fadeOutDuration > 0 {
+                        HStack(spacing: 2) {
+                            if clip.fadeInDuration > 0 {
+                                Text("FI:\(clip.fadeInDuration, specifier: "%.1f")s")
+                            }
+                            if clip.fadeOutDuration > 0 {
+                                Text("FO:\(clip.fadeOutDuration, specifier: "%.1f")s")
+                            }
+                        }
+                        .font(.system(size: 6.5, weight: .bold))
+                        .padding(.horizontal, 3)
+                        .padding(.vertical, 1)
+                        .background(Color.purple.opacity(0.35))
+                        .foregroundColor(Color(hex: "#DDA0DD"))
+                        .cornerRadius(2)
                     }
 
                     // 逆再生バッジ
@@ -2334,6 +2609,39 @@ public struct SoundMakerView: View {
                     .padding(.horizontal, 4)
                     .padding(.vertical, 3)
             }
+
+            // シーン切り替え時の即切り境界ライン (カットライン)
+            if isCutOffApplicable, let cutX = sceneEndOffsetInClip, cutX > 0, cutX < clipWidth {
+                if clip.isCutOffOnSceneEnd {
+                    // 即切り有効時の赤いカット境界線 & ハサミマーク
+                    ZStack(alignment: .topTrailing) {
+                        Rectangle()
+                            .fill(Color.black.opacity(0.50))
+                            .frame(width: max(0, clipWidth - cutX), height: 58)
+                            .offset(x: cutX)
+
+                        VStack(spacing: 2) {
+                            Image(systemName: "scissors")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundColor(.cyan)
+                                .background(Color.black.opacity(0.7))
+                                .clipShape(Circle())
+                            Rectangle()
+                                .fill(Color.cyan)
+                                .frame(width: 1.5, height: 44)
+                        }
+                        .offset(x: cutX - 4, y: 2)
+                    }
+                    .allowsHitTesting(false)
+                } else {
+                    // 即切りOFF時の警告境界線
+                    Rectangle()
+                        .stroke(Color.orange.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                        .frame(width: 1, height: 58)
+                        .offset(x: cutX)
+                        .allowsHitTesting(false)
+                }
+            }
         }
         .frame(width: clipWidth, height: 58)
         .overlay(
@@ -2361,10 +2669,53 @@ public struct SoundMakerView: View {
         )
         .contextMenu {
             Button(action: {
-                soundManager.togglePreview(clip: clip)
+                let sIdx = clip.sceneIndex ?? selectedSceneIndex
+                let scenes = activeSceneList()
+                let sDur = (sIdx >= 1 && sIdx <= scenes.count) ? scenes[sIdx - 1].duration : nil
+                soundManager.togglePreview(clip: clip, sceneDuration: sDur)
             }) {
                 Label(soundManager.currentlyPlayingClipId == clip.id && soundManager.isPreviewPlaying ? "停止" : "試聴再生", systemImage: soundManager.currentlyPlayingClipId == clip.id && soundManager.isPreviewPlaying ? "stop.circle" : "play.circle")
             }
+
+            if clip.type == "SE" {
+                Divider()
+
+                Button(action: {
+                    if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                        appState.soundClips[idx].isCutOffOnSceneEnd.toggle()
+                    }
+                }) {
+                    Label(
+                        clip.isCutOffOnSceneEnd ? "シーン切替時の即切り: ON (クリックでOFF)" : "シーン切替時の即切り: OFF (クリックでON)",
+                        systemImage: clip.isCutOffOnSceneEnd ? "scissors" : "scissors.badge.ellipsis"
+                    )
+                }
+
+                Menu("フェードイン (FI) 設定") {
+                    ForEach([0.0, 0.1, 0.2, 0.5, 1.0, 1.5, 2.0], id: \.self) { fi in
+                        Button(action: {
+                            if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                appState.soundClips[idx].fadeInDuration = fi
+                            }
+                        }) {
+                            Text(fi == 0.0 ? "なし (0.0s)" : String(format: "%.1f 秒", fi))
+                        }
+                    }
+                }
+
+                Menu("フェードアウト (FO) 設定") {
+                    ForEach([0.0, 0.1, 0.2, 0.5, 1.0, 1.5, 2.0, 3.0], id: \.self) { fo in
+                        Button(action: {
+                            if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                appState.soundClips[idx].fadeOutDuration = fo
+                            }
+                        }) {
+                            Text(fo == 0.0 ? "なし (0.0s)" : String(format: "%.1f 秒", fo))
+                        }
+                    }
+                }
+            }
+
             Divider()
             Button(role: .destructive, action: {
                 deleteClip(clip)
@@ -2480,14 +2831,14 @@ public struct SoundMakerView: View {
 
     private func startPlayback() {
         isPlaying = true
-        soundManager.startTimelinePlayback(from: currentTime, clips: appState.soundClips)
+        soundManager.startTimelinePlayback(from: currentTime, clips: appState.soundClips, scenes: activeSceneList())
         playbackTimer?.invalidate()
         playbackTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
             currentTime += 0.05
             if currentTime >= totalTimelineDuration {
                 currentTime = 0.0
             }
-            soundManager.updateTimelinePlayback(currentTime: currentTime, clips: appState.soundClips)
+            soundManager.updateTimelinePlayback(currentTime: currentTime, clips: appState.soundClips, scenes: activeSceneList())
             // Animate meter
             currentMeterLevel = Double.random(in: 0.4...0.95)
         }
