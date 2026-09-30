@@ -47,10 +47,14 @@ public final class SlideRecognitionService: ObservableObject {
     @Published public var loadedProjectName: String = "交換夫婦（21.22話目）"
 
     private let videoAssetsPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用"
+    private let programsExtractorScriptPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Slide&ScenarioMarker/Programs/keynote_extractor.py"
     private let primaryExtractorScriptPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Slide&ScenarioMarker/Scripts/keynote_extractor.py"
     private let legacyExtractorScriptPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Scripts/keynote_extractor.py"
 
     private var resolvedExtractorScriptPath: String {
+        if FileManager.default.fileExists(atPath: programsExtractorScriptPath) {
+            return programsExtractorScriptPath
+        }
         if FileManager.default.fileExists(atPath: primaryExtractorScriptPath) {
             return primaryExtractorScriptPath
         }
@@ -64,7 +68,7 @@ public final class SlideRecognitionService: ObservableObject {
         if FileManager.default.fileExists(atPath: inBundle) {
             return inBundle
         }
-        return primaryExtractorScriptPath
+        return programsExtractorScriptPath
     }
 
     private init() {}
