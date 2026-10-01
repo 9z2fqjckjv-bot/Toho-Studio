@@ -12,6 +12,14 @@ public struct MenuBarCommands: Commands {
     public var body: some Commands {
         // MARK: - Toho-Studio (cmd+t)
         CommandMenu("Toho-Studio") {
+            Button("アプリトップ (cmd+0)") {
+                withAnimation { appState.isShowingAppTop = true }
+                appState.addHistory("メニュー: アプリトップを表示")
+            }
+            .keyboardShortcut("0", modifiers: [.command])
+
+            Divider()
+
             Button("アプリ情報 (cmd+t+i)") {
                 appState.appInfoInitialTab = 0
                 appState.activeModal = .appInfo
@@ -44,6 +52,64 @@ public struct MenuBarCommands: Commands {
                 appState.addHistory("メニュー: 開発者コンソールを表示")
             }
             .keyboardShortcut("e", modifiers: [.command, .control])
+        }
+
+        // MARK: - ソフト (cmd+1..6)
+        CommandMenu("ソフト") {
+            Button("アプリトップ") {
+                withAnimation { appState.isShowingAppTop = true }
+            }
+            .keyboardShortcut("0", modifiers: [.command])
+
+            Divider()
+
+            Button("ムービーメーカー") {
+                withAnimation {
+                    appState.currentModule = .movieMaker
+                    appState.isShowingAppTop = false
+                }
+            }
+            .keyboardShortcut("1", modifiers: [.command])
+
+            Button("キャラクターメーカー") {
+                withAnimation {
+                    appState.currentModule = .characterMaker
+                    appState.isShowingAppTop = false
+                }
+            }
+            .keyboardShortcut("2", modifiers: [.command])
+
+            Button("サウンドメーカー") {
+                withAnimation {
+                    appState.currentModule = .soundMaker
+                    appState.isShowingAppTop = false
+                }
+            }
+            .keyboardShortcut("3", modifiers: [.command])
+
+            Button("スライド＆シナリオメーカー") {
+                withAnimation {
+                    appState.currentModule = .slideScenarioMaker
+                    appState.isShowingAppTop = false
+                }
+            }
+            .keyboardShortcut("4", modifiers: [.command])
+
+            Button("ゲームメーカー") {
+                withAnimation {
+                    appState.currentModule = .gameMaker
+                    appState.isShowingAppTop = false
+                }
+            }
+            .keyboardShortcut("5", modifiers: [.command])
+
+            Button("素材スタジオ") {
+                withAnimation {
+                    appState.currentModule = .materialStudio
+                    appState.isShowingAppTop = false
+                }
+            }
+            .keyboardShortcut("6", modifiers: [.command])
         }
 
         // MARK: - ファイル (cmd+f)
@@ -283,6 +349,13 @@ public struct MenuBarCommands: Commands {
 
         // MARK: - 表示 (cmd+d)
         CommandMenu("表示") {
+            Button(appState.isControlBarVisible ? "コントロールバーを消す" : "コントロールバーを表示") {
+                withAnimation { appState.isControlBarVisible.toggle() }
+            }
+            .keyboardShortcut("c", modifiers: [.command, .shift])
+
+            Divider()
+
             Button("全画面表示 (cmd+d+a)") {
                 appState.isFullScreen.toggle()
                 appState.addHistory("表示: 全画面表示切り替え (\(appState.isFullScreen ? "全画面" : "通常"))")

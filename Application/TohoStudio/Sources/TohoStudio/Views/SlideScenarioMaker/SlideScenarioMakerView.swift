@@ -14,6 +14,7 @@ public struct SlideScenarioMakerView: View {
         public var id: String { rawValue }
     }
 
+    @State private var showHomeScreen: Bool = false
     @State private var selectedSlideIdx: Int = 0
     @State private var canvasViewMode: CanvasViewMode = .slideOriginal
     @State private var showCanvasOverlay: Bool = true
@@ -27,6 +28,55 @@ public struct SlideScenarioMakerView: View {
     @State private var loadSuccessMessage: String? = nil
 
     public var body: some View {
+        Group {
+            if showHomeScreen {
+                // 仕様書スライド 229: スライド＆シナリオメーカー ホーム画面（左右にGoogle広告枠）
+                SlideScenarioSpecHomeView(
+                    onDirectExport: {
+                        appState.currentModule = .movieMaker
+                        showHomeScreen = false
+                    },
+                    onImportSlideOrScript: {
+                        showUnifiedModal = true
+                        showHomeScreen = false
+                    },
+                    onStartEmpty: {
+                        showHomeScreen = false
+                    },
+                    onLoadExisting: {
+                        let panel = NSOpenPanel()
+                        panel.allowsMultipleSelection = false
+                        panel.canChooseFiles = true
+                        panel.allowedContentTypes = [
+                            UTType(filenameExtension: "key") ?? .data,
+                            .presentation,
+                            .plainText
+                        ]
+                        panel.message = "スライドまたは台本ファイルを選択してください"
+                        if panel.runModal() == .OK, let url = panel.url {
+                            selectedFilePath = url.path
+                            recognitionService.loadAndRecognizeSlides(
+                                filePath: url.path,
+                                syncMovieMaker: syncMovieMaker,
+                                syncGameMaker: syncGameMaker,
+                                syncSoundMaker: syncSoundMaker,
+                                syncMaterialStudio: syncMaterialStudio,
+                                autoSave: autoSaveProject
+                            ) { _ in
+                                selectedSlideIdx = 0
+                                showHomeScreen = false
+                            }
+                        }
+                    }
+                )
+            } else {
+                // 仕様書スライド 232: 編集画面（原則方針スライド246準拠: 編集画面上には一切の広告を表示しない）
+                editorView
+            }
+        }
+    }
+
+    private var editorView: some View {
         VStack(spacing: 0) {
             // Top Bar
             HStack(spacing: 14) {
@@ -35,6 +85,16 @@ public struct SlideScenarioMakerView: View {
                 Text("(Googleスライド / Keynote 互換)")
                     .font(.caption)
                     .foregroundColor(.secondary)
+
+                Button(action: { showHomeScreen = true }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "house.fill")
+                        Text("ホーム画面 (広告枠あり)")
+                    }
+                    .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .help("仕様書スライド229のホーム画面（Google広告枠あり）を表示します")
 
                 Spacer()
 

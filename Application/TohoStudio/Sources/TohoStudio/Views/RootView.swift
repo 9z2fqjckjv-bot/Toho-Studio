@@ -7,20 +7,28 @@ public struct RootView: View {
 
     public var body: some View {
         ZStack {
-            VStack(spacing: 0) {
-                // Top Custom Control Bar (仕様書 26-28スライド目)
-                customControlBarView
+            if appState.isShowingAppTop {
+                // 仕様書スライド 26: アプリトップ画面
+                AppTopScreenView()
+                    .transition(.opacity)
+            } else {
+                VStack(spacing: 0) {
+                    // コントロールバーの表示を消して、必要時のみトグル表示可能にする
+                    if appState.isControlBarVisible {
+                        customControlBarView
+                        Divider()
+                    }
 
-                Divider()
+                    // Active Module Workspace
+                    activeModuleView
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                // Active Module Workspace
-                activeModuleView
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    Divider()
 
-                Divider()
-
-                // Bottom Status Bar
-                bottomStatusBarView
+                    // Bottom Status Bar
+                    bottomStatusBarView
+                }
+                .transition(.opacity)
             }
 
             // Modal Sheets & Overlays
@@ -139,27 +147,37 @@ public struct RootView: View {
 
             Divider().frame(height: 20)
 
-            // 6 Software Module Switchers
-            HStack(spacing: 4) {
-                ForEach(SoftwareModule.allCases) { mod in
-                    Button(action: {
-                        appState.currentModule = mod
-                        appState.addHistory("ソフト切り替え: \(mod.rawValue)")
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: mod.iconName)
-                            Text(mod.rawValue)
-                                .font(.subheadline)
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(appState.currentModule == mod ? Color.accentColor : Color.clear)
-                        .foregroundColor(appState.currentModule == mod ? .white : .primary)
-                        .cornerRadius(6)
-                    }
-                    .buttonStyle(.plain)
+            // アプリトップに戻るボタン (ソフトナビゲーター廃止に伴う統合)
+            Button(action: {
+                withAnimation { appState.isShowingAppTop = true }
+            }) {
+                HStack(spacing: 5) {
+                    Image(systemName: "square.grid.2x2.fill")
+                    Text("アプリトップ")
+                        .font(.subheadline)
+                        .bold()
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color.blue.opacity(0.15))
+                .foregroundColor(.blue)
+                .cornerRadius(6)
             }
+            .buttonStyle(.plain)
+            .help("仕様書スライド26のアプリトップ画面に戻ります (cmd+0)")
+
+            // 現在開いているソフトの表示バッジ
+            HStack(spacing: 6) {
+                Image(systemName: appState.currentModule.iconName)
+                    .foregroundColor(.accentColor)
+                Text(appState.currentModule.rawValue)
+                    .font(.subheadline)
+                    .bold()
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.secondary.opacity(0.1))
+            .cornerRadius(5)
 
             Spacer()
 
@@ -214,7 +232,23 @@ public struct RootView: View {
                     .cornerRadius(4)
                 }
                 .menuStyle(.borderlessButton)
-                .help("レイアウト切り替え (cmd+w+l)")
+                // Google Ads Status Indicator
+                Button(action: { appState.activeModal = .settings }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "megaphone.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(AdManager.shared.shouldShowAds() ? .blue : .green)
+                        Text(AdManager.shared.shouldShowAds() ? "Google広告ON" : "広告フリー")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Color.secondary.opacity(0.12))
+                    .cornerRadius(4)
+                }
+                .buttonStyle(.plain)
+                .help("Google 広告配信ステータス (仕様書指定枠・広告フリー設定)")
 
                 // Settings
                 Button(action: { appState.activeModal = .settings }) {
@@ -223,6 +257,15 @@ public struct RootView: View {
                 .help("設定 (cmd+t+s)")
 
                 Divider().frame(height: 18)
+
+                // コントロールバーを消すボタン (仕様書準拠: コントロールバーを非表示にしてメニューバーを有効化)
+                Button(action: {
+                    withAnimation { appState.isControlBarVisible = false }
+                }) {
+                    Image(systemName: "chevron.up.circle")
+                        .foregroundColor(.secondary)
+                }
+                .help("コントロールバーを消す (cmd+shift+c / メニューバーで再表示可能)")
 
                 // Quit
                 Button(action: {
@@ -261,6 +304,39 @@ public struct RootView: View {
     // MARK: - Bottom Status Bar
     private var bottomStatusBarView: some View {
         HStack(spacing: 16) {
+            // アプリトップに戻るクイックボタン
+            Button(action: {
+                withAnimation { appState.isShowingAppTop = true }
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "square.grid.2x2.fill")
+                        .font(.caption2)
+                    Text("アプリトップ")
+                        .font(.caption2)
+                        .bold()
+                }
+                .foregroundColor(.blue)
+            }
+            .buttonStyle(.plain)
+            .help("仕様書スライド26のアプリトップ画面に戻ります (cmd+0)")
+
+            // コントロールバーのトグルボタン
+            Button(action: {
+                withAnimation { appState.isControlBarVisible.toggle() }
+            }) {
+                HStack(spacing: 3) {
+                    Image(systemName: appState.isControlBarVisible ? "eye.slash" : "eye")
+                        .font(.caption2)
+                    Text(appState.isControlBarVisible ? "バーを隠す" : "コントロールバー")
+                        .font(.caption2)
+                }
+                .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("コントロールバーの表示/非表示を切り替えます (cmd+shift+c)")
+
+            Divider().frame(height: 12)
+
             HStack(spacing: 6) {
                 Circle()
                     .fill(Color.green)

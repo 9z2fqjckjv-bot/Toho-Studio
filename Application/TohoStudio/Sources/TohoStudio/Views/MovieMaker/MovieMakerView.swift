@@ -3,6 +3,9 @@ import AVFoundation
 
 public struct MovieMakerView: View {
     @ObservedObject var appState = AppState.shared
+    @State private var showHomeScreen: Bool = false
+    @State private var isLoadingSpec: Bool = false
+    @State private var specLoadingStatus: String = "スライドと音声ファイルを読み込み中…"
     @State private var selectedTrackIndex: Int = 0
     @State private var showExportSheet: Bool = false
     @State private var exportFormat: String = "MP4 (H.264)"
@@ -21,6 +24,71 @@ public struct MovieMakerView: View {
     public init() {}
 
     public var body: some View {
+        Group {
+            if showHomeScreen {
+                // 仕様書スライド 179: ホーム画面（左右にGoogle広告枠）
+                MovieMakerSpecHomeView(
+                    onStartEmpty: {
+                        showHomeScreen = false
+                    },
+                    onImportSlideScenario: {
+                        isLoadingSpec = true
+                        specLoadingStatus = "スライド＆シナリオメーカーから読み込み中…"
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                            appState.importCurrentSlides(to: .movieMaker)
+                            appState.resolveMovieScenesMedia()
+                            isLoadingSpec = false
+                            showHomeScreen = false
+                        }
+                    },
+                    onImportYmmp: {
+                        let panel = NSOpenPanel()
+                        panel.allowsMultipleSelection = false
+                        panel.canChooseFiles = true
+                        panel.message = "ゆっくりムービーメーカー (ymmp) または動画プロジェクトを選択してください"
+                        if panel.runModal() == .OK, let url = panel.url {
+                            isLoadingSpec = true
+                            specLoadingStatus = "プロジェクトを解析中…"
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                appState.importSlideScenarioFile(from: url, targetModule: .movieMaker)
+                                appState.resolveMovieScenesMedia()
+                                isLoadingSpec = false
+                                showHomeScreen = false
+                            }
+                        }
+                    },
+                    onLoadExisting: {
+                        let panel = NSOpenPanel()
+                        panel.allowsMultipleSelection = false
+                        panel.canChooseFiles = true
+                        panel.message = "既存の動画編集ファイル (.tsvm / .key) を選択してください"
+                        if panel.runModal() == .OK, let url = panel.url {
+                            isLoadingSpec = true
+                            specLoadingStatus = "既存ファイルを展開中…"
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                appState.currentProjectPath = url.path
+                                appState.importSlideScenarioFile(from: url, targetModule: .movieMaker)
+                                appState.resolveMovieScenesMedia()
+                                isLoadingSpec = false
+                                showHomeScreen = false
+                            }
+                        }
+                    }
+                )
+            } else if isLoadingSpec {
+                // 仕様書スライド 180: 読込画面（左右にGoogle広告枠）
+                SpecLoadingScreenWithAds(statusMessage: specLoadingStatus) {
+                    isLoadingSpec = false
+                    showHomeScreen = true
+                }
+            } else {
+                // 仕様書スライド 181: 編集画面（原則方針スライド246準拠: 編集画面上には一切の広告を表示しない）
+                editorContentView
+            }
+        }
+    }
+
+    private var editorContentView: some View {
         VStack(spacing: 0) {
             // Top Toolbar & Extension Badges
             movieMakerTopBar
@@ -112,6 +180,16 @@ public struct MovieMakerView: View {
             Text("(ベース: GoogleVids)")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            Button(action: { showHomeScreen = true }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "house.fill")
+                    Text("ホーム画面 (広告枠あり)")
+                }
+                .font(.caption)
+            }
+            .buttonStyle(.bordered)
+            .help("仕様書スライド179のホーム画面（Google広告枠あり）を表示します")
 
             Spacer()
 

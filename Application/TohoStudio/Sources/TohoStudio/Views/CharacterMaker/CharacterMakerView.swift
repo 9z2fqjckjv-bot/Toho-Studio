@@ -6,6 +6,7 @@ public struct CharacterMakerView: View {
     @ObservedObject var imageService = CharacterImageService.shared
     @ObservedObject var psdService = PSDToolService.shared
 
+    @State private var showHomeScreen: Bool = false
     @State private var canvasViewMode: CanvasViewMode = .composite
     @State private var selectedPartIndex: Int = 0
     @State private var showExportDialog: Bool = false
@@ -48,6 +49,49 @@ public struct CharacterMakerView: View {
     }
 
     public var body: some View {
+        Group {
+            if showHomeScreen {
+                // 仕様書スライド 193: キャラクターメーカー ホーム画面（左右にGoogle広告枠）
+                CharacterMakerSpecHomeView(
+                    onImportMaterial: {
+                        appState.currentModule = .materialStudio
+                        showHomeScreen = false
+                    },
+                    onImportJpg: {
+                        let panel = NSOpenPanel()
+                        panel.allowsMultipleSelection = false
+                        panel.canChooseFiles = true
+                        panel.allowedContentTypes = [.jpeg, .png]
+                        panel.message = "立ち絵画像 (JPEG/PNG) を選択してください"
+                        if panel.runModal() == .OK, let url = panel.url {
+                            let name = url.deletingPathExtension().lastPathComponent
+                            let part = CharacterPart(name: name, assetPath: url.path, scale: 1.0)
+                            appState.currentCharacter.parts.append(part)
+                            showHomeScreen = false
+                        }
+                    },
+                    onStartEmpty: {
+                        showHomeScreen = false
+                    },
+                    onLoadExisting: {
+                        let panel = NSOpenPanel()
+                        panel.allowsMultipleSelection = false
+                        panel.canChooseFiles = true
+                        panel.message = "既存のキャラクターファイル (.tscm) を選択してください"
+                        if panel.runModal() == .OK, let url = panel.url {
+                            appState.loadCharacterProject(from: url)
+                            showHomeScreen = false
+                        }
+                    }
+                )
+            } else {
+                // 仕様書スライド 194: 編集画面（原則方針スライド246準拠: 編集画面上には一切の広告を表示しない）
+                editorView
+            }
+        }
+    }
+
+    private var editorView: some View {
         VStack(spacing: 0) {
             // 1. 仕様書スライド準拠の統一コントロールバー
             specControlBar
@@ -127,6 +171,16 @@ public struct CharacterMakerView: View {
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
+
+            Button(action: { showHomeScreen = true }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "house.fill")
+                    Text("ホーム画面 (広告枠あり)")
+                }
+                .font(.caption2)
+            }
+            .buttonStyle(.bordered)
+            .help("仕様書スライド193のホーム画面（Google広告枠あり）を表示します")
 
             // レイアウトモード切り替え (MovieMaker, SlideScenarioMaker と完全統一)
             HStack(spacing: 4) {

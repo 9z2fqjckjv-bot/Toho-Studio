@@ -55,7 +55,7 @@ public struct SoundMakerView: View {
     // Batch Voice Generation Sheet
     @State private var showBatchVoiceGenerationSheet: Bool = false
 
-    // Export Sheet
+    @State private var showHomeScreen: Bool = false
     @State private var showExportAudioSheet: Bool = false
     @State private var audioExportFormat: String = "WAV (非圧縮・最高音質)"
 
@@ -82,6 +82,64 @@ public struct SoundMakerView: View {
     public init() {}
 
     public var body: some View {
+        Group {
+            if showHomeScreen {
+                // 仕様書スライド 215: サウンドメーカー ホーム画面（左右にGoogle広告枠）
+                SoundMakerSpecHomeView(
+                    onImportMaterial: {
+                        appState.currentModule = .materialStudio
+                        showHomeScreen = false
+                    },
+                    onImportMp3: {
+                        let panel = NSOpenPanel()
+                        panel.allowsMultipleSelection = false
+                        panel.canChooseFiles = true
+                        panel.allowedContentTypes = [.mp3, .audio]
+                        panel.message = "音声ファイル (MP3/WAV) を選択してください"
+                        if panel.runModal() == .OK, let url = panel.url {
+                            let asset = AVURLAsset(url: url)
+                            let seconds = CMTimeGetSeconds(asset.duration)
+                            let duration = (seconds.isFinite && seconds > 0.05) ? seconds : 5.0
+                            let clip = SoundClip(
+                                id: UUID(),
+                                name: url.deletingPathExtension().lastPathComponent,
+                                type: "SE",
+                                duration: duration,
+                                startTime: currentTime,
+                                trackId: "track_se",
+                                colorHex: "#33C759",
+                                audioFilePath: url.path
+                            )
+                            appState.soundClips.append(clip)
+                            showHomeScreen = false
+                        }
+                    },
+                    onGenerateVoice: {
+                        showAquesTalkDrawer = true
+                        showHomeScreen = false
+                    },
+                    onStartEmpty: {
+                        showHomeScreen = false
+                    },
+                    onLoadExisting: {
+                        let panel = NSOpenPanel()
+                        panel.allowsMultipleSelection = false
+                        panel.canChooseFiles = true
+                        panel.message = "既存のサウンドファイル (.tssm) を選択してください"
+                        if panel.runModal() == .OK, let url = panel.url {
+                            appState.loadSoundMakerProject(from: url)
+                            showHomeScreen = false
+                        }
+                    }
+                )
+            } else {
+                // 仕様書スライド 220: 編集画面（原則方針スライド246準拠: 編集画面上には一切の広告を表示しない）
+                editorView
+            }
+        }
+    }
+
+    private var editorView: some View {
         VStack(spacing: 0) {
             // Logic Pro Style Control Bar (LCD非表示でスッキリ配置)
             dawControlBar
@@ -160,6 +218,16 @@ public struct SoundMakerView: View {
                     .background(Color.blue.opacity(0.2))
                     .foregroundColor(.cyan)
                     .cornerRadius(4)
+
+                Button(action: { showHomeScreen = true }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "house.fill")
+                        Text("ホーム画面 (広告枠あり)")
+                    }
+                    .font(.caption2)
+                }
+                .buttonStyle(.bordered)
+                .help("仕様書スライド215のホーム画面（Google広告枠あり）を表示します")
             }
 
             Spacer()

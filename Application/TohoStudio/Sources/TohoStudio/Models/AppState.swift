@@ -68,6 +68,8 @@ public final class AppState: ObservableObject {
 
     // Active software
     @Published public var currentModule: SoftwareModule = .movieMaker
+    @Published public var isShowingAppTop: Bool = true // 仕様書スライド26: アプリトップ画面表示フラグ
+    @Published public var isControlBarVisible: Bool = false // コントロールバーの表示/非表示（消してメニューバーを表示）
     @Published public var activeModal: ActiveModal? = nil
     @Published public var appInfoInitialTab: Int = 0
     @Published public var isFullScreen: Bool = false

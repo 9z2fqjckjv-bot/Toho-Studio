@@ -161,6 +161,50 @@ public struct PaidFeaturesDetailView: View {
 
                     KeynoteAnnotationBubble("※広告フリー券は広告の種類ごとに必要です。\n※3種類広告まとめてフリー券は2.5倍でお得になります。\n※最新CSVデータにより、現在販売ステータスが休止中のプランはオフに固定されます。")
 
+                    // Google Ads & AdSense Configuration & Preview Box
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Image(systemName: "megaphone.fill")
+                                .foregroundColor(.blue)
+                            Text("Google 広告配信設定 (仕様書指定枠)")
+                                .font(.system(size: 13, weight: .bold))
+                            Spacer()
+                            Toggle("テスト表示を強制ON", isOn: Binding(
+                                get: { AdManager.shared.isForceShowAdsForTesting },
+                                set: { AdManager.shared.isForceShowAdsForTesting = $0 }
+                            ))
+                            .toggleStyle(.switch)
+                        }
+
+                        Divider()
+
+                        HStack(spacing: 20) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("パブリッシャーID: \(AdManager.shared.googleAdSensePublisherId)")
+                                    .font(.system(size: 11, design: .monospaced))
+                                Text("指定枠スロット: 左 #\(AdManager.shared.leftAdSlotId) / 右 #\(AdManager.shared.rightAdSlotId)")
+                                    .font(.system(size: 11, design: .monospaced))
+                            }
+                            .foregroundColor(.secondary)
+
+                            Spacer()
+
+                            VStack(alignment: .trailing, spacing: 4) {
+                                Text("インプレッション数: \(AdManager.shared.adImpressionsCount)")
+                                    .font(.system(size: 11))
+                                Text("クリック数: \(AdManager.shared.adClicksCount)")
+                                    .font(.system(size: 11))
+                            }
+                            .foregroundColor(.secondary)
+                        }
+
+                        Text("※仕様書（スライド179, 180, 193, 215-219, 229-231）に基づき、各メーカーのホーム画面・読込画面・作成画面の左右指定欄にGoogle広告を配信しています。編集画面上には原則方針（スライド246）に従い広告は一切表示されません。")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(12)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.blue.opacity(0.06)).overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.blue.opacity(0.2), lineWidth: 1)))
+
                     // Warning regarding unauthorized CSV manipulation
                     VStack(alignment: .leading, spacing: 4) {
                         Text("不正に関するご注意事項")
