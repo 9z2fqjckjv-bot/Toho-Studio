@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<!-- saved from url=(0030)https://oov.github.io/psdtool/ -->
+<html lang="ja"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PSDTool</title>
+<link rel="stylesheet" href="./PSDTool_files/bootstrap.min.css">
+<link rel="stylesheet" href="./PSDTool_files/css">
+<link href="./PSDTool_files/3rd.min.css" rel="stylesheet">
+<link href="./PSDTool_files/main.css" rel="stylesheet">
+</head><body>
+	<div id="file-open-ui" class="container">
+		<div class="row">
+			<div class="col-sm-7 text-nowrap">
+				<h1>
+					<span title="*.psd / *.psb を読み込む奴、PSDTool">PSDTool</span>
+					<small><a href="https://psdtool.oovch.workers.dev/" class="next">次世代バージョン、テスト公開中</a></small>
+				</h1>
+			</div>
+			<div class="col-sm-5 text-nowrap psdtool-header">
+				<small class="text-muted">rel.<a href="https://oov.github.io/psdtool/manual.html#changes" target="manual">2022-04-15</a></small>
+				<a href="https://oov.github.io/psdtool/manual.html" target="manual" class="btn btn-default">説明書</a>
+			</div>
+		</div>
+		<div id="error-report-ui" class="row">
+			<div class="col-xs-12">
+				<div id="error-message" class="alert alert-danger" role="alert"></div>
+			</div>
+		</div>
+		<div class="row psdtool-loaded">
+			<div class="col-sm-6">
+				<div class="panel panel-primary">
+					<div class="panel-heading">
+						<h2 class="panel-title">ファイルを選択して開く</h2>
+					</div>
+					<div class="panel-body">
+						<div id="dropzone">
+							<p>
+								<input type="file" accept="image/x-photoshop, application/zip, .psd, .psb, .zip">
+							</p>
+							<p><small>
+								ここに <a href="https://oov.github.io/psdtool/manual.html#supported-filetype" target="manual">PSD/PSB ファイル</a> や <a href="https://oov.github.io/psdtool/manual.html#supported-filetype-zip" target="manual">ZIP ファイル</a> をドラッグ＆ドロップしても読み込めます。
+							</small></p>
+							<dl id="additional-options">
+								<dt>オプション <small><a href="https://oov.github.io/psdtool/manual.html#feature-options" target="manual">詳細</a></small></dt>
+								<dd class="checkbox">
+									<label for="option-auto-trim">
+										<input type="checkbox" id="option-auto-trim"> 自動トリミング
+									</label>
+								</dd>
+								<dd class="checkbox">
+									<label for="option-safe-mode">
+										<input type="checkbox" id="option-safe-mode"> 独自拡張機能を無効化
+									</label>
+									<p class="small">↑ <a href="https://oov.github.io/psdtool/manual.html#faq-layer-check" target="manual"><span class="glyphicon glyphicon-info-sign"></span> 変なところでチェックが外せない時とかに使いますよ</a></p>
+								</dd>
+							</dl>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-sm-6">
+				<div class="panel panel-default">
+					<div class="panel-heading">
+						<h2 class="panel-title">サンプルファイルで試す</h2>
+					</div>
+					<div class="panel-body">
+						<div id="try-sample">
+							<img src="./PSDTool_files/sample.png" width="140" height="240" class="psdtool-sampleimg img-thumbnail pull-left" alt="">
+							<p>
+								<button class="btn btn-default" id="samplefile" data-filename="img/im5467479.psd">サンプルファイルで試す</button>
+							</p>
+							<small>
+								<p><a href="https://oov.github.io/psdtool/img/im5467479.psd">サンプル PSD ファイルをダウンロード</a></p>
+								<p>
+									こちらのイラストは <a href="https://twitter.com/hrowl" target="_blank">水梟る</a>さんの「<a href="http://seiga.nicovideo.jp/seiga/im5467479" target="_blank">さとうささら立ち絵集5</a>」を許可をいただき使用、再配布させて頂いています。
+								</p>
+								<p>
+									「<a href="http://satosasara.com/" target="_blank">さとうささら</a>」はトーク・ソング対応音声合成ソフトウェア「<a href="http://cevio.jp/" target="_blank">CeVIO Creative Studio</a>」のキャラクターです。
+								</p>
+							</small>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-sm-6">
+				<div class="panel panel-default">
+					<div class="panel-body">
+						<small>
+							<a target="_blank" href="http://bl.oov.ch/2016/08/psdtool.html">［絵を描く人向け］PSDTool の使い方</a><br>
+							使いやすい PSD ファイルの作り方、PNG 大量作成など
+						</small>
+					</div>
+				</div>
+			</div>
+			<div class="col-sm-6">
+				<div class="panel panel-default">
+					<div class="panel-body">
+						<a class="hidden-sm" target="_blank" href="http://www.nicovideo.jp/watch/sm28712861"><img src="./PSDTool_files/movie-thumb.jpg" width="65" height="50" class="pull-left" alt="" style="margin-right: 8px"></a>
+						<small>
+								<a target="_blank" href="http://www.nicovideo.jp/watch/sm28712861">[ニコニコ動画] 立ち絵支援ツール PSDTool の使い方</a><br>
+								基本操作、お気に入り活用方法、キャラ素材書き出しなど
+							</small>
+					</div>
+				</div>
+			</div>
+			<div class="col-sm-6">
+				<div class="panel panel-default">
+					<div class="panel-heading">
+						<h2 class="panel-title">独自拡張機能に対応したイラストを探す</h2>
+					</div>
+					<div class="panel-body">
+						<img src="./PSDTool_files/feature.png" class="psdtool-sampleimg img-thumbnail pull-left" alt="">
+						<p>PSDTool の独自拡張機能に対応したイラストをニコニコ静画でクリップさせて頂いています。<br>
+							<a href="http://seiga.nicovideo.jp/clip/1704637" target="_blank">クリップ１</a> /
+							<a href="http://seiga.nicovideo.jp/clip/1826158" target="_blank">クリップ２</a></p>
+						<p>なお独自拡張機能は<a href="https://oov.github.io/psdtool/manual.html#original-feature" target="manual">レイヤー名に文字を加えるだけで使える</a>上に、他のソフトで使えなくなることもありません。</p>
+					</div>
+				</div>
+			</div>
+			<div class="col-sm-6">
+				<div class="panel panel-default">
+					<div class="panel-heading">
+						<h2 class="panel-title">AviUtl と「拡張編集」のお供に</h2>
+					</div>
+					<div class="panel-body">
+						<p>
+							PSDTool から直接「拡張編集」に画像をドラッグ＆ドロップして読み込むことができるようになるプラグインがあります。
+						</p>
+						<p>
+							ごちゃまぜドロップス | <a href="https://twitter.com/oovch/status/699737247260606465" target="_blank">30秒紹介動画</a> / <a href="https://github.com/oov/aviutl_oledd#readme" target="_blank">README</a> / <a href="https://github.com/oov/aviutl_oledd/releases" target="_blank">ダウンロード</a>
+						</p>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-xs-12">
+				<div class="well text-center">
+					<small>
+						<a href="https://oov.github.io/psdtool/manual.html#privacy" target="_blank">プライバシーポリシー</a> | Created by <a href="https://github.com/oov/PSDTool" target="_blank">oov</a> | Powered by <a href="http://www.gopherjs.org/" target="_blank">GopherJS</a> | Please use a <a href="https://whatbrowser.org/" target="_blank">modern browser</a>
+					</small>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div id="main" class="split-pane fixed-left" style="min-width: 36px;">
+		<div id="side-container" class="split-pane-component">
+			<div id="side-head">
+				<button class="btn btn-sm btn-info btn-block psdtool-show-readme" data-toggle="modal" data-target="#readme-dialog">Readme を読む</button>
+				<ul id="side-tab" class="nav nav-tabs">
+					<li role="presentation" class="active"><a href="https://oov.github.io/psdtool/#layer-tree-pane" aria-controls="レイヤー" role="tab" data-toggle="tab">レイヤー</a></li>
+					<li role="presentation"><a href="https://oov.github.io/psdtool/#favs-pane" aria-controls="お気に入り" role="tab" data-toggle="tab">お気に入り</a></li>
+				</ul>
+			</div>
+			<div id="side-body" style="width: 0px; height: 0px;">
+				<div class="tab-content">
+					<div role="tabpanel" class="tab-pane psdtool-tab-pane active" id="layer-tree-pane" style="padding-top: 0px;">
+						<ul id="layer-tree"></ul>
+						<div id="faview">
+							<select class="form-control" id="faview-root-node"></select>
+							<ul id="faview-tree"></ul>
+						</div>
+						<div id="layer-tree-toolbar" class="psdtool-tab-toolbar hidden clearfix">
+							<div class="btn-toolbar pull-right" role="toolbar" aria-label="お気に入り編集">
+								<div class="btn-group" role="group" aria-label="その他">
+									<button type="button" id="show-layer-tree-view" class="btn btn-default btn-sm psdtool-toggle-tree-faview">レイヤーツリーに切り替え</button>
+									<button type="button" id="show-faview" class="btn btn-default btn-sm psdtool-toggle-tree-faview">シンプルビューに切り替え</button>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div role="tabpanel" class="tab-pane psdtool-tab-pane" id="favs-pane" style="padding-top: 0px;">
+						<div id="pfv-dropzone2">
+							<div id="favorite-tree" data-root-name="お気に入り" class="jstree jstree-1 jstree-default" role="tree" aria-multiselectable="true" tabindex="0" aria-activedescendant="root" aria-busy="false"><ul class="jstree-container-ul jstree-children jstree-no-dots jstree-wholerow-ul" role="group"><li role="treeitem" aria-selected="false" aria-level="1" aria-labelledby="root_anchor" id="root" class="jstree-node  jstree-leaf jstree-last"><div unselectable="on" role="presentation" class="jstree-wholerow">&nbsp;</div><i class="jstree-icon jstree-ocl" role="presentation"></i><a class="jstree-anchor" href="https://oov.github.io/psdtool/#" tabindex="-1" id="root_anchor"><i class="jstree-icon jstree-themeicon jstree-themeicon-hidden" role="presentation"></i>お気に入り</a></li></ul></div>
+						</div>
+						<div id="favorite-toolbar" class="psdtool-tab-toolbar clearfix">
+							<div class="btn-toolbar pull-right" role="toolbar" aria-label="お気に入り編集">
+								<div class="btn-group" role="group" aria-label="新規">
+									<button type="button" class="btn btn-default btn-sm" data-psdtool-tree-add-item="#favorite-tree" title="現在のレイヤー表示をお気に入りに追加(Ctrl + B / Option + B)" data-caption="現在のレイヤー表示をお気に入りに追加"><span class="glyphicon glyphicon-star"></span></button>
+									<button type="button" class="btn btn-default btn-sm" data-psdtool-tree-add-folder="#favorite-tree" title="新規フォルダー(Ctrl + D / Option + D)" data-caption="新規フォルダーの追加"><span class="glyphicon glyphicon-folder-open"></span></button>
+								</div>
+								<div class="btn-group" role="group" aria-label="編集">
+									<button type="button" class="btn btn-default btn-sm" data-psdtool-tree-rename="#favorite-tree" title="名前の変更(F2)"><span class="glyphicon glyphicon-pencil"></span></button>
+									<button type="button" class="btn btn-default btn-sm" data-psdtool-tree-remove="#favorite-tree" title="削除"><span class="glyphicon glyphicon-remove"></span></button>
+								</div>
+								<div class="btn-group" role="group" aria-label="その他">
+									<div class="btn-group" role="group">
+										<button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+											<span class="glyphicon glyphicon-menu-hamburger"></span>
+											<span class="caret"></span>
+										</button>
+										<ul class="dropdown-menu dropdown-menu-right">
+											<li><a href="https://oov.github.io/psdtool/#" data-toggle="modal" data-target="#bulk-create-folder-dialog"><span class="glyphicon glyphicon-folder-open"></span> 一括フォルダー作成</a></li>
+											<li><a href="https://oov.github.io/psdtool/#" data-toggle="modal" data-target="#bulk-rename-dialog"><span class="glyphicon glyphicon-pencil"></span> 一括名前変更</a></li>
+											<li role="separator" class="divider"></li>
+											<li><a href="https://oov.github.io/psdtool/#" data-toggle="modal" data-target="#faview-setting-dialog"><span class="glyphicon glyphicon-th-list"></span> シンプルビュー設定</a></li>
+											<li role="separator" class="divider"></li>
+											<li><a href="https://oov.github.io/psdtool/#" data-toggle="modal" data-target="#import-dialog"><span class="glyphicon glyphicon-open-file"></span> インポート</a></li>
+											<li><a href="https://oov.github.io/psdtool/#" data-toggle="modal" data-target="#export-dialog"><span class="glyphicon glyphicon-save-file"></span> エクスポート</a></li>
+										</ul>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div id="splitter" class="split-pane-divider"><div class="split-pane-divider-inner"></div></div>
+		<div id="main-container" class="split-pane-component">
+			<div id="misc-ui">
+				<div class="form-inline">
+					<div class="form-group psdtool-ui-item">
+						<label for="flip" class="sr-only">反転</label>
+						<div class="btn-group psdtool-flip-buttons" data-toggle="buttons">
+							<label class="btn btn-default" title="左右反転">
+								<input type="checkbox" id="flip-x"> ⇄
+							</label>
+							<label class="btn btn-default" title="上下反転">
+								<input type="checkbox" id="flip-y"> ⇅
+							</label>
+						</div>
+					</div>
+					<div class="form-group psdtool-ui-item">
+						<label for="fixed-side" class="sr-only">最大ピクセル数を指定する方向</label>
+						<select class="form-control" id="fixed-side">
+							<option value="h" selected="selected">縦</option>
+							<option value="w">横</option>
+						</select>
+						<label for="max-pixels" class="sr-only">画像の最大ピクセル数</label>
+						<div class="input-group">
+							<input type="text" class="form-control" id="max-pixels" inputmode="numeric" value="1200" title="このピクセル数に収まるように画像を縮小">
+							<div class="input-group-addon input-sm"><small>pxまで</small></div>
+						</div>
+					</div>
+					<div class="form-group psdtool-ui-item">
+						<label for="seq-dl-prefix" class="sr-only">ダウンロードファイル名の接頭辞</label>
+						<input id="seq-dl-prefix" type="text" class="form-control" value="file_" title="ダウンロードする時のファイル名の接頭辞">
+						<label for="seq-dl-num" class="sr-only">ダウンロードファイル名の通し番号</label>
+						<input type="number" class="form-control" id="seq-dl-num" inputmode="numeric" value="0" title="ファイルの通し番号">
+						<label for="seq-dl" class="sr-only">ファイルをダウンロード</label>
+						<button id="seq-dl" class="btn btn-primary" title="PNG 形式で画像を保存">.png</button>
+					</div>
+				</div>
+			</div>
+			<div id="preview-container" style="width: 0px; height: 0px;">
+				<div id="preview-background">
+					<canvas id="preview"></canvas>
+					<div id="preview-notice">お気に入りプレビュー中</div>
+				</div>
+			</div>
+		</div>
+	<div class="split-pane-resize-shim"></div></div>
+	<div class="modal" id="filter-dialog" tabindex="-1" role="dialog" aria-labelledby="filter-dialog-label">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+					<h4 class="modal-title" id="filter-dialog-label">フィルター</h4>
+				</div>
+				<div class="modal-body">
+					<p><small>お気に入りの適用箇所を絞ることができます。<a href="https://oov.github.io/psdtool/manual.html#feature-filter" target="manual">詳細</a></small></p>
+					<p>
+						<label>
+							<input type="checkbox" id="use-filter"> フィルター機能を使用する
+						</label>
+					</p>
+					<ul id="filter-tree"></ul>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="modal" id="import-dialog" tabindex="-1" role="dialog" aria-labelledby="import-dialog-label">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+					<h4 class="modal-title" id="import-dialog-label">インポート</h4>
+				</div>
+				<div class="modal-body">
+					<dl>
+						<dt>PFV ファイルをインポート</dt>
+						<dd>
+							<div id="pfv-dropzone">
+								<p>
+									<input type="file" accept=".pfv">
+								</p>
+								<p>ここにファイルをドロップしても読み込めます。</p>
+							</div>
+						</dd>
+						<dt>最近使ったお気に入りからインポート</dt>
+						<dd>
+							<p>色付きのものは現在読み込んでいる PSD ファイルで作成されたお気に入りです。</p>
+							<div class="list-group" id="pfv-recents"></div>
+						</dd>
+					</dl>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="modal" id="export-dialog" tabindex="-1" role="dialog" aria-labelledby="export-dialog-label">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+					<h4 class="modal-title" id="export-dialog-label">エクスポート</h4>
+				</div>
+				<div class="modal-body">
+					<p class="small"><a href="https://oov.github.io/psdtool/manual.html#faq-zip-mojibake" target="manual">ZIP ファイルが文字化けする場合はこちら</a></p>
+					<button type="button" class="btn btn-default" data-dismiss="modal" id="export-favorites-pfv">PFV ファイルをエクスポート</button>
+					<p><small>PFV ファイルはお気に入りの情報が記録されたテキストファイルで、「インポート」を使って読み込んだりエディタで開いて直接編集したりできます。</small></p>
+					<div class="btn-group">
+						<button type="button" class="btn btn-default" data-dismiss="modal" id="export-favorites-zip">画像を ZIP ファイルでエクスポート</button>
+						<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+							<span class="caret"></span>
+							<span class="sr-only">オプション</span>
+						</button>
+						<ul class="dropdown-menu">
+							<li><a href="https://oov.github.io/psdtool/#" data-dismiss="modal" id="export-favorites-zip-filter-solo">フィルタリングされた項目は残ったパーツのみを出力</a></li>
+						</ul>
+					</div>
+					<p><small>PNG ファイルと PFV ファイルを無圧縮の ZIP ファイルに書き出します。画像には現在の反転や縮小の設定が適用されます。</small></p>
+					<div class="btn-group">
+						<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+							シンプルビューの全パターンをエクスポート <span class="caret"></span>
+						</button>
+						<ul class="dropdown-menu">
+							<li class="dropdown-header">PNG 詰め合わせ ZIP</li>
+							<li><a href="https://oov.github.io/psdtool/#" data-dismiss="modal" data-export-faview="standard" data-structure="tree"><span class="psdtool-export-faview-type-caption">パーツ名あり / 入れ子</span><small class="text-muted">例: キャラ名\眉-困り\目-にっこり\口-笑い.png</small></a></li>
+							<li><a href="https://oov.github.io/psdtool/#" data-dismiss="modal" data-export-faview="standard" data-structure="flat"><span class="psdtool-export-faview-type-caption">パーツ名あり / フラット</span><small class="text-muted">例: キャラ名_眉-困り_目-にっこり_口-笑い.png</small></a></li>
+							<li><a href="https://oov.github.io/psdtool/#" data-dismiss="modal" data-export-faview="compact" data-structure="tree"><span class="psdtool-export-faview-type-caption">パーツ名なし / 入れ子</span><small class="text-muted">例: キャラ名\困り\にっこり\笑い.png</small></a></li>
+							<li><a href="https://oov.github.io/psdtool/#" data-dismiss="modal" data-export-faview="compact" data-structure="flat"><span class="psdtool-export-faview-type-caption">パーツ名なし / フラット</span><small class="text-muted">例: キャラ名_困り_にっこり_笑い.png</small></a></li>
+							<li role="separator" class="divider"></li>
+							<li><a href="https://oov.github.io/psdtool/#" data-dismiss="modal" data-toggle="modal" data-target="#tiled-export-dialog">Tiled Map Editor 用にエクスポート...</a></li>
+						</ul>
+					</div>
+					<p><small>
+						シンプルビューで作成可能な全ての組み合わせを書き出します。
+						ただし「目を決めるセレクトボックスが複数ある」など項目を操作した順番によって結果が変わるようなものには対応していません。
+						画像には現在の反転や縮小の設定が適用されます。
+					</small></p>
+					<button type="button" class="btn btn-default" data-dismiss="modal" id="export-layer-structure">レイヤー構造をテキストファイルでエクスポート</button>
+					<p><small>PSD ファイルのレイヤー構造をタブで整形された UTF-8 テキストファイルとして出力します。これにはお気に入りのデータは一切含まれていません。</small></p>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="modal" id="progress-dialog" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false" aria-labelledby="progress-dialog-label">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h4 class="modal-title" id="progress-dialog-label">Progress Dialog</h4>
+				</div>
+				<div class="modal-body">
+					<div id="progress-dialog-progress-caption"></div>
+					<div class="progress">
+						<div id="progress-dialog-progress-bar" class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="modal" id="bulk-create-folder-dialog" tabindex="-1" role="dialog" data-backdrop="static" aria-labelledby="bulk-create-folder-dialog-label">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+					<h4 class="modal-title" id="bulk-create-folder-dialog-label">お気に入りフォルダー作成</h4>
+				</div>
+				<div class="modal-body">
+					<p>
+						お気に入りに作成したいフォルダー名を改行で区切って入力してください。
+						<br>先頭や末尾のスペース、空行などは無視されます。
+					</p>
+					<p>
+						<textarea id="bulk-create-folder-textarea" class="form-control" rows="8"></textarea>
+					</p>
+					<button type="button" class="btn btn-primary" data-dismiss="modal" id="bulk-create-folder">フォルダー作成</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="modal" id="bulk-rename-dialog" tabindex="-1" role="dialog" data-backdrop="static" aria-labelledby="bulk-rename-dialog-label">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+					<h4 class="modal-title" id="bulk-rename-dialog-label">一括名前変更</h4>
+				</div>
+				<div class="modal-body">
+					<p>
+						入力欄を書き換えて「名前を変更」ボタンを押すと変更されます。
+						<br> また、入力欄を空欄して名前を変更をすると、上から順番に数字が割り当てられます。
+					</p>
+					<ul id="bulk-rename-tree"></ul>
+					<p class="form-inline">空欄には
+						<select id="rename-digits" class="form-control">
+							<option value="1">1</option>
+							<option value="2" selected="">2</option>
+							<option value="3">3</option>
+							<option value="4">4</option>
+						</select> 桁の数字を
+						<input type="number" id="rename-start-number" inputmode="numeric" value="0" class="form-control"> から順番に割り当て
+					</p>
+					<button type="button" class="btn btn-primary" data-dismiss="modal" id="bulk-rename">名前を変更</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="modal" id="readme-dialog" tabindex="-1" role="dialog" aria-labelledby="readme-dialog-label">
+		<div class="modal-dialog modal-lg" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+					<h4 class="modal-title" id="readme-dialog-label">Readme</h4>
+				</div>
+				<div class="modal-body">
+					<pre id="readme"></pre>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="modal" id="faview-setting-dialog" tabindex="-1" role="dialog" aria-labelledby="faview-setting-dialog-label">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+					<h4 class="modal-title" id="faview-setting-dialog-label">シンプルビュー設定</h4>
+				</div>
+				<div class="modal-body">
+					<p><small>
+						「シンプルビュー」はレイヤーツリーの代わりに使える、シンプルな切り替え方式の表示形式です。<br>
+						これを使用するためにはフィルタリングされたお気に入りを組み立てる必要があります。<a href="https://oov.github.io/psdtool/manual.html#feature-faview" target="manual">詳細</a>
+					</small></p>
+					<div class="form-group">
+						<label for="faview-mode">シンプルビューが使えるお気に入りデータを読み込んだ時の動作</label>
+						<select class="form-control" id="faview-mode">
+							<option value="0">レイヤーツリーを表示</option>
+							<option value="1">シンプルビューを表示</option>
+							<option value="2">シンプルビューを表示 ＋ Readme があれば自動表示</option>
+						</select>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="modal" id="tiled-export-dialog" tabindex="-1" role="dialog" aria-labelledby="tiled-export-dialog-label">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+					<h4 class="modal-title" id="tiled-export-dialog-label">Tiled Map Editor 用にエクスポート</h4>
+				</div>
+				<div class="modal-body">
+					<dl>
+						<dt>フォルダー構造</dt>
+						<dd>
+							<p>
+								<select id="tiled-export-naming-rule" class="form-control">
+									<option value="standard,tree">パーツ名あり / 入れ子　 例: キャラ名\眉-困り\目-にっこり\口-笑い</option>
+									<option value="standard,flat">パーツ名あり / フラット 例: キャラ名_眉-困り_目-にっこり_口-笑い</option>
+									<option value="compact,tree">パーツ名なし / 入れ子　 例: キャラ名\困り\にっこり\笑い</option>
+									<option value="compact,flat">パーツ名なし / フラット 例: キャラ名_困り_にっこり_笑い</option>
+									<option value="index,tree">番号のみ / 入れ子 例: キャラ名\0\0\0</option>
+									<option value="index,flat">番号のみ / フラット 例: キャラ名_0_0_0</option>
+								</select>
+							</p>
+						</dd>
+						<dt>ファイル形式</dt>
+						<dd>
+							<p>
+								<select id="tiled-export-format" class="form-control">
+									<option value="tmx,csv">TMX / タイルデータ: CSV</option>
+									<option value="tmx,xml">TMX / タイルデータ: XML</option>
+									<option value="tmx,bin">TMX / タイルデータ: Base64</option>
+									<option value="tmx,binz">TMX / タイルデータ: Base64(zlib)</option>
+									<option value="json,csv">JSON / タイルデータ: 配列</option>
+									<option value="json,bin">JSON / タイルデータ: Base64</option>
+									<option value="json,binz">JSON / タイルデータ: Base64(zlib)</option>
+									<option value="js,csv">JavaScript + HTML / タイルデータ: CSV</option>
+									<option value="js,bin">JavaScript + HTML / タイルデータ: Base64</option>
+									<option value="js,binz">JavaScript + HTML / タイルデータ: Base64(zlib)</option>
+									<option value="raw,csv">CSV</option>
+									<option value="raw,bin">Binary</option>
+								</select>
+							</p>
+						</dd>
+						<dt>TSX ファイルの使用</dt>
+						<dd>
+							<p>
+								<select id="tiled-export-usetsx" class="form-control">
+									<option value="no">使わない</option>
+									<option value="yes">使う</option>
+								</select>
+							</p>
+						</dd>
+						<dt>ZIP 格納方法</dt>
+						<dd>
+							<p>
+								<select id="tiled-export-compress" class="form-control">
+									<option value="deflate">画像以外を圧縮</option>
+									<option value="store">無圧縮</option>
+								</select>
+							</p>
+						</dd>
+					</dl>
+					<button type="button" class="btn btn-primary" data-dismiss="modal" id="export-tiled">エクスポート</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	<script src="./PSDTool_files/jquery.min.js"></script>
+	<script src="./PSDTool_files/bootstrap.min.js"></script>
+	<script id="psdgo" src="./PSDTool_files/psd.min.js"></script>
+	<script src="./PSDTool_files/3rd.min.js"></script>
+	<script src="./PSDTool_files/index.js"></script>
+</body></html>

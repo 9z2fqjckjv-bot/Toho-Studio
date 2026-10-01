@@ -17,13 +17,23 @@ public struct PSDToolPreset: Identifiable, Hashable {
 public class PSDToolService: NSObject, ObservableObject {
     public static let shared = PSDToolService()
 
+    public enum PSDToolSourceMode: String, CaseIterable {
+        case web = "Web版 (公式)"
+        case local = "ローカル保存版"
+    }
+
     @Published public var availablePresets: [PSDToolPreset] = []
     @Published public var currentPsdName: String = ""
     @Published public var isLoadingPSD: Bool = false
+    @Published public var isHTMLReady: Bool = false
+    @Published public var htmlLoadError: String? = nil
     @Published public var statusMessage: String = "PSDTool 準備完了"
     @Published public var isAutoTrimEnabled: Bool = true
     @Published public var isFlippedX: Bool = false
     @Published public var isFlippedY: Bool = false
+    @Published public var sourceMode: PSDToolSourceMode = .web
+    @Published public var customHTMLPath: String? = nil
+    @Published public var currentURLString: String = "https://oov.github.io/psdtool/"
 
     // WebKit 参照
     public weak var webView: WKWebView?
@@ -33,25 +43,39 @@ public class PSDToolService: NSObject, ObservableObject {
         scanPresets()
     }
 
+    // MARK: - リポジトリルート探索
+    public static func resolveRepoRoot() -> String {
+        var dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        for _ in 0..<8 {
+            let marker = dir.appendingPathComponent("Documents/PSDTool.html")
+            if FileManager.default.fileExists(atPath: marker.path) {
+                return dir.path
+            }
+            dir = dir.deletingLastPathComponent()
+        }
+        return "/Volumes/ZSSD/GitHub/repository/TohoStudio"
+    }
+
     // MARK: - リポジトリ内の PSD ファイル探索
     public func scanPresets() {
+        let repo = Self.resolveRepoRoot()
         let predefinedPresets: [(String, String, String, String)] = [
-            ("古明地こいし (通常立ち絵)", "古明地こいし", "表情・サードアイ・服装差分完備", "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/キャラクター/地霊殿/古明地こいし/古明地こいし/こいし.psd"),
-            ("博麗霊夢 (バトルっぽい)", "博麗霊夢", "お札・御幣・表情差分", "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/キャラクター/主人公たち/博麗霊夢/博麗霊夢（バトルっぽい）/霊夢.psd"),
-            ("博麗霊夢 (水着)", "博麗霊夢", "夏仕様・各種差分", "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/キャラクター/主人公たち/博麗霊夢/博麗霊夢(水着)/霊夢水着.psd"),
-            ("霧雨魔理沙 (バトルっぽい)", "霧雨魔理沙", "ミニ八卦炉・表情・箒", "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/キャラクター/主人公たち/霧雨魔理沙/霧雨魔理沙（バトルっぽい）/魔理沙.psd"),
-            ("霧雨魔理沙 (獣王園)", "霧雨魔理沙", "獣王園衣装差分", "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/キャラクター/主人公たち/霧雨魔理沙/霧雨魔理沙(獣王園)/魔理沙獣王園.psd"),
-            ("河城にとり (通常立ち絵)", "河城にとり", "エンジニア服・リュック・表情差分", "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/キャラクター/河童/河城にとり/河城にとり/にとり.psd"),
-            ("河城にとり (バトルっぽい)", "河城にとり", "メカ・工具・戦闘ポーズ", "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/キャラクター/河童/河城にとり/河城にとり(バトルっぽい)/にとり.psd"),
-            ("河城みとり (通常立ち絵)", "河城みとり", "みとり差分", "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/キャラクター/河童/河城みとり/みとり.psd"),
-            ("八意永琳 (通常立ち絵)", "八意永琳", "弓矢・薬瓶・表情差分", "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/キャラクター/永遠亭/八意永琳/八意永琳/永琳.psd"),
-            ("八意永琳 (バトルっぽい)", "八意永琳", "戦闘ポーズ・エフェクト", "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/キャラクター/永遠亭/八意永琳/八意永琳(バトルっぽい)/永琳.psd"),
-            ("上白沢慧音 (通常立ち絵)", "上白沢慧音", "教科書・表情差分", "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/キャラクター/永遠亭/上白沢慧音/上白沢慧音/慧音.psd"),
-            ("上白沢慧音 (ハクタクver)", "上白沢慧音", "白沢化・満月・角差分", "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/キャラクター/永遠亭/上白沢慧音/上白沢慧音(バトルっぽい)/慧音（ワーハクタク） .psd"),
-            ("藤原妹紅 (通常立ち絵)", "藤原妹紅", "炎・ポケット手・表情差分", "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/キャラクター/永遠亭/藤原妹紅/藤原妹紅/妹紅.psd"),
-            ("藤原妹紅 (バトルっぽい)", "藤原妹紅", "不死鳥・戦闘エフェクト", "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/キャラクター/永遠亭/藤原妹紅/藤原妹紅(バトルっぽい)/妹紅.psd"),
-            ("冴月麟 (通常立ち絵)", "冴月麟", "二胡・幻の東方キャラ差分", "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/キャラクター/冴月麟/冴月麟/冴月麟.psd"),
-            ("SinGyoku (女ver)", "SinGyoku", "陰陽玉・神玉", "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/キャラクター/主人公たち/SinGyoku/SinGyoku/シンギョク（女）.psd")
+            ("古明地こいし (通常立ち絵)", "古明地こいし", "表情・サードアイ・服装差分完備", "\(repo)/Documents/動画用/キャラクター/地霊殿/古明地こいし/古明地こいし/こいし.psd"),
+            ("博麗霊夢 (バトルっぽい)", "博麗霊夢", "お札・御幣・表情差分", "\(repo)/Documents/動画用/キャラクター/主人公たち/博麗霊夢/博麗霊夢（バトルっぽい）/霊夢.psd"),
+            ("博麗霊夢 (水着)", "博麗霊夢", "夏仕様・各種差分", "\(repo)/Documents/動画用/キャラクター/主人公たち/博麗霊夢/博麗霊夢(水着)/霊夢水着.psd"),
+            ("霧雨魔理沙 (バトルっぽい)", "霧雨魔理沙", "ミニ八卦炉・表情・箒", "\(repo)/Documents/動画用/キャラクター/主人公たち/霧雨魔理沙/霧雨魔理沙（バトルっぽい）/魔理沙.psd"),
+            ("霧雨魔理沙 (獣王園)", "霧雨魔理沙", "獣王園衣装差分", "\(repo)/Documents/動画用/キャラクター/主人公たち/霧雨魔理沙/霧雨魔理沙(獣王園)/魔理沙獣王園.psd"),
+            ("河城にとり (通常立ち絵)", "河城にとり", "エンジニア服・リュック・表情差分", "\(repo)/Documents/動画用/キャラクター/河童/河城にとり/河城にとり/にとり.psd"),
+            ("河城にとり (バトルっぽい)", "河城にとり", "メカ・工具・戦闘ポーズ", "\(repo)/Documents/動画用/キャラクター/河童/河城にとり/河城にとり(バトルっぽい)/にとり.psd"),
+            ("河城みとり (通常立ち絵)", "河城みとり", "みとり差分", "\(repo)/Documents/動画用/キャラクター/河童/河城みとり/みとり.psd"),
+            ("八意永琳 (通常立ち絵)", "八意永琳", "弓矢・薬瓶・表情差分", "\(repo)/Documents/動画用/キャラクター/永遠亭/八意永琳/八意永琳/永琳.psd"),
+            ("八意永琳 (バトルっぽい)", "八意永琳", "戦闘ポーズ・エフェクト", "\(repo)/Documents/動画用/キャラクター/永遠亭/八意永琳/八意永琳(バトルっぽい)/永琳.psd"),
+            ("上白沢慧音 (通常立ち絵)", "上白沢慧音", "教科書・表情差分", "\(repo)/Documents/動画用/キャラクター/永遠亭/上白沢慧音/上白沢慧音/慧音.psd"),
+            ("上白沢慧音 (ハクタクver)", "上白沢慧音", "白沢化・満月・角差分", "\(repo)/Documents/動画用/キャラクター/永遠亭/上白沢慧音/上白沢慧音(バトルっぽい)/慧音（ワーハクタク） .psd"),
+            ("藤原妹紅 (通常立ち絵)", "藤原妹紅", "炎・ポケット手・表情差分", "\(repo)/Documents/動画用/キャラクター/永遠亭/藤原妹紅/藤原妹紅/妹紅.psd"),
+            ("藤原妹紅 (バトルっぽい)", "藤原妹紅", "不死鳥・戦闘エフェクト", "\(repo)/Documents/動画用/キャラクター/永遠亭/藤原妹紅/藤原妹紅(バトルっぽい)/妹紅.psd"),
+            ("冴月麟 (通常立ち絵)", "冴月麟", "二胡・幻の東方キャラ差分", "\(repo)/Documents/動画用/キャラクター/冴月麟/冴月麟/冴月麟.psd"),
+            ("SinGyoku (女ver)", "SinGyoku", "陰陽玉・神玉", "\(repo)/Documents/動画用/キャラクター/主人公たち/SinGyoku/SinGyoku/シンギョク（女）.psd")
         ]
 
         var found: [PSDToolPreset] = []
@@ -63,21 +87,191 @@ public class PSDToolService: NSObject, ObservableObject {
         self.availablePresets = found
     }
 
-    // MARK: - PSDTool.html の URL 取得
-    public static func getPSDToolHTMLURL() -> URL? {
-        let candidates = [
-            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Documents/PSDTool.html",
-            Bundle.main.resourcePath.map { "\($0)/Documents/PSDTool.html" } ?? "",
-            "\(FileManager.default.currentDirectoryPath)/Application/Documents/PSDTool.html",
-            "\(FileManager.default.currentDirectoryPath)/Documents/PSDTool.html"
-        ]
+    // MARK: - ソース元の PSDTool.html 探索
+    public static func findSourcePSDToolHTML() -> URL? {
+        // 0. ユーザーの Downloads / Desktop / Documents フォルダにある再保存ファイルを最優先探索
+        let userDirs = [
+            FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path,
+            FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first?.path,
+            FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path
+        ].compactMap { $0 }
 
-        for path in candidates {
-            if !path.isEmpty && FileManager.default.fileExists(atPath: path) {
+        for dir in userDirs {
+            for filename in ["PSDTool.html", "psdtool.html", "PSDTool.htm", "psdtool.htm"] {
+                let candidate = "\(dir)/\(filename)"
+                if FileManager.default.fileExists(atPath: candidate) {
+                    return URL(fileURLWithPath: candidate)
+                }
+            }
+        }
+
+        // 1. ソースコードの配置場所から親階層を辿って探索 (開発環境 / SPM実行時)
+        var sourceDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        for _ in 0..<8 {
+            let candidate = sourceDir.appendingPathComponent("Documents/PSDTool.html")
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+            let candidateApp = sourceDir.appendingPathComponent("Application/Documents/PSDTool.html")
+            if FileManager.default.fileExists(atPath: candidateApp.path) {
+                return candidateApp
+            }
+            sourceDir = sourceDir.deletingLastPathComponent()
+        }
+
+        // 2. リポジトリの絶対パス
+        let standardRepoPaths = [
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/PSDTool.html",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Documents/PSDTool.html"
+        ]
+        for path in standardRepoPaths {
+            if FileManager.default.fileExists(atPath: path) {
                 return URL(fileURLWithPath: path)
             }
         }
+
+        // 3. アプリケーションバンドル内
+        if let resourcePath = Bundle.main.resourcePath {
+            let bundleCandidates = [
+                "\(resourcePath)/Documents/PSDTool.html",
+                "\(resourcePath)/PSDTool.html",
+                "\(resourcePath)/Resource/Documents/PSDTool.html"
+            ]
+            for path in bundleCandidates {
+                if FileManager.default.fileExists(atPath: path) {
+                    return URL(fileURLWithPath: path)
+                }
+            }
+        }
+
+        // 4. カレントワーキングディレクトリ周辺
+        let cwd = FileManager.default.currentDirectoryPath
+        let cwdCandidates = [
+            "\(cwd)/Documents/PSDTool.html",
+            "\(cwd)/Application/Documents/PSDTool.html",
+            "\(cwd)/../Documents/PSDTool.html"
+        ]
+        for path in cwdCandidates {
+            if FileManager.default.fileExists(atPath: path) {
+                return URL(fileURLWithPath: path)
+            }
+        }
+
         return nil
+    }
+
+    // MARK: - PSDTool.html の URL 取得 (WebContent サンドボックス回避のためローカルキャッシュへステージング)
+    public static func getPSDToolHTMLURL() -> URL? {
+        guard let sourceURL = findSourcePSDToolHTML() else {
+            return nil
+        }
+
+        // macOS WebKit の WebContent サンドボックスは /Volumes/* (外付けSSD) への sandbox extension 発行を拒否 (code=-3001) するため、
+        // 必ず内蔵ストレージの Caches または /tmp にステージングして提供する
+        let cacheBaseDir: URL
+        if let cachesURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
+            cacheBaseDir = cachesURL.appendingPathComponent("TohoStudio/PSDTool")
+        } else {
+            cacheBaseDir = URL(fileURLWithPath: "/tmp/TohoStudio/PSDTool")
+        }
+
+        let sourceDir = sourceURL.deletingLastPathComponent()
+        let destHtmlURL = cacheBaseDir.appendingPathComponent("PSDTool.html")
+        let destFilesURL = cacheBaseDir.appendingPathComponent("PSDTool_files")
+        let sourceFilesURL = sourceDir.appendingPathComponent("PSDTool_files")
+
+        do {
+            try FileManager.default.createDirectory(at: cacheBaseDir, withIntermediateDirectories: true)
+
+            // HTML のコピー/同期
+            var needsCopyHtml = !FileManager.default.fileExists(atPath: destHtmlURL.path)
+            if !needsCopyHtml {
+                let srcMod = (try? FileManager.default.attributesOfItem(atPath: sourceURL.path)[.modificationDate] as? Date) ?? Date.distantPast
+                let dstMod = (try? FileManager.default.attributesOfItem(atPath: destHtmlURL.path)[.modificationDate] as? Date) ?? Date.distantPast
+                if srcMod > dstMod {
+                    needsCopyHtml = true
+                }
+            }
+            if needsCopyHtml {
+                try? FileManager.default.removeItem(at: destHtmlURL)
+                try FileManager.default.copyItem(at: sourceURL, to: destHtmlURL)
+            }
+
+            // PSDTool_files のコピー/同期
+            if FileManager.default.fileExists(atPath: sourceFilesURL.path) {
+                var needsCopyFiles = !FileManager.default.fileExists(atPath: destFilesURL.path)
+                if !needsCopyFiles {
+                    let srcMod = (try? FileManager.default.attributesOfItem(atPath: sourceFilesURL.path)[.modificationDate] as? Date) ?? Date.distantPast
+                    let dstMod = (try? FileManager.default.attributesOfItem(atPath: destFilesURL.path)[.modificationDate] as? Date) ?? Date.distantPast
+                    if srcMod > dstMod {
+                        needsCopyFiles = true
+                    }
+                }
+                if needsCopyFiles {
+                    try? FileManager.default.removeItem(at: destFilesURL)
+                    try FileManager.default.copyItem(at: sourceFilesURL, to: destFilesURL)
+                }
+            }
+
+            return destHtmlURL
+        } catch {
+            print("TohoStudio: Failed to stage PSDTool to local cache: \(error)")
+            return sourceURL
+        }
+    }
+
+    // MARK: - アプリケーション内ブラウザでの PSDTool ロード
+    public func loadPSDToolPage() {
+        guard let webView = self.webView else { return }
+        self.htmlLoadError = nil
+        self.isHTMLReady = false
+
+        switch sourceMode {
+        case .web:
+            self.statusMessage = "PSDTool (Web版) 読み込み中..."
+            self.currentURLString = "https://oov.github.io/psdtool/"
+            if let url = URL(string: "https://oov.github.io/psdtool/") {
+                webView.load(URLRequest(url: url))
+            }
+
+        case .local:
+            self.statusMessage = "PSDTool (ローカル保存版) 読み込み中..."
+            if let customPath = customHTMLPath, FileManager.default.fileExists(atPath: customPath) {
+                let fileURL = URL(fileURLWithPath: customPath)
+                let accessDir = fileURL.deletingLastPathComponent()
+                self.currentURLString = fileURL.absoluteString
+                webView.loadFileURL(fileURL, allowingReadAccessTo: accessDir)
+            } else if let htmlURL = Self.getPSDToolHTMLURL() {
+                let accessDir = htmlURL.deletingLastPathComponent()
+                self.currentURLString = htmlURL.absoluteString
+                webView.loadFileURL(htmlURL, allowingReadAccessTo: accessDir)
+            } else {
+                self.htmlLoadError = "ローカルの PSDTool.html が見つかりません。「保存したHTMLを開く」からファイルを選択してください。"
+                self.statusMessage = "PSDTool.html 未検出"
+            }
+        }
+    }
+
+    // MARK: - PSDTool の再読み込み
+    public func reloadPSDTool() {
+        loadPSDToolPage()
+    }
+
+    // MARK: - ユーザーが再保存した外部 HTML ファイルを選択して開く
+    public func openCustomHTMLFileDialog() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canCreateDirectories = false
+        panel.canChooseFiles = true
+        panel.allowedContentTypes = [UTType.html]
+        panel.title = "再保存した PSDTool.html を選択"
+
+        if panel.runModal() == .OK, let url = panel.url {
+            self.customHTMLPath = url.path
+            self.sourceMode = .local
+            self.loadPSDToolPage()
+        }
     }
 
     // MARK: - 外部 PSD ファイル選択ダイアログ
@@ -383,11 +577,8 @@ public struct PSDToolWebView: NSViewRepresentable {
         webView.navigationDelegate = context.coordinator
         service.webView = webView
 
-        // HTML のロード
-        if let htmlURL = PSDToolService.getPSDToolHTMLURL() {
-            let accessDir = htmlURL.deletingLastPathComponent() // Application/Documents
-            webView.loadFileURL(htmlURL, allowingReadAccessTo: accessDir)
-        }
+        // HTML/Web のロード
+        service.loadPSDToolPage()
 
         return webView
     }
@@ -409,7 +600,81 @@ public struct PSDToolWebView: NSViewRepresentable {
 
         public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             DispatchQueue.main.async {
+                self.parent.service.isHTMLReady = true
+                self.parent.service.htmlLoadError = nil
                 self.parent.service.statusMessage = "PSDTool 起動完了"
+            }
+        }
+
+        public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            DispatchQueue.main.async {
+                self.parent.service.isHTMLReady = false
+                self.parent.service.htmlLoadError = error.localizedDescription
+                self.parent.service.statusMessage = "PSDTool ロードエラー: \(error.localizedDescription)"
+            }
+        }
+
+        public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            DispatchQueue.main.async {
+                self.parent.service.isHTMLReady = false
+                self.parent.service.htmlLoadError = error.localizedDescription
+                self.parent.service.statusMessage = "PSDTool ロードエラー: \(error.localizedDescription)"
+            }
+        }
+    }
+}
+
+// MARK: - PSDTool 統合ホストビュー (エラー検知・自動復旧付き)
+public struct PSDToolHostView: View {
+    @ObservedObject var psdService = PSDToolService.shared
+
+    public init() {}
+
+    public var body: some View {
+        ZStack {
+            PSDToolWebView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            if let errorMsg = psdService.htmlLoadError {
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 40))
+                        .foregroundColor(.orange)
+
+                    Text("PSDToolの読み込みに失敗しました")
+                        .font(.headline)
+
+                    Text(errorMsg)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            psdService.sourceMode = .web
+                            psdService.loadPSDToolPage()
+                        }) {
+                            Label("Web版(公式)で開く", systemImage: "globe")
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button(action: { psdService.openCustomHTMLFileDialog() }) {
+                            Label("保存したHTMLを選択...", systemImage: "doc.badge.plus")
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button(action: { psdService.reloadPSDTool() }) {
+                            Label("再読み込み", systemImage: "arrow.clockwise")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding(24)
+                .background(Color(NSColor.windowBackgroundColor).opacity(0.95))
+                .cornerRadius(12)
+                .shadow(radius: 8)
+                .padding(32)
             }
         }
     }

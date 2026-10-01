@@ -441,7 +441,58 @@ public struct CharacterMakerView: View {
                     .font(.caption)
                     .bold()
 
+                // Web版 / ローカル版 切り替え
+                Picker("", selection: Binding(
+                    get: { psdService.sourceMode },
+                    set: { newMode in
+                        psdService.sourceMode = newMode
+                        psdService.loadPSDToolPage()
+                    }
+                )) {
+                    ForEach(PSDToolService.PSDToolSourceMode.allCases, id: \.self) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 170)
+
+                if psdService.sourceMode == .local {
+                    Button(action: { psdService.openCustomHTMLFileDialog() }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "doc.badge.plus")
+                            Text("再保存HTML選択")
+                        }
+                        .font(.caption2)
+                    }
+                    .buttonStyle(.bordered)
+                    .help("ブラウザ等から再保存した PSDTool.html を指定して開きます")
+                }
+
+                if psdService.isLoadingPSD {
+                    ProgressView().scaleEffect(0.6)
+                }
+
+                Text("(\(psdService.statusMessage))")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+
                 Spacer()
+
+                Button(action: { psdService.reloadPSDTool() }) {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+                .help("PSDToolを再読み込み")
+
+                Button(action: { psdService.openLocalPSDFileDialog() }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "folder")
+                        Text("PSDを開く")
+                    }
+                    .font(.caption2)
+                }
+                .buttonStyle(.bordered)
 
                 Button(action: { psdService.toggleAutoTrim() }) {
                     HStack(spacing: 3) {
@@ -476,7 +527,7 @@ public struct CharacterMakerView: View {
 
             Divider()
 
-            PSDToolWebView()
+            PSDToolHostView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
@@ -1353,6 +1404,58 @@ public struct CharacterMakerView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("PSD立ち絵・差分設定")
                 .font(.headline)
+
+            // アプリケーション内ブラウザ起動コントロール
+            GroupBox(label: Label("PSDTool アプリ内ブラウザ", systemImage: "macwindow")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("PSDTool を TohoStudio 内蔵ブラウザで表示・操作します。")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            canvasViewMode = .psdTool
+                            psdService.loadPSDToolPage()
+                        }) {
+                            Label("全画面で開く", systemImage: "arrow.up.left.and.arrow.down.right")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .font(.caption)
+
+                        Button(action: {
+                            canvasViewMode = .split
+                            psdService.loadPSDToolPage()
+                        }) {
+                            Label("分割表示", systemImage: "square.split.2x1")
+                        }
+                        .buttonStyle(.bordered)
+                        .font(.caption)
+                    }
+
+                    HStack(spacing: 8) {
+                        Picker("", selection: Binding(
+                            get: { psdService.sourceMode },
+                            set: { newMode in
+                                psdService.sourceMode = newMode
+                                psdService.loadPSDToolPage()
+                            }
+                        )) {
+                            ForEach(PSDToolService.PSDToolSourceMode.allCases, id: \.self) { mode in
+                                Text(mode.rawValue).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+
+                        Button("再保存HTML...") {
+                            psdService.openCustomHTMLFileDialog()
+                        }
+                        .buttonStyle(.bordered)
+                        .font(.caption2)
+                        .help("ブラウザで再保存した PSDTool.html を選択")
+                    }
+                }
+                .padding(6)
+            }
 
             // 現在のファイル
             GroupBox(label: Label("読み込み中のPSD", systemImage: "photo.stack")) {
