@@ -58,6 +58,16 @@ public struct SoundMakerView: View {
     @State private var showHomeScreen: Bool = false
     @State private var showExportAudioSheet: Bool = false
     @State private var audioExportFormat: String = "WAV (非圧縮・最高音質)"
+    @State private var audioExportScope: SoundMakerExporter.ExportScope = .masterMix
+    @State private var audioExportSampleRate: Int = 44100
+    @State private var audioExportBitDepth: Int = 16
+    @State private var audioExportBitrate: String = "192k"
+    @State private var audioExportNormalize: Bool = true
+    @State private var isExportingAudio: Bool = false
+    @State private var audioExportProgress: Double = 0.0
+    @State private var audioExportStatusText: String = ""
+    @State private var showExportAudioErrorAlert: Bool = false
+    @State private var exportAudioErrorMessage: String = ""
 
     // Meter animation level (0.0 ... 1.0)
     @State private var currentMeterLevel: Double = 0.65
@@ -169,6 +179,13 @@ public struct SoundMakerView: View {
         }
         .sheet(isPresented: $showSpanAudioInsertSheet) {
             SpanAudioInsertSheet(initialStartScene: selectedSceneIndex)
+        }
+        .alert(isPresented: $showExportAudioErrorAlert) {
+            Alert(
+                title: Text("音声書き出しエラー"),
+                message: Text(exportAudioErrorMessage),
+                dismissButton: .default(Text("OK"))
+            )
         }
         .onAppear {
             ensureDefaultTracksAndClips()
@@ -3557,35 +3574,281 @@ public struct SoundMakerView: View {
 
     // MARK: - Export Dialog
     private var exportAudioDialog: some View {
-        VStack(spacing: 18) {
-            Text("音声データの書き出し")
-                .font(.headline)
-                .foregroundColor(.white)
-            Picker("音声フォーマット", selection: $audioExportFormat) {
-                Text("WAV (非圧縮・最高音質)").tag("WAV (非圧縮・最高音質)")
-                Text("MP3 (192kbps - 軽量)").tag("MP3 (192kbps - 軽量)")
-                Text("M4A (AAC - Mac標準)").tag("M4A (AAC - Mac標準)")
-                Text("AIFF (リニアPCM)").tag("AIFF (リニアPCM)")
-                Text("LOGICX (Logic Proプロジェクト)").tag("LOGICX (Logic Proプロジェクト)")
-                Text("SESX (Auditionセッション)").tag("SESX (Auditionセッション)")
-            }
-            .pickerStyle(.menu)
-
-            HStack {
-                Button("キャンセル") { showExportAudioSheet = false }
-                    .foregroundColor(Color(white: 0.8))
+        VStack(alignment: .leading, spacing: 18) {
+            // Header
+            HStack(spacing: 10) {
+                Image(systemName: "square.and.arrow.up.circle.fill")
+                    .font(.system(size: 26))
+                    .foregroundColor(.cyan)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("サウンドメーカー 音声書き出し (Export Audio)")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    Text("タイムラインの音声トラック・クリップを高品質オーディオまたはDAWセッション形式でエクスポートします。")
+                        .font(.caption2)
+                        .foregroundColor(Color(white: 0.7))
+                }
                 Spacer()
-                Button("書き出し実行") {
-                    showExportAudioSheet = false
-                    appState.log("音声を書き出しました: \(audioExportFormat)")
+            }
+            .padding(.bottom, 2)
+
+            // Timeline Summary Status Box
+            HStack(spacing: 12) {
+                summaryBadge(
+                    icon: "waveform",
+                    title: "総クリップ数",
+                    value: "\(appState.soundClips.count) 個",
+                    color: .cyan
+                )
+                summaryBadge(
+                    icon: "slider.horizontal.3",
+                    title: "アクティブトラック",
+                    value: "\(appState.audioTracks.count) トラック",
+                    color: .green
+                )
+                summaryBadge(
+                    icon: "clock.fill",
+                    title: "タイムライン長",
+                    value: formatExportDuration(totalTimelineDuration),
+                    color: .purple
+                )
+            }
+            .padding(10)
+            .background(Color.white.opacity(0.04))
+            .cornerRadius(8)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.08), lineWidth: 1))
+
+            // Export Format & Scope Options
+            GroupBox(label: Label("出力フォーマット設定", systemImage: "gearshape.fill").foregroundColor(.white).font(.caption)) {
+                VStack(alignment: .leading, spacing: 12) {
+                    // Format Picker
+                    HStack {
+                        Text("書き出し形式:")
+                            .font(.caption)
+                            .foregroundColor(Color(white: 0.8))
+                            .frame(width: 120, alignment: .leading)
+                        Picker("", selection: $audioExportFormat) {
+                            Text("WAV (非圧縮・最高音質)").tag("WAV (非圧縮・最高音質)")
+                            Text("MP3 (192kbps - 軽量)").tag("MP3 (192kbps - 軽量)")
+                            Text("M4A (AAC - Mac標準)").tag("M4A (AAC - Mac標準)")
+                            Text("AIFF (リニアPCM)").tag("AIFF (リニアPCM)")
+                            Text("LOGICX (Logic Proプロジェクト)").tag("LOGICX (Logic Proプロジェクト)")
+                            Text("SESX (Auditionセッション)").tag("SESX (Auditionセッション)")
+                            Text("ZIP (全トラック・ステム一括アーカイブ)").tag("ZIP (全トラック・ステム一括アーカイブ)")
+                        }
+                        .pickerStyle(.menu)
+                    }
+
+                    // Scope Picker
+                    HStack {
+                        Text("書き出し範囲:")
+                            .font(.caption)
+                            .foregroundColor(Color(white: 0.8))
+                            .frame(width: 120, alignment: .leading)
+                        Picker("", selection: $audioExportScope) {
+                            ForEach(SoundMakerExporter.ExportScope.allCases) { scope in
+                                Text(scope.rawValue).tag(scope)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .disabled(audioExportFormat.contains("LOGICX") || audioExportFormat.contains("SESX") || audioExportFormat.contains("ZIP"))
+                    }
+
+                    // Format-specific settings
+                    if audioExportFormat.contains("WAV") || audioExportFormat.contains("AIFF") {
+                        HStack {
+                            Text("サンプリングレート:")
+                                .font(.caption)
+                                .foregroundColor(Color(white: 0.8))
+                                .frame(width: 120, alignment: .leading)
+                            Picker("", selection: $audioExportSampleRate) {
+                                Text("44.1 kHz (CD音質・標準)").tag(44100)
+                                Text("48.0 kHz (映像・放送標準)").tag(48000)
+                            }
+                            .pickerStyle(.menu)
+                        }
+
+                        HStack {
+                            Text("ビット深度:")
+                                .font(.caption)
+                                .foregroundColor(Color(white: 0.8))
+                                .frame(width: 120, alignment: .leading)
+                            Picker("", selection: $audioExportBitDepth) {
+                                Text("16-bit PCM (標準)").tag(16)
+                                Text("24-bit PCM (スタジオ高音質)").tag(24)
+                            }
+                            .pickerStyle(.menu)
+                        }
+                    }
+
+                    if audioExportFormat.contains("MP3") || audioExportFormat.contains("M4A") {
+                        HStack {
+                            Text("音声ビットレート:")
+                                .font(.caption)
+                                .foregroundColor(Color(white: 0.8))
+                                .frame(width: 120, alignment: .leading)
+                            Picker("", selection: $audioExportBitrate) {
+                                Text("320 kbps (最高音質)").tag("320k")
+                                Text("192 kbps (標準・推奨)").tag("192k")
+                                Text("128 kbps (軽量・Web用)").tag("128k")
+                            }
+                            .pickerStyle(.menu)
+                        }
+                    }
+
+                    // Normalization
+                    Toggle("トゥルーピーク・ノーマライズ (-0.45 dBFS 音割れ防止 & 音圧最適化)", isOn: $audioExportNormalize)
+                        .font(.caption)
+                        .foregroundColor(Color(white: 0.9))
+                }
+                .padding(8)
+            }
+
+            // Progress Bar & Status (when exporting)
+            if isExportingAudio {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(audioExportStatusText.isEmpty ? "書き出し処理中..." : audioExportStatusText)
+                            .font(.caption)
+                            .foregroundColor(.cyan)
+                        Spacer()
+                        Text("\(Int(audioExportProgress * 100))%")
+                            .font(.caption)
+                            .bold()
+                            .foregroundColor(.white)
+                    }
+                    ProgressView(value: audioExportProgress, total: 1.0)
+                        .progressViewStyle(.linear)
+                }
+                .padding(10)
+                .background(Color.black.opacity(0.3))
+                .cornerRadius(6)
+            }
+
+            // Footer
+            HStack {
+                if isExportingAudio {
+                    Button("中止") {
+                        SoundMakerExporter.cancelExport()
+                    }
+                    .foregroundColor(.red)
+                } else {
+                    Button("キャンセル") {
+                        showExportAudioSheet = false
+                    }
+                    .foregroundColor(Color(white: 0.8))
+                }
+
+                Spacer()
+
+                Button("書き出し先を選択して開始...") {
+                    startAudioExportProcess()
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(isExportingAudio || appState.soundClips.isEmpty)
             }
         }
         .padding(24)
-        .frame(width: 420)
+        .frame(width: 520)
         .background(DAWTheme.windowBackground)
         .foregroundColor(.white)
+    }
+
+    private func formatExportDuration(_ seconds: Double) -> String {
+        let mins = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return String(format: "%02d:%02d", mins, secs)
+    }
+
+    private func summaryBadge(icon: String, title: String, value: String, color: Color) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundColor(color)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+                Text(value)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func startAudioExportProcess() {
+        let fmt = audioExportFormat.uppercased()
+        let ext: String = {
+            if fmt.contains("WAV") { return "wav" }
+            if fmt.contains("MP3") { return "mp3" }
+            if fmt.contains("M4A") { return "m4a" }
+            if fmt.contains("AIFF") { return "aiff" }
+            if fmt.contains("LOGICX") { return "logicx" }
+            if fmt.contains("SESX") { return "sesx" }
+            if fmt.contains("ZIP") || audioExportScope == .trackStems || audioExportScope == .individualClips { return "zip" }
+            return "wav"
+        }()
+
+        let panel = NSSavePanel()
+        panel.title = "音声ファイルの書き出し先を指定"
+        panel.nameFieldStringValue = "\(appState.currentProjectName)_audio.\(ext)"
+        panel.canCreateDirectories = true
+
+        if panel.runModal() == .OK, let targetURL = panel.url {
+            let options = SoundMakerExporter.ExportOptions(
+                format: audioExportFormat,
+                scope: audioExportScope,
+                sampleRate: audioExportSampleRate,
+                bitDepth: audioExportBitDepth,
+                audioBitrate: audioExportBitrate,
+                normalize: audioExportNormalize,
+                includeEffects: true
+            )
+
+            isExportingAudio = true
+            audioExportProgress = 0.0
+            audioExportStatusText = "書き出しの準備中..."
+
+            Task {
+                do {
+                    // 最新の音声ファイルパスを自動検証・修復
+                    let clipsToExport = self.appState.resolveAndRepairAudioPaths(for: self.appState.soundClips)
+                    let tracksToExport = self.appState.audioTracks
+                    let scenesToExport = self.appState.movieScenes
+
+                    try await SoundMakerExporter.export(
+                        clips: clipsToExport,
+                        tracks: tracksToExport,
+                        scenes: scenesToExport,
+                        outputURL: targetURL,
+                        options: options
+                    ) { progress, status in
+                        self.audioExportProgress = progress
+                        self.audioExportStatusText = status
+                    }
+
+                    await MainActor.run {
+                        self.isExportingAudio = false
+                        self.showExportAudioSheet = false
+                        self.appState.log("音声書き出し完了: \(targetURL.lastPathComponent) (\(self.audioExportFormat))")
+                        self.appState.addHistory("ファイル: 音声書き出し完了 (\(targetURL.lastPathComponent))")
+                        NSWorkspace.shared.activateFileViewerSelecting([targetURL])
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.isExportingAudio = false
+                        if case SoundMakerExporter.ExportError.cancelled = error {
+                            self.appState.log("音声書き出しがキャンセルされました", level: "WARN")
+                        } else {
+                            self.exportAudioErrorMessage = error.localizedDescription
+                            self.showExportAudioErrorAlert = true
+                            self.appState.log("音声書き出し失敗: \(error.localizedDescription)", level: "ERROR")
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

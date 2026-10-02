@@ -186,20 +186,77 @@ public struct FileExportModalView: View {
                 Button("書き出し実行...") {
                     let panel = NSSavePanel()
                     panel.title = "プロジェクト書き出し"
-                    let ext = exportFormat.contains("動画") ? "mp4" : (exportFormat.contains("Keynote") ? "key" : "json")
+                    let ext: String = {
+                        if exportFormat.contains("動画") || exportFormat.contains("ProRes") {
+                            return exportFormat.contains("ProRes") ? "mov" : "mp4"
+                        } else if exportFormat.contains("Keynote") {
+                            return "key"
+                        } else if exportFormat.contains("テキスト") {
+                            return "txt"
+                        } else if exportFormat.contains("音声トラック") || exportFormat.contains("アーカイブ") || exportFormat.contains("zip") {
+                            return "zip"
+                        } else if appState.currentModule == .soundMaker {
+                            return "wav"
+                        } else {
+                            return "json"
+                        }
+                    }()
                     panel.nameFieldStringValue = "\(appState.currentProjectName).\(ext)"
                     if panel.runModal() == .OK, let url = panel.url {
                         isExporting = true
-                        exportProgress = 0.1
-                        Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { timer in
-                            exportProgress += 0.25
-                            if exportProgress >= 1.0 {
-                                timer.invalidate()
-                                isExporting = false
-                                try? "Toho-Studio Exported File\nFormat: \(exportFormat)\nTimestamp: \(Date())\n".write(to: url, atomically: true, encoding: .utf8)
-                                appState.log("プロジェクトを正常に書き出しました: \(url.lastPathComponent)")
-                                appState.addHistory("ファイル: 書き出し完了 (\(url.lastPathComponent))")
-                                appState.activeModal = nil
+                        exportProgress = 0.0
+
+                        if exportFormat.contains("音声トラック") || (appState.currentModule == .soundMaker && !exportFormat.contains("動画") && !exportFormat.contains("Keynote") && !exportFormat.contains("テキスト") && !exportFormat.contains("プロジェクト")) {
+                            Task {
+                                do {
+                                    let options = SoundMakerExporter.ExportOptions(
+                                        format: exportFormat.contains("音声トラック") ? "ZIP" : "WAV",
+                                        scope: exportFormat.contains("音声トラック") ? .trackStems : .masterMix,
+                                        sampleRate: 44100,
+                                        bitDepth: 16,
+                                        audioBitrate: "192k",
+                                        normalize: true,
+                                        includeEffects: true
+                                    )
+                                    let clips = appState.resolveAndRepairAudioPaths(for: appState.soundClips)
+                                    try await SoundMakerExporter.export(
+                                        clips: clips,
+                                        tracks: appState.audioTracks,
+                                        scenes: appState.movieScenes,
+                                        outputURL: url,
+                                        options: options
+                                    ) { prog, _ in
+                                        DispatchQueue.main.async {
+                                            self.exportProgress = prog
+                                        }
+                                    }
+                                    await MainActor.run {
+                                        self.isExporting = false
+                                        self.appState.log("プロジェクトを正常に書き出しました: \(url.lastPathComponent)")
+                                        self.appState.addHistory("ファイル: 書き出し完了 (\(url.lastPathComponent))")
+                                        self.appState.activeModal = nil
+                                        NSWorkspace.shared.activateFileViewerSelecting([url])
+                                    }
+                                } catch {
+                                    await MainActor.run {
+                                        self.isExporting = false
+                                        self.appState.log("書き出しエラー: \(error.localizedDescription)", level: "ERROR")
+                                        self.appState.activeModal = nil
+                                    }
+                                }
+                            }
+                        } else {
+                            Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { timer in
+                                exportProgress += 0.25
+                                if exportProgress >= 1.0 {
+                                    timer.invalidate()
+                                    isExporting = false
+                                    try? "Toho-Studio Exported File\nFormat: \(exportFormat)\nTimestamp: \(Date())\n".write(to: url, atomically: true, encoding: .utf8)
+                                    appState.log("プロジェクトを正常に書き出しました: \(url.lastPathComponent)")
+                                    appState.addHistory("ファイル: 書き出し完了 (\(url.lastPathComponent))")
+                                    appState.activeModal = nil
+                                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                                }
                             }
                         }
                     }

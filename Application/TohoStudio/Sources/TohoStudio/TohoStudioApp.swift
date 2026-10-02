@@ -15,6 +15,10 @@ struct TohoStudioApp: App {
             runCharacterMakerSelfTest()
             exit(0)
         }
+        if CommandLine.arguments.contains("--test-sound-maker-export") {
+            runSoundMakerExportSelfTest()
+            exit(0)
+        }
     }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -149,6 +153,113 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         print("=== [TEST] ALL CHARACTER MAKER & PSDTOOL TESTS PASSED SUCCESSFULLY! ===")
+    }
+
+    private func runSoundMakerExportSelfTest() {
+        print("=== [TEST] SoundMaker Export Self-Test Started ===")
+        let tmpDir = URL(fileURLWithPath: "/tmp/tohostudio_soundmaker_test")
+        try? FileManager.default.removeItem(at: tmpDir)
+        try? FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+
+        let clips: [SoundClip] = [
+            SoundClip(name: "霊夢セリフ", type: "Voice", text: "ゆっくりしていってね！", duration: 2.0, startTime: 0.5, trackId: "track_voice"),
+            SoundClip(name: "決定音", type: "SE", duration: 0.55, startTime: 1.0, trackId: "track_se"),
+            SoundClip(name: "日常BGM", type: "BGM", duration: 4.0, volume: 0.6, startTime: 0.0, trackId: "track_bgm")
+        ]
+
+        let tracks: [AudioTrack] = [
+            AudioTrack(id: "track_voice", name: "Voice (セリフ)", type: "voice", icon: "bubble.left", colorHex: "#E74C3C", volume: 1.0),
+            AudioTrack(id: "track_se", name: "SE (効果音)", type: "se", icon: "bolt.fill", colorHex: "#2ECC71", volume: 0.8),
+            AudioTrack(id: "track_bgm", name: "BGM (背景音楽)", type: "bgm", icon: "music.note", colorHex: "#9B59B6", volume: 0.6)
+        ]
+
+        let scenes: [MovieScene] = [
+            MovieScene(
+                title: "オープニング",
+                duration: 4.5,
+                slideTitle: "スライド1",
+                backgroundName: "博麗神社",
+                characterName: "博麗霊夢",
+                telop: "ゆっくりしていってね！"
+            )
+        ]
+
+        let sem = DispatchSemaphore(value: 0)
+
+        Task {
+            do {
+                // 1. WAV Export (44.1kHz, 16bit)
+                let wavURL = tmpDir.appendingPathComponent("master.wav")
+                let optWav = SoundMakerExporter.ExportOptions(format: "WAV", sampleRate: 44100, bitDepth: 16)
+                try await SoundMakerExporter.export(clips: clips, tracks: tracks, scenes: scenes, outputURL: wavURL, options: optWav) { p, msg in
+                    print("  WAV progress: \(Int(p * 100))% - \(msg)")
+                }
+                let wavData = try Data(contentsOf: wavURL)
+                print("1. WAV Export: size=\(wavData.count) bytes")
+                assert(wavData.count > 1000, "WAV file should have audio data")
+                assert(String(data: wavData.subdata(in: 0..<4), encoding: .ascii) == "RIFF", "Should have RIFF header")
+                assert(String(data: wavData.subdata(in: 8..<12), encoding: .ascii) == "WAVE", "Should have WAVE header")
+
+                // 2. MP3 Export
+                let mp3URL = tmpDir.appendingPathComponent("master.mp3")
+                let optMp3 = SoundMakerExporter.ExportOptions(format: "MP3", audioBitrate: "192k")
+                try await SoundMakerExporter.export(clips: clips, tracks: tracks, scenes: scenes, outputURL: mp3URL, options: optMp3) { p, msg in
+                    print("  MP3 progress: \(Int(p * 100))% - \(msg)")
+                }
+                let mp3Data = try Data(contentsOf: mp3URL)
+                print("2. MP3 Export: size=\(mp3Data.count) bytes")
+                assert(mp3Data.count > 500, "MP3 file should not be empty")
+
+                // 3. M4A Export
+                let m4aURL = tmpDir.appendingPathComponent("master.m4a")
+                let optM4a = SoundMakerExporter.ExportOptions(format: "M4A", audioBitrate: "192k")
+                try await SoundMakerExporter.export(clips: clips, tracks: tracks, scenes: scenes, outputURL: m4aURL, options: optM4a) { p, msg in
+                    print("  M4A progress: \(Int(p * 100))% - \(msg)")
+                }
+                let m4aData = try Data(contentsOf: m4aURL)
+                print("3. M4A Export: size=\(m4aData.count) bytes")
+                assert(m4aData.count > 500, "M4A file should not be empty")
+
+                // 4. Adobe Audition .sesx Export
+                let sesxURL = tmpDir.appendingPathComponent("session.sesx")
+                let optSesx = SoundMakerExporter.ExportOptions(format: "SESX")
+                try await SoundMakerExporter.export(clips: clips, tracks: tracks, scenes: scenes, outputURL: sesxURL, options: optSesx) { p, msg in
+                    print("  SESX progress: \(Int(p * 100))% - \(msg)")
+                }
+                let sesxStr = try String(contentsOf: sesxURL, encoding: .utf8)
+                print("4. SESX Export: len=\(sesxStr.count)")
+                assert(sesxStr.contains("<session"), "SESX must have session tag")
+                assert(sesxStr.contains("<audioTrack"), "SESX must have audioTrack tags")
+
+                // 5. Logic Pro .logicx Export
+                let logicxURL = tmpDir.appendingPathComponent("project.logicx")
+                let optLogicx = SoundMakerExporter.ExportOptions(format: "LOGICX")
+                try await SoundMakerExporter.export(clips: clips, tracks: tracks, scenes: scenes, outputURL: logicxURL, options: optLogicx) { p, msg in
+                    print("  LOGICX progress: \(Int(p * 100))% - \(msg)")
+                }
+                let altProjData = logicxURL.appendingPathComponent("Alternatives/000/ProjectData")
+                assert(FileManager.default.fileExists(atPath: altProjData.path), "Logic ProjectData must exist")
+                print("5. Logic Pro Export: bundle verified successfully!")
+
+                // 6. ZIP Multi-Track Stems Export
+                let zipURL = tmpDir.appendingPathComponent("stems.zip")
+                let optZip = SoundMakerExporter.ExportOptions(format: "ZIP", scope: .trackStems)
+                try await SoundMakerExporter.export(clips: clips, tracks: tracks, scenes: scenes, outputURL: zipURL, options: optZip) { p, msg in
+                    print("  ZIP progress: \(Int(p * 100))% - \(msg)")
+                }
+                let zipData = try Data(contentsOf: zipURL)
+                print("6. ZIP Stems Export: size=\(zipData.count) bytes")
+                assert(zipData.count > 1000, "ZIP stems archive must not be empty")
+
+                print("=== [TEST] ALL SOUNDMAKER EXPORT TESTS PASSED SUCCESSFULLY! ===")
+            } catch {
+                print("=== [TEST] FAILED: \(error) ===")
+                exit(1)
+            }
+            sem.signal()
+        }
+
+        sem.wait()
     }
 
     var body: some Scene {
