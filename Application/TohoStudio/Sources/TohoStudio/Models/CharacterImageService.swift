@@ -411,6 +411,214 @@ public final class CharacterImageService: ObservableObject {
         return NSImage(cgImage: cgOutput, size: image.size)
     }
 
+    // MARK: - 5-2. 前後反転（背中側 / 後ろ姿）画像の解決 & 自動生成
+    /// モデルの向き（前面/背面）とパーツ設定に応じて描画すべき画像を解決
+    public func resolvePartImage(part: CharacterPart, isBackView: Bool, characterName: String) -> NSImage? {
+        // 1. 背面限定パーツが前面モードにある時は非表示
+        if !isBackView && part.facingMode == "背面のみ" {
+            return nil
+        }
+
+        // 2. 前面表示時（通常）
+        if !isBackView {
+            return loadImage(from: part.assetPath)
+        }
+
+        // 3. 背面（背中側）表示時
+        // 前面限定パーツ（設定または「目」「口」「表情」「顔」「チーク」など前面特有のパーツ）は非表示
+        if part.facingMode == "前面のみ" {
+            return nil
+        }
+        let lowerName = part.name.lowercased()
+        if lowerName.contains("目") || lowerName.contains("口") || lowerName.contains("表情") || lowerName.contains("顔輪郭") || lowerName.contains("チーク") {
+            return nil
+        }
+
+        // 個別パーツに背中用画像が指定されている場合はそれを最優先
+        if !part.backAssetPath.isEmpty, let customImg = loadImage(from: part.backAssetPath) {
+            return customImg
+        }
+
+        // 前面パーツ画像から背中側（後ろ姿）画像を自動生成/取得
+        if let frontImg = loadImage(from: part.assetPath) {
+            return getOrGenerateBackViewImage(sourceImage: frontImg, partName: part.name, characterName: characterName)
+        }
+
+        return nil
+    }
+
+    /// 立ち絵画像から自然な背中側（後ろ姿・後頭部）画像を自動生成・キャッシュ
+    public func getOrGenerateBackViewImage(sourceImage: NSImage, partName: String, characterName: String) -> NSImage? {
+        guard let cgSource = sourceImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            return sourceImage
+        }
+
+        let w = cgSource.width
+        let h = cgSource.height
+        if w <= 0 || h <= 0 { return sourceImage }
+
+        // キャッシュチェック
+        let safePart = partName.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "part"
+        let safeName = characterName.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "char"
+        let cacheFilename = "back_\(safeName)_\(safePart)_\(w)x\(h).png"
+        let cachePath = "\(cachePartsDir)/\(cacheFilename)"
+
+        if FileManager.default.fileExists(atPath: cachePath),
+           let cachedImg = NSImage(contentsOfFile: cachePath) {
+            return cachedImg
+        }
+
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                data: nil,
+                width: w,
+                height: h,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else {
+            return sourceImage
+        }
+
+        // 1. 水平反転して描画（立ち絵のシルエットとポーズを保ちつつ背中向きに反転）
+        context.saveGState()
+        context.translateBy(x: CGFloat(w), y: 0)
+        context.scaleBy(x: -1.0, y: 1.0)
+        context.draw(cgSource, in: CGRect(x: 0, y: 0, width: CGFloat(w), height: CGFloat(h)))
+        context.restoreGState()
+
+        // 2. 後頭部（後ろ髪）と背中衣装の背面化レンダリング
+        let headCenterX = CGFloat(w) * 0.5
+        let headCenterY = CGFloat(h) * 0.68
+        let headRadiusX = CGFloat(w) * 0.22
+        let headRadiusY = CGFloat(h) * 0.18
+
+        if characterName.contains("霊夢") {
+            // 博麗霊夢: 黒髪後頭部 + 背中の大きな真紅リボン
+            // 後頭部（黒髪）
+            context.saveGState()
+            context.setFillColor(CGColor(red: 0.12, green: 0.10, blue: 0.15, alpha: 0.96))
+            context.fillEllipse(in: CGRect(x: headCenterX - headRadiusX, y: headCenterY - headRadiusY, width: headRadiusX * 2, height: headRadiusY * 2))
+
+            // 赤い大リボン（後頭部から背中上部へ広がる左右の羽根）
+            context.setFillColor(CGColor(red: 0.88, green: 0.12, blue: 0.18, alpha: 0.98))
+            let ribbonY = headCenterY + headRadiusY * 0.4
+            // 左リボン羽根
+            context.beginPath()
+            context.move(to: CGPoint(x: headCenterX, y: ribbonY))
+            context.addLine(to: CGPoint(x: headCenterX - headRadiusX * 1.5, y: ribbonY + headRadiusY * 0.6))
+            context.addLine(to: CGPoint(x: headCenterX - headRadiusX * 1.3, y: ribbonY - headRadiusY * 0.5))
+            context.closePath()
+            context.fillPath()
+            // 右リボン羽根
+            context.beginPath()
+            context.move(to: CGPoint(x: headCenterX, y: ribbonY))
+            context.addLine(to: CGPoint(x: headCenterX + headRadiusX * 1.5, y: ribbonY + headRadiusY * 0.6))
+            context.addLine(to: CGPoint(x: headCenterX + headRadiusX * 1.3, y: ribbonY - headRadiusY * 0.5))
+            context.closePath()
+            context.fillPath()
+            // リボン結び目
+            context.setFillColor(CGColor(red: 0.70, green: 0.08, blue: 0.12, alpha: 1.0))
+            context.fillEllipse(in: CGRect(x: headCenterX - 18, y: ribbonY - 14, width: 36, height: 28))
+            context.restoreGState()
+
+        } else if characterName.contains("魔理沙") {
+            // 霧雨魔理沙: 金髪ウェーブ後頭部 + 帽子背面 + エプロン背中リボン
+            context.saveGState()
+            // 金髪後頭部
+            context.setFillColor(CGColor(red: 0.96, green: 0.82, blue: 0.38, alpha: 0.95))
+            context.fillEllipse(in: CGRect(x: headCenterX - headRadiusX, y: headCenterY - headRadiusY, width: headRadiusX * 2, height: headRadiusY * 2.1))
+            // 背中エプロン結び目
+            let backWaistY = CGFloat(h) * 0.38
+            context.setFillColor(CGColor(red: 0.95, green: 0.95, blue: 0.95, alpha: 0.95))
+            context.fillEllipse(in: CGRect(x: headCenterX - 22, y: backWaistY - 12, width: 44, height: 24))
+            context.restoreGState()
+
+        } else if characterName.contains("こいし") {
+            // 古明地こいし: 緑髪ウェーブ後頭部 + 背中サードアイコード
+            context.saveGState()
+            context.setFillColor(CGColor(red: 0.40, green: 0.65, blue: 0.55, alpha: 0.95))
+            context.fillEllipse(in: CGRect(x: headCenterX - headRadiusX, y: headCenterY - headRadiusY, width: headRadiusX * 2, height: headRadiusY * 2))
+            // サードアイコード（青紫の流線コード）
+            context.setStrokeColor(CGColor(red: 0.35, green: 0.50, blue: 0.85, alpha: 0.9))
+            context.setLineWidth(6.0)
+            context.beginPath()
+            context.move(to: CGPoint(x: headCenterX, y: CGFloat(h) * 0.45))
+            context.addCurve(to: CGPoint(x: headCenterX + headRadiusX * 1.2, y: CGFloat(h) * 0.55),
+                             control1: CGPoint(x: headCenterX + headRadiusX * 0.8, y: CGFloat(h) * 0.42),
+                             control2: CGPoint(x: headCenterX + headRadiusX * 1.4, y: CGFloat(h) * 0.48))
+            context.strokePath()
+            context.restoreGState()
+
+        } else if characterName.contains("咲夜") {
+            // 十六夜咲夜: 銀髪ショート後頭部 + メイド服背中リボン
+            context.saveGState()
+            context.setFillColor(CGColor(red: 0.82, green: 0.85, blue: 0.90, alpha: 0.95))
+            context.fillEllipse(in: CGRect(x: headCenterX - headRadiusX, y: headCenterY - headRadiusY, width: headRadiusX * 2, height: headRadiusY * 1.9))
+            // 背中のエプロン紐（クロス）
+            context.setStrokeColor(CGColor(red: 0.98, green: 0.98, blue: 0.98, alpha: 0.9))
+            context.setLineWidth(10.0)
+            let backMidY = CGFloat(h) * 0.45
+            context.strokeLineSegments(between: [
+                CGPoint(x: headCenterX - headRadiusX * 0.6, y: backMidY + 40),
+                CGPoint(x: headCenterX + headRadiusX * 0.6, y: backMidY - 30),
+                CGPoint(x: headCenterX + headRadiusX * 0.6, y: backMidY + 40),
+                CGPoint(x: headCenterX - headRadiusX * 0.6, y: backMidY - 30)
+            ])
+            context.restoreGState()
+
+        } else if characterName.contains("妖夢") {
+            // 魂魄妖夢: 銀髪ボブ後頭部 + 黒カチューシャ + 背中半霊
+            context.saveGState()
+            context.setFillColor(CGColor(red: 0.88, green: 0.90, blue: 0.92, alpha: 0.96))
+            context.fillEllipse(in: CGRect(x: headCenterX - headRadiusX, y: headCenterY - headRadiusY, width: headRadiusX * 2, height: headRadiusY * 1.8))
+            // 黒カチューシャ
+            context.setStrokeColor(CGColor(red: 0.15, green: 0.15, blue: 0.18, alpha: 1.0))
+            context.setLineWidth(8.0)
+            context.strokeEllipse(in: CGRect(x: headCenterX - headRadiusX * 0.95, y: headCenterY - headRadiusY * 0.5, width: headRadiusX * 1.9, height: headRadiusY * 1.8))
+            // 半霊（背中側に漂う霊体）
+            context.setFillColor(CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.82))
+            context.fillEllipse(in: CGRect(x: headCenterX + headRadiusX * 0.9, y: CGFloat(h) * 0.52, width: headRadiusX * 1.1, height: headRadiusY * 1.3))
+            context.restoreGState()
+
+        } else {
+            // 汎用: 上部髪色トーンを模した自然な後頭部シェーディング
+            context.saveGState()
+            context.setFillColor(CGColor(red: 0.20, green: 0.18, blue: 0.22, alpha: 0.92))
+            context.fillEllipse(in: CGRect(x: headCenterX - headRadiusX, y: headCenterY - headRadiusY, width: headRadiusX * 2, height: headRadiusY * 1.9))
+            context.restoreGState()
+        }
+
+        // 3. 背中全体の立体感シャドウ（背骨ライン・背中の陰影）
+        context.saveGState()
+        let spineX = headCenterX
+        let spineStartY = CGFloat(h) * 0.25
+        let spineEndY = headCenterY - headRadiusY * 0.5
+        context.setStrokeColor(CGColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 0.18))
+        context.setLineWidth(14.0)
+        context.beginPath()
+        context.move(to: CGPoint(x: spineX, y: spineStartY))
+        context.addLine(to: CGPoint(x: spineX, y: spineEndY))
+        context.strokePath()
+        context.restoreGState()
+
+        guard let outputCG = context.makeImage() else {
+            return sourceImage
+        }
+
+        let backImage = NSImage(cgImage: outputCG, size: NSSize(width: w, height: h))
+
+        // ディスクキャッシュに保存
+        if let tiff = backImage.tiffRepresentation,
+           let rep = NSBitmapImageRep(data: tiff),
+           let png = rep.representation(using: .png, properties: [:]) {
+            try? png.write(to: URL(fileURLWithPath: cachePath))
+        }
+
+        return backImage
+    }
+
     // MARK: - 6. レイヤー合成レンダリング (Render Composite)
     /// 全パーツを重なり順・変形・エフェクトを適用して1枚の高解像度画像に合成
     public func renderComposite(model: CharacterModel, targetSize: CGSize = CGSize(width: 1080, height: 1080)) -> NSImage? {
@@ -441,8 +649,15 @@ public final class CharacterImageService: ObservableObject {
         let centerX = targetSize.width / 2.0
         let centerY = targetSize.height / 2.0
 
-        for part in model.parts where part.isVisible {
-            guard let rawImage = loadImage(from: part.assetPath) else { continue }
+        // 背中側（背面）表示時のレイヤー重なり順
+        // 前面表示時は奥にあった後ろ髪・羽・リボン等が背中側では手前に重なるよう、順序を反転
+        let renderParts: [CharacterPart] = model.isBackView ? model.parts.reversed() : model.parts
+
+        for part in renderParts where part.isVisible {
+            // 前後反転・背中側画像を解決
+            guard let rawImage = resolvePartImage(part: part, isBackView: model.isBackView, characterName: model.name) else {
+                continue
+            }
 
             // 色調・フィルター調整
             let processedImage = applyAdjustments(
@@ -628,7 +843,8 @@ public final class CharacterImageService: ObservableObject {
         formatter.dateFormat = "yyyyMMdd_HHmmss"
         let timestamp = formatter.string(from: Date())
 
-        let materialName = "\(model.name)_\(model.expression)_\(timestamp).png"
+        let facingSuffix = model.isBackView ? "_背面" : ""
+        let materialName = "\(model.name)_\(model.expression)\(facingSuffix)_\(timestamp).png"
         let studioDir = "\(repoRoot)/Application/Resource/MaterialStudio"
         try? FileManager.default.createDirectory(atPath: studioDir, withIntermediateDirectories: true)
 
@@ -642,7 +858,7 @@ public final class CharacterImageService: ObservableObject {
         }
 
         // .tscm 編集プロジェクトも素材スタジオに保存
-        let tscmName = "\(model.name)_\(model.expression)_\(timestamp).tscm"
+        let tscmName = "\(model.name)_\(model.expression)\(facingSuffix)_\(timestamp).tscm"
         let tscmURL = URL(fileURLWithPath: "\(studioDir)/\(tscmName)")
         if let projectData = try? JSONEncoder().encode(model) {
             try? projectData.write(to: tscmURL)

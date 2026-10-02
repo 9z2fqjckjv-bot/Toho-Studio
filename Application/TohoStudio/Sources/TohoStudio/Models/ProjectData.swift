@@ -10,6 +10,7 @@ public enum SoftwareModule: String, CaseIterable, Identifiable {
     case slideScenarioMaker = "スライド＆シナリオメーカー"
     case gameMaker = "ゲームメーカー"
     case materialStudio = "素材スタジオ"
+    case tohoAIStudio = "TohoAIStudio"
 
     public var id: String { rawValue }
 
@@ -21,6 +22,7 @@ public enum SoftwareModule: String, CaseIterable, Identifiable {
         case .slideScenarioMaker: return "doc.richtext"
         case .gameMaker: return "gamecontroller"
         case .materialStudio: return "folder.badge.gearshape"
+        case .tohoAIStudio: return "sparkles"
         }
     }
 
@@ -32,6 +34,7 @@ public enum SoftwareModule: String, CaseIterable, Identifiable {
         case .slideScenarioMaker: return "Googleスライド / Keynote"
         case .gameMaker: return "横長ワイドRPG / ノベルエンジン"
         case .materialStudio: return "共通基幹ストレージ＆ストア"
+        case .tohoAIStudio: return "仮想LinuxVM (DeepSeek/Gemma) + 外部API"
         }
     }
 
@@ -49,10 +52,12 @@ public enum SoftwareModule: String, CaseIterable, Identifiable {
             return "スライド・シナリオ・音声を連携させ、コマンド分岐やRPG・ノベルゲームを制作するソフト。"
         case .materialStudio:
             return "作品・素材の一元管理、クラウド同期、検索・置換・抽出フィルター、セキュリティ対策を担う中枢ソフト。"
+        case .tohoAIStudio:
+            return "仮想LinuxVMおよびGemini・ChatGPT・Claudeと連携し、AIチャット・AI編集・請求確認・リソース管理を行う東方制作AI中枢ソフト。"
         }
     }
 
-    /// 仕様書記載の編集ファイル拡張子 (Slide 178, 192, 214, 228, 241)
+    /// 仕様書記載の編集ファイル拡張子 (Slide 178, 192, 214, 228, 241, 新版仕様書)
     public var projectExtension: String {
         switch self {
         case .movieMaker: return "tsvm"
@@ -61,6 +66,7 @@ public enum SoftwareModule: String, CaseIterable, Identifiable {
         case .slideScenarioMaker: return "tspm" // 仕様書 Slide 228: 編集ファイル拡張子: tspm
         case .gameMaker: return "tsgm"
         case .materialStudio: return "tohoproj"
+        case .tohoAIStudio: return "tsai"
         }
     }
 }
@@ -217,6 +223,8 @@ public struct CharacterPart: Identifiable, Codable, Equatable {
     public var isVisible: Bool = true
     public var blendMode: String = "通常" // 通常, 乗算, スクリーン, オーバーレイ
     public var filterEffects: [String] = [] // Photoshop/Pixelmator: ドロップシャドウ, 境界線, ぼかし, シャープ, セピア, モノクロ
+    public var backAssetPath: String = "" // 背中側（後ろ姿）パーツ用画像パス
+    public var facingMode: String = "両面" // "両面", "前面のみ", "背面のみ"
 
     public init(
         id: UUID = UUID(),
@@ -238,7 +246,9 @@ public struct CharacterPart: Identifiable, Codable, Equatable {
         cropH: Double = 1.0,
         isVisible: Bool = true,
         blendMode: String = "通常",
-        filterEffects: [String] = []
+        filterEffects: [String] = [],
+        backAssetPath: String = "",
+        facingMode: String = "両面"
     ) {
         self.id = id
         self.name = name
@@ -260,6 +270,8 @@ public struct CharacterPart: Identifiable, Codable, Equatable {
         self.isVisible = isVisible
         self.blendMode = blendMode
         self.filterEffects = filterEffects
+        self.backAssetPath = backAssetPath
+        self.facingMode = facingMode
     }
 
     public init(from decoder: Decoder) throws {
@@ -284,6 +296,8 @@ public struct CharacterPart: Identifiable, Codable, Equatable {
         self.isVisible = try container.decodeIfPresent(Bool.self, forKey: .isVisible) ?? true
         self.blendMode = try container.decodeIfPresent(String.self, forKey: .blendMode) ?? "通常"
         self.filterEffects = try container.decodeIfPresent([String].self, forKey: .filterEffects) ?? []
+        self.backAssetPath = try container.decodeIfPresent(String.self, forKey: .backAssetPath) ?? ""
+        self.facingMode = try container.decodeIfPresent(String.self, forKey: .facingMode) ?? "両面"
     }
 }
 
@@ -297,6 +311,8 @@ public struct CharacterModel: Identifiable, Codable, Equatable {
     public var canvasHeight: Double = 1080
     public var backgroundColor: String = "透過市松模様"
     public var initialSnapshotData: Data? = nil // 再生成(cmd+e+p)用の初期状態スナップショット
+    public var isBackView: Bool = false // 前後反転フラグ (false: 前面/正面, true: 背面/背中側)
+    public var backImagePath: String = "" // 背中側専用画像パス
 
     public init(
         id: UUID = UUID(),
@@ -307,7 +323,9 @@ public struct CharacterModel: Identifiable, Codable, Equatable {
         canvasWidth: Double = 1080,
         canvasHeight: Double = 1080,
         backgroundColor: String = "透過市松模様",
-        initialSnapshotData: Data? = nil
+        initialSnapshotData: Data? = nil,
+        isBackView: Bool = false,
+        backImagePath: String = ""
     ) {
         self.id = id
         self.name = name
@@ -318,6 +336,8 @@ public struct CharacterModel: Identifiable, Codable, Equatable {
         self.canvasHeight = canvasHeight
         self.backgroundColor = backgroundColor
         self.initialSnapshotData = initialSnapshotData
+        self.isBackView = isBackView
+        self.backImagePath = backImagePath
     }
 
     public init(from decoder: Decoder) throws {
@@ -331,6 +351,8 @@ public struct CharacterModel: Identifiable, Codable, Equatable {
         self.canvasHeight = try container.decodeIfPresent(Double.self, forKey: .canvasHeight) ?? 1080
         self.backgroundColor = try container.decodeIfPresent(String.self, forKey: .backgroundColor) ?? "透過市松模様"
         self.initialSnapshotData = try container.decodeIfPresent(Data.self, forKey: .initialSnapshotData)
+        self.isBackView = try container.decodeIfPresent(Bool.self, forKey: .isBackView) ?? false
+        self.backImagePath = try container.decodeIfPresent(String.self, forKey: .backImagePath) ?? ""
     }
 }
 

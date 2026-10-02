@@ -110,6 +110,67 @@ public struct MenuBarCommands: Commands {
                 }
             }
             .keyboardShortcut("6", modifiers: [.command])
+
+            Button("TohoAIStudio") {
+                withAnimation {
+                    appState.currentModule = .tohoAIStudio
+                    appState.isShowingAppTop = false
+                }
+            }
+            .keyboardShortcut("7", modifiers: [.command])
+        }
+
+        // MARK: - AI機能 (TohoAIStudio 新版仕様書)
+        CommandMenu("AI機能") {
+            Button("仮想LinuxVM 通信確認") {
+                withAnimation {
+                    appState.currentModule = .tohoAIStudio
+                    appState.isShowingAppTop = false
+                    TohoAIService.shared.activeProgramTab = .virtualLinuxVM
+                }
+            }
+
+            Button("AIチャット") {
+                withAnimation {
+                    appState.currentModule = .tohoAIStudio
+                    appState.isShowingAppTop = false
+                    TohoAIService.shared.activeProgramTab = .aiChat
+                }
+            }
+
+            Button("AI編集・推敲") {
+                withAnimation {
+                    appState.currentModule = .tohoAIStudio
+                    appState.isShowingAppTop = false
+                    TohoAIService.shared.activeProgramTab = .aiEditor
+                }
+            }
+
+            Button("使用量・請求確認") {
+                withAnimation {
+                    appState.currentModule = .tohoAIStudio
+                    appState.isShowingAppTop = false
+                    TohoAIService.shared.activeProgramTab = .usageBilling
+                }
+            }
+
+            Divider()
+
+            Button("外部API管理 (Gemini / ChatGPT / Claude)") {
+                withAnimation {
+                    appState.currentModule = .tohoAIStudio
+                    appState.isShowingAppTop = false
+                    TohoAIService.shared.activeProgramTab = .externalAPI
+                }
+            }
+
+            Button("専用ブラウザで請求確認") {
+                withAnimation {
+                    appState.currentModule = .tohoAIStudio
+                    appState.isShowingAppTop = false
+                    TohoAIService.shared.activeProgramTab = .inAppBrowser
+                }
+            }
         }
 
         // MARK: - ファイル (cmd+f)
@@ -339,6 +400,13 @@ public struct MenuBarCommands: Commands {
                 appState.performCreateMaterialFromCurrent()
             }
             .keyboardShortcut("m", modifiers: [.command, .control])
+
+            if appState.currentModule == .characterMaker {
+                Button("前後反転 (背中側/正面) (cmd+e+f)") {
+                    appState.toggleCharacterFacingDirection()
+                }
+                .keyboardShortcut("f", modifiers: [.command, .control])
+            }
 
             Button("編集メモ (cmd+e+n)") {
                 appState.activeModal = .memoPad

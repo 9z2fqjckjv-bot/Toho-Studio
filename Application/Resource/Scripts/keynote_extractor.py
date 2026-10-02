@@ -893,6 +893,267 @@ EFFECT_DEFINITIONS = {
     },
 }
 
+TRANSITION_EFFECT_MAP = {
+    # 英語 / Keynote内部識別子 / AppleScriptコード -> 日本語正式名称
+    "none": "なし",
+    "no transition effect": "なし",
+    "tnil": "なし",
+    "": "なし",
+    "null": "なし",
+    "com.apple.iWork.Keynote.BLTFadeThruColor": "カラーでフェード",
+    "fade through color": "カラーでフェード",
+    "fade thru color": "カラーでフェード",
+    "tftc": "カラーでフェード",
+    "dissolve": "ディゾルブ",
+    "tdis": "ディゾルブ",
+    "com.apple.iWork.Keynote.Gizmo.Dissolve": "ディゾルブ",
+    "com.apple.iWork.Keynote.Gizmo.SimpleDissolve": "ディゾルブ",
+    "magic move": "マジックムーブ",
+    "apple:magic-move": "マジックムーブ",
+    "apple:magic-move-transition": "マジックムーブ",
+    "tmjv": "マジックムーブ",
+    "wipe": "ワイプ",
+    "apple:wipe": "ワイプ",
+    "apple:wipe-transition": "ワイプ",
+    "twpe": "ワイプ",
+    "cube": "キューブ",
+    "apple:cube": "キューブ",
+    "apple:cube-transition": "キューブ",
+    "tcub": "キューブ",
+    "flip": "反転",
+    "apple:flip": "反転",
+    "apple:flip-transition": "反転",
+    "tfip": "反転",
+    "push": "プッシュ",
+    "apple:push": "プッシュ",
+    "tpsh": "プッシュ",
+    "com.apple.iWork.Keynote.Gizmo.Push": "プッシュ",
+    "reveal": "リビール",
+    "apple:reveal": "リビール",
+    "trvl": "リビール",
+    "page flip": "ページめくり",
+    "apple:page-flip": "ページめくり",
+    "tpfl": "ページめくり",
+    "shimmer": "シマー",
+    "tshm": "シマー",
+    "com.apple.iWork.Keynote.KLNShimmer": "シマー",
+    "sparkle": "スパークル",
+    "tspk": "スパークル",
+    "com.apple.iWork.Keynote.KLNSparkle": "スパークル",
+    "blinds": "ブラインド",
+    "tbld": "ブラインド",
+    "com.apple.iWork.Keynote.BLTBlinds": "ブラインド",
+    "color planes": "カラープレーン",
+    "tcpl": "カラープレーン",
+    "com.apple.iWork.Keynote.KLNColorPlanes": "カラープレーン",
+    "confetti": "コンフェッティ",
+    "tcft": "コンフェッティ",
+    "com.apple.iWork.Keynote.KLNConfetti": "コンフェッティ",
+    "grid": "グリッド",
+    "tgrd": "グリッド",
+    "com.apple.iWork.Keynote.Gizmo.Grid": "グリッド",
+    "move in": "ムーブイン",
+    "tmvi": "ムーブイン",
+    "com.apple.iWork.Keynote.Gizmo.Move": "ムーブイン",
+    "move in out": "イン／アウト移動",
+    "com.apple.iWork.Keynote.Gizmo.MoveInOut": "イン／アウト移動",
+    "flop": "フロップ",
+    "tfop": "フロップ",
+    "com.apple.iWork.Keynote.BUKFlop": "フロップ",
+    "twist": "ツイスト",
+    "ttwi": "ツイスト",
+    "com.apple.iWork.Keynote.BUKTwist": "ツイスト",
+    "reflection": "リフレクション",
+    "trfl": "リフレクション",
+    "com.apple.iWork.Keynote.BLTReflection": "リフレクション",
+    "revolving door": "回転ドア",
+    "trev": "回転ドア",
+    "com.apple.iWork.Keynote.BLTRevolvingDoor": "回転ドア",
+    "swap": "スワップ",
+    "tswp": "スワップ",
+    "com.apple.iWork.Keynote.Gizmo.Swap": "スワップ",
+    "com.apple.iWork.Keynote.KLNSwap": "スワップ",
+    "swoosh": "スウッシュ",
+    "tsws": "スウッシュ",
+    "com.apple.iWork.Keynote.BLTSwoosh": "スウッシュ",
+    "doorway": "戸口",
+    "tdwy": "戸口",
+    "fall": "フォール",
+    "tfal": "フォール",
+    "iris": "アイリス",
+    "tirs": "アイリス",
+    "switch": "スイッチ",
+    "tswi": "スイッチ",
+    "droplet": "水滴",
+    "tdpl": "水滴",
+    "drop": "ドロップ",
+    "tdrp": "ドロップ",
+    "mosaic": "モザイク",
+    "tmsc": "モザイク",
+    "com.apple.iWork.Keynote.BLTMosaicFlip": "モザイク",
+    "scale": "スケール",
+    "tscl": "スケール",
+    "swing": "スウィング",
+    "tswg": "スウィング",
+    "twirl": "トワール",
+    "ttwl": "トワール",
+    "blur": "ブラー",
+    "com.apple.iWork.Keynote.Blur": "ブラー",
+    "com.apple.iWork.Keynote.KLNBlur": "ブラー",
+    "flame": "フレーム",
+    "com.apple.iWork.Keynote.KLNFlame": "フレーム",
+    "clothesline": "クローズライン",
+    "tclo": "クローズライン",
+    "object cube": "オブジェクトキューブ",
+    "tocb": "オブジェクトキューブ",
+    "object flip": "オブジェクトフリップ",
+    "tofp": "オブジェクトフリップ",
+    "object pop": "オブジェクトポップ",
+    "topp": "オブジェクトポップ",
+    "object push": "オブジェクトプッシュ",
+    "toph": "オブジェクトプッシュ",
+    "object revolve": "オブジェクトリボルブ",
+    "torv": "オブジェクトリボルブ",
+    "object zoom": "オブジェクトズーム",
+    "tozm": "オブジェクトズーム",
+    "perspective": "パースペクティブ",
+    "tprs": "パースペクティブ",
+    "fade and move": "フェードと移動",
+    "tfad": "フェードと移動",
+    "radial wipe": "放射状ワイプ",
+    "trwp": "放射状ワイプ",
+    "anvil": "アンビル",
+    "com.apple.iWork.Keynote.BUKAnvil": "アンビル",
+    "flash bulbs": "フラッシュバルブ",
+    "com.apple.iWork.Keynote.BUKFlashBulbs": "フラッシュバルブ",
+    "lens flare": "レンズフレア",
+    "com.apple.iWork.Keynote.BUKLensFlare": "レンズフレア",
+    "bouncy": "バウンス",
+    "com.apple.iWork.Keynote.KLNBouncy": "バウンス",
+    "fireworks": "花火",
+    "com.apple.iWork.Keynote.KNFireworks": "花火",
+}
+
+def map_transition_effect_name(raw_name):
+    if not raw_name:
+        return "なし"
+    k = str(raw_name).strip()
+    if k in TRANSITION_EFFECT_MAP:
+        return TRANSITION_EFFECT_MAP[k]
+    k_lower = k.lower()
+    if k_lower in TRANSITION_EFFECT_MAP:
+        return TRANSITION_EFFECT_MAP[k_lower]
+    cleaned = re.sub(r"^(?:com\.apple\.iWork\.Keynote\.|apple:)", "", k, flags=re.IGNORECASE)
+    cleaned = re.sub(r"-transition$", "", cleaned, flags=re.IGNORECASE)
+    if cleaned in TRANSITION_EFFECT_MAP:
+        return TRANSITION_EFFECT_MAP[cleaned]
+    if cleaned.lower() in TRANSITION_EFFECT_MAP:
+        return TRANSITION_EFFECT_MAP[cleaned.lower()]
+    if "none" in k_lower or "null" in k_lower:
+        return "なし"
+    if "fade" in k_lower and "color" in k_lower:
+        return "カラーでフェード"
+    if "dissolve" in k_lower:
+        return "ディゾルブ"
+    if "wipe" in k_lower:
+        return "ワイプ"
+    if "cube" in k_lower:
+        return "キューブ"
+    if "flip" in k_lower:
+        return "反転"
+    return cleaned
+
+def extract_transition_from_decomp(decomp):
+    """
+    Keynoteスライドの解凍データから TransitionArchive を解析し、
+    設定されたトランジションエフェクト、トリガー（クリック時/自動）、継続時間、遅延時間を高精度に抽出する。
+    トランジションが未設定または 'none' の場合は 'なし' として返す。
+    """
+    if not decomp:
+        return {
+            "effect": "なし",
+            "trigger": "クリック時",
+            "duration": 0.0,
+            "delay": 0.0,
+            "tag": "なし"
+        }
+
+    pos = decomp.find(b"\n\nTransition")
+    if pos == -1:
+        m = re.search(rb"\x0a[\x08-\x12]Transition\x12", decomp)
+        if m:
+            pos = m.start()
+        else:
+            return {
+                "effect": "なし",
+                "trigger": "クリック時",
+                "duration": 0.0,
+                "delay": 0.0,
+                "tag": "なし"
+            }
+
+    p = pos + 12
+    l_decomp = len(decomp)
+
+    raw_effect = "none"
+    duration = 0.0
+    delay = 0.0
+    is_automatic = False
+
+    while p < l_decomp and p < pos + 300:
+        tag_byte = decomp[p]; p += 1
+        f_num = tag_byte >> 3
+        w_type = tag_byte & 7
+        if f_num == 0 or f_num > 30:
+            break
+        if w_type == 0:  # varint
+            v, p = parse_varint(decomp, p)
+            if f_num == 6:
+                is_automatic = bool(v)
+        elif w_type == 1:  # 64-bit double
+            if p + 8 > l_decomp: break
+            v = struct.unpack("<d", decomp[p:p+8])[0]
+            p += 8
+            if f_num == 3:
+                duration = v
+            elif f_num == 5:
+                delay = v
+        elif w_type == 2:  # length delimited
+            l, p = parse_varint(decomp, p)
+            if p + l > l_decomp: break
+            raw = decomp[p:p+l]
+            p += l
+            if f_num == 2:
+                try:
+                    raw_effect = raw.decode("utf-8")
+                except Exception:
+                    pass
+        elif w_type == 5:  # 32-bit float
+            if p + 4 > l_decomp: break
+            v = struct.unpack("<f", decomp[p:p+4])[0]
+            p += 4
+            if f_num == 3:
+                duration = float(v)
+            elif f_num == 5:
+                delay = float(v)
+        else:
+            break
+
+    effect_jp = map_transition_effect_name(raw_effect)
+    trigger_jp = "自動" if is_automatic else "クリック時"
+
+    if effect_jp == "なし":
+        duration = 0.0
+        delay = 0.0
+
+    return {
+        "effect": effect_jp,
+        "trigger": trigger_jp,
+        "duration": round(duration, 2),
+        "delay": round(delay, 2),
+        "tag": effect_jp
+    }
+
 def extract_animations_from_decomp(decomp, objects, texts, slide_type, char_name="", obj_to_img=None):
     """
     Keynoteスライドの解凍データから、実際に設定されているアニメーションのみを高精度に抽出する。
@@ -1260,6 +1521,7 @@ def extract_via_direct_iwa(filepath, project_name):
         for idx, sid in enumerate(ordered_sids):
             s_idx = idx + 1
             fname, decomp = slide_file_map[sid]
+            trans_info = extract_transition_from_decomp(decomp)
             telop_texts, note_text = extract_slide_texts_and_note(decomp)
             if not telop_texts and not note_text:
                 txts = extract_strings_from_decomp(decomp)
@@ -1513,10 +1775,10 @@ def extract_via_direct_iwa(filepath, project_name):
                 "presenterNote": presenter_note,
                 "rawPresenterNote": raw_presenter_note,
                 "duration": duration,
-                "transitionEffect": "クロスディゾルブ",
-                "transitionTrigger": "automatically",
-                "transitionDelay": 0.0,
-                "transitionDuration": 0.8,
+                "transitionEffect": trans_info["effect"],
+                "transitionTrigger": trans_info["trigger"],
+                "transitionDelay": trans_info["delay"],
+                "transitionDuration": trans_info["duration"],
                 "backgroundName": bg_name,
                 "characterName": char_name,
                 "characterNames": [c["name"] for c in characters],
@@ -1540,7 +1802,7 @@ def extract_via_direct_iwa(filepath, project_name):
                 "objects": objects,
                 "detectedObjects": detected_names if detected_names else ["演出枠"],
                 "animationTag": anims[0]["effect"] if anims else "なし",
-                "transitionTag": "クロスディゾルブ",
+                "transitionTag": trans_info["tag"],
                 "animations": anims,
                 "buildOrder": builds
             })
@@ -1598,12 +1860,18 @@ def extract_via_jxa(filepath):
             imH = s.images.height() || [];
         }} catch(e) {{}}
 
+        var transProps = {{}};
+        try {{
+            transProps = s.transitionProperties() || {{}};
+        }} catch(e) {{}}
+
         res.push({{
             idx: i + 1,
             note: notes[i] || "",
             shTexts: shTexts, shPos: shPos, shW: shW, shH: shH,
             tiTexts: tiTexts, tiPos: tiPos, tiW: tiW, tiH: tiH,
-            imNames: imNames, imPos: imPos, imW: imW, imH: imH
+            imNames: imNames, imPos: imPos, imW: imW, imH: imH,
+            trans: transProps
         }});
     }}
     doc.close({{saving: "no"}});
@@ -1655,10 +1923,10 @@ def fallback_scan(filepath, project_name):
             "telop": f"{char_name}「【{project_name}】第{i}幕の台本セリフです。」" if char_name != "ナレーション" else f"【{project_name}】第{i}幕 ナレーション",
             "presenterNote": f"シーン #{i} 演出ノート ({project_name})",
             "duration": 4.0,
-            "transitionEffect": "クロスディゾルブ",
-            "transitionTrigger": "automatically",
+            "transitionEffect": "なし",
+            "transitionTrigger": "クリック時",
             "transitionDelay": 0.0,
-            "transitionDuration": 0.8,
+            "transitionDuration": 0.0,
             "backgroundName": bg_item[0],
             "characterName": char_name,
             "slideWidth": 1920.0,
@@ -1680,7 +1948,7 @@ def fallback_scan(filepath, project_name):
             "objects": [],
             "detectedObjects": [f"背景:{bg_item[0]}"] if bg_item[0] else ["実素材枠"],
             "animationTag": "なし",
-            "transitionTag": "クロスディゾルブ",
+            "transitionTag": "なし",
             "animations": [],
             "buildOrder": []
         })
@@ -1845,6 +2113,14 @@ def extract_keynote_slides(filepath):
                     bg_name = "nc73538_【背景素材】博麗神社.jpg" if stype == "content" else "単色背景"
                     bg_path = find_asset(bg_name)
 
+                trans_raw = s_raw.get("trans", {})
+                raw_eff = trans_raw.get("transitionEffect", "none")
+                eff_jp = map_transition_effect_name(raw_eff)
+                is_auto = bool(trans_raw.get("automaticTransition", False))
+                trig_jp = "自動" if is_auto else "クリック時"
+                t_dur = float(trans_raw.get("transitionDuration", 0.0)) if eff_jp != "なし" else 0.0
+                t_del = float(trans_raw.get("transitionDelay", 0.0)) if eff_jp != "なし" else 0.0
+
                 parsed_slides.append({
                     "slideIndex": s_idx,
                     "slideType": stype,
@@ -1853,10 +2129,10 @@ def extract_keynote_slides(filepath):
                     "presenterNote": presenter_note,
                     "rawPresenterNote": raw_presenter_note,
                     "duration": duration,
-                    "transitionEffect": "クロスディゾルブ",
-                    "transitionTrigger": "automatically",
-                    "transitionDelay": 0.0,
-                    "transitionDuration": 0.8,
+                    "transitionEffect": eff_jp,
+                    "transitionTrigger": trig_jp,
+                    "transitionDelay": round(t_del, 2),
+                    "transitionDuration": round(t_dur, 2),
                     "backgroundName": bg_name,
                     "characterName": char_name,
                     "slideWidth": doc_w,
@@ -1878,7 +2154,7 @@ def extract_keynote_slides(filepath):
                     "objects": objects,
                     "detectedObjects": detected_names if detected_names else ["演出枠"],
                     "animationTag": "なし",
-                    "transitionTag": "クロスディゾルブ",
+                    "transitionTag": eff_jp,
                     "animations": [],
                     "buildOrder": []
                 })

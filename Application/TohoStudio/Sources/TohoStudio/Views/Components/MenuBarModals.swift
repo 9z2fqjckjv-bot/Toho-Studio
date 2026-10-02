@@ -689,6 +689,15 @@ public struct TrimmingModalView: View {
                     }
                     .padding(8)
                 }
+
+            case .tohoAIStudio:
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("AIチャット履歴およびプロンプト文のトリミング")
+                        .font(.caption).bold()
+                    Text("長大な会話ログやプロンプトから過去のコンテキストを切り詰め、トークン消費量を節約します。")
+                        .font(.caption).foregroundColor(.secondary)
+                }
+                .padding(8)
             }
 
             HStack {
@@ -722,6 +731,7 @@ public struct TrimmingModalView: View {
         case .slideScenarioMaker: return "シナリオの最大文字数およびスライド表示秒数を一括設定・トリミングします。"
         case .gameMaker: return "対応ソフトへのショートカット案内を表示します。"
         case .materialStudio: return "画像・音声の切り取りやスライド内の検索・置換・抽出フィルターを実行します。"
+        case .tohoAIStudio: return "AI会話履歴やプロンプトのコンテキスト長をトリミングします。"
         }
     }
 }
@@ -778,6 +788,10 @@ public struct SplitModalView: View {
                     case .materialStudio:
                         Text("選択中の画像または音声素材を複数ファイルへ分割出力します。")
                             .font(.caption)
+
+                    case .tohoAIStudio:
+                        Text("AI生成された長編シナリオをシーン別・セリフ別に分割して素材スタジオへ登録します。")
+                            .font(.caption)
                     }
                 }
                 .padding(8)
@@ -819,6 +833,7 @@ public struct SplitModalView: View {
         case .slideScenarioMaker: return "スライドの構成要素やシナリオ文章を階層的に分割して素材保存します。"
         case .gameMaker: return "シーンに新たな分岐ルートを追加します。"
         case .materialStudio: return "素材ファイルを個別パーツに分割します。"
+        case .tohoAIStudio: return "AI生成された台本やプロンプトを個別のシーン・セリフ単位に分割します。"
         }
     }
 }

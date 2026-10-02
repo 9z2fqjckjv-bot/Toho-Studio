@@ -25,13 +25,13 @@ public struct AppTopScreenView: View {
 
                 Spacer().frame(height: 50)
 
-                // 2. 内蔵ソフト一覧アイコン (スライド26中央部)
-                HStack(spacing: 20) {
+                // 2. 内蔵ソフト一覧アイコン (スライド26中央部 & 新版仕様書)
+                HStack(spacing: 12) {
                     ForEach(SoftwareModule.allCases) { module in
                         appTopModuleButton(module: module)
                     }
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, 16)
 
                 Spacer().frame(height: 50)
 
@@ -74,20 +74,22 @@ public struct AppTopScreenView: View {
         }) {
             VStack(spacing: 16) {
                 // 上部タイトル
-                Text(module.rawValue)
-                    .font(.system(size: 17, weight: .heavy))
+                Text(module == .tohoAIStudio ? "TohoAI\nStudio" : module.rawValue)
+                    .font(.system(size: module == .tohoAIStudio ? 15 : 16, weight: .heavy))
                     .foregroundColor(.black)
                     .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
                     .frame(height: 44)
 
                 // スライド26の象徴的な黒シルエットアイコン
                 ZStack {
                     RoundedRectangle(cornerRadius: 14)
                         .fill(isHovered ? Color.white.opacity(0.2) : Color.clear)
-                        .frame(width: 112, height: 112)
+                        .frame(width: 104, height: 104)
 
                     Image(systemName: iconForModule(module))
-                        .font(.system(size: 60, weight: .bold))
+                        .font(.system(size: 56, weight: .bold))
                         .foregroundColor(.black)
                         .scaleEffect(isHovered ? 1.08 : 1.0)
                         .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isHovered)
@@ -95,8 +97,8 @@ public struct AppTopScreenView: View {
                 .shadow(color: isHovered ? Color.black.opacity(0.25) : Color.clear, radius: 8, y: 4)
             }
             .padding(.vertical, 10)
-            .padding(.horizontal, 4)
-            .frame(width: 126)
+            .padding(.horizontal, 2)
+            .frame(width: 116)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -119,6 +121,8 @@ public struct AppTopScreenView: View {
             return "person.crop.artframe" // キャラクター立ち絵
         case .materialStudio:
             return "books.vertical.fill" // 素材スタック
+        case .tohoAIStudio:
+            return "sparkles.rectangle.stack.fill" // 東方AIスタジオ
         }
     }
 

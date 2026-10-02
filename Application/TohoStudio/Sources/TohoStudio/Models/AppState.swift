@@ -325,7 +325,7 @@ public final class AppState: ObservableObject {
             SlideRecognitionService.shared.syncToMaterialStudio(slides: slides)
             count = slides.count
 
-        case .characterMaker, .materialStudio:
+        case .characterMaker, .materialStudio, .tohoAIStudio:
             SlideRecognitionService.shared.syncToMaterialStudio(slides: slides)
             count = materials.count
         }
@@ -391,6 +391,9 @@ public final class AppState: ObservableObject {
             } else {
                 success = false
             }
+        case .tohoAIStudio:
+            let chatData = (try? JSONEncoder().encode(TohoAIService.shared.chatMessages)) ?? Data()
+            success = StorageManager.shared.saveProjectFile(module: .tohoAIStudio, fileName: fileNameWithExt, data: chatData)
         }
 
         if !success {
@@ -581,6 +584,10 @@ public final class AppState: ObservableObject {
             materialTitle = "スタジオ新規素材_\(formatter.string(from: timestamp))"
             type = "汎用"
             cat = "素材"
+        case .tohoAIStudio:
+            materialTitle = "AI生成データ_\(formatter.string(from: timestamp))"
+            type = "AIデータ"
+            cat = "プロンプト"
         }
 
         let newMat = MaterialItem(
@@ -635,6 +642,14 @@ public final class AppState: ObservableObject {
             log("キャラクターメーカー: 指定範囲を切り取り・拡大して新規パーツとして配置しました (拡大率: \(String(format: "%.1f", zoomFactor))x)")
             addHistory("編集: トリミング (キャラクターメーカー)")
         }
+    }
+
+    public func toggleCharacterFacingDirection() {
+        saveUndoSnapshot()
+        currentCharacter.isBackView.toggle()
+        let viewName = currentCharacter.isBackView ? "背中側 (背面)" : "正面 (前面)"
+        log("キャラクターメーカー: キャラクターを前後反転しました（現在: \(viewName)）")
+        addHistory("編集: 前後反転 (\(viewName))")
     }
 
     public func loadCharacterPreset(name: String) {
@@ -743,6 +758,9 @@ public final class AppState: ObservableObject {
             log("ゲームメーカー: 設定された全ゲームコマンドと分岐判定を再検証・再読み込みしました")
         case .materialStudio:
             log("素材スタジオ: キャッシュを再生成し、素材ライブラリを更新しました")
+        case .tohoAIStudio:
+            CloudVirtualLinuxService.shared.performHeartbeat()
+            log("TohoAIStudio: 仮想LinuxVMおよび外部APIの接続ステータスを再検証しました")
         }
         addHistory("編集: 再生成 (\(currentModule.rawValue))")
     }

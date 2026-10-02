@@ -280,6 +280,19 @@ public struct SlideScenarioMakerView: View {
                                     .cornerRadius(2)
                             }
 
+                            if slide.transitionEffect != "なし" && !slide.transitionEffect.isEmpty {
+                                HStack(spacing: 2) {
+                                    Image(systemName: "sparkles")
+                                    Text(slide.transitionEffect)
+                                }
+                                .font(.system(size: 7, weight: .bold))
+                                .padding(.horizontal, 3)
+                                .padding(.vertical, 1)
+                                .background(Color.purple.opacity(0.18))
+                                .foregroundColor(.purple)
+                                .cornerRadius(2)
+                            }
+
                             Spacer()
 
                             Text("⏱️\(String(format: "%.1f", slide.duration))s")
@@ -751,8 +764,23 @@ public struct SlideScenarioMakerView: View {
                         // Transition Inspector
                         HStack(spacing: 4) {
                             Text("トランジション:").font(.caption2).foregroundColor(.secondary)
-                            Text(slide.transitionEffect)
+                            if slide.transitionEffect != "なし" && !slide.transitionEffect.isEmpty {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "sparkles")
+                                    Text("\(slide.transitionEffect) (\(String(format: "%.1f", slide.transitionDuration))秒, \(slide.transitionTrigger))")
+                                }
                                 .font(.caption2)
+                                .bold()
+                                .foregroundColor(.purple)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1.5)
+                                .background(Color.purple.opacity(0.12))
+                                .cornerRadius(4)
+                            } else {
+                                Text("なし")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
                         }
 
                         Divider().frame(height: 12)
@@ -1010,6 +1038,76 @@ public struct SlideScenarioMakerView: View {
                         ), formatter: NumberFormatter())
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
+                    }
+
+                    Divider()
+
+                    // トランジション設定インスペクター
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("トランジション設定:").font(.caption).bold()
+                            if slide.transitionEffect != "なし" && !slide.transitionEffect.isEmpty {
+                                Text(slide.transitionEffect)
+                                    .font(.system(size: 9, weight: .bold))
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 1.5)
+                                    .background(Color.purple.opacity(0.18))
+                                    .foregroundColor(.purple)
+                                    .cornerRadius(3)
+                            } else {
+                                Text("なし")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        HStack {
+                            Text("効果:").font(.caption2).foregroundColor(.secondary).frame(width: 40, alignment: .leading)
+                            TextField("エフェクト名", text: Binding(
+                                get: { slide.transitionEffect },
+                                set: {
+                                    appState.slides[selectedSlideIdx].transitionEffect = $0
+                                    appState.slides[selectedSlideIdx].transitionTag = $0
+                                }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                        }
+
+                        HStack {
+                            Text("開始:").font(.caption2).foregroundColor(.secondary).frame(width: 40, alignment: .leading)
+                            Picker("", selection: Binding(
+                                get: { slide.transitionTrigger },
+                                set: { appState.slides[selectedSlideIdx].transitionTrigger = $0 }
+                            )) {
+                                Text("クリック時").tag("クリック時")
+                                Text("自動").tag("自動")
+                            }
+                            .pickerStyle(.segmented)
+                        }
+
+                        HStack(spacing: 12) {
+                            HStack(spacing: 4) {
+                                Text("時間:").font(.caption2).foregroundColor(.secondary).frame(width: 40, alignment: .leading)
+                                TextField("秒数", value: Binding(
+                                    get: { slide.transitionDuration },
+                                    set: { appState.slides[selectedSlideIdx].transitionDuration = $0 }
+                                ), formatter: NumberFormatter())
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 50)
+                                Text("秒").font(.caption2)
+                            }
+
+                            HStack(spacing: 4) {
+                                Text("遅延:").font(.caption2).foregroundColor(.secondary)
+                                TextField("秒数", value: Binding(
+                                    get: { slide.transitionDelay },
+                                    set: { appState.slides[selectedSlideIdx].transitionDelay = $0 }
+                                ), formatter: NumberFormatter())
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 50)
+                                Text("秒").font(.caption2)
+                            }
+                        }
                     }
 
                     Divider()

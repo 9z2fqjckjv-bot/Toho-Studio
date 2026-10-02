@@ -298,6 +298,8 @@ public struct RootView: View {
             GameMakerView()
         case .materialStudio:
             MaterialStudioView()
+        case .tohoAIStudio:
+            TohoAIStudioView()
         }
     }
 

@@ -5,6 +5,8 @@ import AppKit
 struct TohoStudioApp: App {
     @StateObject private var appState = AppState.shared
 
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     init() {
         // Configure macOS app behavior
         NSApplication.shared.setActivationPolicy(.regular)
@@ -14,6 +16,29 @@ struct TohoStudioApp: App {
             exit(0)
         }
     }
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.activate(ignoringOtherApps: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            if NSApp.windows.filter({ $0.isVisible && !$0.isMiniaturized }).isEmpty {
+                // If no window is visible, tell NSApp to open a new window or make existing key
+                if let win = NSApp.windows.first {
+                    win.makeKeyAndOrderFront(nil)
+                }
+            }
+        }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            for window in sender.windows {
+                window.makeKeyAndOrderFront(self)
+            }
+        }
+        return true
+    }
+}
 
     private func runCharacterMakerSelfTest() {
         print("=== [TEST] CharacterMaker Self-Test Started ===")

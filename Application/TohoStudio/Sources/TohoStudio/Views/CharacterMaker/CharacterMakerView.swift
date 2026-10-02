@@ -303,6 +303,27 @@ public struct CharacterMakerView: View {
 
             Divider().frame(height: 18)
 
+            // 前後反転ボタン（前面 ↔ 背面/背中側）
+            Button(action: {
+                appState.toggleCharacterFacingDirection()
+            }) {
+                HStack(spacing: 3) {
+                    Image(systemName: appState.currentCharacter.isBackView ? "figure.walk.arrival" : "figure.stand")
+                    Text(appState.currentCharacter.isBackView ? "🔙 背面 (背中側)" : "👤 前面 (正面)")
+                        .bold()
+                }
+                .font(.caption)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(appState.currentCharacter.isBackView ? Color.purple.opacity(0.85) : Color.accentColor.opacity(0.12))
+                .foregroundColor(appState.currentCharacter.isBackView ? .white : .primary)
+                .cornerRadius(5)
+            }
+            .buttonStyle(.plain)
+            .help("キャラクターを前後反転（背中側と正面の表示切り替え）")
+
+            Divider().frame(height: 18)
+
             // ツール切り替えボタングループ
             HStack(spacing: 2) {
                 toolButton(tool: .select, icon: "arrow.up.left", label: "選択")
@@ -594,8 +615,13 @@ public struct CharacterMakerView: View {
                 checkerboardBackground
 
                 // レイヤー合成プレビュー (各パーツをリアルタイム描画)
+                // 背面表示時は、前面で奥にあったパーツ（後ろ髪、羽、リボン等）が手前に来るよう重なり順を反転
+                let displayIndices: [Int] = appState.currentCharacter.isBackView ?
+                    Array((0..<appState.currentCharacter.parts.count).reversed()) :
+                    Array(0..<appState.currentCharacter.parts.count)
+
                 ZStack {
-                    ForEach(0..<appState.currentCharacter.parts.count, id: \.self) { idx in
+                    ForEach(displayIndices, id: \.self) { idx in
                         let part = appState.currentCharacter.parts[idx]
                         if part.isVisible {
                             partCanvasItemView(part: part, index: idx)
@@ -621,6 +647,29 @@ public struct CharacterMakerView: View {
                     Spacer()
                 }
                 .padding(10)
+
+                // 背中側（後ろ姿）表示中インジケーター (右上)
+                if appState.currentCharacter.isBackView {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            HStack(spacing: 5) {
+                                Image(systemName: "figure.walk.arrival")
+                                Text("🔙 背中側 (後ろ姿) 表示中")
+                                    .font(.caption2)
+                                    .bold()
+                            }
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
+                            .background(Color.purple.opacity(0.9))
+                            .foregroundColor(.white)
+                            .cornerRadius(6)
+                            .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 1)
+                        }
+                        Spacer()
+                    }
+                    .padding(10)
+                }
             }
             .clipped()
         }
@@ -629,9 +678,14 @@ public struct CharacterMakerView: View {
     // 各パーツの描画アイテム
     private func partCanvasItemView(part: CharacterPart, index: Int) -> some View {
         let isSelected = (selectedPartIndex == index)
+        let resolvedImage = imageService.resolvePartImage(
+            part: part,
+            isBackView: appState.currentCharacter.isBackView,
+            characterName: appState.currentCharacter.name
+        )
 
         return Group {
-            if let nsImg = imageService.loadImage(from: part.assetPath) {
+            if let nsImg = resolvedImage {
                 let processed = imageService.applyAdjustments(
                     image: nsImg,
                     hue: part.hue,
@@ -667,8 +721,8 @@ public struct CharacterMakerView: View {
                     .onTapGesture {
                         selectedPartIndex = index
                     }
-            } else {
-                // 画像未解決時のプレースホルダー表示
+            } else if !appState.currentCharacter.isBackView {
+                // 正面表示時で画像未解決の場合のみプレースホルダー表示
                 VStack(spacing: 4) {
                     Image(systemName: "person.crop.rectangle.stack")
                         .font(.title)
@@ -817,9 +871,34 @@ public struct CharacterMakerView: View {
                         .buttonStyle(.plain)
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(part.name)
-                                .font(.subheadline)
-                                .bold(selectedPartIndex == idx)
+                            HStack(spacing: 4) {
+                                Text(part.name)
+                                    .font(.subheadline)
+                                    .bold(selectedPartIndex == idx)
+
+                                // 表示面バッジ（両面 / 前面のみ / 背面のみ）
+                                Menu {
+                                    Button("両面表示 (正面・背中共通)") {
+                                        appState.currentCharacter.parts[idx].facingMode = "両面"
+                                    }
+                                    Button("前面のみ (背中側時は非表示)") {
+                                        appState.currentCharacter.parts[idx].facingMode = "前面のみ"
+                                    }
+                                    Button("背面のみ (背中側時のみ表示)") {
+                                        appState.currentCharacter.parts[idx].facingMode = "背面のみ"
+                                    }
+                                } label: {
+                                    Text(facingModeBadgeText(part.facingMode))
+                                        .font(.system(size: 9))
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 1)
+                                        .background(facingModeBadgeColor(part.facingMode).opacity(0.18))
+                                        .foregroundColor(facingModeBadgeColor(part.facingMode))
+                                        .cornerRadius(3)
+                                }
+                                .menuStyle(.borderlessButton)
+                            }
+
                             Text((part.assetPath as NSString).lastPathComponent)
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
@@ -889,9 +968,104 @@ public struct CharacterMakerView: View {
         selectedPartIndex = to
     }
 
+    private func facingModeBadgeText(_ mode: String) -> String {
+        switch mode {
+        case "前面のみ": return "正面のみ"
+        case "背面のみ": return "背中のみ"
+        default: return "両面"
+        }
+    }
+
+    private func facingModeBadgeColor(_ mode: String) -> Color {
+        switch mode {
+        case "前面のみ": return .blue
+        case "背面のみ": return .purple
+        default: return .secondary
+        }
+    }
+
     // MARK: - 4-2. 変形プロパティタブ (Google図形描画)
     private var transformTabContent: some View {
         VStack(alignment: .leading, spacing: 14) {
+            // キャラクター全体の向き・前後反転コントロール
+            GroupBox(label: Label("キャラクター向き (前後反転 / 後ろ姿)", systemImage: "figure.walk.arrival")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("表示向き:")
+                            .font(.caption)
+                        Picker("", selection: Binding(
+                            get: { appState.currentCharacter.isBackView },
+                            set: { newValue in
+                                if appState.currentCharacter.isBackView != newValue {
+                                    appState.toggleCharacterFacingDirection()
+                                }
+                            }
+                        )) {
+                            Text("👤 前面 (正面)").tag(false)
+                            Text("🔙 背面 (背中側)").tag(true)
+                        }
+                        .pickerStyle(.segmented)
+                    }
+
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            appState.toggleCharacterFacingDirection()
+                        }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                Text(appState.currentCharacter.isBackView ? "正面に戻す" : "背中側に反転")
+                            }
+                            .font(.caption)
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button(action: {
+                            // 背中側用画像の指定
+                            let panel = NSOpenPanel()
+                            panel.allowsMultipleSelection = false
+                            panel.canChooseFiles = true
+                            panel.allowedContentTypes = [.png, .jpeg]
+                            panel.message = "背中側用の画像を選択してください"
+                            if panel.runModal() == .OK, let url = panel.url {
+                                appState.saveUndoSnapshot()
+                                appState.currentCharacter.backImagePath = url.path
+                                if selectedPartIndex < appState.currentCharacter.parts.count {
+                                    appState.currentCharacter.parts[selectedPartIndex].backAssetPath = url.path
+                                }
+                                appState.log("キャラクターメーカー: 背中側画像を登録しました: \(url.lastPathComponent)")
+                            }
+                        }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "photo.badge.plus")
+                                Text("背中用画像指定...")
+                            }
+                            .font(.caption2)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    if !appState.currentCharacter.backImagePath.isEmpty {
+                        HStack {
+                            Text("指定画像: \((appState.currentCharacter.backImagePath as NSString).lastPathComponent)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Button("解除") {
+                                appState.saveUndoSnapshot()
+                                appState.currentCharacter.backImagePath = ""
+                            }
+                            .buttonStyle(.borderless)
+                            .font(.caption2)
+                        }
+                    } else {
+                        Text("💡 背中用画像が未指定の場合は、正面の立ち絵から自動で後ろ姿（後頭部・背中）を生成して表示します")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(6)
+            }
+
             if selectedPartIndex < appState.currentCharacter.parts.count {
                 let part = appState.currentCharacter.parts[selectedPartIndex]
                 Text("【\(part.name)】変形調整")
@@ -978,6 +1152,11 @@ public struct CharacterMakerView: View {
                     Button("90° 回転") {
                         appState.saveUndoSnapshot()
                         appState.currentCharacter.parts[selectedPartIndex].rotation = (appState.currentCharacter.parts[selectedPartIndex].rotation + 90.0).truncatingRemainder(dividingBy: 360.0)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("前後反転 (背中側)") {
+                        appState.toggleCharacterFacingDirection()
                     }
                     .buttonStyle(.bordered)
 

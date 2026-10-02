@@ -103,6 +103,7 @@ public final class StorageManager: ObservableObject {
         case .slideScenarioMaker: moduleDirName = "Slide&ScenarioMarker"
         case .gameMaker: moduleDirName = "GameMarker"
         case .materialStudio: moduleDirName = "MaterialStudio"
+        case .tohoAIStudio: moduleDirName = "TohoAIStudio"
         }
 
         let targetDir = "\(localBaseDirectory)/\(moduleDirName)"

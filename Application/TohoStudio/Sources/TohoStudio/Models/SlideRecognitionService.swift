@@ -77,6 +77,12 @@ public final class SlideRecognitionService: ObservableObject {
     public func getAvailableKeynoteProjects() -> [KeynoteProjectItem] {
         return [
             KeynoteProjectItem(
+                title: "交換夫婦（26話目）",
+                category: "交換夫婦",
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/交換夫婦/交換夫婦（26話目）.key",
+                description: "テスト対象ファイル。91スライド構成。スライドトランジション（カラーでフェード等）および演出・アニメーション完備"
+            ),
+            KeynoteProjectItem(
                 title: "交換夫婦（21.22話目）",
                 category: "交換夫婦",
                 filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/交換夫婦/交換夫婦（21.22話目）.key",
@@ -260,6 +266,9 @@ public final class SlideRecognitionService: ObservableObject {
                         let animDescs = slide.animations.map { "\($0.effect)(\($0.targetObjectName))" }.joined(separator: ", ")
                         self.appendLog(&logEntries, slide: sIdx, step: "アニメーション＆ビルド順", status: "SUCCESS", details: "ビルド順 \(slide.buildOrder.count)件, アニメ: \(animDescs)")
                     }
+                }
+                if slide.transitionEffect != "なし" && !slide.transitionEffect.isEmpty {
+                    self.appendLog(&logEntries, slide: sIdx, step: "トランジション検出", status: "SUCCESS", details: "効果:「\(slide.transitionEffect)」(時間: \(String(format: "%.1f", slide.transitionDuration))秒, 開始: \(slide.transitionTrigger), 遅延: \(String(format: "%.1f", slide.transitionDelay))秒)")
                 }
             }
 
@@ -783,14 +792,14 @@ public final class SlideRecognitionService: ObservableObject {
                         let char = d["characterName"] as? String ?? "ナレーション"
                         let objs = d["detectedObjects"] as? [String] ?? ["演出枠"]
                         let anim = d["animationTag"] as? String ?? "なし"
-                        let trans = d["transitionTag"] as? String ?? "クロスディゾルブ"
+                        let transEff = d["transitionEffect"] as? String ?? "なし"
+                        let trans = d["transitionTag"] as? String ?? (transEff != "なし" ? transEff : "なし")
 
                         let stype = d["slideType"] as? String ?? "content"
                         let dur = d["duration"] as? Double ?? 3.0
-                        let transEff = d["transitionEffect"] as? String ?? "クロスディゾルブ"
-                        let transTrig = d["transitionTrigger"] as? String ?? "automatically"
+                        let transTrig = d["transitionTrigger"] as? String ?? "クリック時"
                         let transDel = d["transitionDelay"] as? Double ?? 0.0
-                        let transDur = d["transitionDuration"] as? Double ?? 0.8
+                        let transDur = d["transitionDuration"] as? Double ?? 0.0
 
                         let sWidth = d["slideWidth"] as? Double ?? 1920.0
                         let sHeight = d["slideHeight"] as? Double ?? 1080.0
