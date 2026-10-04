@@ -10,12 +10,27 @@ public struct AIChatProgramView: View {
     @State private var inputText: String = ""
     @State private var showThinkingLogs: [UUID: Bool] = [:]
     @State private var showTransferNotification: String? = nil
+    @State private var selectedChatPersona: String = "東方Project総合アシスタント"
+
+    private let personaList = [
+        "東方Project総合アシスタント",
+        "博麗霊夢 (巫女・異変解決)",
+        "霧雨魔理沙 (魔法使い・弾幕火力)",
+        "十六夜咲夜 (完全で瀟洒な従者)",
+        "魂魄妖夢 (半人半霊の庭師)",
+        "レミリア (紅魔館の主)",
+        "フランドール (狂気と無邪気)",
+        "チルノ (氷の妖精・最強)",
+        "東風谷早苗 (奇跡を起こす巫女)",
+        "射命丸文 (文々。新聞記者)",
+        "西行寺幽々子 (冥界の主)"
+    ]
 
     public init() {}
 
     public var body: some View {
         VStack(spacing: 0) {
-            // 上部ツールバー（モデル選択・プロバイダー・プロンプト残数）
+            // 上部ツールバー（モデル選択・プロバイダー・ペルソナ・プロンプト残数）
             chatHeaderBar
 
             Divider()
@@ -57,20 +72,29 @@ public struct AIChatProgramView: View {
 
     // MARK: - Header Bar
     private var chatHeaderBar: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             // プロバイダー選択
-            Picker("AIエンジン", selection: $tohoAIService.activeProvider) {
+            Picker("エンジン", selection: $tohoAIService.activeProvider) {
                 ForEach(AIProviderType.allCases) { provider in
                     Label(provider.rawValue, systemImage: provider.iconName).tag(provider)
                 }
             }
             .pickerStyle(.menu)
-            .frame(width: 240)
+            .frame(width: 220)
 
             // モデル選択
             Picker("モデル", selection: $tohoAIService.selectedModel) {
                 ForEach(tohoAIService.activeProvider.availableModels, id: \.self) { model in
                     Text(model).tag(model)
+                }
+            }
+            .pickerStyle(.menu)
+            .frame(width: 200)
+
+            // キャラクターペルソナ選択
+            Picker("対話相手", selection: $selectedChatPersona) {
+                ForEach(personaList, id: \.self) { p in
+                    Text(p).tag(p)
                 }
             }
             .pickerStyle(.menu)
@@ -90,6 +114,12 @@ public struct AIChatProgramView: View {
             .padding(.vertical, 4)
             .background(Color.secondary.opacity(0.12))
             .cornerRadius(8)
+
+            // チャット履歴エクスポート
+            Button(action: exportChatHistory) {
+                Image(systemName: "square.and.arrow.up")
+            }
+            .help("チャット履歴をMarkdown形式で保存")
 
             // チャット履歴クリア
             Button(action: {
@@ -158,7 +188,7 @@ public struct AIChatProgramView: View {
             VStack(alignment: msg.role == "user" ? .trailing : .leading, spacing: 6) {
                 // 送信者情報 & タイムスタンプ
                 HStack(spacing: 6) {
-                    Text(msg.role == "user" ? "あなた" : (msg.role == "system" ? "システム" : msg.modelName))
+                    Text(msg.role == "user" ? "あなた" : (msg.role == "system" ? "システム" : "\(selectedChatPersona) (\(msg.modelName))"))
                         .font(.caption2)
                         .bold()
                         .foregroundColor(.secondary)
@@ -210,7 +240,7 @@ public struct AIChatProgramView: View {
 
                 // アクションボタン（AI応答のみ）
                 if msg.role == "assistant" {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 12) {
                         Button(action: {
                             NSPasteboard.general.clearContents()
                             NSPasteboard.general.setString(msg.content, forType: .string)
@@ -227,6 +257,15 @@ public struct AIChatProgramView: View {
                             Label("シナリオへ転送", systemImage: "arrow.right.doc.on.clipboard")
                                 .font(.caption2)
                                 .foregroundColor(.blue)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button(action: {
+                            transferToEditor(text: msg.content)
+                        }) {
+                            Label("推敲エディタへ転送", systemImage: "wand.and.stars")
+                                .font(.caption2)
+                                .foregroundColor(.purple)
                         }
                         .buttonStyle(.plain)
 
@@ -261,7 +300,9 @@ public struct AIChatProgramView: View {
 
                 presetChip(title: "博麗神社の台本作成", prompt: "博麗霊夢と霧雨魔理沙が神社の縁側でお茶を飲みながら新しい異変について話す台本を作ってください。")
                 presetChip(title: "紅魔館の掛け合い", prompt: "レミリアと咲夜の優雅で少しコミカルな会話シナリオを生成してください。")
-                presetChip(title: "東方BGM構成案", prompt: "緊迫感のある東方風ラストボス戦闘曲のBGM構成（イントロ、サビ、楽器構成）を提案してください。")
+                presetChip(title: "AI画像プロンプト相談", prompt: "紅魔館の時計塔と紅い満月を背景にした美しいアニメ風の画像生成プロンプトを作成してください。")
+                presetChip(title: "東方BGM構成案", prompt: "緊迫感のある東方風ラストボス戦闘曲のBGM構成（イントロ、ZUNペットサビ、ドラムビート）を提案してください。")
+                presetChip(title: "スペルカードSE演出", prompt: "マスタースパーク発動時の演出構成（効果音、画面振動、セリフテロップ）を設計してください。")
                 presetChip(title: "Blocklyイベント", prompt: "ゲームメーカー用のBlocklyタッチイベントとセリフ表示コードを出力してください。")
             }
             .padding(.horizontal, 16)
@@ -321,6 +362,12 @@ public struct AIChatProgramView: View {
         notifyUser("スライド＆シナリオメーカーへ転送しました")
     }
 
+    private func transferToEditor(text: String) {
+        tohoAIService.editorInputText = text
+        tohoAIService.activeProgramTab = .aiEditor
+        notifyUser("AI編集・推敲プログラムへ転送しました")
+    }
+
     private func transferToMaterialStudio(text: String) {
         let mat = MaterialItem(
             title: "AI生成シナリオ_\(Int(Date().timeIntervalSince1970))",
@@ -332,6 +379,22 @@ public struct AIChatProgramView: View {
         )
         appState.materials.append(mat)
         notifyUser("素材スタジオのデータベースに保存しました")
+    }
+
+    private func exportChatHistory() {
+        var md = "# TohoAIStudio チャット履歴\n\n"
+        for msg in tohoAIService.chatMessages {
+            let roleName = msg.role == "user" ? "ユーザー" : (msg.role == "system" ? "システム" : "AI (\(msg.modelName))")
+            md += "### [\(roleName)] - \(DateFormatter.localizedString(from: msg.timestamp, dateStyle: .short, timeStyle: .medium))\n\n"
+            if let think = msg.thinkingContent {
+                md += "> 思考ログ:\n> " + think.replacingOccurrences(of: "\n", with: "\n> ") + "\n\n"
+            }
+            md += "\(msg.content)\n\n---\n\n"
+        }
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(md, forType: .string)
+        notifyUser("Markdown形式でチャット履歴をコピーしました")
     }
 
     private func notifyUser(_ msg: String) {

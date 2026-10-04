@@ -84,6 +84,10 @@ public struct TohoAIStudioView: View {
                 AIChatProgramView()
             case .aiEditor:
                 AIEditorProgramView()
+            case .aiImageGenerator:
+                AIImageGeneratorProgramView()
+            case .aiSoundGenerator:
+                AISoundGeneratorProgramView()
             case .usageBilling:
                 UsageBillingProgramView()
             case .externalAPI:

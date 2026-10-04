@@ -1,9 +1,10 @@
 import SwiftUI
 import AppKit
 
-/// 仕様書「LLMを用いたAI編集機能」「外部APIを用いたAI編集機能(Gemini, ChatGPT, Claude)」プログラム
+/// 仕様書「LLMを用いたAI編集機能」「推敲・セリフ演出」「外部APIを用いたAI編集機能」プログラム
 public struct AIEditorProgramView: View {
     @ObservedObject var tohoAIService = TohoAIService.shared
+    @ObservedObject var cloudLinuxService = CloudVirtualLinuxService.shared
     @ObservedObject var appState = AppState.shared
     @State private var showApplySuccessAlert: Bool = false
     @State private var applySuccessMessage: String = ""
@@ -17,7 +18,13 @@ public struct AIEditorProgramView: View {
 
             Divider()
 
-            // メイン編集領域（2カラム: 左 入力・設定 / 右 AI編集結果・Diff）
+            // 推敲統計バー (推敲・校正モード時)
+            if tohoAIService.selectedEditMode == .proofreadPolish && !tohoAIService.editorOutputText.isEmpty {
+                proofreadStatsBar
+                Divider()
+            }
+
+            // メイン編集領域（2カラム: 左 入力・設定 / 右 AI編集・推敲結果）
             HStack(spacing: 0) {
                 // 左カラム: 入力元テキスト
                 leftInputPanel
@@ -38,7 +45,7 @@ public struct AIEditorProgramView: View {
         .background(Color(NSColor.windowBackgroundColor))
         .alert(isPresented: $showApplySuccessAlert) {
             Alert(
-                title: Text("AI編集データの反映完了"),
+                title: Text("AI編集・推敲データの反映完了"),
                 message: Text(applySuccessMessage),
                 dismissButton: .default(Text("OK"))
             )
@@ -55,28 +62,33 @@ public struct AIEditorProgramView: View {
                 }
             }
             .pickerStyle(.menu)
-            .frame(width: 260)
+            .frame(width: 320)
 
-            // 口調選択（セリフ推敲または立ち絵時）
-            if tohoAIService.selectedEditMode == .scenarioRewrite || tohoAIService.selectedEditMode == .characterPrompt {
+            // 口調選択（推敲・セリフ変換・立ち絵プロンプト時）
+            if tohoAIService.selectedEditMode == .proofreadPolish ||
+               tohoAIService.selectedEditMode == .scenarioRewrite ||
+               tohoAIService.selectedEditMode == .characterPrompt {
                 Picker("キャラ調", selection: $tohoAIService.selectedTone) {
                     ForEach(CharacterTonePreset.allCases) { tone in
                         Text(tone.rawValue).tag(tone)
                     }
                 }
                 .pickerStyle(.menu)
-                .frame(width: 220)
+                .frame(width: 250)
             }
 
             Spacer()
 
-            // AI実行エンジン表示
+            // AI実行エンジン & プロンプト残数
             HStack(spacing: 6) {
                 Image(systemName: tohoAIService.activeProvider.iconName)
                     .foregroundColor(.blue)
                 Text(tohoAIService.selectedModel)
                     .font(.caption)
                     .bold()
+                Text("• 残: \(cloudLinuxService.remainingPrompts)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
@@ -86,6 +98,49 @@ public struct AIEditorProgramView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(Color(NSColor.controlBackgroundColor))
+    }
+
+    // MARK: - Proofread Stats Bar
+    private var proofreadStatsBar: some View {
+        HStack(spacing: 20) {
+            HStack(spacing: 6) {
+                Image(systemName: "character.cursor.ibeam")
+                    .foregroundColor(.blue)
+                Text("文字数: \(tohoAIService.proofreadOriginalCount)文字 → \(tohoAIService.proofreadPolishedCount)文字")
+                    .font(.caption)
+                    .bold()
+            }
+
+            let diff = tohoAIService.proofreadPolishedCount - tohoAIService.proofreadOriginalCount
+            HStack(spacing: 4) {
+                Text(diff >= 0 ? "(\(diff > 0 ? "+" : "")\(diff)文字)" : "(\(diff)文字)")
+                    .font(.caption2)
+                    .foregroundColor(diff == 0 ? .secondary : (diff > 0 ? .green : .orange))
+            }
+
+            HStack(spacing: 6) {
+                Image(systemName: "clock")
+                    .foregroundColor(.purple)
+                Text("推定読み上げ時間: 約\(String(format: "%.1f", tohoAIService.proofreadEstimatedDurationSec))秒 (ゆっくりボイス基準)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            Button(action: {
+                tohoAIService.editorInputText = tohoAIService.editorOutputText
+                applySuccessMessage = "推敲後のテキストを入力元へ反映しました。"
+                showApplySuccessAlert = true
+            }) {
+                Label("推敲結果を採用 (入力元へ反映)", systemImage: "arrow.uturn.backward.circle.fill")
+                    .font(.caption)
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color.blue.opacity(0.08))
     }
 
     // MARK: - Left Panel (Input)
@@ -119,7 +174,7 @@ public struct AIEditorProgramView: View {
     private var rightOutputPanel: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("AI編集・生成結果 (Diff / プレビュー)")
+                Text("AI編集・推敲結果 (Diff / プレビュー)")
                     .font(.headline)
                 Spacer()
 
@@ -141,7 +196,7 @@ public struct AIEditorProgramView: View {
                 VStack(spacing: 12) {
                     Spacer()
                     ProgressView()
-                    Text("LLMが東方世界観と口調に合わせてリライト中...")
+                    Text("LLMが東方世界観・キャラ口調・音声合成向けに推敲＆リライト中...")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     Spacer()
@@ -153,7 +208,7 @@ public struct AIEditorProgramView: View {
                     Image(systemName: "wand.and.stars")
                         .font(.system(size: 40))
                         .foregroundColor(.secondary)
-                    Text("下部の「AI編集を実行」をクリックすると、\n高度な推敲・シーン分解・コード変換が行われます。")
+                    Text("下部の「AI編集・推敲を実行」をクリックすると、\n高度な文章校正・口調統一・シーン分解・コード変換が行われます。")
                         .font(.caption)
                         .multilineTextAlignment(.center)
                         .foregroundColor(.secondary)
@@ -174,7 +229,45 @@ public struct AIEditorProgramView: View {
                                 .cornerRadius(6)
                         }
 
-                        // 生成テキスト
+                        // 絵コンテシーン一覧カード表示 (シーン構成モード時)
+                        if tohoAIService.selectedEditMode == .sceneStoryboard && !tohoAIService.generatedScenesBuffer.isEmpty {
+                            VStack(spacing: 8) {
+                                ForEach(Array(tohoAIService.generatedScenesBuffer.enumerated()), id: \.element.id) { idx, sc in
+                                    HStack(spacing: 12) {
+                                        Text("#\(idx + 1)")
+                                            .font(.caption)
+                                            .bold()
+                                            .foregroundColor(.blue)
+                                            .frame(width: 24)
+
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            HStack {
+                                                Text(sc.title)
+                                                    .font(.caption)
+                                                    .bold()
+                                                Spacer()
+                                                Text("\(Int(sc.duration))秒")
+                                                    .font(.caption2)
+                                                    .foregroundColor(.secondary)
+                                            }
+                                            Text("キャラ: \(sc.characterName) | 背景: \(sc.backgroundName)")
+                                                .font(.system(size: 10))
+                                                .foregroundColor(.secondary)
+                                            Text(sc.telop)
+                                                .font(.caption)
+                                                .foregroundColor(.primary)
+                                        }
+                                    }
+                                    .padding(8)
+                                    .background(Color(NSColor.textBackgroundColor))
+                                    .cornerRadius(6)
+                                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.15), lineWidth: 1))
+                                }
+                            }
+                            .padding(.bottom, 6)
+                        }
+
+                        // 生成テキスト本文
                         Text(tohoAIService.editorOutputText)
                             .font(.system(.body, design: .monospaced))
                             .textSelection(.enabled)
@@ -202,7 +295,7 @@ public struct AIEditorProgramView: View {
                     } else {
                         Image(systemName: "wand.and.stars")
                     }
-                    Text("AI編集を実行 (1プロンプト消費)")
+                    Text("AI編集・推敲を実行 (1プロンプト消費)")
                         .bold()
                 }
                 .padding(.horizontal, 8)
@@ -216,15 +309,22 @@ public struct AIEditorProgramView: View {
             // 他ソフトへのワンクリック反映ボタン群
             if !tohoAIService.editorOutputText.isEmpty {
                 switch tohoAIService.selectedEditMode {
-                case .scenarioRewrite:
-                    Button(action: applyToSlideScenario) {
-                        Label("スライド＆シナリオに反映", systemImage: "doc.richtext")
+                case .proofreadPolish, .scenarioRewrite:
+                    HStack(spacing: 10) {
+                        Button(action: applyToSlideScenario) {
+                            Label("スライド＆シナリオに反映", systemImage: "doc.richtext")
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button(action: applyToSoundMakerVoice) {
+                            Label("サウンドメーカーで音声生成", systemImage: "waveform")
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
-                    .buttonStyle(.bordered)
 
                 case .sceneStoryboard:
                     Button(action: applyToMovieMakerTimeline) {
-                        Label("ムービーメーカーのタイムラインへ追加 (\(tohoAIService.generatedScenesBuffer.count)シーン)", systemImage: "film")
+                        Label("ムービーメーカーのタイムラインへ一括追加 (\(tohoAIService.generatedScenesBuffer.count)シーン)", systemImage: "film")
                             .foregroundColor(.blue)
                     }
                     .buttonStyle(.borderedProminent)
@@ -251,17 +351,25 @@ public struct AIEditorProgramView: View {
     // MARK: - Actions
     private func insertSampleInput() {
         switch tohoAIService.selectedEditMode {
-        case .scenarioRewrite:
+        case .proofreadPolish:
             tohoAIService.editorInputText = """
             霊夢「今日のご飯は何かしら？」
             魔理沙「魔法の森でキノコをたくさん採ってきたぜ！」
             霊夢「ちょっと、怪しいキノコを部屋に持ち込まないでよ」
+            魔理沙「大丈夫だ、妖精にあげたら元気になったぜ」
+            """
+        case .scenarioRewrite:
+            tohoAIService.editorInputText = """
+            今日はずいぶん空が赤く染まっていますね。
+            何か大変な事件が起きている予感がします。
+            すぐに現場に向かいましょう。
             """
         case .sceneStoryboard:
             tohoAIService.editorInputText = """
             プロット：
             幻想郷の空が紅く染まり、博麗神社にいた霊夢と魔理沙が不穏な空気を感じる。
             二人は異変の元凶を突き止めるため、紅魔館へと調査に向かう。
+            道中でチルノが立ち塞がり、氷の弾幕で勝負を仕掛けてくる。
             """
         case .characterPrompt:
             tohoAIService.editorInputText = """
@@ -287,6 +395,12 @@ public struct AIEditorProgramView: View {
     private func applyToSlideScenario() {
         appState.addHistory("AIStudioからスライド＆シナリオへ台本反映")
         applySuccessMessage = "スライド＆シナリオメーカーへ台本テキストが反映されました。"
+        showApplySuccessAlert = true
+    }
+
+    private func applyToSoundMakerVoice() {
+        appState.addHistory("AIStudioからサウンドメーカーへ推敲台本を転送")
+        applySuccessMessage = "サウンドメーカーのボイストラックへ推敲テキストが連携されました。\nAquesTalkによるゆっくり音声合成を実行可能です。"
         showApplySuccessAlert = true
     }
 

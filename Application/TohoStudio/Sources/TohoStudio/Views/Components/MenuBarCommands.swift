@@ -146,6 +146,22 @@ public struct MenuBarCommands: Commands {
                 }
             }
 
+            Button("AI画像生成 (東方名所・キャラクター)") {
+                withAnimation {
+                    appState.currentModule = .tohoAIStudio
+                    appState.isShowingAppTop = false
+                    TohoAIService.shared.activeProgramTab = .aiImageGenerator
+                }
+            }
+
+            Button("AI音楽・SE生成 (ZUNペットBGM/弾幕効果音)") {
+                withAnimation {
+                    appState.currentModule = .tohoAIStudio
+                    appState.isShowingAppTop = false
+                    TohoAIService.shared.activeProgramTab = .aiSoundGenerator
+                }
+            }
+
             Button("使用量・請求確認") {
                 withAnimation {
                     appState.currentModule = .tohoAIStudio
