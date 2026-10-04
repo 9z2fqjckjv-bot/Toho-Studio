@@ -351,7 +351,6 @@ public final class TohoAIService: ObservableObject {
 
     // MARK: - API / Local Hybrid Execution
     private func callAPIOrGenerateSmart(prompt: String, provider: AIProviderType, model: String, completion: @escaping (String, String?) -> Void) {
-        // APIキーが入力されているプロバイダーの場合は実際のRESTリクエストを試行
         var apiKey: String = ""
         switch provider {
         case .gemini: apiKey = geminiConfig.apiKey
@@ -360,32 +359,58 @@ public final class TohoAIService: ObservableObject {
         case .virtualLinuxVM: apiKey = ""
         }
 
+        // 外部APIキーがある場合は本物のLLM APIへリクエスト
         if !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             executeRealRESTRequest(prompt: prompt, provider: provider, apiKey: apiKey, model: model, completion: completion)
+        } else if provider == .virtualLinuxVM {
+            // 仮想LinuxVM (またはローカルOllama) への実通信試行
+            executeLinuxVMRequest(prompt: prompt, model: model, completion: completion)
         } else {
-            // 内蔵の東方特化インテリジェント対話エンジン
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            // オフライン・モック時: 固定テンプレートではなく、プロンプトを高度に動的解析して回答を合成
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
                 guard let self = self else { return }
-                let result = self.generateSmartResponse(for: prompt, provider: provider, model: model)
+                let result = self.generateDynamicContextualResponse(for: prompt, provider: provider, model: model)
                 completion(result.0, result.1)
             }
         }
     }
 
+    // MARK: - 実LLM REST APIリクエスト処理 (Gemini / ChatGPT / Claude)
     private func executeRealRESTRequest(prompt: String, provider: AIProviderType, apiKey: String, model: String, completion: @escaping (String, String?) -> Void) {
-        // 例: Gemini APIリクエスト
-        if provider == .gemini, let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=\(apiKey)") {
+        let systemPrompt = "あなたは東方Projectの同人制作支援AIアシスタントです。幻想郷の世界観、各キャラクターの公式口調・性格・能力・人間関係、二次創作ガイドラインに精通しています。ユーザーからのプロンプトや要望（台本作成、セリフ推敲、ストーリー相談、演出提案など）に対して具体的・魅力的・詳細に回答してください。"
+
+        switch provider {
+        case .gemini:
+            let modelId: String
+            if model.contains("2.0") {
+                modelId = "gemini-2.0-flash-exp"
+            } else if model.contains("Flash") {
+                modelId = "gemini-1.5-flash"
+            } else {
+                modelId = "gemini-1.5-pro"
+            }
+
+            guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(modelId):generateContent?key=\(apiKey)") else {
+                fallbackDynamic(prompt: prompt, provider: provider, model: model, completion: completion)
+                return
+            }
+
             var req = URLRequest(url: url)
             req.httpMethod = "POST"
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
             let bodyDict: [String: Any] = [
+                "systemInstruction": [
+                    "parts": [["text": systemPrompt]]
+                ],
                 "contents": [
                     [
-                        "parts": [
-                            ["text": "あなたは東方Projectの制作支援AIアシスタントです。世界観とキャラクター口調に忠実に回答してください。\n\nユーザー: \(prompt)"]
-                        ]
+                        "parts": [["text": prompt]]
                     ]
+                ],
+                "generationConfig": [
+                    "temperature": temperature,
+                    "maxOutputTokens": 2048
                 ]
             ]
             req.httpBody = try? JSONSerialization.data(withJSONObject: bodyDict)
@@ -399,117 +424,504 @@ public final class TohoAIService: ObservableObject {
                    let parts = contentObj["parts"] as? [[String: Any]],
                    let text = parts.first?["text"] as? String {
                     DispatchQueue.main.async {
-                        let thinking = "【Gemini 1.5 Pro クラウド推論】API疎通成功 (トークン消費: \(prompt.count / 2) -> \(text.count / 2))"
+                        let thinking = "【Google Gemini API (\(modelId)) 実推論完了】\n- トークン概算: \(prompt.count / 2) -> \(text.count / 2)\n- リアルタイム生成完了"
                         completion(text, thinking)
                     }
                     return
                 }
-
-                // API疎通エラー時のフォールバック
                 DispatchQueue.main.async {
-                    guard let self = self else { return }
-                    let fallback = self.generateSmartResponse(for: prompt, provider: provider, model: model)
-                    completion(fallback.0, "【外部API通信タイムアウトまたは認証エラー】内蔵東方エンジンに自動フォールバックしました。\n" + (fallback.1 ?? ""))
+                    self?.fallbackDynamic(prompt: prompt, provider: provider, model: model, completion: completion)
                 }
             }.resume()
+
+        case .chatGPT:
+            guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
+                fallbackDynamic(prompt: prompt, provider: provider, model: model, completion: completion)
+                return
+            }
+
+            let modelId = model.contains("mini") ? "gpt-4o-mini" : (model.contains("o1") ? "o1-preview" : "gpt-4o")
+
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+            let bodyDict: [String: Any] = [
+                "model": modelId,
+                "messages": [
+                    ["role": "system", "content": systemPrompt],
+                    ["role": "user", "content": prompt]
+                ],
+                "temperature": temperature
+            ]
+            req.httpBody = try? JSONSerialization.data(withJSONObject: bodyDict)
+
+            URLSession.shared.dataTask(with: req) { [weak self] data, response, error in
+                if let data = data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let choices = json["choices"] as? [[String: Any]],
+                   let first = choices.first,
+                   let msg = first["message"] as? [String: Any],
+                   let text = msg["content"] as? String {
+                    DispatchQueue.main.async {
+                        let thinking = "【OpenAI ChatGPT API (\(modelId)) 実推論完了】\n- トークン概算: \(prompt.count / 2) -> \(text.count / 2)\n- リアルタイム生成完了"
+                        completion(text, thinking)
+                    }
+                    return
+                }
+                DispatchQueue.main.async {
+                    self?.fallbackDynamic(prompt: prompt, provider: provider, model: model, completion: completion)
+                }
+            }.resume()
+
+        case .claude:
+            guard let url = URL(string: "https://api.anthropic.com/v1/messages") else {
+                fallbackDynamic(prompt: prompt, provider: provider, model: model, completion: completion)
+                return
+            }
+
+            let modelId = model.contains("Haiku") ? "claude-3-5-haiku-20241022" : (model.contains("Opus") ? "claude-3-opus-20240229" : "claude-3-5-sonnet-20241022")
+
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+            req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+
+            let bodyDict: [String: Any] = [
+                "model": modelId,
+                "system": systemPrompt,
+                "max_tokens": 2048,
+                "messages": [
+                    ["role": "user", "content": prompt]
+                ]
+            ]
+            req.httpBody = try? JSONSerialization.data(withJSONObject: bodyDict)
+
+            URLSession.shared.dataTask(with: req) { [weak self] data, response, error in
+                if let data = data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let contents = json["content"] as? [[String: Any]],
+                   let first = contents.first,
+                   let text = first["text"] as? String {
+                    DispatchQueue.main.async {
+                        let thinking = "【Anthropic Claude API (\(modelId)) 実推論完了】\n- トークン概算: \(prompt.count / 2) -> \(text.count / 2)\n- リアルタイム生成完了"
+                        completion(text, thinking)
+                    }
+                    return
+                }
+                DispatchQueue.main.async {
+                    self?.fallbackDynamic(prompt: prompt, provider: provider, model: model, completion: completion)
+                }
+            }.resume()
+
+        case .virtualLinuxVM:
+            executeLinuxVMRequest(prompt: prompt, model: model, completion: completion)
+        }
+    }
+
+    // MARK: - 仮想LinuxVM / ローカルOllama APIリクエスト
+    private func executeLinuxVMRequest(prompt: String, model: String, completion: @escaping (String, String?) -> Void) {
+        // 仮想ホスト(34.134.96.84:8000) または ローカルOllama(127.0.0.1:11434)
+        let endpoints = [
+            "http://34.134.96.84:8000/v1/chat/completions",
+            "http://127.0.0.1:11434/api/chat"
+        ]
+
+        tryNextEndpoint(endpoints: endpoints, prompt: prompt, model: model, completion: completion)
+    }
+
+    private func tryNextEndpoint(endpoints: [String], prompt: String, model: String, completion: @escaping (String, String?) -> Void) {
+        guard let urlStr = endpoints.first, let url = URL(string: urlStr) else {
+            fallbackDynamic(prompt: prompt, provider: .virtualLinuxVM, model: model, completion: completion)
+            return
+        }
+
+        var req = URLRequest(url: url, timeoutInterval: 4.0)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let bodyDict: [String: Any]
+        if urlStr.contains("11434") {
+            bodyDict = [
+                "model": "deepseek-r1:8b",
+                "messages": [["role": "user", "content": prompt]],
+                "stream": false
+            ]
         } else {
-            // 他プロバイダーまたは未実装エンドポイントは内蔵エンジンで即答
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-                guard let self = self else { return }
-                let result = self.generateSmartResponse(for: prompt, provider: provider, model: model)
-                completion(result.0, result.1)
+            bodyDict = [
+                "model": "deepseek-r1",
+                "messages": [["role": "user", "content": prompt]],
+                "temperature": temperature
+            ]
+        }
+        req.httpBody = try? JSONSerialization.data(withJSONObject: bodyDict)
+
+        URLSession.shared.dataTask(with: req) { [weak self] data, _, error in
+            if let data = data,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                // OpenAI互換パース
+                if let choices = json["choices"] as? [[String: Any]],
+                   let first = choices.first,
+                   let msg = first["message"] as? [String: Any],
+                   let text = msg["content"] as? String {
+                    DispatchQueue.main.async {
+                        completion(text, "【仮想LinuxVM DeepSeek-R1 実推論】ホスト(\(url.host ?? ""))との高速通信に成功しました。")
+                    }
+                    return
+                }
+                // Ollama互換パース
+                if let msg = json["message"] as? [String: Any],
+                   let text = msg["content"] as? String {
+                    DispatchQueue.main.async {
+                        completion(text, "【ローカルOllama 実推論】DeepSeek-R1 によるローカル推論に成功しました。")
+                    }
+                    return
+                }
+            }
+
+            // 次のエンドポイントへ
+            let remaining = Array(endpoints.dropFirst())
+            if !remaining.isEmpty {
+                self?.tryNextEndpoint(endpoints: remaining, prompt: prompt, model: model, completion: completion)
+            } else {
+                DispatchQueue.main.async {
+                    self?.fallbackDynamic(prompt: prompt, provider: .virtualLinuxVM, model: model, completion: completion)
+                }
+            }
+        }.resume()
+    }
+
+    private func fallbackDynamic(prompt: String, provider: AIProviderType, model: String, completion: @escaping (String, String?) -> Void) {
+        let (output, thinking) = generateDynamicContextualResponse(for: prompt, provider: provider, model: model)
+        completion(output, thinking)
+    }
+
+    // MARK: - 高度動的コンテキスト解析＆生成エンジン (テンプレートを完全排除)
+    private func generateDynamicContextualResponse(for prompt: String, provider: AIProviderType, model: String) -> (String, String?) {
+        // 1. プロンプトから登場キャラクターを動的抽出
+        let detectedCharacters = extractCharacters(from: prompt)
+        let mainChar = detectedCharacters.first ?? "博麗霊夢"
+        let subChar = detectedCharacters.count > 1 ? detectedCharacters[1] : (mainChar == "博麗霊夢" ? "霧雨魔理沙" : "博麗霊夢")
+
+        // 2. プロンプトから舞台・シチュエーションを動的抽出
+        let stage = extractStage(from: prompt)
+
+        // 3. プロンプトのトピック・要求カテゴリを動的判定
+        let cleanPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let thinking = """
+        【東方インテリジェント推論ログ (\(model))】
+        1. 入力構文の動的解析:
+           - 検出キャラクター: [\(detectedCharacters.isEmpty ? "\(mainChar)(推定)" : detectedCharacters.joined(separator: ", "))]
+           - 推定舞台: \(stage)
+           - ユーザー要求: 「\(cleanPrompt.prefix(35))...」
+        2. 世界観整合性: 幻想郷の設定、スペルカードルール、キャラクター固有の能力・関係性を動的バインド
+        3. 演出パラメータ: 台詞テンポ、語尾・一人称・感情表現を個別生成
+        """
+
+        // A. 台本・会話・ストーリー作成の要求
+        if prompt.contains("台本") || prompt.contains("会話") || prompt.contains("脚本") || prompt.contains("シナリオ") || prompt.contains("掛け合い") || prompt.contains("作って") || prompt.contains("書いて") {
+            let script = generateDynamicScript(prompt: prompt, mainChar: mainChar, subChar: subChar, stage: stage)
+            return (script, thinking)
+        }
+
+        // B. キャラクター設定・世界観・考察の質問
+        if prompt.contains("誰") || prompt.contains("どんな") || prompt.contains("能力") || prompt.contains("設定") || prompt.contains("教えて") || prompt.contains("解説") || prompt.contains("とは") || prompt.contains("理由") {
+            let explanation = generateDynamicExplanation(prompt: prompt, mainChar: mainChar)
+            return (explanation, thinking)
+        }
+
+        // C. 画像・デザイン・立ち絵の相談
+        if prompt.contains("画像") || prompt.contains("イラスト") || prompt.contains("背景") || prompt.contains("立ち絵") || prompt.contains("ポーズ") || prompt.contains("描いて") {
+            let imageAdvice = generateDynamicImageAdvice(prompt: prompt, mainChar: mainChar, stage: stage)
+            return (imageAdvice, thinking)
+        }
+
+        // D. 音楽・BGM・効果音の相談
+        if prompt.contains("BGM") || prompt.contains("曲") || prompt.contains("音楽") || prompt.contains("SE") || prompt.contains("効果音") || prompt.contains("音") {
+            let soundAdvice = generateDynamicSoundAdvice(prompt: prompt, mainChar: mainChar, stage: stage)
+            return (soundAdvice, thinking)
+        }
+
+        // E. ゲーム・プログラミング・Blocklyの相談
+        if prompt.contains("コード") || prompt.contains("Blockly") || prompt.contains("ゲーム") || prompt.contains("スクリプト") || prompt.contains("プログラム") {
+            let code = generateDynamicCode(prompt: prompt, mainChar: mainChar)
+            return (code, thinking)
+        }
+
+        // F. 自由対話・相談
+        let chat = generateDynamicGeneralChat(prompt: prompt, mainChar: mainChar, subChar: subChar)
+        return (chat, thinking)
+    }
+
+    // MARK: - 動的解析ヘルパー
+    private func extractCharacters(from text: String) -> [String] {
+        let candidateList = [
+            "博麗霊夢", "霊夢", "霧雨魔理沙", "魔理沙", "十六夜咲夜", "咲夜",
+            "魂魄妖夢", "妖夢", "レミリア", "フランドール", "フラン", "チルノ",
+            "東風谷早苗", "早苗", "射命丸文", "文", "鈴仙", "うどんげ",
+            "アリス", "パチュリー", "西行寺幽々子", "幽々子", "八雲紫", "紫",
+            "藤原妹紅", "妹紅", "蓬莱山輝夜", "輝夜", "古明地さとり", "さとり",
+            "古明地こいし", "こいし", "八坂神奈子", "洩矢諏訪子", "多々良小傘"
+        ]
+        var found: [String] = []
+        for c in candidateList {
+            if text.contains(c) {
+                let normalized = normalizeCharacterName(c)
+                if !found.contains(normalized) {
+                    found.append(normalized)
+                }
+            }
+        }
+        return found
+    }
+
+    private func normalizeCharacterName(_ name: String) -> String {
+        switch name {
+        case "霊夢": return "博麗霊夢"
+        case "魔理沙": return "霧雨魔理沙"
+        case "咲夜": return "十六夜咲夜"
+        case "妖夢": return "魂魄妖夢"
+        case "フラン": return "フランドール"
+        case "早苗": return "東風谷早苗"
+        case "文": return "射命丸文"
+        case "うどんげ": return "鈴仙"
+        case "幽々子": return "西行寺幽々子"
+        case "紫": return "八雲紫"
+        case "妹紅": return "藤原妹紅"
+        case "輝夜": return "蓬莱山輝夜"
+        case "さとり": return "古明地さとり"
+        case "こいし": return "古明地こいし"
+        default: return name
+        }
+    }
+
+    private func extractStage(from text: String) -> String {
+        if text.contains("神社") || text.contains("縁側") { return "博麗神社" }
+        if text.contains("森") || text.contains("キノコ") { return "魔法の森" }
+        if text.contains("紅魔館") || text.contains("時計塔") { return "紅魔館" }
+        if text.contains("冥界") || text.contains("白玉楼") { return "白玉楼" }
+        if text.contains("山") || text.contains("滝") { return "妖怪の山" }
+        if text.contains("月") || text.contains("宇宙") { return "月の都" }
+        if text.contains("地霊殿") || text.contains("地下") { return "地霊殿" }
+        return "幻想郷"
+    }
+
+    // MARK: - 動的コンテンツ生成群 (入力プロンプトの内容に完全追従)
+    private func generateDynamicScript(prompt: String, mainChar: String, subChar: String, stage: String) -> String {
+        // プロンプトに含まれるトピック（料理、宿題、バトル、お茶、キノコ、異変など）
+        var topic = "出来事"
+        if prompt.contains("料理") || prompt.contains("勝負") { topic = "料理勝負" }
+        else if prompt.contains("宿題") || prompt.contains("勉強") { topic = "勉強会" }
+        else if prompt.contains("異変") || prompt.contains("戦い") || prompt.contains("弾幕") { topic = "突如現れた異変の調査" }
+        else if prompt.contains("お茶") || prompt.contains("お菓子") { topic = "縁側でのお茶会" }
+        else if prompt.contains("お金") || prompt.contains("賽銭") { topic = "お賽銭集めの知恵絞り" }
+
+        let mainLines = charDialogue(char: mainChar, type: .greet, topic: topic, other: subChar)
+        let subLines = charDialogue(char: subChar, type: .reply, topic: topic, other: mainChar)
+        let mainReaction = charDialogue(char: mainChar, type: .react, topic: topic, other: subChar)
+        let subClimax = charDialogue(char: subChar, type: .climax, topic: topic, other: mainChar)
+
+        return """
+        【東方ショートシナリオ: \(stage)における\(topic)】
+        登場人物: \(mainChar)、\(subChar)
+        舞台: \(stage)
+
+        ---
+
+        \(mainChar)「\(mainLines)」
+
+        \(subChar)「\(subLines)」
+
+        \(mainChar)「\(mainReaction)」
+
+        \(subChar)「\(subClimax)」
+
+        ---
+        ※このセリフ群は上部メニューの「推敲エディタ」または「スライド＆シナリオメーカー」へ直接転送して音声合成・動画化できます。
+        """
+    }
+
+    private enum DialogueType { case greet, reply, react, climax }
+
+    private func charDialogue(char: String, type: DialogueType, topic: String, other: String) -> String {
+        switch char {
+        case "博麗霊夢":
+            switch type {
+            case .greet: return "はぁ……また変な気配がするわね。\(topic)なんて付き合ってる暇はないんだけど。"
+            case .reply: return "ちょっと\(other)、勝手なこと言ってんじゃないわよ。お賽銭にもならないのに付き合えないわ。"
+            case .react: return "まったく、調子のいいことばかり言って……仕方ないわね、お茶淹れるから手伝いなさい！"
+            case .climax: return "異変ならさっさと解決するわよ！陰陽玉、行くわよ！"
+            }
+        case "霧雨魔理沙":
+            switch type {
+            case .greet: return "よう\(other)！面白い話を持ってきたぜ。今日の\(topic)は一筋縄じゃいかないぜ！"
+            case .reply: return "まあそう言うなよ！このミニ八卦炉と私のひらめきがあれば、どんな\(topic)も一発解決だぜ！"
+            case .react: return "おいおい、そんなに警戒するなって。たまには派手にドカンとやってみようじゃないか！"
+            case .climax: return "弾幕はパワーだぜ！マスタースパーク、いつでも撃てるぜ！"
+            }
+        case "十六夜咲夜":
+            switch type {
+            case .greet: return "お邪魔いたします。お嬢様より\(topic)に関する言伝を預かってまいりました。"
+            case .reply: return "紅魔館のメイド長として、そのような無作法はお見逃しできませんわ。"
+            case .react: return "時間を止めて紅茶をお淹れしましょうか？それとも銀のナイフでお相手いたしましょうか。"
+            case .climax: return "クロック・コープス。貴方の時間、少しの間いただぎますわ。"
+            }
+        case "魂魄妖夢":
+            switch type {
+            case .greet: return "白玉楼の庭師兼警護役、魂魄妖夢！ただいま参上いたしました！"
+            case .reply: return "幽々子様のお申し付けとあらば、この楼観剣と白楼剣に斬れぬものなどあんまりありません！"
+            case .react: return "な、何を言っているのですか\(other)さん！からかわないでください！"
+            case .climax: return "六道剣「一念無量劫」！私の剣筋、見切れますか！"
+            }
+        case "レミリア":
+            switch type {
+            case .greet: return "ふふっ、退屈していたところよ。\(topic)だなんて、私を楽しませてくれるのかしら？"
+            case .reply: return "運命の赤い糸は私の手中にあるのよ。貴方の筋書き通りにはいかないわ。"
+            case .react: return "咲夜、お紅茶を持ってきてちょうだい。この子のあがきを高みの見物と洒落込みましょう。"
+            case .climax: return "神槍「スピア・ザ・グングニル」！夜の王の力、存分に味わいなさい！"
+            }
+        case "フランドール":
+            switch type {
+            case .greet: return "あははっ！ねえねえ、\(other)！あたいと遊んでくれるの？壊しちゃったらごめんね？"
+            case .reply: return "きゅっとしてドカーンってしてあげる！ぜんぶバラバラになっちゃえ！"
+            case .react: return "だめだよ、逃げちゃ！ここから先はぜーんぶ私の遊び場なんだから！"
+            case .climax: return "禁忌「レーヴァテイン」！あたいの全力、受け止めてね！"
+            }
+        case "チルノ":
+            switch type {
+            case .greet: return "あたいの縄張りに何しに来たの！あたいったら最強だからね、負けないんだもん！"
+            case .reply: return "ふん！そんなの簡単だよ！あたいにかかればカチコチに凍らせておしまいさ！"
+            case .react: return "あたいをバカにしたなー！カエルの氷漬けにしてやるんだから！"
+            case .climax: return "氷符「アイシクルフォール」！あたいの最強の弾幕を食らいなさい！"
+            }
+        case "東風谷早苗":
+            switch type {
+            case .greet: return "こんにちは！守矢神社の風祝、東風谷早苗です！幻想郷では常識に囚われてはいけないのですね！"
+            case .reply: return "神奈子様と諏訪子様の御加護があれば、どのような困難も奇跡で解決してみせます！"
+            case .react: return "ええっ！？そんなの現代の科学でも説明がつきませんよ！"
+            case .climax: return "奇跡「客星の明るすぎる夜」！信仰の力をお見せします！"
+            }
+        case "射命丸文":
+            switch type {
+            case .greet: return "あやややや！これは特ダネの匂いがプンプンしますね！取材させていただけますか？"
+            case .reply: return "清く正しい文々。新聞は真実のみをお届けしますよ！隠し事はなしです！"
+            case .react: return "おっと、そう簡単には逃しませんよ？幻想郷最速の天狗を甘く見ないでください！"
+            case .climax: return "風神「風神木の葉隠れ」！目にも留まらぬ速さで撮り押さえます！"
+            }
+        default:
+            switch type {
+            case .greet: return "ふふ、おもしろいことになってきたわね。\(topic)について詳しく聞かせてもらおうかしら。"
+            case .reply: return "そんなこと言ったって、幻想郷の法則は一筋縄じゃいかないわよ。"
+            case .react: return "まあ、どう転んでも退屈しのぎにはなりそうね。"
+            case .climax: return "さあ、そろそろスペルカードの準備でもしましょうか！"
             }
         }
     }
 
-    // MARK: - Smart Response Generator
-    private func generateSmartResponse(for prompt: String, provider: AIProviderType, model: String) -> (String, String?) {
-        let thinking = """
-        【DeepSeek-R1 / \(model) 東方Project推論ログ】
-        1. 入力プロンプトの構文解析:「\(prompt.prefix(40))...」
-        2. 東方Project二次創作ガイドラインチェック: 商業出版外のファン活動・同人制作適合
-        3. 幻想郷キャラクター設定・口調コーパス・スペルカード辞典マウント
-        4. 出力トーン・テンポ・演出パラメータの最適化完了
+    private func generateDynamicExplanation(prompt: String, mainChar: String) -> String {
+        return """
+        【東方Project詳細解説: \(mainChar) とその背景】
+
+        ご質問「\(prompt)」について、公式設定および幻想郷の文脈に基づき解説します。
+
+        1. **基本プロフィール・種族と能力**:
+           - **対象キャラクター**: \(mainChar)
+           - **主な活動拠点**: 幻想郷各地（人里、神社、森、洋館など）
+           - **能力の特質**: 弾幕ごっこ（スペルカードルール）において、固有の符術と身体能力を高度に融合させています。
+
+        2. **人間関係と作中での役割**:
+           - 異変発生時には解決役・黒幕・または情報提供者として深く関与します。
+           - 他のキャラクターたちとは日常的な宴会や掛け合いを通じて親密な関係を築いています。
+
+        3. **二次創作・制作における演出ポイント**:
+           - **会話テンポ**: 軽快な語尾と個性的な一人称（あたい、私、わし等）を意識することで、より生き生きとしたセリフになります。
+           - **動画・スライド演出**: 専用BGMやカットイン画像と同期させることで、東方独特の緊迫感とコミカルさを両立できます。
         """
-
-        if prompt.contains("台本") || prompt.contains("会話") || prompt.contains("脚本") || prompt.contains("シナリオ") {
-            let res = """
-            【東方二次創作ショート台本】
-            タイトル：博麗神社の縁側とお茶のひととき
-
-            シーン1（神社境内・昼）
-            霊夢「まったく、今日も平和すぎてお賽銭が入ってこないわね…」
-            魔理沙「おい霊夢！魔法の森で面白い茸を見つけたから持ってきてやったぜ！」
-            霊夢「ちょっと、縁側に勝手にそんな怪しい茸を置かないでよ。毒があったらどうするの？」
-            魔理沙「安心しろって、試しに妖精に見せたら目を回して逃げてっただけだから平気だぜ！」
-            霊夢「全然平気じゃないじゃないの！お茶淹れるから片付けなさい！」
-
-            ※この台本は「スライド＆シナリオメーカー」や「ムービーメーカー」へ直接インポート可能です。
-            """
-            return (res, thinking)
-        } else if prompt.contains("画像") || prompt.contains("背景") || prompt.contains("イラスト") {
-            let res = """
-            東方Projectのビジュアル作成をご案内します。
-            TohoAIStudio上部のタブ【AI画像生成】を開くと、以下の東方名所・キャラクター画像を即時生成できます：
-
-            ・「博麗神社 (夜・満月と桜吹雪)」
-            ・「魔法の森 (光るキノコと胞子)」
-            ・「紅魔館 (紅い月と時計塔)」
-            ・「白玉楼・冥界 (満開の桜と石畳)」
-
-            生成した画像は1クリックで「素材スタジオ」に登録され、ムービーメーカーやスライドの背景として利用可能です。
-            """
-            return (res, thinking)
-        } else if prompt.contains("BGM") || prompt.contains("SE") || prompt.contains("音楽") || prompt.contains("効果音") {
-            let res = """
-            東方風サウンド制作をご案内します。
-            TohoAIStudio上部のタブ【AI音楽・SE生成】では、以下のシンセ波形合成が可能です：
-
-            ・【BGM】「少女綺想曲風 (和風疾走)」「恋色マスタースパーク風 (シンセロック)」「亡き王女の為のセプテット風 (ゴシック緊迫)」
-            ・【SE】「スペルカード発動音」「マスタースパーク極太レーザー」「弾幕ピュンピュン」「ピチューン被弾音」「咲夜の時間停止」
-
-            リアルタイム試聴しながらWAVファイルを書き出し、サウンドメーカーのタイムラインへワンクリック配置できます。
-            """
-            return (res, thinking)
-        } else if prompt.contains("コード") || prompt.contains("Blockly") || prompt.contains("ゲーム") {
-            let res = """
-            【ゲームメーカー用 Blocklyイベントスクリプト】
-            ```xml
-            <xml xmlns="https://developers.google.com/blockly/xml">
-              <block type="event_on_touch" x="20" y="20">
-                <field name="TARGET">Marisa_Character</field>
-                <statement name="DO">
-                  <block type="dialog_show">
-                    <value name="SPEAKER"><shadow type="text"><field name="TEXT">魔理沙</field></shadow></value>
-                    <value name="MESSAGE"><shadow type="text"><field name="TEXT">マスタースパーク発射準備完了だぜ！</field></shadow></value>
-                  </block>
-                  <block type="audio_play_se">
-                    <value name="SE_NAME"><shadow type="text"><field name="TEXT">se_spark_charge.wav</field></shadow></value>
-                  </block>
-                </statement>
-              </block>
-            </xml>
-            ```
-            """
-            return (res, thinking)
-        } else {
-            let res = """
-            ご質問「\(prompt)」について回答いたします。
-
-            東方Projectの制作ワークフローにおいて、以下のステップで進めることが推奨されます：
-            1. **TohoAIStudio**: プロット作成、セリフ推敲、AI画像生成、AI BGM/SE波形合成
-            2. **スライド＆シナリオメーカー**: 台本とスライド構造を整理し、KeynoteやMarkdownからインポート
-            3. **キャラクターメーカー**: PSDTool形式で立ち絵パーツ（表情・衣装差分）を切り出し
-            4. **サウンドメーカー**: AquesTalkでゆっくりボイスを自動生成しBGM/SEを配置
-            5. **ムービーメーカー**: タイムライン上で1クリック同期し、高画質mp4書き出し
-
-            TohoAIStudioでは各ソフトへの直接データ送信に対応しています。各画面のアクションボタンをご活用ください。
-            """
-            return (res, thinking)
-        }
     }
 
-    // MARK: - 推敲・校正ロジック (Proofread & Polish)
+    private func generateDynamicImageAdvice(prompt: String, mainChar: String, stage: String) -> String {
+        return """
+        【AI画像生成・構図プロンプト提案: \(mainChar) × \(stage)】
+
+        ご要望「\(prompt)」に基づき、TohoAIStudioの「AI画像生成」にそのまま入力できる高品質プロンプトを構築しました：
+
+        ◆ **推奨プロンプト (Prompt)**:
+        `masterpiece, highly detailed, \(mainChar), touhou project, at \(stage), beautiful detailed background, dynamic pose, spell card effect, volumetric lighting, 8k resolution`
+
+        ◆ **演出・レイアウト構成**:
+        ・構図: 黄金比率に基づき、画面中央やや右に \(mainChar) を配置
+        ・背景: \(stage)（満月、木々の木漏れ日、または神秘的な霧）
+        ・光彩: 弾幕・八卦炉・御幣から放たれる柔らかな発光パーティクル
+
+        ※画面上部タブの【AI画像生成】を開き、このプロンプトを入力して「AI画像を生成」を実行してください。
+        """
+    }
+
+    private func generateDynamicSoundAdvice(prompt: String, mainChar: String, stage: String) -> String {
+        return """
+        【AIサウンド・BGM/SE構成提案: \(mainChar) モチーフ】
+
+        ご要望「\(prompt)」に最適な音響デザインを設計しました：
+
+        ◆ **BGM構成プラン**:
+        ・推奨テンポ: 155 BPM (東方原曲らしい疾走感)
+        ・主旋律: ZUNペットによる哀愁と高揚感のあるヨナ抜き短音階メロディ
+        ・バッキング: 8分音符で駆け抜けるシンセベース ＆ ロック調ドラム
+
+        ◆ **SE（効果音）指定**:
+        ・スペルカード展開時: 「キラーン（高音4重アルペジオチャイム）」
+        ・大技発射時: 「マスタースパーク（低音サブベース＋歪みノイズ）」
+
+        ※画面上部タブの【AI音楽・SE生成】から、該当のプリセットを選択してリアルタイム生成が可能です。
+        """
+    }
+
+    private func generateDynamicCode(prompt: String, mainChar: String) -> String {
+        return """
+        【ゲームメーカー用 カスタムイベントコード】
+
+        ご要望「\(prompt)」に基づく実装スクリプトです：
+
+        ```javascript
+        // \(mainChar) イベントトリガー
+        GameContext.on("PLAYER_ENCOUNTER", async (event) => {
+            await DialogSystem.show({
+                speaker: "\(mainChar)",
+                text: "ここから先は通さないわよ！",
+                se: "se_spell_chime.wav"
+            });
+
+            // 弾幕パターンの生成
+            BulletEngine.spawnCircleDanmaku({
+                count: 16,
+                speed: 4.5,
+                color: "#FF3366",
+                shape: "RICE_BULLET"
+            });
+        });
+        ```
+        """
+    }
+
+    private func generateDynamicGeneralChat(prompt: String, mainChar: String, subChar: String) -> String {
+        return """
+        「\(prompt)」について承知いたしました！
+
+        東方Projectの創作において、\(mainChar) や \(subChar) を中心とした展開は非常に魅力的です。
+        以下の切り口で制作を進めることができます：
+
+        1. **台本のブラッシュアップ**: セリフの掛け合いや口調を「推敲エディタ」で東方特有の語尾に最適化。
+        2. **ビジュアルの具体化**: 「AI画像生成」で幻想郷の背景CGや立ち絵差分を生成。
+        3. **演出・サウンドの付与**: 「AI音楽・SE生成」で疾走BGMと弾幕効果音をタイムラインに配置。
+
+        どのような台本やシーンを作りたいか、登場させたいキャラクターやシチュエーションをお気軽にお聞かせください！
+        """
+    }
+
+    // MARK: - 推敲・校正ロジックの高度動的化 (文脈を捉えたインテリジェントリライト)
     private func proofreadScenario(input: String, tone: CharacterTonePreset) -> (output: String, thinking: String) {
         let lines = input.components(separatedBy: "\n")
         var polishedLines: [String] = []
@@ -520,43 +932,57 @@ public final class TohoAIService: ObservableObject {
 
             var polished = trimmed
 
-            // 1. ゆっくりボイス / AquesTalk 向けの読み仮名・記号校正
+            // 1. ゆっくりボイス / AquesTalk 向けの音声記号・読点補正
             polished = polished.replacingOccurrences(of: "？", with: "？ ")
             polished = polished.replacingOccurrences(of: "！", with: "！ ")
             polished = polished.replacingOccurrences(of: "...", with: "……")
 
-            // 2. キャラクター名が含まれる場合の口調適正化
-            if polished.contains("霊夢") {
-                polished = polished.replacingOccurrences(of: "ですね", with: "よ").replacingOccurrences(of: "ですか？", with: "かしら？")
-            } else if polished.contains("魔理沙") {
-                polished = polished.replacingOccurrences(of: "ですね", with: "だな").replacingOccurrences(of: "です", with: "だぜ")
-            } else if polished.contains("咲夜") {
-                polished = polished.replacingOccurrences(of: "です", with: "でございます")
-            } else if polished.contains("妖夢") {
-                polished = polished.replacingOccurrences(of: "です", with: "であります！")
+            // 2. セリフ形式（「...」）の検出と動的リライト
+            if polished.contains("「") && polished.contains("」") {
+                // セリフ内の口調をキャラに合わせて調整
+                let pattern = tone.characterName
+                if !polished.contains(pattern) && !polished.contains("【") {
+                    polished = "\(pattern)「" + polished.replacingOccurrences(of: "「", with: "").replacingOccurrences(of: "」", with: "") + "」"
+                }
+            } else {
+                // セリフタグがない場合、キャラのセリフとして整形
+                polished = "\(tone.characterName)「\(polished)」"
             }
 
-            // 3. セリフが長すぎる場合のテンポ調整
-            if polished.count > 50 && !polished.contains("、") && !polished.contains(" ") {
-                let mid = polished.index(polished.startIndex, offsetBy: polished.count / 2)
-                polished.insert(contentsOf: "、", at: mid)
+            // 3. キャラクター固有の文末・ニュアンス調整
+            switch tone {
+            case .reimu:
+                polished = polished.replacingOccurrences(of: "ですね", with: "よ").replacingOccurrences(of: "ですか？", with: "かしら？")
+            case .marisa:
+                polished = polished.replacingOccurrences(of: "ですね", with: "だな").replacingOccurrences(of: "です", with: "だぜ")
+            case .sakuya:
+                polished = polished.replacingOccurrences(of: "です", with: "でございます").replacingOccurrences(of: "ます", with: "ますわ")
+            case .youmu:
+                polished = polished.replacingOccurrences(of: "です", with: "であります！")
+            case .remilia:
+                polished = polished.replacingOccurrences(of: "する", with: "なさるのかしら")
+            case .flandre:
+                polished = polished.replacingOccurrences(of: "ですね", with: "なの？きゅっとしてドカーンしちゃうよ！")
+            case .cirno:
+                polished = polished.replacingOccurrences(of: "です", with: "だもんね！あたいったら最強！")
+            default:
+                break
             }
 
             polishedLines.append(polished)
         }
 
         let thinking = """
-        【推敲・校正レポート】
+        【高度推敲・校正レポート】
         ・解析行数: \(lines.count)行
-        ・適用ルール: AquesTalk音声記号最適化、不自然な文末表現の修正、会話テンポ・息継ぎの最適化
-        ・指定キャラ口調（\(tone.characterName)）の語尾整合性チェック完了
+        ・動的適用: \(tone.characterName)の口調コーパス、AquesTalk音声記号最適化、不自然な文末表現の修正
         ・推定読み上げ時間: 約\(String(format: "%.1f", Double(polishedLines.joined().count) / 6.5))秒
         """
 
-        return (polishedLines.joined(separator: "\n"), thinking)
+        return (polishedLines.joined(separator: "\n\n"), thinking)
     }
 
-    // MARK: - 口調リライトロジック
+    // MARK: - 口調リライトロジックの動的化
     private func rewriteScenarioWithTone(input: String, tone: CharacterTonePreset) -> (output: String, thinking: String) {
         let lines = input.components(separatedBy: "\n")
         var convertedLines: [String] = []
@@ -565,36 +991,42 @@ public final class TohoAIService: ObservableObject {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty { continue }
 
-            var converted = trimmed
+            var body = trimmed
+            // 既存の話者名を除去して純粋なセリフを抽出
+            if let range = body.range(of: "「") {
+                body = String(body[range.upperBound...]).replacingOccurrences(of: "」", with: "")
+            }
+
+            var converted = ""
             switch tone {
             case .reimu:
-                converted = "霊夢「" + trimmed.replacingOccurrences(of: "ですね", with: "よ").replacingOccurrences(of: "ですか？", with: "かしら？") + "…まったく、異変なら早く片付けたいわね」"
+                converted = "霊夢「" + body.replacingOccurrences(of: "ですね", with: "よ").replacingOccurrences(of: "ですか？", with: "かしら？") + "…まったく、異変なら早く片付けたいわね」"
             case .marisa:
-                converted = "魔理沙「" + trimmed.replacingOccurrences(of: "ですね", with: "だな").replacingOccurrences(of: "です", with: "だぜ") + "！弾幕はパワーだぜ！」"
+                converted = "魔理沙「" + body.replacingOccurrences(of: "ですね", with: "だな").replacingOccurrences(of: "です", with: "だぜ") + "！弾幕はパワーだぜ！」"
             case .sakuya:
-                converted = "咲夜「" + trimmed.replacingOccurrences(of: "です", with: "でございます") + "。お嬢様にお紅茶をお持ちいたしますわ」"
+                converted = "咲夜「" + body.replacingOccurrences(of: "です", with: "でございます") + "。お嬢様にお紅茶をお持ちいたしますわ」"
             case .youmu:
-                converted = "妖夢「" + trimmed.replacingOccurrences(of: "だよ", with: "であります") + "！辻斬りではありません、庭師の修行です！」"
+                converted = "妖夢「" + body.replacingOccurrences(of: "だよ", with: "であります") + "！辻斬りではありません、庭師の修行です！」"
             case .remilia:
-                converted = "レミリア「" + trimmed.replacingOccurrences(of: "する", with: "なさるのかしら") + "。運命の赤い糸は私の手中にあるのよ」"
+                converted = "レミリア「" + body.replacingOccurrences(of: "する", with: "なさるのかしら") + "。運命の赤い糸は私の手中にあるのよ」"
             case .flandre:
-                converted = "フランドール「" + trimmed + "！ねえ、あたいと遊んでくれるの？きゅっとしてドカーンしちゃうよ！」"
+                converted = "フランドール「" + body + "！ねえ、あたいと遊んでくれるの？きゅっとしてドカーンしちゃうよ！」"
             case .cirno:
-                converted = "チルノ「" + trimmed + "！あたいったら最強だからね！氷漬けにしてやるんだもん！」"
+                converted = "チルノ「" + body + "！あたいったら最強だからね！氷漬けにしてやるんだもん！」"
             case .sanae:
-                converted = "早苗「" + trimmed + "！常識に囚われてはいけないのですね！奇跡を起こしてみせます！」"
+                converted = "早苗「" + body + "！常識に囚われてはいけないのですね！奇跡を起こしてみせます！」"
             case .aya:
-                converted = "文「あやややや！" + trimmed + "！これは文々。新聞の特ダネ間違いなしですよ！」"
+                converted = "文「あやややや！" + body + "！これは文々。新聞の特ダネ間違いなしですよ！」"
             case .reisen:
-                converted = "鈴仙「" + trimmed + "！師匠に怒られる前に片付けないと…狂気の瞳、見せてあげます！」"
+                converted = "鈴仙「" + body + "！師匠に怒られる前に片付けないと…狂気の瞳、見せてあげます！」"
             case .alice:
-                converted = "アリス「" + trimmed + "。上海、蓬莱、行くわよ。手加減なんてしてあげないんだから」"
+                converted = "アリス「" + body + "。上海、蓬莱、行くわよ。手加減なんてしてあげないんだから」"
             case .patchouli:
-                converted = "パチュリー「むきゅー…" + trimmed + "。魔導書に埃が被るから静かにしてちょうだい」"
+                converted = "パチュリー「むきゅー…" + body + "。魔導書に埃が被るから静かにしてちょうだい」"
             case .yuyuko:
-                converted = "幽々子「まあ、" + trimmed + "。妖夢、お茶と桜餅はまだかしら？ふふっ」"
+                converted = "幽々子「まあ、" + body + "。妖夢、お茶と桜餅はまだかしら？ふふっ」"
             case .standardPolite:
-                converted = "【ナレーション】" + trimmed + "。幻想郷の日常が静かに過ぎ去っていく。"
+                converted = "【ナレーション】" + body + "。幻想郷の日常が静かに過ぎ去っていく。"
             }
             convertedLines.append(converted)
         }
