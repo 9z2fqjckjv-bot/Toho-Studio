@@ -3,25 +3,38 @@ import AVFoundation
 import SwiftUI
 import Combine
 
-/// 東方Project専用 AI BGM & SE 生成サービス
+/// 汎用＆東方Project両対応 AI BGM & SE 生成サービス
 /// プロシージャル・シンセ波形合成によるBGM/SE生成、リアルタイム試聴、およびSoundMaker/MovieMaker/素材スタジオ連携
 public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioPlayerDelegate {
     public static let shared = AISoundGeneratorService()
 
-    // MARK: - BGM生成パラメータ
-    @Published public var bgmTheme: BGMThemePreset = .hakureiShrineSpeed
-    @Published public var bgmBPM: Double = 150.0
+    // MARK: - AI生成エンジン選択 (仮想LinuxVM: DeepSeek/Gemma/Llama ＆ 外部API: Gemini/ChatGPT/Claude)
+    @Published public var selectedProvider: AIProviderType = .virtualLinuxVM {
+        didSet {
+            if !selectedProvider.availableModels.contains(selectedModel) {
+                selectedModel = selectedProvider.defaultModel
+            }
+        }
+    }
+    @Published public var selectedModel: String = "DeepSeek-R1-Distill-Qwen (8B)"
+
+    // MARK: - プロンプト駆動パラメータ
+    @Published public var bgmPrompt: String = "雨の日の静かなカフェ、心落ち着くアコースティックギターとピアノのBGM"
+    @Published public var sePrompt: String = "スマホのチャット着信音、ポロンと鳴るクリアな通知音"
+
+    // MARK: - 内部波形合成パラメータ (プロンプトから動的自動推定)
+    @Published public var bgmTheme: BGMThemePreset = .cafeAcoustic
+    @Published public var bgmBPM: Double = 105.0
     @Published public var bgmDurationSeconds: Double = 12.0
-    @Published public var bgmInstrumentStyle: BGMInstrumentStyle = .zunPetAndRock
+    @Published public var bgmInstrumentStyle: BGMInstrumentStyle = .acousticGuitarLoFi
     @Published public var isBGMGenerating: Bool = false
     @Published public var generatedBGMURL: URL? = nil
     @Published public var isBGMPlaying: Bool = false
 
-    // MARK: - SE生成パラメータ
-    @Published public var sePreset: SEPresetType = .spellCardChime
-    @Published public var seBaseFrequency: Double = 1320.0
-    @Published public var seDurationSeconds: Double = 1.2
-    @Published public var seNoiseMix: Double = 0.2
+    @Published public var sePreset: SEPresetType = .smartphoneNotification
+    @Published public var seBaseFrequency: Double = 1046.5
+    @Published public var seDurationSeconds: Double = 0.55
+    @Published public var seNoiseMix: Double = 0.15
     @Published public var seIsReversed: Bool = false
     @Published public var isSEGenerating: Bool = false
     @Published public var generatedSEURL: URL? = nil
@@ -36,18 +49,56 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
 
     // MARK: - プリセット定義
     public enum BGMThemePreset: String, CaseIterable, Identifiable {
-        case hakureiShrineSpeed = "博麗神社 〜 巫女の日常と疾走 (少女綺想曲風)"
-        case magicForestRock = "魔法の森 〜 恋色マスタースパーク風 (シンセロック)"
-        case scarletDevilMansion = "紅魔館 〜 亡き王女の為のセプテット風 (ゴシック緊迫)"
-        case netherworldCherry = "白玉楼 〜 幽雅に咲かせ、墨染の桜風 (和風オーケストラ)"
-        case cirnoIcePop = "おてんば恋娘風 〜 氷の妖精 (軽快ポップ)"
-        case teaTimeDaily = "縁側のお茶会 〜 ほのぼの日常会話 (アコースティック)"
-        case lastSpellBoss = "決戦ラストスペル 〜 極限の弾幕結界 (緊迫ハイテンポ)"
+        // --- 現代社会・日常・カルチャー ---
+        case modernCityPop = "現代都市 〜 ネオンシティー・ポップ (グルーヴィー＆お洒落)"
+        case cafeAcoustic = "街角カフェ 〜 アコースティック・ボサノバ (リラックス日常)"
+        case lofiChillStudy = "深夜のデスク 〜 Lo-Fi チルビート (穏やかな作業用BGM)"
+        case schoolLifeMorning = "学園の朝 〜 爽やか通学路 (青春ポップ)"
+        case corporateTechOffice = "モダンオフィス 〜 イノベーション＆テクノロジー (ミニマルシンセ)"
+
+        // --- シネマティック・SF・クラブ ---
+        case cyberpunkSynthwave = "サイバーパンク2099 〜 夜のハイウェイ (ダークシンセウェイヴ)"
+        case cinematicActionEpic = "映画劇伴 〜 壮大なバトル・クライマックス (重厚オーケストラ)"
+        case suspenseCrimeMystery = "現代サスペンス 〜 謎解きと緊迫の捜査 (ダークアンビエント)"
+        case spaceCosmicAmbient = "宇宙ステーション 〜 星々の彼方 (スペーシーアンビエント)"
+        case edmClubFestival = "EDMフェス 〜 ビッグルーム・ドロップ (高揚感ダンス)"
+
+        // --- 東方Project・幻想郷 ---
+        case hakureiShrineSpeed = "東方・博麗神社 〜 巫女の日常と疾走 (少女綺想曲風)"
+        case magicForestRock = "東方・魔法の森 〜 恋色マスタースパーク風 (シンセロック)"
+        case scarletDevilMansion = "東方・紅魔館 〜 亡き王女の為のセプテット風 (ゴシック緊迫)"
+        case netherworldCherry = "東方・白玉楼 〜 幽雅に咲かせ、墨染の桜風 (和風オーケストラ)"
+        case cirnoIcePop = "東方・おてんば恋娘風 〜 氷の妖精 (軽快ポップ)"
+        case teaTimeDaily = "東方・縁側のお茶会 〜 ほのぼの日常会話 (和風アコースティック)"
+        case lastSpellBoss = "東方・決戦ラストスペル 〜 極限の弾幕結界 (緊迫ハイテンポ)"
 
         public var id: String { rawValue }
 
+        public var category: String {
+            switch self {
+            case .modernCityPop, .cafeAcoustic, .lofiChillStudy, .schoolLifeMorning, .corporateTechOffice:
+                return "現代社会・日常"
+            case .cyberpunkSynthwave, .cinematicActionEpic, .suspenseCrimeMystery, .spaceCosmicAmbient, .edmClubFestival:
+                return "映画劇伴・SF・クラブ"
+            case .hakureiShrineSpeed, .magicForestRock, .scarletDevilMansion, .netherworldCherry, .cirnoIcePop, .teaTimeDaily, .lastSpellBoss:
+                return "東方Project・幻想郷"
+            }
+        }
+
         public var defaultBPM: Double {
             switch self {
+            case .modernCityPop: return 120.0
+            case .cafeAcoustic: return 105.0
+            case .lofiChillStudy: return 85.0
+            case .schoolLifeMorning: return 130.0
+            case .corporateTechOffice: return 124.0
+
+            case .cyberpunkSynthwave: return 128.0
+            case .cinematicActionEpic: return 140.0
+            case .suspenseCrimeMystery: return 110.0
+            case .spaceCosmicAmbient: return 72.0
+            case .edmClubFestival: return 128.0
+
             case .hakureiShrineSpeed: return 150.0
             case .magicForestRock: return 165.0
             case .scarletDevilMansion: return 145.0
@@ -60,6 +111,38 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
 
         public var scaleFrequencies: [Double] {
             switch self {
+            case .modernCityPop:
+                // Aメジャー7/F#m7 シティポップ進行 (A, B, C#, E, F#, G#)
+                return [220.00, 246.94, 277.18, 329.63, 369.99, 415.30]
+            case .cafeAcoustic:
+                // Cmaj7 ボサノバ・メロディック (C, D, E, G, A, B)
+                return [261.63, 293.66, 329.63, 392.00, 440.00, 493.88]
+            case .lofiChillStudy:
+                // Ebマイナー・チルペンタトニック (Eb, Gb, Ab, Bb, Db)
+                return [155.56, 185.00, 207.65, 233.08, 277.18, 311.13]
+            case .schoolLifeMorning:
+                // Gメジャースケール (G, A, B, C, D, E)
+                return [196.00, 220.00, 246.94, 261.63, 293.66, 329.63]
+            case .corporateTechOffice:
+                // Dミニマルマイナー (D, E, F, G, A, C)
+                return [293.66, 329.63, 349.23, 392.00, 440.00, 523.25]
+
+            case .cyberpunkSynthwave:
+                // Fマイナー・シンセサイザー (F, G#, Bb, C, Eb, F)
+                return [174.61, 207.65, 233.08, 261.63, 311.13, 349.23]
+            case .cinematicActionEpic:
+                // Cマイナー・重厚劇伴 (C, D, Eb, G, Ab, C)
+                return [130.81, 146.83, 155.56, 196.00, 207.65, 261.63]
+            case .suspenseCrimeMystery:
+                // Bディミニッシュ緊迫 (B, C#, D, F, G, B)
+                return [246.94, 277.18, 293.66, 349.23, 392.00, 493.88]
+            case .spaceCosmicAmbient:
+                // Eリディアン・スペーシー (E, F#, G#, A#, B, E)
+                return [164.81, 185.00, 207.65, 233.08, 246.94, 329.63]
+            case .edmClubFestival:
+                // Aマイナー・EDM (A, C, D, E, G, A)
+                return [220.00, 261.63, 293.66, 329.63, 392.00, 440.00]
+
             case .hakureiShrineSpeed:
                 // Dマイナー和風ヨナ抜き (D, F, G, A, C, D)
                 return [293.66, 349.23, 392.00, 440.00, 523.25, 587.33]
@@ -86,30 +169,79 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
     }
 
     public enum BGMInstrumentStyle: String, CaseIterable, Identifiable {
+        case modernSynthWave = "80s アナログシンセ ＆ ドラムマシン (現代・シティ・サイバー)"
+        case pianoAndStrings = "アコースティックピアノ ＆ 哀愁ストリングス (シネマ・日常)"
+        case acousticGuitarLoFi = "アコースティックギター ＆ ビンテージローファイ (カフェ・チル)"
+        case edmPluckAndBass = "EDMプラック ＆ サブベース (クラブ・ダンス・ハイテンポ)"
         case zunPetAndRock = "ZUNペットリード ＆ ロックドラム (王道東方スタイル)"
-        case pianoAndStrings = "ピアノアルペジオ ＆ 哀愁ストリングス"
         case traditionalJapanese = "和太鼓・篠笛・琴 (純和風幻想)"
-        case chiptune8Bit = "8bit ファミコン・レトロ音源"
+        case chiptune8Bit = "8bit ファミコン・レトロ音源 (ゲーム風)"
 
         public var id: String { rawValue }
     }
 
     public enum SEPresetType: String, CaseIterable, Identifiable {
-        case spellCardChime = "スペルカード展開 (キラーン・煌びやかチャイム)"
-        case masterSparkLaser = "マスタースパーク照射 (極太重低音レーザー)"
-        case danmakuShot = "弾幕連射ショット (ピュンピュン連射)"
-        case playerPichuun = "被弾・ピチューン (名物レトロ被弾音)"
-        case timeStopSakuya = "咲夜の時間停止・解除 (針音＆逆再生スウィープ)"
-        case teleportWarp = "瞬間移動・ワープ (高速フェイザー突風)"
-        case grazeSound = "グレイズかすり音 (クリスプ高音チャイム)"
-        case uiConfirm = "UI決定音 (澄んだベルチャイム)"
+        // --- 現代社会・オフィス・日常 ---
+        case smartphoneNotification = "スマホ通知・チャット着信 (ポロン・クリアベル)"
+        case cameraShutter = "一眼レフ・カメラスナップ (カシャッ・メカニカル)"
+        case keyboardTyping = "PCキーボード打鍵音 (カタカタ・オフィスワーク)"
+        case doorKnockOpen = "ドアノック＆開扉 (コンコン・日常シーン)"
+        case carHornDrive = "車のクラクション＆街頭 (ププッ・現代都市)"
+        case paperRustle = "書類めくり・本のページ音 (ササッ・読書/会議)"
+
+        // --- 一般ゲーム・映像演出・UI ---
+        case uiConfirm = "UI決定音 (澄んだ高音ベルチャイム)"
         case uiCancel = "UIキャンセル音 (木琴下降音)"
-        case teaCupSound = "縁側のお茶啜り・日常音 (ほのぼの環境音)"
+        case quizCorrectChime = "クイズ正解チャイム (ピンポンピンポン)"
+        case quizWrongBuzzer = "クイズ不正解ブザー (ブブー・低音矩形波)"
+        case sceneTransitionWhoosh = "画面転換・シーン切替 (シュッ・疾走風切り音)"
+        case heavyPunchHit = "重打撃・パンチヒット (ドカッ・格闘インパクト)"
+        case massiveExplosion = "大爆発・ボム炸裂 (ドカーン・轟音クラッシュ)"
+        case swordSlashBlade = "刀剣抜刀・鋭利な斬撃 (シャキン・金属スパーク)"
+        case cyberGlitchNoise = "サイバーグリッチ・電子ノイズ (ジジッ・デジタル歪み)"
+
+        // --- 東方Project・幻想郷 ---
+        case spellCardChime = "東方・スペルカード展開 (キラーン・煌びやかチャイム)"
+        case masterSparkLaser = "東方・マスタースパーク照射 (極太重低音レーザー)"
+        case danmakuShot = "東方・弾幕連射ショット (ピュンピュン連射)"
+        case playerPichuun = "東方・被弾ピチューン (名物レトロ被弾音)"
+        case timeStopSakuya = "東方・咲夜の時間停止・解除 (針音＆逆再生スウィープ)"
+        case teleportWarp = "東方・瞬間移動・ワープ (高速フェイザー突風)"
+        case grazeSound = "東方・グレイズかすり音 (クリスプ高音チャイム)"
+        case teaCupSound = "東方・縁側のお茶啜り・日常音 (ほのぼの環境音)"
 
         public var id: String { rawValue }
 
+        public var category: String {
+            switch self {
+            case .smartphoneNotification, .cameraShutter, .keyboardTyping, .doorKnockOpen, .carHornDrive, .paperRustle:
+                return "現代社会・日常"
+            case .uiConfirm, .uiCancel, .quizCorrectChime, .quizWrongBuzzer, .sceneTransitionWhoosh, .heavyPunchHit, .massiveExplosion, .swordSlashBlade, .cyberGlitchNoise:
+                return "一般ゲーム・UI演出・バトル"
+            case .spellCardChime, .masterSparkLaser, .danmakuShot, .playerPichuun, .timeStopSakuya, .teleportWarp, .grazeSound, .teaCupSound:
+                return "東方Project・幻想郷"
+            }
+        }
+
         public var defaultFrequency: Double {
             switch self {
+            case .smartphoneNotification: return 1046.5 // C6
+            case .cameraShutter: return 1800.0
+            case .keyboardTyping: return 2400.0
+            case .doorKnockOpen: return 220.0
+            case .carHornDrive: return 440.0
+            case .paperRustle: return 3200.0
+
+            case .uiConfirm: return 1046.5
+            case .uiCancel: return 523.25
+            case .quizCorrectChime: return 1318.5 // E6
+            case .quizWrongBuzzer: return 185.0  // F#3
+            case .sceneTransitionWhoosh: return 600.0
+            case .heavyPunchHit: return 90.0
+            case .massiveExplosion: return 65.0
+            case .swordSlashBlade: return 3500.0
+            case .cyberGlitchNoise: return 1200.0
+
             case .spellCardChime: return 1320.0
             case .masterSparkLaser: return 180.0
             case .danmakuShot: return 1800.0
@@ -117,14 +249,29 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             case .timeStopSakuya: return 600.0
             case .teleportWarp: return 400.0
             case .grazeSound: return 2400.0
-            case .uiConfirm: return 1046.5
-            case .uiCancel: return 523.25
             case .teaCupSound: return 440.0
             }
         }
 
         public var defaultDuration: Double {
             switch self {
+            case .smartphoneNotification: return 0.55
+            case .cameraShutter: return 0.35
+            case .keyboardTyping: return 0.18
+            case .doorKnockOpen: return 0.75
+            case .carHornDrive: return 0.65
+            case .paperRustle: return 0.45
+
+            case .uiConfirm: return 0.35
+            case .uiCancel: return 0.30
+            case .quizCorrectChime: return 0.90
+            case .quizWrongBuzzer: return 0.70
+            case .sceneTransitionWhoosh: return 0.45
+            case .heavyPunchHit: return 0.40
+            case .massiveExplosion: return 2.20
+            case .swordSlashBlade: return 0.60
+            case .cyberGlitchNoise: return 0.50
+
             case .spellCardChime: return 1.6
             case .masterSparkLaser: return 2.8
             case .danmakuShot: return 0.4
@@ -132,8 +279,6 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             case .timeStopSakuya: return 1.5
             case .teleportWarp: return 0.6
             case .grazeSound: return 0.25
-            case .uiConfirm: return 0.35
-            case .uiCancel: return 0.3
             case .teaCupSound: return 1.0
             }
         }
@@ -160,9 +305,263 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         generateSE(silent: true)
     }
 
-    // MARK: - BGM生成実行
-    public func generateBGM(silent: Bool = false) {
+    // MARK: - プロンプト自然言語音響解析エンジン
+    public struct InferredBGMParams {
+        public let theme: BGMThemePreset
+        public let bpm: Double
+        public let style: BGMInstrumentStyle
+        public let duration: Double
+        public let summary: String
+    }
+
+    public func analyzeBGMPrompt(_ text: String) -> InferredBGMParams {
+        let lower = text.lowercased()
+
+        var theme: BGMThemePreset = .cafeAcoustic
+        var bpm: Double = 105.0
+        var style: BGMInstrumentStyle = .acousticGuitarLoFi
+        var duration: Double = 12.0
+
+        if lower.contains("シティ") || lower.contains("街") || lower.contains("ドライブ") || lower.contains("お洒落") || lower.contains("ポップ") {
+            theme = .modernCityPop
+            bpm = 120.0
+            style = .modernSynthWave
+        } else if lower.contains("カフェ") || lower.contains("ボサノバ") || lower.contains("珈琲") || lower.contains("アコースティック") {
+            theme = .cafeAcoustic
+            bpm = 105.0
+            style = .acousticGuitarLoFi
+        } else if lower.contains("チル") || lower.contains("lo-fi") || lower.contains("lofi") || lower.contains("作業") || lower.contains("勉強") || lower.contains("深夜") {
+            theme = .lofiChillStudy
+            bpm = 85.0
+            style = .acousticGuitarLoFi
+        } else if lower.contains("学校") || lower.contains("学園") || lower.contains("青春") || lower.contains("朝") || lower.contains("登校") {
+            theme = .schoolLifeMorning
+            bpm = 130.0
+            style = .modernSynthWave
+        } else if lower.contains("オフィス") || lower.contains("テクノロジー") || lower.contains("ビジネス") || lower.contains("テック") {
+            theme = .corporateTechOffice
+            bpm = 124.0
+            style = .modernSynthWave
+        } else if lower.contains("サイバーパンク") || lower.contains("ハイウェイ") || lower.contains("近未来") || lower.contains("シンセ") {
+            theme = .cyberpunkSynthwave
+            bpm = 128.0
+            style = .modernSynthWave
+        } else if lower.contains("バトル") || lower.contains("戦闘") || lower.contains("映画") || lower.contains("劇伴") || lower.contains("壮大") || lower.contains("ボス") {
+            theme = .cinematicActionEpic
+            bpm = 140.0
+            style = .pianoAndStrings
+        } else if lower.contains("サスペンス") || lower.contains("推理") || lower.contains("事件") || lower.contains("捜査") || lower.contains("緊迫") {
+            theme = .suspenseCrimeMystery
+            bpm = 110.0
+            style = .modernSynthWave
+        } else if lower.contains("宇宙") || lower.contains("星") || lower.contains("アンビエント") || lower.contains("銀河") {
+            theme = .spaceCosmicAmbient
+            bpm = 72.0
+            style = .pianoAndStrings
+        } else if lower.contains("edm") || lower.contains("クラブ") || lower.contains("ダンス") || lower.contains("フェス") || lower.contains("ノリノリ") {
+            theme = .edmClubFestival
+            bpm = 128.0
+            style = .edmPluckAndBass
+        } else if lower.contains("霊夢") || lower.contains("博麗") || lower.contains("巫女") || lower.contains("少女綺想曲") {
+            theme = .hakureiShrineSpeed
+            bpm = 150.0
+            style = .zunPetAndRock
+        } else if lower.contains("魔理沙") || lower.contains("マスパ") || lower.contains("魔法の森") || lower.contains("恋色") {
+            theme = .magicForestRock
+            bpm = 165.0
+            style = .zunPetAndRock
+        } else if lower.contains("レミリア") || lower.contains("紅魔館") || lower.contains("セプテット") || lower.contains("吸血鬼") {
+            theme = .scarletDevilMansion
+            bpm = 145.0
+            style = .pianoAndStrings
+        } else if lower.contains("幽々子") || lower.contains("白玉楼") || lower.contains("桜") || lower.contains("墨染") {
+            theme = .netherworldCherry
+            bpm = 138.0
+            style = .traditionalJapanese
+        } else if lower.contains("チルノ") || lower.contains("氷") || lower.contains("おてんば") {
+            theme = .cirnoIcePop
+            bpm = 160.0
+            style = .chiptune8Bit
+        } else if lower.contains("お茶会") || lower.contains("縁側") || lower.contains("のんびり") || lower.contains("日常") {
+            theme = .teaTimeDaily
+            bpm = 116.0
+            style = .acousticGuitarLoFi
+        } else if lower.contains("ラストスペル") || lower.contains("決戦") || lower.contains("弾幕結界") {
+            theme = .lastSpellBoss
+            bpm = 175.0
+            style = .zunPetAndRock
+        }
+
+        // 音色の上書きキーワード
+        if lower.contains("ピアノ") {
+            style = .pianoAndStrings
+        } else if lower.contains("ギター") {
+            style = .acousticGuitarLoFi
+        } else if lower.contains("シンセ") || lower.contains("電子") {
+            style = .modernSynthWave
+        } else if lower.contains("ファミコン") || lower.contains("8bit") || lower.contains("ドット") {
+            style = .chiptune8Bit
+        } else if lower.contains("和風") || lower.contains("琴") || lower.contains("太鼓") || lower.contains("篠笛") {
+            style = .traditionalJapanese
+        } else if lower.contains("zunペット") || lower.contains("zun") {
+            style = .zunPetAndRock
+        }
+
+        let summary = "テーマ: \(theme.rawValue.prefix(8)) / BPM: \(Int(bpm)) / 音色: \(style.rawValue.prefix(8))"
+        return InferredBGMParams(theme: theme, bpm: bpm, style: style, duration: duration, summary: summary)
+    }
+
+    public struct InferredSEParams {
+        public let preset: SEPresetType
+        public let baseFreq: Double
+        public let duration: Double
+        public let noiseMix: Double
+        public let isReversed: Bool
+        public let summary: String
+    }
+
+    public func analyzeSEPrompt(_ text: String) -> InferredSEParams {
+        let lower = text.lowercased()
+
+        var preset: SEPresetType = .smartphoneNotification
+        var baseFreq: Double = 1046.5
+        var duration: Double = 0.55
+        var noiseMix: Double = 0.15
+        var isReversed: Bool = false
+
+        if lower.contains("スマホ") || lower.contains("通知") || lower.contains("着信") || lower.contains("メッセージ") || lower.contains("チャット") || lower.contains("ポロン") {
+            preset = .smartphoneNotification
+            baseFreq = 1046.5
+            duration = 0.55
+            noiseMix = 0.10
+        } else if lower.contains("カメラ") || lower.contains("シャッター") || lower.contains("写真") || lower.contains("カシャ") {
+            preset = .cameraShutter
+            baseFreq = 1800.0
+            duration = 0.35
+            noiseMix = 0.30
+        } else if lower.contains("キーボード") || lower.contains("タイピング") || lower.contains("打鍵") || lower.contains("パソコン") {
+            preset = .keyboardTyping
+            baseFreq = 2400.0
+            duration = 0.18
+            noiseMix = 0.20
+        } else if lower.contains("ノック") || lower.contains("ドア") || lower.contains("扉") || lower.contains("コンコン") {
+            preset = .doorKnockOpen
+            baseFreq = 220.0
+            duration = 0.75
+            noiseMix = 0.15
+        } else if lower.contains("車") || lower.contains("クラクション") || lower.contains("ププ") {
+            preset = .carHornDrive
+            baseFreq = 440.0
+            duration = 0.65
+            noiseMix = 0.20
+        } else if lower.contains("紙") || lower.contains("ページ") || lower.contains("本") || lower.contains("書類") {
+            preset = .paperRustle
+            baseFreq = 3200.0
+            duration = 0.45
+            noiseMix = 0.40
+        } else if lower.contains("決定") || lower.contains("ok") || lower.contains("選択") || lower.contains("クリック") {
+            preset = .uiConfirm
+            baseFreq = 1046.5
+            duration = 0.35
+            noiseMix = 0.05
+        } else if lower.contains("キャンセル") || lower.contains("戻る") || lower.contains("閉じる") || lower.contains("取消") {
+            preset = .uiCancel
+            baseFreq = 523.25
+            duration = 0.30
+            noiseMix = 0.05
+        } else if lower.contains("正解") || lower.contains("ピンポン") || lower.contains("クイズ") || lower.contains("当たり") {
+            preset = .quizCorrectChime
+            baseFreq = 1318.5
+            duration = 0.90
+            noiseMix = 0.05
+        } else if lower.contains("不正解") || lower.contains("ブザー") || lower.contains("間違い") || lower.contains("ハズレ") || lower.contains("ブブ") {
+            preset = .quizWrongBuzzer
+            baseFreq = 185.0
+            duration = 0.70
+            noiseMix = 0.25
+        } else if lower.contains("切替") || lower.contains("画面") || lower.contains("風切り") || lower.contains("シュッ") || lower.contains("シーン") {
+            preset = .sceneTransitionWhoosh
+            baseFreq = 600.0
+            duration = 0.45
+            noiseMix = 0.50
+        } else if lower.contains("パンチ") || lower.contains("打撃") || lower.contains("殴る") || lower.contains("ヒット") || lower.contains("ドカッ") {
+            preset = .heavyPunchHit
+            baseFreq = 90.0
+            duration = 0.40
+            noiseMix = 0.30
+        } else if lower.contains("爆発") || lower.contains("ボム") || lower.contains("爆弾") || lower.contains("ドカーン") {
+            preset = .massiveExplosion
+            baseFreq = 65.0
+            duration = 2.20
+            noiseMix = 0.60
+        } else if lower.contains("刀") || lower.contains("剣") || lower.contains("斬撃") || lower.contains("切る") || lower.contains("シャキン") {
+            preset = .swordSlashBlade
+            baseFreq = 3500.0
+            duration = 0.60
+            noiseMix = 0.30
+        } else if lower.contains("グリッチ") || lower.contains("ノイズ") || lower.contains("電子") || lower.contains("バグ") || lower.contains("サイバー") {
+            preset = .cyberGlitchNoise
+            baseFreq = 1200.0
+            duration = 0.50
+            noiseMix = 0.50
+        } else if lower.contains("スペルカード") || lower.contains("展開") || lower.contains("キラーン") {
+            preset = .spellCardChime
+            baseFreq = 1320.0
+            duration = 1.6
+            noiseMix = 0.10
+        } else if lower.contains("レーザー") || lower.contains("マスパ") || lower.contains("マスタースパーク") {
+            preset = .masterSparkLaser
+            baseFreq = 180.0
+            duration = 2.8
+            noiseMix = 0.30
+        } else if lower.contains("弾幕") || lower.contains("ショット") || lower.contains("連射") || lower.contains("ピュン") {
+            preset = .danmakuShot
+            baseFreq = 1800.0
+            duration = 0.4
+            noiseMix = 0.10
+        } else if lower.contains("ピチューン") || lower.contains("被弾") || lower.contains("ミス") {
+            preset = .playerPichuun
+            baseFreq = 880.0
+            duration = 1.2
+            noiseMix = 0.30
+        } else if lower.contains("時間停止") || lower.contains("咲夜") || lower.contains("時計") {
+            preset = .timeStopSakuya
+            baseFreq = 600.0
+            duration = 1.5
+            noiseMix = 0.10
+        } else if lower.contains("ワープ") || lower.contains("瞬間移動") || lower.contains("テレポート") {
+            preset = .teleportWarp
+            baseFreq = 400.0
+            duration = 0.6
+            noiseMix = 0.40
+        } else if lower.contains("グレイズ") || lower.contains("かすり") {
+            preset = .grazeSound
+            baseFreq = 2400.0
+            duration = 0.25
+            noiseMix = 0.05
+        } else if lower.contains("お茶") || lower.contains("湯呑み") {
+            preset = .teaCupSound
+            baseFreq = 440.0
+            duration = 1.0
+            noiseMix = 0.10
+        }
+
+        if lower.contains("逆再生") || lower.contains("リバース") || lower.contains("反転") {
+            isReversed = true
+        }
+
+        let summary = "SE: \(preset.rawValue.prefix(8)) / Freq: \(Int(baseFreq))Hz / 尺: \(String(format: "%.2f", duration))s"
+        return InferredSEParams(preset: preset, baseFreq: baseFreq, duration: duration, noiseMix: noiseMix, isReversed: isReversed, summary: summary)
+    }
+
+    // MARK: - BGM生成実行 (プロンプト駆動)
+    public func generateBGM(userPrompt: String? = nil, silent: Bool = false) {
         guard !isBGMGenerating else { return }
+
+        let targetPrompt = (userPrompt ?? bgmPrompt).trimmingCharacters(in: .whitespacesAndNewlines)
+        if targetPrompt.isEmpty {
+            bgmPrompt = "雨の日の静かなカフェ、心落ち着くアコースティックギターとピアノのBGM"
+        }
 
         if !silent {
             let linuxService = CloudVirtualLinuxService.shared
@@ -173,20 +572,37 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             isBGMGenerating = true
         }
 
-        let theme = bgmTheme
-        let bpm = bgmBPM
-        let duration = bgmDurationSeconds
-        let style = bgmInstrumentStyle
+        // プロンプトから動的推論
+        let inferred = analyzeBGMPrompt(bgmPrompt)
+        bgmTheme = inferred.theme
+        bgmBPM = inferred.bpm
+        bgmInstrumentStyle = inferred.style
+        bgmDurationSeconds = inferred.duration
 
+        let provider = self.selectedProvider
+        let model = self.selectedModel
+
+        if provider == .virtualLinuxVM {
+            // 仮想Linux環境にあるローカルLLM (DeepSeek-R1 / Gemma-2 / Llama-3.1) に音響作曲推論を実行
+            let vmPrompt = "BGM制作ディレクション: \(bgmPrompt)。この情景に最適なテンポBPM、楽器構成、展開コードを推論してください。"
+            TohoAIService.shared.callAPIOrGenerateSmart(prompt: vmPrompt, provider: .virtualLinuxVM, model: model) { [weak self] responseText, thinkingLog in
+                self?.executeBGMSynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: thinkingLog)
+            }
+        } else {
+            self.executeBGMSynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: nil)
+        }
+    }
+
+    private func executeBGMSynthesis(inferred: InferredBGMParams, provider: AIProviderType, model: String, silent: Bool, thinking: String?) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
 
             let sampleRate = 44100
             let samples = self.synthesizeFullBGM(
-                theme: theme,
-                bpm: bpm,
-                duration: duration,
-                style: style,
+                theme: inferred.theme,
+                bpm: inferred.bpm,
+                duration: inferred.duration,
+                style: inferred.style,
                 sampleRate: sampleRate
             )
 
@@ -195,7 +611,8 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Audio", isDirectory: true)
             try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
 
-            let fileName = "TohoAI_BGM_\(theme.rawValue.prefix(6))_\(Int(Date().timeIntervalSince1970)).wav"
+            let cleanName = self.bgmPrompt.prefix(10).replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
+            let fileName = "AI_BGM_\(cleanName)_\(Int(Date().timeIntervalSince1970)).wav"
             let fileURL = outputDir.appendingPathComponent(fileName)
             try? wavData.write(to: fileURL)
 
@@ -203,26 +620,33 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
                 self.isBGMGenerating = false
                 self.generatedBGMURL = fileURL
 
+                let providerTag = "[\(provider.rawValue)]"
                 let item = GeneratedSoundItem(
-                    name: "\(theme.rawValue.prefix(12)) (BPM \(Int(bpm)))",
+                    name: "\(providerTag) \(self.bgmPrompt.prefix(16)) (BPM \(Int(inferred.bpm)))",
                     type: "BGM",
-                    duration: duration,
+                    duration: inferred.duration,
                     fileURL: fileURL,
                     createdAt: Date(),
-                    detailDescription: "東方風BGM: \(style.rawValue), 尺: \(Int(duration))秒"
+                    detailDescription: "\(provider.rawValue) (\(model)) | [\(inferred.theme.category)] \(inferred.style.rawValue), 尺: \(Int(inferred.duration))秒"
                 )
                 self.soundHistory.insert(item, at: 0)
 
                 if !silent {
-                    AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: BGM「\(item.name)」を生成しました。")
+                    let logPrefix = (provider == .virtualLinuxVM && thinking != nil) ? "仮想LinuxVM (DeepSeek-R1) 推論完了: " : ""
+                    AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: \(logPrefix)[\(provider.rawValue) (\(model))] からBGM「\(item.name)」を生成しました。")
                 }
             }
         }
     }
 
-    // MARK: - SE生成実行
-    public func generateSE(silent: Bool = false) {
+    // MARK: - SE生成実行 (プロンプト駆動)
+    public func generateSE(userPrompt: String? = nil, silent: Bool = false) {
         guard !isSEGenerating else { return }
+
+        let targetPrompt = (userPrompt ?? sePrompt).trimmingCharacters(in: .whitespacesAndNewlines)
+        if targetPrompt.isEmpty {
+            sePrompt = "スマホのチャット着信音、ポロンと鳴るクリアな通知音"
+        }
 
         if !silent {
             let linuxService = CloudVirtualLinuxService.shared
@@ -233,25 +657,41 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             isSEGenerating = true
         }
 
-        let preset = sePreset
-        let baseFreq = seBaseFrequency
-        let duration = seDurationSeconds
-        let noiseMix = seNoiseMix
-        let isReversed = seIsReversed
+        // プロンプトから動的推論
+        let inferred = analyzeSEPrompt(sePrompt)
+        sePreset = inferred.preset
+        seBaseFrequency = inferred.baseFreq
+        seDurationSeconds = inferred.duration
+        seNoiseMix = inferred.noiseMix
+        seIsReversed = inferred.isReversed
 
+        let provider = self.selectedProvider
+        let model = self.selectedModel
+
+        if provider == .virtualLinuxVM {
+            let seDirective = "効果音(SE)音響物理設計: \(sePrompt)。基本周波数(Hz)、エンベロープ(アタック/減衰時間)、ノイズ成分比率を推論してください。"
+            TohoAIService.shared.callAPIOrGenerateSmart(prompt: seDirective, provider: .virtualLinuxVM, model: model) { [weak self] responseText, thinkingLog in
+                self?.executeSESynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: thinkingLog)
+            }
+        } else {
+            self.executeSESynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: nil)
+        }
+    }
+
+    private func executeSESynthesis(inferred: InferredSEParams, provider: AIProviderType, model: String, silent: Bool, thinking: String?) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
 
             let sampleRate = 44100
             var samples = self.synthesizeSE(
-                preset: preset,
-                baseFreq: baseFreq,
-                duration: duration,
-                noiseMix: noiseMix,
+                preset: inferred.preset,
+                baseFreq: inferred.baseFreq,
+                duration: inferred.duration,
+                noiseMix: inferred.noiseMix,
                 sampleRate: sampleRate
             )
 
-            if isReversed {
+            if inferred.isReversed {
                 samples.reverse()
             }
 
@@ -260,7 +700,8 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Audio", isDirectory: true)
             try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
 
-            let fileName = "TohoAI_SE_\(preset.rawValue.prefix(6))_\(Int(Date().timeIntervalSince1970)).wav"
+            let cleanName = self.sePrompt.prefix(10).replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
+            let fileName = "AI_SE_\(cleanName)_\(Int(Date().timeIntervalSince1970)).wav"
             let fileURL = outputDir.appendingPathComponent(fileName)
             try? wavData.write(to: fileURL)
 
@@ -268,18 +709,20 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
                 self.isSEGenerating = false
                 self.generatedSEURL = fileURL
 
+                let providerTag = "[\(provider.rawValue)]"
                 let item = GeneratedSoundItem(
-                    name: "\(preset.rawValue.prefix(12))",
+                    name: "\(providerTag) \(self.sePrompt.prefix(16))",
                     type: "SE",
-                    duration: duration,
+                    duration: inferred.duration,
                     fileURL: fileURL,
                     createdAt: Date(),
-                    detailDescription: "東方風SE: \(Int(baseFreq))Hz, \(String(format: "%.1f", duration))秒\(isReversed ? " [逆再生]" : "")"
+                    detailDescription: "\(provider.rawValue) (\(model)) | [\(inferred.preset.category)] \(Int(inferred.baseFreq))Hz, \(String(format: "%.2f", inferred.duration))秒\(inferred.isReversed ? " [逆再生]" : "")"
                 )
                 self.soundHistory.insert(item, at: 0)
 
                 if !silent {
-                    AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: SE「\(item.name)」を生成しました。")
+                    let logPrefix = (provider == .virtualLinuxVM && thinking != nil) ? "仮想LinuxVM (DeepSeek-R1) 推論完了: " : ""
+                    AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: \(logPrefix)[\(provider.rawValue) (\(model))] からSE「\(item.name)」を生成しました。")
                 }
             }
         }
@@ -404,9 +847,41 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
                 let t = Double(i) / Double(sampleRate)
                 let noteEnv = max(0.0, 1.0 - (t / stepSec) * 0.75)
 
-                // 1. リード音（ZUNペット / ピアノ / 笛）
+                // 1. リード音（ZUNペット / ピアノ / シンセ / ギター / プラック / 笛 / 8bit）
                 var lead: Double = 0.0
                 switch style {
+                case .modernSynthWave:
+                    // 80sシンセウェイヴ（ノコギリ波の積層＋デチューン＋温かみ）
+                    let f1 = leadFreq
+                    let f2 = leadFreq * 1.004 // わずかなデチューンコーラス
+                    let phase1 = fmod(t * f1, 1.0)
+                    let phase2 = fmod(t * f2, 1.0)
+                    let saw1 = (2.0 * phase1 - 1.0)
+                    let saw2 = (2.0 * phase2 - 1.0)
+                    let filterEnv = max(0.0, 1.0 - (t / stepSec) * 0.6)
+                    lead = (saw1 * 0.6 + saw2 * 0.4) * filterEnv * 0.28
+
+                case .pianoAndStrings:
+                    // ピアノ風打鍵減衰 ＆ ストリングス残響
+                    let decay = exp(-t * 6.5)
+                    let piano = sin(2.0 * .pi * leadFreq * t) * decay * 0.32
+                    let strings = sin(2.0 * .pi * leadFreq * 2.0 * t) * noteEnv * 0.12
+                    lead = piano + strings
+
+                case .acousticGuitarLoFi:
+                    // アコースティック撥弦音 ＆ ローファイテープ感
+                    let pluck = exp(-t * 11.0) * sin(2.0 * .pi * leadFreq * t)
+                    let harmonic = exp(-t * 16.0) * sin(2.0 * .pi * leadFreq * 2.0 * t) * 0.4
+                    let tapeFlutter = sin(2.0 * .pi * 4.0 * t) * 0.005
+                    let loFiTone = (pluck + harmonic) * (1.0 + tapeFlutter)
+                    lead = loFiTone * 0.35
+
+                case .edmPluckAndBass:
+                    // EDMプラック（極短エンベロープ＋倍音）
+                    let pluckEnv = exp(-t * 18.0)
+                    let sq = sin(2.0 * .pi * leadFreq * t) > 0 ? 0.7 : -0.7
+                    lead = (sin(2.0 * .pi * leadFreq * t) * 0.6 + sq * 0.4) * pluckEnv * 0.36
+
                 case .zunPetAndRock:
                     // ZUNペット特有のブラス感（奇数倍音＋ブラスビブラート）
                     let vib = sin(2.0 * .pi * 5.5 * t) * 0.03
@@ -415,14 +890,12 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
                     let s2 = sin(2.0 * .pi * f * 2.0 * t) * 0.5
                     let s3 = sin(2.0 * .pi * f * 3.0 * t) * 0.35
                     lead = (s1 + s2 + s3) * noteEnv * 0.32
-                case .pianoAndStrings:
-                    // ピアノ風打鍵減衰
-                    let decay = exp(-t * 8.0)
-                    lead = sin(2.0 * .pi * leadFreq * t) * decay * 0.35
+
                 case .traditionalJapanese:
                     // 篠笛風（柔らかな倍音と空気感）
                     let breath = Double.random(in: -1...1) * 0.05
                     lead = (sin(2.0 * .pi * leadFreq * t) + breath) * noteEnv * 0.30
+
                 case .chiptune8Bit:
                     // 矩形波
                     let phase = fmod(t * leadFreq, 1.0)
@@ -478,6 +951,214 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         var out = [Float](repeating: 0, count: total)
 
         switch preset {
+        // --- 現代社会・日常 ---
+        case .smartphoneNotification:
+            // ポロン♪ 2音アルペジオ (E6 -> G#6 / B6)
+            let note1Len = duration * 0.45
+            let note2Start = duration * 0.25
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                var s: Double = 0.0
+                if t < note1Len {
+                    let env1 = exp(-t * 12.0)
+                    s += (sin(2.0 * .pi * baseFreq * t) + sin(2.0 * .pi * baseFreq * 2.0 * t) * 0.3) * env1
+                }
+                if t >= note2Start {
+                    let t2 = t - note2Start
+                    let env2 = exp(-t2 * 9.0)
+                    let f2 = baseFreq * 1.3348 // 4度上
+                    s += (sin(2.0 * .pi * f2 * t2) + sin(2.0 * .pi * f2 * 2.0 * t2) * 0.3) * env2
+                }
+                out[i] = Float(s * 0.42)
+            }
+
+        case .cameraShutter:
+            // 一眼レフ: ミラーアップクリック＋先幕シャッター＋後幕（メカニカル）
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                var s: Double = 0.0
+                // 前半クリック
+                if t < 0.08 {
+                    let env = exp(-t * 80.0)
+                    let click = sin(2.0 * .pi * 2200.0 * t) * env
+                    let noise = Double.random(in: -1...1) * env * 0.7
+                    s += (click + noise)
+                }
+                // 後半シャッター走行＆ミラーダウン
+                if t >= 0.12 && t < 0.28 {
+                    let t2 = t - 0.12
+                    let env = exp(-t2 * 45.0)
+                    let click = sin(2.0 * .pi * 1400.0 * t2) * env
+                    let mechNoise = Double.random(in: -1...1) * env * 0.8
+                    s += (click + mechNoise)
+                }
+                out[i] = Float(s * 0.55)
+            }
+
+        case .keyboardTyping:
+            // メカニカルキーボード打鍵: カチッ＋ポコッ
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let clickEnv = exp(-t * 120.0)
+                let thudEnv = exp(-t * 35.0)
+                let click = sin(2.0 * .pi * baseFreq * t) * clickEnv
+                let noise = Double.random(in: -1...1) * clickEnv * 0.6
+                let resonance = sin(2.0 * .pi * 450.0 * t) * thudEnv * 0.4
+                out[i] = Float((click + noise + resonance) * 0.50)
+            }
+
+        case .doorKnockOpen:
+            // ドアノック（コンコン）＋開扉音
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                var s: Double = 0.0
+                // ノック1
+                if t < 0.15 {
+                    let env = exp(-t * 40.0)
+                    s += sin(2.0 * .pi * 180.0 * t) * env * 0.7 + Double.random(in: -1...1) * env * 0.3
+                }
+                // ノック2
+                if t >= 0.20 && t < 0.35 {
+                    let t2 = t - 0.20
+                    let env = exp(-t2 * 40.0)
+                    s += sin(2.0 * .pi * 180.0 * t2) * env * 0.7 + Double.random(in: -1...1) * env * 0.3
+                }
+                // ドアきしみ微音
+                if t >= 0.45 {
+                    let t3 = t - 0.45
+                    let env = sin(.pi * t3 / (duration - 0.45))
+                    s += sin(2.0 * .pi * 320.0 * t3) * env * 0.25
+                }
+                out[i] = Float(s * 0.55)
+            }
+
+        case .carHornDrive:
+            // クラクション: 2音和音 (F#4 + A#4)
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let env = (t < 0.05) ? (t / 0.05) : (t > duration - 0.08 ? (duration - t) / 0.08 : 1.0)
+                let s1 = sin(2.0 * .pi * baseFreq * t)
+                let s2 = sin(2.0 * .pi * (baseFreq * 1.25) * t)
+                let buzz = sin(2.0 * .pi * (baseFreq * 3.0) * t) * 0.3
+                out[i] = Float((s1 + s2 + buzz) * env * 0.35)
+            }
+
+        case .paperRustle:
+            // 紙めくり: 帯域通過ノイズのパサッという擦れ音
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let env = sin(.pi * t / duration)
+                let noise = Double.random(in: -1...1)
+                let rustle = noise * env * (0.5 + 0.5 * sin(2.0 * .pi * 12.0 * t))
+                out[i] = Float(rustle * 0.45)
+            }
+
+        // --- 一般ゲーム・映像演出・UI ---
+        case .uiConfirm:
+            // UI決定音: 澄んだ和音
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let env = exp(-t * 10.0)
+                let s = sin(2.0 * .pi * baseFreq * t) + sin(2.0 * .pi * (baseFreq * 1.5) * t) * 0.5
+                out[i] = Float(s * env * 0.45)
+            }
+
+        case .uiCancel:
+            // UIキャンセル音: 下降2音
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let f = t < duration / 2.0 ? baseFreq : baseFreq * 0.75
+                let env = exp(-fmod(t, duration / 2.0) * 14.0)
+                out[i] = Float(sin(2.0 * .pi * f * t) * env * 0.45)
+            }
+
+        case .quizCorrectChime:
+            // クイズ正解: ピンポンピンポン♪
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                var s: Double = 0.0
+                let half = duration / 2.0
+                let tLocal = fmod(t, half)
+                let env = exp(-tLocal * 7.0)
+                // ピン (高音) -> ポン (4度下)
+                let f = tLocal < (half * 0.45) ? baseFreq : baseFreq * 0.749
+                s = sin(2.0 * .pi * f * tLocal) * env
+                out[i] = Float(s * 0.48)
+            }
+
+        case .quizWrongBuzzer:
+            // クイズ不正解: ブブーッ (低音矩形波＋わずかなデチューン)
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let env = (t < 0.04) ? (t / 0.04) : 1.0
+                let p1 = fmod(t * baseFreq, 1.0) < 0.5 ? 1.0 : -1.0
+                let p2 = fmod(t * (baseFreq * 1.05), 1.0) < 0.5 ? 1.0 : -1.0
+                out[i] = Float((p1 * 0.6 + p2 * 0.4) * env * 0.45)
+            }
+
+        case .sceneTransitionWhoosh:
+            // シーン切替・画面転換: 鋭い風切りスウィープ (シュッ)
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let env = sin(.pi * t / duration)
+                let sweepFreq = baseFreq * (1.0 + sin(.pi * t / duration) * 3.0)
+                let noise = Double.random(in: -1...1) * 0.6
+                let s = sin(2.0 * .pi * sweepFreq * t) * 0.4 + noise
+                out[i] = Float(s * env * 0.60)
+            }
+
+        case .heavyPunchHit:
+            // 重打撃・パンチヒット: 急降下サブベース＋インパクトクラッシュ
+            var phase: Double = 0.0
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let env = exp(-t * 12.0)
+                let f = max(40.0, baseFreq * exp(-t * 25.0))
+                phase += 2.0 * .pi * f / Double(sampleRate)
+                let impact = sin(phase) * 0.7 + Double.random(in: -1...1) * exp(-t * 40.0) * 0.6
+                let distorted = tanh(impact * 2.5)
+                out[i] = Float(distorted * env * 0.65)
+            }
+
+        case .massiveExplosion:
+            // 大爆発・ボム: 超重低音＋長時間ノイズ爆風
+            var phase: Double = 0.0
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let subEnv = exp(-t * 4.0)
+                let noiseEnv = exp(-t * 2.0)
+                let f = max(35.0, baseFreq * exp(-t * 6.0))
+                phase += 2.0 * .pi * f / Double(sampleRate)
+                let sub = sin(phase) * subEnv * 0.5
+                let blast = Double.random(in: -1...1) * noiseEnv * 0.6
+                let totalWave = (sub + blast)
+                out[i] = Float(tanh(totalWave * 1.8) * 0.65)
+            }
+
+        case .swordSlashBlade:
+            // 刀剣抜刀・斬撃: キーン（金属高音）＋シャキン（鋭利スウィープ）
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let ringEnv = exp(-t * 7.0)
+                let whooshEnv = exp(-t * 18.0)
+                let metallicRing = (sin(2.0 * .pi * baseFreq * t) + sin(2.0 * .pi * baseFreq * 1.73 * t) * 0.5) * ringEnv
+                let slashNoise = Double.random(in: -1...1) * whooshEnv * 0.5
+                out[i] = Float((metallicRing * 0.5 + slashNoise) * 0.55)
+            }
+
+        case .cyberGlitchNoise:
+            // サイバーグリッチ: 不連続ビットクラッシュ＋パルスノイズ
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let stepT = floor(t * 24.0)
+                let glitchFreq = baseFreq * (1.0 + sin(stepT * 37.0) * 0.8)
+                let pulse = fmod(t * glitchFreq, 1.0) < 0.3 ? 0.8 : -0.8
+                let noise = Double.random(in: -1...1) * noiseMix * 0.5
+                let env = max(0.0, 1.0 - t / duration)
+                out[i] = Float((pulse + noise) * env * 0.45)
+            }
+
+        // --- 東方Project・幻想郷 ---
         case .spellCardChime:
             // 華やかなアルペジオチャイム (4重和音)
             let freqs = [baseFreq, baseFreq * 1.2599, baseFreq * 1.4983, baseFreq * 2.0]
@@ -565,24 +1246,6 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
                 let s1 = sin(2.0 * .pi * baseFreq * t)
                 let s2 = sin(2.0 * .pi * (baseFreq * 1.5) * t) * 0.5
                 out[i] = Float((s1 + s2) * env * 0.50)
-            }
-
-        case .uiConfirm:
-            // UI決定音: 澄んだ和音
-            for i in 0..<total {
-                let t = Double(i) / Double(sampleRate)
-                let env = exp(-t * 10.0)
-                let s = sin(2.0 * .pi * baseFreq * t) + sin(2.0 * .pi * (baseFreq * 1.5) * t) * 0.5
-                out[i] = Float(s * env * 0.45)
-            }
-
-        case .uiCancel:
-            // UIキャンセル音: 下降2音
-            for i in 0..<total {
-                let t = Double(i) / Double(sampleRate)
-                let f = t < duration / 2.0 ? baseFreq : baseFreq * 0.75
-                let env = exp(-fmod(t, duration / 2.0) * 14.0)
-                out[i] = Float(sin(2.0 * .pi * f * t) * env * 0.45)
             }
 
         case .teaCupSound:

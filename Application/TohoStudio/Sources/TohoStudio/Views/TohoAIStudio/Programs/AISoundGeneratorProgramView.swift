@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 /// 仕様書「AI BGM & SE 生成機能」プログラム
-/// 東方風プロシージャル波形合成、リアルタイム試聴、およびSoundMaker/MovieMaker/素材スタジオ連携
+/// 現代社会・日常・映画劇伴・一般ゲームUI・東方Project両対応 プロシージャル波形合成エンジン
 public struct AISoundGeneratorProgramView: View {
     @ObservedObject var soundService = AISoundGeneratorService.shared
     @ObservedObject var tohoAIService = TohoAIService.shared
@@ -14,8 +14,8 @@ public struct AISoundGeneratorProgramView: View {
     @State private var alertMessage: String = ""
 
     public enum SoundGeneratorMode: String, CaseIterable, Identifiable {
-        case bgm = "東方風BGM生成 (ZUNペット/旋律)"
-        case se = "東方風効果音 (SE) 生成 (弾幕/スペルカード)"
+        case bgm = "BGM生成 (プロンプト入力)"
+        case se = "効果音 (SE) 生成 (プロンプト入力)"
 
         public var id: String { rawValue }
 
@@ -40,7 +40,7 @@ public struct AISoundGeneratorProgramView: View {
             HStack(spacing: 0) {
                 // 左カラム: 設定パネル
                 leftSettingsPanel
-                    .frame(width: 380)
+                    .frame(width: 400)
 
                 Divider()
 
@@ -59,35 +59,97 @@ public struct AISoundGeneratorProgramView: View {
         }
     }
 
-    // MARK: - Mode Segment Bar
+    // MARK: - Mode Segment Bar (AIチャットと同様のエンジン・モデル選択バー統合)
     private var modeSegmentBar: some View {
-        HStack(spacing: 16) {
-            Picker("", selection: $activeTab) {
-                ForEach(SoundGeneratorMode.allCases) { mode in
-                    Label(mode.rawValue, systemImage: mode.iconName).tag(mode)
+        VStack(spacing: 8) {
+            // 上段: エンジン・モデル選択バー (AIチャットと同様)
+            HStack(spacing: 12) {
+                // プロバイダー選択
+                Picker("エンジン", selection: $soundService.selectedProvider) {
+                    ForEach(AIProviderType.allCases) { provider in
+                        Label(provider.rawValue, systemImage: provider.iconName).tag(provider)
+                    }
                 }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 440)
+                .pickerStyle(.menu)
+                .frame(width: 220)
 
-            Spacer()
+                // モデル選択
+                Picker("モデル", selection: $soundService.selectedModel) {
+                    ForEach(soundService.selectedProvider.availableModels, id: \.self) { model in
+                        Text(model).tag(model)
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(width: 200)
 
-            // プロンプト残数バッジ
-            HStack(spacing: 6) {
-                Image(systemName: "sparkles")
-                    .foregroundColor(.yellow)
-                Text("残プロンプト: \(cloudLinuxService.remainingPrompts) / \(cloudLinuxService.totalPromptsMonthly)")
-                    .font(.caption)
-                    .bold()
+                // 接続ステータスバッジ
+                apiStatusBadge(for: soundService.selectedProvider)
+
+                Spacer()
+
+                // プロンプト残数バッジ
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles")
+                        .foregroundColor(.yellow)
+                    Text("残プロンプト: \(cloudLinuxService.remainingPrompts) / \(cloudLinuxService.totalPromptsMonthly)")
+                        .font(.caption)
+                        .bold()
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color.secondary.opacity(0.12))
+                .cornerRadius(8)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(Color.secondary.opacity(0.12))
-            .cornerRadius(8)
+
+            // 下段: モード切り替え (BGM / SE)
+            HStack {
+                Picker("", selection: $activeTab) {
+                    ForEach(SoundGeneratorMode.allCases) { mode in
+                        Label(mode.rawValue, systemImage: mode.iconName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 440)
+
+                Spacer()
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(Color(NSColor.controlBackgroundColor))
+    }
+
+    private func apiStatusBadge(for provider: AIProviderType) -> some View {
+        let isConfigured: Bool
+        let labelText: String
+
+        switch provider {
+        case .chatGPT:
+            isConfigured = !tohoAIService.chatGPTConfig.apiKey.isEmpty
+            labelText = isConfigured ? "OpenAI連携中" : "ChatGPT音響推論"
+        case .gemini:
+            isConfigured = !tohoAIService.geminiConfig.apiKey.isEmpty
+            labelText = isConfigured ? "Gemini連携中" : "Gemini音響推論"
+        case .claude:
+            isConfigured = !tohoAIService.claudeConfig.apiKey.isEmpty
+            labelText = isConfigured ? "Claude連携中" : "Claude音響推論"
+        case .virtualLinuxVM:
+            isConfigured = (cloudLinuxService.connectionStatus == .connected || cloudLinuxService.connectionStatus == .lowLatency)
+            labelText = isConfigured ? "仮想LinuxVM接続中 (DeepSeek-R1/Gemma)" : "スタンドアロン音響推論"
+        }
+
+        return HStack(spacing: 4) {
+            Circle()
+                .fill(isConfigured ? Color.green : Color.blue)
+                .frame(width: 7, height: 7)
+            Text(labelText)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.secondary.opacity(0.08))
+        .cornerRadius(6)
     }
 
     // MARK: - Left Settings Panel
@@ -112,145 +174,133 @@ public struct AISoundGeneratorProgramView: View {
         .background(Color(NSColor.controlBackgroundColor))
     }
 
-    // MARK: - BGM Settings
+    // MARK: - BGM Settings (プロンプト駆動)
     private var bgmSettingsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("東方風BGMパラメータ")
+                Text("AI BGM プロンプト生成")
                     .font(.headline)
-                Text("ZUNペット・和風短音階・疾走ベースによるリアルタイム楽曲合成")
+                Text("情景・楽器・テンポ・雰囲気を自由に記述してリアルタイム作曲")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
 
-            // テーマプリセット
             VStack(alignment: .leading, spacing: 6) {
-                Text("楽曲テーマ・原曲風プリセット:")
+                Text("BGMプロンプト (自由記述):")
                     .font(.caption)
                     .bold()
-                Picker("", selection: $soundService.bgmTheme) {
-                    ForEach(AISoundGeneratorService.BGMThemePreset.allCases) { theme in
-                        Text(theme.rawValue).tag(theme)
+
+                TextEditor(text: $soundService.bgmPrompt)
+                    .font(.system(.body, design: .default))
+                    .frame(height: 120)
+                    .padding(6)
+                    .background(Color(NSColor.textBackgroundColor))
+                    .cornerRadius(6)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
+
+                // クイック入力サジェストタグ
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        soundTagButton("雨の日の静かなカフェ、アコギとピアノ", isBGM: true)
+                        soundTagButton("サイバーパンクの夜、疾走シンセBGM", isBGM: true)
+                        soundTagButton("深夜のデスク作業、Lo-Fiチルビート", isBGM: true)
+                        soundTagButton("映画のような壮大なバトル劇伴オーケストラ", isBGM: true)
+                        soundTagButton("東方風の軽快なメロディ、ZUNペットとロックドラム", isBGM: true)
+                        soundTagButton("EDMフェス、高揚感のあるダンスビート", isBGM: true)
                     }
                 }
-                .pickerStyle(.menu)
-                .onChange(of: soundService.bgmTheme) { newTheme in
-                    soundService.bgmBPM = newTheme.defaultBPM
-                }
             }
 
-            // BPMスライダー
+            // プロンプトから推論される音響特徴のリアルタイムプレビュー
+            let inferred = soundService.analyzeBGMPrompt(soundService.bgmPrompt)
             VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text("テンポ (BPM):")
-                        .font(.caption)
-                    Spacer()
-                    Text("\(Int(soundService.bgmBPM)) BPM")
-                        .font(.caption)
-                        .bold()
-                }
-                Slider(value: $soundService.bgmBPM, in: 80...200, step: 1.0)
-            }
-
-            // 尺（秒数）
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text("ループ尺 (秒数):")
-                        .font(.caption)
-                    Spacer()
-                    Text("\(Int(soundService.bgmDurationSeconds)) 秒")
-                        .font(.caption)
-                        .bold()
-                }
-                Slider(value: $soundService.bgmDurationSeconds, in: 6...30, step: 2.0)
-            }
-
-            // 楽器編成スタイル
-            VStack(alignment: .leading, spacing: 6) {
-                Text("音色・楽器スタイル:")
+                Text("AI推論プレビュー:")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                Text(inferred.summary)
                     .font(.caption)
-                    .bold()
-                Picker("", selection: $soundService.bgmInstrumentStyle) {
-                    ForEach(AISoundGeneratorService.BGMInstrumentStyle.allCases) { style in
-                        Text(style.rawValue).tag(style)
-                    }
-                }
-                .pickerStyle(.menu)
+                    .foregroundColor(.blue)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.blue.opacity(0.08))
+                    .cornerRadius(6)
             }
         }
     }
 
-    // MARK: - SE Settings
+    // MARK: - SE Settings (プロンプト駆動)
     private var seSettingsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("東方風効果音 (SE) パラメータ")
+                Text("AI 効果音(SE) プロンプト生成")
                     .font(.headline)
-                Text("スペルカード・弾幕・被弾ピチューン等の波形シンセサイズ")
+                Text("欲しい音（通知音、打撃、爆発、環境音等）を自由に記述して波形合成")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
 
-            // SEプリセット
             VStack(alignment: .leading, spacing: 6) {
-                Text("効果音プリセット:")
+                Text("SEプロンプト (自由記述):")
                     .font(.caption)
                     .bold()
-                Picker("", selection: $soundService.sePreset) {
-                    ForEach(AISoundGeneratorService.SEPresetType.allCases) { preset in
-                        Text(preset.rawValue).tag(preset)
+
+                TextEditor(text: $soundService.sePrompt)
+                    .font(.system(.body, design: .default))
+                    .frame(height: 120)
+                    .padding(6)
+                    .background(Color(NSColor.textBackgroundColor))
+                    .cornerRadius(6)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
+
+                // クイック入力サジェストタグ
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        soundTagButton("スマホのチャット着信音、クリアな通知ベル", isBGM: false)
+                        soundTagButton("一眼レフカメラのシャッター音", isBGM: false)
+                        soundTagButton("PCキーボードの高速タイピング打鍵音", isBGM: false)
+                        soundTagButton("格闘ゲームの重いパンチ打撃音", isBGM: false)
+                        soundTagButton("大爆発と轟音クラッシュ", isBGM: false)
+                        soundTagButton("クイズの正解チャイム (ピンポン♪)", isBGM: false)
+                        soundTagButton("東方スペルカード展開の煌めくチャイム", isBGM: false)
                     }
                 }
-                .pickerStyle(.menu)
-                .onChange(of: soundService.sePreset) { newPreset in
-                    soundService.seBaseFrequency = newPreset.defaultFrequency
-                    soundService.seDurationSeconds = newPreset.defaultDuration
-                }
             }
 
-            // 周波数スライダー
+            // プロンプトから推論される音響特徴のリアルタイムプレビュー
+            let inferred = soundService.analyzeSEPrompt(soundService.sePrompt)
             VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text("基準周波数 (Hz):")
-                        .font(.caption)
-                    Spacer()
-                    Text("\(Int(soundService.seBaseFrequency)) Hz")
-                        .font(.caption)
-                        .bold()
-                }
-                Slider(value: $soundService.seBaseFrequency, in: 100...3500, step: 20.0)
+                Text("AI推論プレビュー:")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                Text(inferred.summary)
+                    .font(.caption)
+                    .foregroundColor(.purple)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.purple.opacity(0.08))
+                    .cornerRadius(6)
             }
-
-            // 持続時間スライダー
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text("持続時間 (秒):")
-                        .font(.caption)
-                    Spacer()
-                    Text(String(format: "%.2f 秒", soundService.seDurationSeconds))
-                        .font(.caption)
-                        .bold()
-                }
-                Slider(value: $soundService.seDurationSeconds, in: 0.1...3.0, step: 0.05)
-            }
-
-            // ノイズ混和率
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text("ノイズ・歪み量:")
-                        .font(.caption)
-                    Spacer()
-                    Text("\(Int(soundService.seNoiseMix * 100)) %")
-                        .font(.caption)
-                        .bold()
-                }
-                Slider(value: $soundService.seNoiseMix, in: 0.0...1.0, step: 0.05)
-            }
-
-            // 逆再生トグル
-            Toggle("逆再生 (Reverse Sweep)", isOn: $soundService.seIsReversed)
-                .font(.caption)
         }
+    }
+
+    // MARK: - Tag Button Helper
+    private func soundTagButton(_ text: String, isBGM: Bool) -> some View {
+        Button(action: {
+            if isBGM {
+                soundService.bgmPrompt = text
+            } else {
+                soundService.sePrompt = text
+            }
+        }) {
+            Text(text)
+                .font(.system(size: 10))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(isBGM ? Color.blue.opacity(0.12) : Color.purple.opacity(0.12))
+                .foregroundColor(isBGM ? .blue : .purple)
+                .cornerRadius(4)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Generate Button Section
@@ -298,12 +348,7 @@ public struct AISoundGeneratorProgramView: View {
                                 startPoint: .bottom,
                                 endPoint: .top
                             ))
-                            .frame(
-                                width: 8,
-                                height: (soundService.isBGMPlaying || soundService.isSEPlaying) ?
-                                    CGFloat.random(in: 15...90) :
-                                    CGFloat(20 + (i % 6) * 8)
-                            )
+                            .frame(width: 8, height: visualizerBarHeight(index: i))
                             .animation(.easeInOut(duration: 0.15), value: soundService.isBGMPlaying || soundService.isSEPlaying)
                     }
                 }
@@ -479,5 +524,13 @@ public struct AISoundGeneratorProgramView: View {
         }
         .frame(height: 160)
         .background(Color(NSColor.windowBackgroundColor))
+    }
+
+    private func visualizerBarHeight(index: Int) -> CGFloat {
+        if soundService.isBGMPlaying || soundService.isSEPlaying {
+            return CGFloat.random(in: 15...90)
+        } else {
+            return CGFloat(20 + (index % 6) * 8)
+        }
     }
 }

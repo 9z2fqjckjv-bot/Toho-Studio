@@ -15,16 +15,23 @@ public struct AIImageGeneratorProgramView: View {
     public init() {}
 
     public var body: some View {
-        HStack(spacing: 0) {
-            // 左側: パラメータ設定コントロールパネル
-            leftControlPanel
-                .frame(width: 360)
+        VStack(spacing: 0) {
+            // 上部ツールバー (AIチャットと同様のエンジン・モデル選択)
+            headerBar
 
             Divider()
 
-            // 右側: プレビュー＆生成履歴
-            rightPreviewPanel
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            HStack(spacing: 0) {
+                // 左側: パラメータ設定コントロールパネル
+                leftControlPanel
+                    .frame(width: 360)
+
+                Divider()
+
+                // 右側: プレビュー＆生成履歴
+                rightPreviewPanel
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
         .background(Color(NSColor.windowBackgroundColor))
         .alert(isPresented: $showSaveAlert) {
@@ -36,19 +43,96 @@ public struct AIImageGeneratorProgramView: View {
         }
     }
 
+    // MARK: - Header Bar (AIチャットと同様のエンジン・モデル選択)
+    private var headerBar: some View {
+        HStack(spacing: 12) {
+            // プロバイダー選択
+            Picker("エンジン", selection: $imageService.selectedProvider) {
+                ForEach(AIProviderType.allCases) { provider in
+                    Label(provider.rawValue, systemImage: provider.iconName).tag(provider)
+                }
+            }
+            .pickerStyle(.menu)
+            .frame(width: 220)
+
+            // モデル選択
+            Picker("モデル", selection: $imageService.selectedModel) {
+                ForEach(imageService.selectedProvider.availableModels, id: \.self) { model in
+                    Text(model).tag(model)
+                }
+            }
+            .pickerStyle(.menu)
+            .frame(width: 200)
+
+            // 接続ステータスバッジ
+            apiStatusBadge(for: imageService.selectedProvider)
+
+            Spacer()
+
+            // プロンプト残数バッジ
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .foregroundColor(.yellow)
+                Text("残プロンプト: \(cloudLinuxService.remainingPrompts) / \(cloudLinuxService.totalPromptsMonthly)")
+                    .font(.caption)
+                    .bold()
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Color.secondary.opacity(0.12))
+            .cornerRadius(8)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color(NSColor.controlBackgroundColor))
+    }
+
+    private func apiStatusBadge(for provider: AIProviderType) -> some View {
+        let isConfigured: Bool
+        let labelText: String
+
+        switch provider {
+        case .chatGPT:
+            isConfigured = !tohoAIService.chatGPTConfig.apiKey.isEmpty
+            labelText = isConfigured ? "OpenAI連携中 (DALL-E 3)" : "ChatGPT推論＋高精細拡散"
+        case .gemini:
+            isConfigured = !tohoAIService.geminiConfig.apiKey.isEmpty
+            labelText = isConfigured ? "Gemini連携中 (Imagen 3)" : "Gemini推論＋高精細拡散"
+        case .claude:
+            isConfigured = !tohoAIService.claudeConfig.apiKey.isEmpty
+            labelText = isConfigured ? "Claude連携中" : "Claude推論＋高精細拡散"
+        case .virtualLinuxVM:
+            isConfigured = (cloudLinuxService.connectionStatus == .connected || cloudLinuxService.connectionStatus == .lowLatency)
+            labelText = isConfigured ? "仮想LinuxVM接続中 (DeepSeek-R1/Gemma)" : "スタンドアロン推論"
+        }
+
+        return HStack(spacing: 4) {
+            Circle()
+                .fill(isConfigured ? Color.green : Color.blue)
+                .frame(width: 7, height: 7)
+            Text(labelText)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.secondary.opacity(0.08))
+        .cornerRadius(6)
+    }
+
     // MARK: - Left Control Panel
     private var leftControlPanel: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 // タイトル
                 HStack(spacing: 8) {
-                    Image(systemName: "photo.artframe")
+                    Image(systemName: "sparkles.rectangle.stack")
                         .font(.title2)
                         .foregroundColor(.blue)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("東方AI画像ジェネレーター")
+                        Text("本格AI画像ジェネレーター")
                             .font(.headline)
-                        Text("東方名所・キャラクター立ち絵・弾幕CG生成")
+                        Text("Geminiアプリ同様、自由なプロンプト1つで高精細AI画像を生成")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
@@ -57,87 +141,75 @@ public struct AIImageGeneratorProgramView: View {
 
                 Divider()
 
-                // プロンプト入力
+                // プロンプト入力エリア (メイン)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("プロンプト (呪文):")
-                        .font(.caption)
-                        .bold()
+                    HStack {
+                        Text("生成プロンプト:")
+                            .font(.caption)
+                            .bold()
+                        Spacer()
+                        Text("自由記述（被写体・構図・照明・雰囲気）")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+
                     TextEditor(text: $imageService.prompt)
-                        .font(.system(.caption, design: .monospaced))
-                        .frame(height: 70)
-                        .padding(4)
+                        .font(.system(.body, design: .default))
+                        .frame(height: 120)
+                        .padding(6)
                         .background(Color(NSColor.textBackgroundColor))
                         .cornerRadius(6)
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
-                }
 
-                // 東方キャラクター選択
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("登場キャラクター:")
-                        .font(.caption)
-                        .bold()
-                    Picker("", selection: $imageService.selectedCharacter) {
-                        ForEach(["博麗霊夢", "霧雨魔理沙", "十六夜咲夜", "魂魄妖夢", "レミリア", "フランドール", "チルノ", "東風谷早苗", "射命丸文", "鈴仙", "アリス", "パチュリー", "西行寺幽々子"], id: \.self) { c in
-                            Text(c).tag(c)
+                    // クイック入力サジェストタグ
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            promptTagButton("学校の中庭が窓から見える保健室のイラスト")
+                            promptTagButton("夕暮れの現代都市と摩天楼")
+                            promptTagButton("雨上がりのカフェテラス")
+                            promptTagButton("満天の星空と天の川の風景")
+                            promptTagButton("サイバーパンクのネオン街")
+                            promptTagButton("博麗神社で縁側のお茶会")
                         }
                     }
-                    .pickerStyle(.menu)
                 }
 
-                // 幻想郷背景シーンプリセット
+                // アスペクト比選択
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("背景・ステージ選択:")
-                        .font(.caption)
-                        .bold()
-                    Picker("", selection: $imageService.selectedScene) {
-                        ForEach(AIImageGeneratorService.ImageScenePreset.allCases) { scene in
-                            Text(scene.rawValue).tag(scene)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-
-                // アートスタイル
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("描画スタイル:")
-                        .font(.caption)
-                        .bold()
-                    Picker("", selection: $imageService.selectedStyle) {
-                        ForEach(AIImageGeneratorService.ImageStylePreset.allCases) { style in
-                            Text(style.rawValue).tag(style)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-
-                // アスペクト比
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("アスペクト比 / 解像度:")
+                    Text("アスペクト比:")
                         .font(.caption)
                         .bold()
                     Picker("", selection: $imageService.selectedAspectRatio) {
-                        ForEach(AIImageGeneratorService.ImageAspectRatio.allCases) { ratio in
-                            Text(ratio.rawValue).tag(ratio)
+                        ForEach(AIImageGeneratorService.ImageAspectRatio.allCases) { aspect in
+                            Text(aspect.rawValue).tag(aspect)
                         }
                     }
                     .pickerStyle(.menu)
                 }
 
-                // シード値
+                // ネガティブプロンプト
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("シード値 (ランダム: -1):")
-                            .font(.caption)
-                        Spacer()
-                        Button("ランダム化") {
-                            imageService.seed = -1
-                        }
-                        .font(.caption2)
-                        .buttonStyle(.plain)
-                        .foregroundColor(.blue)
-                    }
-                    TextField("-1", value: $imageService.seed, formatter: NumberFormatter())
+                    Text("除外したい要素 (ネガティブプロンプト):")
+                        .font(.caption)
+                        .bold()
+                    TextField("除外キーワード（例: 低解像度, 崩れた構図, ノイズ）", text: $imageService.negativePrompt)
                         .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+                }
+
+                // シード値（ランダム設定）
+                HStack {
+                    Text("シード値:")
+                        .font(.caption)
+                    Spacer()
+                    TextField("-1", value: $imageService.seed, formatter: NumberFormatter())
+                        .frame(width: 80)
+                        .textFieldStyle(.roundedBorder)
+                    Button("ランダム") {
+                        imageService.seed = -1
+                    }
+                    .font(.caption2)
+                    .buttonStyle(.bordered)
                 }
 
                 Divider()
@@ -244,7 +316,7 @@ public struct AIImageGeneratorProgramView: View {
                             .frame(width: 280)
                         Text(imageService.currentStatusMessage)
                             .font(.headline)
-                        Text("東方Projectの幻想郷シーンをCoreGraphics高精度レンダリング中...")
+                        Text("最新AI拡散モデル（Gemini / Imagen 3 / DALL-E / 拡散AI）による高精細ピクセル生成中...")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Spacer()
@@ -263,10 +335,10 @@ public struct AIImageGeneratorProgramView: View {
                 } else {
                     VStack(spacing: 12) {
                         Spacer()
-                        Image(systemName: "photo.on.rectangle.angled")
+                        Image(systemName: "sparkles.rectangle.stack")
                             .font(.system(size: 64))
                             .foregroundColor(.secondary.opacity(0.5))
-                        Text("左側のパネルでシーン・キャラクターを選択し、\n「AI画像を生成」をクリックしてください。")
+                        Text("Google Geminiアプリと同様に、プロンプトを自由に入力して「AI画像を生成」をクリックすると、\n最先端AIモデルによる本格的な高解像度画像が生成されます。")
                             .font(.caption)
                             .multilineTextAlignment(.center)
                             .foregroundColor(.secondary)
@@ -282,6 +354,22 @@ public struct AIImageGeneratorProgramView: View {
             // 下部生成履歴サムネイル
             bottomHistoryBar
         }
+    }
+
+    // MARK: - Prompt Quick Tag Button
+    private func promptTagButton(_ tag: String) -> some View {
+        Button(action: {
+            imageService.prompt = tag
+        }) {
+            Text(tag)
+                .font(.system(size: 10))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.blue.opacity(0.12))
+                .foregroundColor(.blue)
+                .cornerRadius(4)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Bottom History Bar

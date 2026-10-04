@@ -8,9 +8,73 @@
 		<data>
 		aDV0rbEk5tXZGlohqgj3kgoSMfk=
 		</data>
+		<key>Resources/Documents/PSDTool.html</key>
+		<data>
+		tBe3x1WVtIYdvm2F8RfzzgzuJkE=
+		</data>
+		<key>Resources/Documents/PSDTool_files/3rd.min.css</key>
+		<data>
+		6J9DzYSSLy6iIu1ERgVAdjiaOW0=
+		</data>
+		<key>Resources/Documents/PSDTool_files/3rd.min.js</key>
+		<data>
+		mRIf4yvFDJl5o8V/8iLhjQTUEtQ=
+		</data>
+		<key>Resources/Documents/PSDTool_files/analytics.js</key>
+		<data>
+		H7A79z+fDcacGOtn7Ru05YmWH3U=
+		</data>
+		<key>Resources/Documents/PSDTool_files/bootstrap.min.css</key>
+		<data>
+		ZSfYvz4ek2i6uMe2D1a8Afo6/Wg=
+		</data>
+		<key>Resources/Documents/PSDTool_files/bootstrap.min.js</key>
+		<data>
+		QwpEPXSDD+m+Ju/KQx9EjBs3QPk=
+		</data>
+		<key>Resources/Documents/PSDTool_files/css</key>
+		<data>
+		yfwYv+qZkoKQkbnlD3GLv3Cuse8=
+		</data>
+		<key>Resources/Documents/PSDTool_files/feature.png</key>
+		<data>
+		HRtHwKbMO8wDjRx0ow3XPpnXA/A=
+		</data>
+		<key>Resources/Documents/PSDTool_files/index.js</key>
+		<data>
+		wGfWuaaWUwX9FH8TQwuNUgldxsA=
+		</data>
+		<key>Resources/Documents/PSDTool_files/jquery.min.js</key>
+		<data>
+		abtp4lyn1e8JNTF1hOYVPz/ZqIw=
+		</data>
+		<key>Resources/Documents/PSDTool_files/js</key>
+		<data>
+		KZ9JsPEnjFxxB6xR0PioveVsC5Q=
+		</data>
+		<key>Resources/Documents/PSDTool_files/js(1)</key>
+		<data>
+		K9u2QupXUOSXGav9lRzb6lV0uR8=
+		</data>
+		<key>Resources/Documents/PSDTool_files/main.css</key>
+		<data>
+		um9gvjWoboVSnKbqbTS7RUXW6CA=
+		</data>
+		<key>Resources/Documents/PSDTool_files/movie-thumb.jpg</key>
+		<data>
+		Jl2xsjzptgecu9kwe3iZOeIzHOI=
+		</data>
+		<key>Resources/Documents/PSDTool_files/psd.min.js</key>
+		<data>
+		R86OkqOgI+MrmPSz+GjN48I2ElM=
+		</data>
+		<key>Resources/Documents/PSDTool_files/sample.png</key>
+		<data>
+		rZpi1YXTCiksxxn8wOElSxs0oEY=
+		</data>
 		<key>Resources/keynote_extractor.py</key>
 		<data>
-		TcYUc/NmzWt4/Gheb5SoKE/kAWI=
+		MYZxfh+KGqYxOjl1rE+xQN4L0aw=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -19,10 +83,10 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			gDXUWQphZIXTnKV2FKZiM+rzHMI=
+			E0nwBK5NcMMJMnz/GtQUxu3OI7k=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"8035d4590a616485d39ca57614a66233eaf31cc2"</string>
+			<string>cdhash H"1349f004ae4d70c309327cff1ad414c6edce23b9"</string>
 		</dict>
 		<key>Resources/AppIcon.png</key>
 		<dict>
@@ -31,11 +95,123 @@
 			Vz19rXb/4oSzvF8tQn88+Zq8SMMwDiteqSip8qVfm+4=
 			</data>
 		</dict>
+		<key>Resources/Documents/PSDTool.html</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			HSqm7e2742iUWcW+Uq078eTKusfar98x/MNUv14q4G0=
+			</data>
+		</dict>
+		<key>Resources/Documents/PSDTool_files/3rd.min.css</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			aahBEiscBZQVa8vR5jOMYmK+l9PAJ0Zs3O/IrLW0to8=
+			</data>
+		</dict>
+		<key>Resources/Documents/PSDTool_files/3rd.min.js</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			4dmI0f1Q5/weDXWn6YZV40SJYj7FOFBt3fwhZsj1dxw=
+			</data>
+		</dict>
+		<key>Resources/Documents/PSDTool_files/analytics.js</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			8aYSd+P5AvUKtCAV2LByGNubdgG7CWflSlK/3LT6foE=
+			</data>
+		</dict>
+		<key>Resources/Documents/PSDTool_files/bootstrap.min.css</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			916EbMg70RQy9LHiGkXzG8hSg9EdNy97GazNG/aiY1w=
+			</data>
+		</dict>
+		<key>Resources/Documents/PSDTool_files/bootstrap.min.js</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			U5ZEeKfGNOja007MMD3YBI0A3OSZOQbeG6z2f2Y0hu8=
+			</data>
+		</dict>
+		<key>Resources/Documents/PSDTool_files/css</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			OmBEkDNRQh5svTyUaUaqmUXeyQOZGOh2f8WQw/DTlm8=
+			</data>
+		</dict>
+		<key>Resources/Documents/PSDTool_files/feature.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			xRYaRKOsIHChfMthBOsMttL7XXXdk2JWdU4SBXFbtjk=
+			</data>
+		</dict>
+		<key>Resources/Documents/PSDTool_files/index.js</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			Al6GyQexK/54Y3jE+dVkFNJxCrvzD2BujZed+Nyj4h0=
+			</data>
+		</dict>
+		<key>Resources/Documents/PSDTool_files/jquery.min.js</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=
+			</data>
+		</dict>
+		<key>Resources/Documents/PSDTool_files/js</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			NMQVDPB3AOEM1Rmj3r3KflYbtU7KjzE7Ceh1t5mHdd4=
+			</data>
+		</dict>
+		<key>Resources/Documents/PSDTool_files/js(1)</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			dFn+Vi16QJzMe4PO6wAKx4cApMvndGyD4yZODvgvemQ=
+			</data>
+		</dict>
+		<key>Resources/Documents/PSDTool_files/main.css</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			BU4LgQknBdrsbZiTM4Q9/wxv07X7oij9X3wTgoe0a+k=
+			</data>
+		</dict>
+		<key>Resources/Documents/PSDTool_files/movie-thumb.jpg</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			UtkNVLUd6t6vxbewUhVw6Y/BqwVrXnOd+VdkgKRDpOs=
+			</data>
+		</dict>
+		<key>Resources/Documents/PSDTool_files/psd.min.js</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			IBYs/JdFT3M3dlMTGHKYqNbU2zC1kOYcBaC3njgQyk0=
+			</data>
+		</dict>
+		<key>Resources/Documents/PSDTool_files/sample.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			7WdM1JpPM2V27cLZpVc7cFIRtwWtpsaw3y/1rF3gqa8=
+			</data>
+		</dict>
 		<key>Resources/keynote_extractor.py</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			7BTGASAWfZfY9VlIp7/U+efvr3pzK/kEWSyE/31xXWM=
+			tAkehtw8JPHZ2JIQ1HNhoQTrrxgS1cOQWyiyR4R0MQI=
 			</data>
 		</dict>
 	</dict>

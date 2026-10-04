@@ -350,7 +350,7 @@ public final class TohoAIService: ObservableObject {
     }
 
     // MARK: - API / Local Hybrid Execution
-    private func callAPIOrGenerateSmart(prompt: String, provider: AIProviderType, model: String, completion: @escaping (String, String?) -> Void) {
+    public func callAPIOrGenerateSmart(prompt: String, provider: AIProviderType, model: String, completion: @escaping (String, String?) -> Void) {
         var apiKey: String = ""
         switch provider {
         case .gemini: apiKey = geminiConfig.apiKey
