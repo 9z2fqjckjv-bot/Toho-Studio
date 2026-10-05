@@ -293,197 +293,215 @@ public final class AIImageGeneratorService: ObservableObject {
     public static func generateOptimizedEnglishPrompt(from inputPrompt: String) -> String {
         let trimmed = inputPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            return "masterpiece, best quality, breathtaking scenic landscape, atmospheric lighting, ultra-detailed, 8k resolution"
+            return "breathtaking scenic landscape, atmospheric lighting, ultra-detailed AND no humans, empty scene AND masterpiece, best quality, 8k resolution"
         }
 
         // アルファベット比率のチェック (すでに大半が英語の場合はそのまま品質タグを付与)
         let asciiCount = trimmed.filter { $0.isASCII && ($0.isLetter || $0.isWhitespace || $0.isPunctuation) }.count
         if Double(asciiCount) / Double(max(1, trimmed.count)) > 0.75 {
-            return "\(trimmed), masterpiece, best quality, highly detailed, cinematic lighting, 8k resolution"
+            return "\(trimmed) AND masterpiece, best quality, highly detailed, cinematic lighting, 8k resolution"
         }
 
-        var tags: [String] = ["masterpiece", "best quality"]
         let lower = trimmed.lowercased()
         let hasPerson = hasExplicitCharacterOrPerson(trimmed)
 
-        // 1. 画風・スタイルの判定（人物の有無に応じて適切なサフィックスを付与）
+        var subjectSegments: [String] = []
+        var locationSegments: [String] = []
+        var atmosphereSegments: [String] = []
+        var humanConstraintSegments: [String] = []
+        var styleSegments: [String] = []
+
+        // 1. 画風・スタイルセグメント
         if lower.contains("写真") || lower.contains("実写") || lower.contains("リアル") || lower.contains("フォト") {
-            tags.append("photorealistic, hyperrealistic photo, 35mm photograph, shot on DSLR, professional photography, natural lighting, sharp focus, 8k UHD")
+            styleSegments.append("photorealistic, hyperrealistic photo, 35mm photograph, shot on DSLR, professional photography, natural lighting, sharp focus, 8k UHD")
         } else if lower.contains("アニメ") || lower.contains("イラスト") || lower.contains("マンガ") || lower.contains("萌え") {
             if hasPerson {
-                tags.append("anime style, clean anime lineart, Japanese animation aesthetic, vibrant colors, expressive illustration")
+                styleSegments.append("anime style, clean anime lineart, Japanese animation aesthetic, vibrant colors, expressive illustration")
             } else {
-                tags.append("anime background concept art, clean anime scenery illustration, Japanese animation background aesthetic, vibrant atmospheric lighting")
+                styleSegments.append("anime background concept art, clean anime scenery illustration, Japanese animation background aesthetic, vibrant atmospheric lighting")
             }
         } else if lower.contains("油絵") || lower.contains("水彩") {
-            tags.append("traditional painting style, visible brush strokes, fine art aesthetic")
+            styleSegments.append("traditional painting style, visible brush strokes, fine art aesthetic")
         } else if lower.contains("3d") || lower.contains("cg") {
-            tags.append("octane render, unreal engine 5 render, highly detailed 3D artwork")
+            styleSegments.append("octane render, unreal engine 5 render, highly detailed 3D artwork")
         } else {
-            tags.append(hasPerson ? "highly detailed digital illustration" : "highly detailed scenic background art, architectural concept art")
+            styleSegments.append(hasPerson ? "highly detailed digital illustration" : "highly detailed scenic background art, architectural concept art")
         }
+        styleSegments.append("masterpiece, best quality, crisp focus, 8k resolution wallpaper")
 
         // 2. 東方キャラクター判定（明示的に指定された場合のみ）
         if lower.contains("霊夢") || lower.contains("reimu") {
-            tags.append("Hakurei Reimu, touhou project, 1girl, red hair ribbon, miko shrine maiden dress, detached sleeves, brown hair, brown eyes, ofuda talismans")
+            subjectSegments.append("Hakurei Reimu, touhou project, 1girl, red hair ribbon, miko shrine maiden dress, detached sleeves, brown hair, brown eyes, ofuda talismans")
         } else if lower.contains("魔理沙") || lower.contains("marisa") {
-            tags.append("Kirisame Marisa, touhou project, 1girl, large black witch hat with white ribbon, blonde side braid, black and white apron dress, mini hakkero")
+            subjectSegments.append("Kirisame Marisa, touhou project, 1girl, large black witch hat with white ribbon, blonde side braid, black and white apron dress, mini hakkero")
         } else if lower.contains("咲夜") || lower.contains("sakuya") {
-            tags.append("Izayoi Sakuya, touhou project, 1girl, silver hair in braids, maid outfit with white apron, pocket watch, silver throwing knives")
+            subjectSegments.append("Izayoi Sakuya, touhou project, 1girl, silver hair in braids, maid outfit with white apron, pocket watch, silver throwing knives")
         } else if lower.contains("レミリア") || lower.contains("remilia") {
-            tags.append("Remilia Scarlet, touhou project, 1girl, light blue hair, mob cap, bat wings, red gothic lolita dress")
+            subjectSegments.append("Remilia Scarlet, touhou project, 1girl, light blue hair, mob cap, bat wings, red gothic lolita dress")
         } else if lower.contains("フラン") || lower.contains("flandre") {
-            tags.append("Flandre Scarlet, touhou project, 1girl, blonde hair, side ponytail, rainbow crystal wings, red dress")
+            subjectSegments.append("Flandre Scarlet, touhou project, 1girl, blonde hair, side ponytail, rainbow crystal wings, red dress")
         } else if lower.contains("妖夢") || lower.contains("youmu") {
-            tags.append("Konpaku Youmu, touhou project, 1girl, short silver hair, black headband, green vest, floating myon phantom, dual samurai swords")
+            subjectSegments.append("Konpaku Youmu, touhou project, 1girl, short silver hair, black headband, green vest, floating myon phantom, dual samurai swords")
         } else if lower.contains("幽々子") || lower.contains("yuyuko") {
-            tags.append("Saigyouji Yuyuko, touhou project, 1girl, pink hair, zukin hat, light blue kimono, ghostly floating will-o-wisps")
+            subjectSegments.append("Saigyouji Yuyuko, touhou project, 1girl, pink hair, zukin hat, light blue kimono, ghostly floating will-o-wisps")
         } else if lower.contains("早苗") || lower.contains("sanae") {
-            tags.append("Kochiya Sanae, touhou project, 1girl, green hair, frog and snake hair accessories, blue and white miko outfit")
+            subjectSegments.append("Kochiya Sanae, touhou project, 1girl, green hair, frog and snake hair accessories, blue and white miko outfit")
         } else if lower.contains("チルノ") || lower.contains("cirno") {
-            tags.append("Cirno, touhou project, 1girl, blue short hair, large green hair bow, blue dress, icicle fairy wings")
+            subjectSegments.append("Cirno, touhou project, 1girl, blue short hair, large green hair bow, blue dress, icicle fairy wings")
         } else if lower.contains("アリス") || lower.contains("alice") {
-            tags.append("Alice Margatroid, touhou project, 1girl, blonde hair, red hairband, blue dress, floating grimoire book")
+            subjectSegments.append("Alice Margatroid, touhou project, 1girl, blonde hair, red hairband, blue dress, floating grimoire book")
         } else if lower.contains("パチュリー") || lower.contains("patchouli") {
-            tags.append("Patchouli Knowledge, touhou project, 1girl, long purple hair, nightcap, striped dress, floating grimoire")
+            subjectSegments.append("Patchouli Knowledge, touhou project, 1girl, long purple hair, nightcap, striped dress, floating grimoire")
         } else if lower.contains("文") || lower.contains("aya") {
-            tags.append("Syameimaru Aya, touhou project, 1girl, black short hair, tokin tengu hat, camera, crow wings")
+            subjectSegments.append("Syameimaru Aya, touhou project, 1girl, black short hair, tokin tengu hat, camera, crow wings")
         }
 
-        // 3. 【最重要】施設・ロケーション・被写体判定 (学校単体による教室強制を撤廃し、施設文脈を最優先)
+        // 3. 【施設・被写体名詞セグメント】（学校の有無に左右されず、対象施設を独立ブロック化）
         var facilityDetected = false
 
         // A. トイレ・サニタリー関連
         if lower.contains("多目的トイレ") || lower.contains("車椅子トイレ") || lower.contains("バリアフリートイレ") || lower.contains("だれでもトイレ") || lower.contains("身障者用トイレ") {
-            tags.append("accessible toilet, universal design restroom, spacious handicap accessible bathroom interior, stainless steel safety handrails beside toilet, modern ceramic toilet bowl, automatic sink washbasin, emergency call button, clean hygienic tiled floor and walls, modern institutional architectural interior")
+            subjectSegments.append("accessible toilet, universal design restroom, spacious handicap accessible bathroom interior, stainless steel safety handrails beside toilet, modern ceramic toilet bowl, automatic sink washbasin, emergency call button, clean hygienic tiled floor and walls, modern institutional architectural interior")
             facilityDetected = true
         } else if lower.contains("トイレ") || lower.contains("お手洗い") || lower.contains("便所") || lower.contains("洗面所") || lower.contains("化粧室") || lower.contains("レストルーム") {
-            tags.append("clean modern public restroom interior, sanitary ceramic washbasin with mirror, hand dryers, clean restroom stalls, indoor architecture")
+            subjectSegments.append("clean modern public restroom interior, sanitary ceramic washbasin with mirror, hand dryers, clean restroom stalls, indoor architecture")
             facilityDetected = true
         }
 
-        // B. 学校関連施設 (中庭、体育館、プール、廊下、屋上、保健室など)
+        // B. 学校施設
         if lower.contains("中庭") || lower.contains("パティオ") {
-            tags.append("school campus courtyard garden, open air manicured lawn, lush green trees, stone pavement path, outdoor benches, serene atmosphere")
-            facilityDetected = true
-        }
-        if lower.contains("窓から見える") || lower.contains("窓越し") || lower.contains("窓") {
-            tags.append("view from large clear glass window, gentle daylight streaming in, scenic view outside the window frame")
+            subjectSegments.append("school campus courtyard garden, open air manicured lawn, lush green trees, stone pavement path, outdoor benches, serene atmosphere")
             facilityDetected = true
         }
         if lower.contains("体育館") || lower.contains("アリーナ") {
-            tags.append("school indoor gymnasium, polished wooden court floor, basketball hoops, high vaulted ceiling, spacious athletic arena")
+            subjectSegments.append("school indoor gymnasium, polished wooden court floor, basketball hoops, high vaulted ceiling, spacious athletic arena")
             facilityDetected = true
         }
         if lower.contains("プール") || lower.contains("水泳") {
-            tags.append("school outdoor swimming pool, crystal clear azure blue water, lane dividers, bleachers, summer campus")
+            subjectSegments.append("school outdoor swimming pool, crystal clear azure blue water, lane dividers, bleachers, summer campus")
             facilityDetected = true
         }
         if lower.contains("廊下") {
-            tags.append("school hallway corridor, polished reflective wooden floor, row of sliding classroom doors, long perspective view, sunny large windows")
+            subjectSegments.append("school hallway corridor, polished reflective wooden floor, row of sliding classroom doors, long perspective view, sunny large windows")
             facilityDetected = true
         }
         if lower.contains("階段") || lower.contains("踊り場") {
-            tags.append("school staircase, wooden steps with handrail, landing platform with sunny window")
+            subjectSegments.append("school staircase, wooden steps with handrail, landing platform with sunny window")
             facilityDetected = true
         }
         if lower.contains("屋上") {
-            tags.append("school rooftop, wire mesh chain-link fence, panoramic view of town horizon under open blue sky")
+            subjectSegments.append("school rooftop, wire mesh chain-link fence, panoramic view of town horizon under open blue sky")
             facilityDetected = true
         }
         if lower.contains("保健室") {
-            tags.append("school infirmary, clean nurse's medical office, white examination bed, soft partition curtain, medicine cabinet, quiet peaceful sunlit room")
+            subjectSegments.append("school infirmary, clean nurse's medical office, white examination bed, soft partition curtain, medicine cabinet, quiet peaceful sunlit room")
             facilityDetected = true
         }
         if lower.contains("図書室") || lower.contains("図書館") {
-            tags.append("quiet school library, tall wooden bookshelves packed with books, study tables with lamps, peaceful ambiance")
+            subjectSegments.append("quiet school library, tall wooden bookshelves packed with books, study tables with lamps, peaceful ambiance")
             facilityDetected = true
         }
         if lower.contains("部室") {
-            tags.append("school club room, whiteboard, table, casual student room")
+            subjectSegments.append("school club room, whiteboard, table, casual student room")
             facilityDetected = true
         }
         if lower.contains("下駄箱") || lower.contains("昇降口") || lower.contains("靴箱") {
-            tags.append("school entrance hall, getabako wooden shoe lockers, student entryway")
+            subjectSegments.append("school entrance hall, getabako wooden shoe lockers, student entryway")
             facilityDetected = true
         }
         if lower.contains("職員室") {
-            tags.append("teachers faculty office room, desks piled with textbooks and papers")
+            subjectSegments.append("teachers faculty office room, desks piled with textbooks and papers")
             facilityDetected = true
         }
         if lower.contains("校庭") || lower.contains("グラウンド") {
-            tags.append("school athletic sports field, running track, soccer goalposts, open grounds")
+            subjectSegments.append("school athletic sports field, running track, soccer goalposts, open grounds")
             facilityDetected = true
         }
 
-        // C. 「教室」または施設名がなく「学校」とだけ指定された場合のみ教室・校舎を適用
+        // C. 「教室」または施設名がなく「学校」とだけ指定された場合のみ
         if lower.contains("教室") {
-            tags.append("Japanese school classroom interior, rows of wooden desks and chairs, green chalkboard, afternoon sunlight from windows")
+            subjectSegments.append("Japanese school classroom interior, rows of wooden desks and chairs, green chalkboard, afternoon sunlight from windows")
             facilityDetected = true
         } else if (lower.contains("学校") || lower.contains("学園") || lower.contains("校舎")) && !facilityDetected {
-            tags.append("Japanese high school campus building exterior, educational institution architecture")
+            subjectSegments.append("Japanese high school campus building exterior, educational institution architecture")
             facilityDetected = true
         }
 
-        // D. 一般ロケーション・環境
+        // D. 「学校」という場所コンテキストの付与（施設がある場合、背景ロケーションとして付加）
+        if (lower.contains("学校") || lower.contains("学園") || lower.contains("校舎")) && facilityDetected && !lower.contains("教室") {
+            locationSegments.append("inside Japanese school campus building, educational facility architecture")
+        }
+
+        // E. 一般ロケーション・環境
         if lower.contains("神社") {
-            tags.append("traditional Japanese shrine, vermilion torii gate, stone lanterns, cedar trees, sacred atmosphere")
-            facilityDetected = true
+            locationSegments.append("traditional Japanese shrine, vermilion torii gate, stone lanterns, cedar trees, sacred atmosphere")
         } else if lower.contains("森") || lower.contains("林") {
-            tags.append("lush deep forest, tall trees, sunbeams filtering through leaves, mossy rocks")
-            facilityDetected = true
+            locationSegments.append("lush deep forest, tall trees, sunbeams filtering through leaves, mossy rocks")
         } else if lower.contains("海") || lower.contains("ビーチ") || lower.contains("海岸") {
-            tags.append("beautiful ocean beach, gentle waves, sparkling turquoise water, blue sky")
-            facilityDetected = true
+            locationSegments.append("beautiful ocean beach, gentle waves, sparkling turquoise water, blue sky")
         } else if lower.contains("宇宙") || lower.contains("星") || lower.contains("銀河") {
-            tags.append("deep cosmos space, glowing nebulae, distant glittering galaxies, stars")
-            facilityDetected = true
+            locationSegments.append("deep cosmos space, glowing nebulae, distant glittering galaxies, stars")
         } else if lower.contains("サイバーパンク") || lower.contains("未来都市") {
-            tags.append("futuristic cyberpunk metropolis, neon lights, skyscrapers, holographic displays")
-            facilityDetected = true
+            locationSegments.append("futuristic cyberpunk metropolis, neon lights, skyscrapers, holographic displays")
         } else if lower.contains("部屋") || lower.contains("室内") || lower.contains("リビング") {
-            tags.append("cozy modern interior room, warm atmospheric lighting, comfortable aesthetic")
-            facilityDetected = true
+            locationSegments.append("cozy modern interior room, warm atmospheric lighting, comfortable aesthetic")
         } else if lower.contains("カフェ") || lower.contains("喫茶店") {
-            tags.append("cozy coffee shop cafe interior, warm ambient wooden decor, coffee cup on table")
-            facilityDetected = true
+            locationSegments.append("cozy coffee shop cafe interior, warm ambient wooden decor, coffee cup on table")
         } else if lower.contains("駅") || lower.contains("ホーム") {
-            tags.append("train station platform, railway tracks, overhead signage")
-            facilityDetected = true
+            locationSegments.append("train station platform, railway tracks, overhead signage")
         } else if lower.contains("公園") {
-            tags.append("peaceful public green park, lush trees, walking path, sunny day")
-            facilityDetected = true
+            locationSegments.append("peaceful public green park, lush trees, walking path, sunny day")
         }
 
-        // 4. 自然・天候・ライティング
+        // 4. 自然・天候・ライティングセグメント
+        if lower.contains("窓から見える") || lower.contains("窓越し") || lower.contains("窓") {
+            atmosphereSegments.append("view from large clear glass window, gentle daylight streaming in, scenic view outside the window frame")
+        }
         if lower.contains("夕暮れ") || lower.contains("夕方") || lower.contains("夕焼け") {
-            tags.append("sunset golden hour, vibrant orange twilight glow, long shadows")
+            atmosphereSegments.append("sunset golden hour, vibrant orange twilight glow, long shadows")
         } else if lower.contains("夜") || lower.contains("月") {
-            tags.append("night scene, moonlight glow, mystical ambient light")
+            atmosphereSegments.append("night scene, moonlight glow, mystical ambient light")
         } else if lower.contains("雨") {
-            tags.append("rainy atmosphere, raindrops, reflective wet surfaces, moody cinematic lighting")
+            atmosphereSegments.append("rainy atmosphere, raindrops, reflective wet surfaces, moody cinematic lighting")
         } else if lower.contains("雪") || lower.contains("冬") {
-            tags.append("winter snow scene, falling snowflakes, crisp cold air")
+            atmosphereSegments.append("winter snow scene, falling snowflakes, crisp cold air")
         } else if lower.contains("桜") {
-            tags.append("cherry blossom petals drifting in the breeze, blooming sakura trees")
+            atmosphereSegments.append("cherry blossom petals drifting in the breeze, blooming sakura trees")
         }
 
-        // 5. 【人物完全防止】人物指定がない背景・環境の場合、絶対にキャラクターを混入させない
+        // 5. 【人物完全防止セグメント】
         if !hasPerson {
-            tags.append("no humans, empty scene, architectural interior, environment concept art, scenery")
+            humanConstraintSegments.append("no humans, empty scene, architectural interior, environment concept art, pure scenery")
         }
 
-        // 6. 汎用仕上げタグ
-        tags.append("highly detailed, cinematic lighting, sharp focus, 8k resolution wallpaper")
+        // --- 6. 各セグメントを AND (Composable Diffusion) で結合 ---
+        var andBlocks: [String] = []
 
-        // 重複を除去してカンマ結合
-        var uniqueTags: [String] = []
-        for tag in tags {
-            if !uniqueTags.contains(tag) {
-                uniqueTags.append(tag)
+        func addBlock(_ segs: [String]) {
+            let filtered = segs.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            if !filtered.isEmpty {
+                // 重複除去
+                var unique: [String] = []
+                for item in filtered {
+                    if !unique.contains(item) {
+                        unique.append(item)
+                    }
+                }
+                andBlocks.append(unique.joined(separator: ", "))
             }
         }
-        return uniqueTags.joined(separator: ", ")
+
+        addBlock(subjectSegments)
+        addBlock(locationSegments)
+        addBlock(atmosphereSegments)
+        addBlock(humanConstraintSegments)
+        addBlock(styleSegments)
+
+        if andBlocks.isEmpty {
+            return "breathtaking scenic landscape, ultra-detailed AND no humans, empty scene AND masterpiece, best quality, 8k resolution"
+        }
+
+        return andBlocks.joined(separator: " AND ")
     }
 
     // MARK: - 除外プロンプト (ネガティブプロンプト) の日英変換エンジン
@@ -580,7 +598,7 @@ public final class AIImageGeneratorService: ObservableObject {
 
         var finalPositivePrompt = englishPrompt
         if !hasPerson && !finalPositivePrompt.contains("no humans") {
-            finalPositivePrompt += ", no humans, empty scene, scenery, interior architecture"
+            finalPositivePrompt += " AND no humans, empty scene, scenery, interior architecture"
         }
 
         let body: [String: Any] = [
