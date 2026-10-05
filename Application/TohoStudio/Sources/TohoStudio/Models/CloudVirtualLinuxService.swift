@@ -108,10 +108,32 @@ public final class CloudVirtualLinuxService: ObservableObject {
                         }
                     }
                 } else {
-                    // Fallback to local healthy indication if VM is temporarily slow
-                    self.latencyMs = Int.random(in: 1...3)
-                    self.lastHeartbeatAt = Date()
+                    // 8080ポート未起動時は、VM内のOllama(11434)を直接チェック
+                    self.checkOllamaHeartbeat(start: start)
+                }
+            }
+        }.resume()
+    }
+
+    /// Ollama (11434) ポートへの直接ヘルスチェック
+    private func checkOllamaHeartbeat(start: Date) {
+        guard let url = URL(string: "http://\(machineStatus.hostIP):11434/api/tags") else {
+            self.connectionStatus = .disconnected
+            return
+        }
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 3.0
+
+        URLSession.shared.dataTask(with: req) { [weak self] _, response, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
                     self.connectionStatus = .connected
+                    let elapsed = Int(Date().timeIntervalSince(start) * 1000)
+                    self.latencyMs = max(1, min(elapsed, 99))
+                    self.lastHeartbeatAt = Date()
+                } else {
+                    self.connectionStatus = .disconnected
                 }
             }
         }.resume()
@@ -211,9 +233,8 @@ public final class CloudVirtualLinuxService: ObservableObject {
                 guard let self = self else { return }
 
                 if error != nil {
-                    // Fallback response if VM unreachable
-                    let fallback = "【ローカル仮想Linux LLM】応答: \(prompt.prefix(30))... に対するスクリプトを生成しました。（通信オフライン）"
-                    completion(.success(fallback))
+                    // 8080 が利用できない場合、VM内のOllama(11434)に直接フォールバック
+                    self.sendPromptToOllamaDirect(prompt: prompt, completion: completion)
                     return
                 }
 
@@ -234,6 +255,55 @@ public final class CloudVirtualLinuxService: ObservableObject {
         }.resume()
     }
 
+    /// VM内のOllama (11434) への直接チャット推論
+    private func sendPromptToOllamaDirect(prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
+        guard let url = URL(string: "http://\(machineStatus.hostIP):11434/api/chat") else {
+            completion(.failure(NSError(domain: "Ollama", code: 400, userInfo: [NSLocalizedDescriptionKey: "無効なURL形式です"])))
+            return
+        }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.timeoutInterval = 90.0
+
+        let payload: [String: Any] = [
+            "model": "gemma2:2b",
+            "messages": [
+                [
+                    "role": "system",
+                    "content": "あなたは親切で知的なAIアシスタントです。ユーザーの質問や指示に対して具体的かつ丁寧に回答してください。"
+                ],
+                ["role": "user", "content": prompt]
+            ],
+            "stream": false
+        ]
+
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: payload) else {
+            completion(.failure(NSError(domain: "Ollama", code: 400, userInfo: [NSLocalizedDescriptionKey: "JSON変換エラー"])))
+            return
+        }
+        req.httpBody = bodyData
+
+        URLSession.shared.dataTask(with: req) { data, _, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    let fallback = "【ローカル仮想Linux LLM】応答: \(prompt.prefix(30))... （通信オフライン: \(error.localizedDescription)）"
+                    completion(.success(fallback))
+                    return
+                }
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let msg = json["message"] as? [String: Any],
+                      let text = msg["content"] as? String else {
+                    completion(.failure(NSError(domain: "Ollama", code: 500, userInfo: [NSLocalizedDescriptionKey: "Ollama応答のパースに失敗しました"])))
+                    return
+                }
+                completion(.success(text))
+            }
+        }.resume()
+    }
+
     // MARK: - ローカルLLM (LLMMac.md: Google Gemma 2 / Meta Llama 3.2) によるプロンプト英文化エンジン
     public enum LocalLLMMediaType: String {
         case image = "画像生成 (SDXL 1.0)"
@@ -244,7 +314,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
         var systemPrompt: String {
             switch self {
             case .image:
-                return "You are an expert prompt engineer for Stable Diffusion XL (SDXL 1.0). Deconstruct the user's Japanese sentence into key noun concepts and descriptive phrases, translate each concept into comma-separated English tags, and combine each distinct conceptual block using the capital ' AND ' operator. For example: (Subject nouns) AND (Facility/Location nouns) AND (Lighting/Atmosphere nouns) AND (Quality/Style tags). Never default to a classroom if another specific facility is mentioned. If the request does NOT explicitly mention people or characters, always add a segment ' AND no humans, empty scene, architectural interior' to strictly forbid unwanted characters. Output ONLY the resulting prompt joined by ' AND ' without preamble, backticks, or explanation."
+                return "You are a professional prompt engineer for text-to-image AI (Stable Diffusion XL). Translate the user's Japanese prompt into concise, highly accurate English descriptive tags separated by commas. Accurately translate key facilities: '校庭' or 'グラウンド' or '運動場' -> 'outdoor schoolyard, athletic sports ground, running track, high school building exterior', '教室' -> 'Japanese classroom interior, desks, chalkboard', '廊下' -> 'school hallway corridor', '屋上' -> 'school rooftop, blue sky', '中庭' -> 'school courtyard garden', '体育館' -> 'school gymnasium', '保健室' -> 'school infirmary, clinic bed, medicine cabinet'. STRICT RULE: If the scene is outdoor (校庭, グラウンド, 屋外, 空, 海, 公園, 神社), you MUST specify 'outdoor' and NEVER include 'interior', 'room', or 'classroom'. If no characters are requested, add 'no humans, empty scenery'. Output ONLY the English tags."
             case .video:
                 return "You are an expert prompt engineer for video generation. Translate the user's Japanese animation or video prompt into a descriptive English motion prompt. Specify the subject, action, motion dynamics, camera movement, and aesthetic style. Do NOT assume anime unless requested. Output ONLY the English prompt."
             case .music:
@@ -306,7 +376,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
                        let responseText = json["response"] as? String,
                        !responseText.isEmpty,
                        !responseText.contains("【ローカル生成フォールバック】") {
-                        let cleaned = Self.cleanLLMPromptOutput(responseText)
+                        let cleaned = Self.cleanLLMPromptOutput(responseText, originalPrompt: trimmed)
                         AppState.shared.addSystemLog(level: "INFO", message: "ローカルLLM (Gemma 2) が英語プロンプトを生成: \(cleaned.prefix(60))...")
                         DispatchQueue.main.async {
                             completion(cleaned)
@@ -324,13 +394,28 @@ public final class CloudVirtualLinuxService: ObservableObject {
         Self.tryOllamaDirect(prompt: trimmed, mediaType: mediaType, completion: completion)
     }
 
-    /// Ollama 直接アクセス (127.0.0.1:11434)
+    /// Ollama 直接アクセス (VMのhostIP:11434 または 127.0.0.1:11434)
     private static func tryOllamaDirect(
         prompt: String,
         mediaType: LocalLLMMediaType,
         completion: @escaping (String) -> Void
     ) {
-        guard let url = URL(string: "http://127.0.0.1:11434/api/generate") else {
+        let hostIP = CloudVirtualLinuxService.shared.machineStatus.hostIP
+        let urlStrings = [
+            "http://\(hostIP):11434/api/generate",
+            "http://127.0.0.1:11434/api/generate"
+        ]
+
+        tryOllamaGenerateEndpoints(urls: urlStrings, prompt: prompt, mediaType: mediaType, completion: completion)
+    }
+
+    private static func tryOllamaGenerateEndpoints(
+        urls: [String],
+        prompt: String,
+        mediaType: LocalLLMMediaType,
+        completion: @escaping (String) -> Void
+    ) {
+        guard let urlStr = urls.first, let url = URL(string: urlStr) else {
             completion(prompt)
             return
         }
@@ -338,7 +423,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.timeoutInterval = 5.0
+        req.timeoutInterval = 45.0
 
         let payload: [String: Any] = [
             "model": "gemma2:2b",
@@ -357,7 +442,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let resText = json["response"] as? String,
                !resText.isEmpty {
-                let cleaned = cleanLLMPromptOutput(resText)
+                let cleaned = cleanLLMPromptOutput(resText, originalPrompt: prompt)
                 AppState.shared.addSystemLog(level: "INFO", message: "Ollama (Gemma 2) が英語プロンプトを生成: \(cleaned.prefix(60))...")
                 DispatchQueue.main.async {
                     completion(cleaned)
@@ -365,15 +450,19 @@ public final class CloudVirtualLinuxService: ObservableObject {
                 return
             }
 
-            // オフライン時は元のプロンプトを返却（呼び出し元の辞書エンジンに委ねる）
-            DispatchQueue.main.async {
-                completion(prompt)
+            let next = Array(urls.dropFirst())
+            if !next.isEmpty {
+                tryOllamaGenerateEndpoints(urls: next, prompt: prompt, mediaType: mediaType, completion: completion)
+            } else {
+                DispatchQueue.main.async {
+                    completion(prompt)
+                }
             }
         }.resume()
     }
 
-    /// LLMが出力したプロンプト文字列から余計な装飾をクリーンアップ
-    private static func cleanLLMPromptOutput(_ raw: String) -> String {
+    /// LLMが出力したプロンプト文字列から余計な装飾をクリーンアップし、屋外/屋内等の不整合をサニタイズ
+    private static func cleanLLMPromptOutput(_ raw: String, originalPrompt: String = "") -> String {
         var str = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         if str.hasPrefix("```") {
             let lines = str.components(separatedBy: "\n")
@@ -382,6 +471,26 @@ public final class CloudVirtualLinuxService: ObservableObject {
         str = str.replacingOccurrences(of: "\"", with: "")
         str = str.replacingOccurrences(of: "English Prompt:", with: "")
         str = str.replacingOccurrences(of: "Prompt:", with: "")
+        str = str.replacingOccurrences(of: "User Request:", with: "")
+        str = str.replacingOccurrences(of: "Japanese:", with: "")
+        str = str.replacingOccurrences(of: "English:", with: "")
+
+        let origLower = originalPrompt.lowercased()
+        let isOutdoor = origLower.contains("校庭") || origLower.contains("グラウンド") || origLower.contains("運動場") ||
+                        origLower.contains("屋外") || origLower.contains("空") || origLower.contains("海") ||
+                        origLower.contains("公園") || origLower.contains("屋上") || origLower.contains("中庭")
+
+        if isOutdoor {
+            // 屋外指定なのにLLMが誤って付与した室内・教室キーワードを安全に除去
+            let forbidden = ["architectural interior", "interior architecture", "classroom interior", "classroom", "interior", "indoor"]
+            for term in forbidden {
+                str = str.replacingOccurrences(of: term, with: "", options: .caseInsensitive)
+            }
+            if !str.lowercased().contains("outdoor") {
+                str = "outdoor schoolyard athletic field, " + str
+            }
+        }
+
         return str.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

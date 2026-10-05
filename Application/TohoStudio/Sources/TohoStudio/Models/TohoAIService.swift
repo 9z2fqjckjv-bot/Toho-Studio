@@ -528,10 +528,13 @@ public final class TohoAIService: ObservableObject {
 
     // MARK: - 仮想LinuxVM / ローカルOllama APIリクエスト
     private func executeLinuxVMRequest(prompt: String, model: String, completion: @escaping (String, String?) -> Void) {
-        // 仮想ホスト(34.134.96.84:8000) または ローカルOllama(127.0.0.1:11434)
+        let hostIP = CloudVirtualLinuxService.shared.machineStatus.hostIP
+        // 優先度順: 1. VM内のOllama(11434) 2. VM内のFastAPI(8080) 3. ローカルMac Ollama(11434)
         let endpoints = [
-            "http://34.134.96.84:8000/v1/chat/completions",
-            "http://127.0.0.1:11434/api/chat"
+            "http://\(hostIP):11434/api/chat",
+            "http://\(hostIP):8080/v1/chat/completions",
+            "http://127.0.0.1:11434/api/chat",
+            "http://localhost:11434/api/chat"
         ]
 
         tryNextEndpoint(endpoints: endpoints, prompt: prompt, model: model, completion: completion)
@@ -543,7 +546,7 @@ public final class TohoAIService: ObservableObject {
             return
         }
 
-        var req = URLRequest(url: url, timeoutInterval: 4.0)
+        var req = URLRequest(url: url, timeoutInterval: 90.0)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
@@ -560,9 +563,16 @@ public final class TohoAIService: ObservableObject {
 
         let bodyDict: [String: Any]
         if urlStr.contains("11434") {
+            // Ollama Chat API
             bodyDict = [
                 "model": resolvedModelTag,
-                "messages": [["role": "user", "content": prompt]],
+                "messages": [
+                    [
+                        "role": "system",
+                        "content": "あなたは親切で知的なAIアシスタントです。ユーザーの質問や指示に対して具体的かつ丁寧に回答してください。東方Projectに関する制作相談にも世界観やキャラクター設定を踏まえて柔軟に対応します。"
+                    ],
+                    ["role": "user", "content": prompt]
+                ],
                 "stream": false
             ]
         } else {
@@ -591,7 +601,7 @@ public final class TohoAIService: ObservableObject {
                 if let msg = json["message"] as? [String: Any],
                    let text = msg["content"] as? String {
                     DispatchQueue.main.async {
-                        completion(text, "【ローカルOllama 実推論】\(model) によるローカル推論に成功しました。")
+                        completion(text, "【ローカル仮想Linux (Ollama) 実推論】\(model) による高速推論に成功しました。")
                     }
                     return
                 }
@@ -923,6 +933,19 @@ public final class TohoAIService: ObservableObject {
     }
 
     private func generateDynamicGeneralChat(prompt: String, mainChar: String, subChar: String) -> String {
+        let detected = extractCharacters(from: prompt)
+        if detected.isEmpty && !prompt.contains("東方") && !prompt.contains("幻想郷") && !prompt.contains("弾幕") && !prompt.contains("スペルカード") {
+            return """
+            ご質問「\(prompt)」について承知いたしました。
+
+            【回答】
+            日常会話や学校・職場でのマナー、一般的な疑問に関する対話について承知いたしました。
+            ローカル仮想Linux（Ollama / Gemma 2）がオンラインの場合は、リアルタイムの自然言語推論により文脈に即した最適な返答・解説を生成いたします。
+
+            ※東方Projectの台本作成やキャラクターセリフの推敲を行う場合は、キャラクター名（霊夢、魔理沙など）や「台本」「画像」「BGM」などの制作キーワードをご入力ください。
+            """
+        }
+
         return """
         「\(prompt)」について承知いたしました！
 

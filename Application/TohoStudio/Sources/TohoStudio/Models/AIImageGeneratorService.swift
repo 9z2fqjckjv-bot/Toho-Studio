@@ -358,6 +358,7 @@ public final class AIImageGeneratorService: ObservableObject {
 
         // 3. 【施設・被写体名詞セグメント】（学校の有無に左右されず、対象施設を独立ブロック化）
         var facilityDetected = false
+        var isOutdoorFacility = false
 
         // A. トイレ・サニタリー関連
         if lower.contains("多目的トイレ") || lower.contains("車椅子トイレ") || lower.contains("バリアフリートイレ") || lower.contains("だれでもトイレ") || lower.contains("身障者用トイレ") {
@@ -370,16 +371,18 @@ public final class AIImageGeneratorService: ObservableObject {
 
         // B. 学校施設
         if lower.contains("中庭") || lower.contains("パティオ") {
-            subjectSegments.append("school campus courtyard garden, open air manicured lawn, lush green trees, stone pavement path, outdoor benches, serene atmosphere")
+            subjectSegments.append("outdoor school campus courtyard garden, open air manicured lawn, lush green trees, stone pavement path, outdoor benches, serene atmosphere")
             facilityDetected = true
+            isOutdoorFacility = true
         }
         if lower.contains("体育館") || lower.contains("アリーナ") {
             subjectSegments.append("school indoor gymnasium, polished wooden court floor, basketball hoops, high vaulted ceiling, spacious athletic arena")
             facilityDetected = true
         }
         if lower.contains("プール") || lower.contains("水泳") {
-            subjectSegments.append("school outdoor swimming pool, crystal clear azure blue water, lane dividers, bleachers, summer campus")
+            subjectSegments.append("outdoor school swimming pool, crystal clear azure blue water, lane dividers, bleachers, summer campus")
             facilityDetected = true
+            isOutdoorFacility = true
         }
         if lower.contains("廊下") {
             subjectSegments.append("school hallway corridor, polished reflective wooden floor, row of sliding classroom doors, long perspective view, sunny large windows")
@@ -390,8 +393,9 @@ public final class AIImageGeneratorService: ObservableObject {
             facilityDetected = true
         }
         if lower.contains("屋上") {
-            subjectSegments.append("school rooftop, wire mesh chain-link fence, panoramic view of town horizon under open blue sky")
+            subjectSegments.append("outdoor school rooftop, wire mesh chain-link fence, panoramic view of town horizon under open blue sky")
             facilityDetected = true
+            isOutdoorFacility = true
         }
         if lower.contains("保健室") {
             subjectSegments.append("school infirmary, clean nurse's medical office, white examination bed, soft partition curtain, medicine cabinet, quiet peaceful sunlit room")
@@ -413,9 +417,10 @@ public final class AIImageGeneratorService: ObservableObject {
             subjectSegments.append("teachers faculty office room, desks piled with textbooks and papers")
             facilityDetected = true
         }
-        if lower.contains("校庭") || lower.contains("グラウンド") {
-            subjectSegments.append("school athletic sports field, running track, soccer goalposts, open grounds")
+        if lower.contains("校庭") || lower.contains("グラウンド") || lower.contains("運動場") {
+            subjectSegments.append("outdoor school athletic sports field, schoolyard grounds, dirt running track, soccer goalposts, open grounds, high school building exterior visible in background")
             facilityDetected = true
+            isOutdoorFacility = true
         }
 
         // C. 「教室」または施設名がなく「学校」とだけ指定された場合のみ
@@ -425,20 +430,28 @@ public final class AIImageGeneratorService: ObservableObject {
         } else if (lower.contains("学校") || lower.contains("学園") || lower.contains("校舎")) && !facilityDetected {
             subjectSegments.append("Japanese high school campus building exterior, educational institution architecture")
             facilityDetected = true
+            isOutdoorFacility = true
         }
 
         // D. 「学校」という場所コンテキストの付与（施設がある場合、背景ロケーションとして付加）
         if (lower.contains("学校") || lower.contains("学園") || lower.contains("校舎")) && facilityDetected && !lower.contains("教室") {
-            locationSegments.append("inside Japanese school campus building, educational facility architecture")
+            if isOutdoorFacility {
+                locationSegments.append("outdoor Japanese school campus grounds, open air schoolyard, school building exterior architecture")
+            } else {
+                locationSegments.append("inside Japanese school campus building, educational facility architecture")
+            }
         }
 
         // E. 一般ロケーション・環境
         if lower.contains("神社") {
             locationSegments.append("traditional Japanese shrine, vermilion torii gate, stone lanterns, cedar trees, sacred atmosphere")
+            isOutdoorFacility = true
         } else if lower.contains("森") || lower.contains("林") {
             locationSegments.append("lush deep forest, tall trees, sunbeams filtering through leaves, mossy rocks")
+            isOutdoorFacility = true
         } else if lower.contains("海") || lower.contains("ビーチ") || lower.contains("海岸") {
             locationSegments.append("beautiful ocean beach, gentle waves, sparkling turquoise water, blue sky")
+            isOutdoorFacility = true
         } else if lower.contains("宇宙") || lower.contains("星") || lower.contains("銀河") {
             locationSegments.append("deep cosmos space, glowing nebulae, distant glittering galaxies, stars")
         } else if lower.contains("サイバーパンク") || lower.contains("未来都市") {
@@ -451,6 +464,7 @@ public final class AIImageGeneratorService: ObservableObject {
             locationSegments.append("train station platform, railway tracks, overhead signage")
         } else if lower.contains("公園") {
             locationSegments.append("peaceful public green park, lush trees, walking path, sunny day")
+            isOutdoorFacility = true
         }
 
         // 4. 自然・天候・ライティングセグメント
@@ -471,7 +485,13 @@ public final class AIImageGeneratorService: ObservableObject {
 
         // 5. 【人物完全防止セグメント】
         if !hasPerson {
-            humanConstraintSegments.append("no humans, empty scene, architectural interior, environment concept art, pure scenery")
+            if isOutdoorFacility || lower.contains("外") || lower.contains("空") || lower.contains("海") || lower.contains("公園") || lower.contains("森") || lower.contains("山") || lower.contains("校庭") || lower.contains("グラウンド") {
+                humanConstraintSegments.append("no humans, empty scene, wide outdoor environment scenery, pure scenery")
+            } else if facilityDetected || lower.contains("部屋") || lower.contains("室内") || lower.contains("リビング") || lower.contains("カフェ") {
+                humanConstraintSegments.append("no humans, empty scene, clean indoor architecture, pure scenery")
+            } else {
+                humanConstraintSegments.append("no humans, empty scene, pure scenery")
+            }
         }
 
         // --- 6. 各セグメントを AND (Composable Diffusion) で結合 ---
@@ -597,8 +617,24 @@ public final class AIImageGeneratorService: ObservableObject {
         }
 
         var finalPositivePrompt = englishPrompt
+
+        // 屋外シーンの場合、誤って混入した室内・教室キーワードを排除
+        let promptLower = prompt.lowercased()
+        let isOutdoorPrompt = promptLower.contains("校庭") || promptLower.contains("グラウンド") || promptLower.contains("運動場") ||
+                              promptLower.contains("屋外") || promptLower.contains("空") || promptLower.contains("海") ||
+                              promptLower.contains("公園") || promptLower.contains("屋上") || promptLower.contains("中庭") ||
+                              promptLower.contains("神社")
+        if isOutdoorPrompt {
+            let termsToRemove = ["architectural interior", "interior architecture", "classroom interior", "classroom", "interior"]
+            for term in termsToRemove {
+                finalPositivePrompt = finalPositivePrompt.replacingOccurrences(of: term, with: "", options: .caseInsensitive)
+            }
+        }
+
         if !hasPerson && !finalPositivePrompt.contains("no humans") {
-            finalPositivePrompt += " AND no humans, empty scene, scenery, interior architecture"
+            finalPositivePrompt += isOutdoorPrompt
+                ? " AND no humans, empty scene, wide outdoor scenery, pure scenery"
+                : " AND no humans, empty scene, pure scenery"
         }
 
         let body: [String: Any] = [
