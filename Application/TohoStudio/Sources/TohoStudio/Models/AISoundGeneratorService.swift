@@ -8,7 +8,7 @@ import Combine
 public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioPlayerDelegate {
     public static let shared = AISoundGeneratorService()
 
-    // MARK: - AI生成エンジン選択 (仮想LinuxVM: DeepSeek/Gemma/Llama ＆ 外部API: Gemini/ChatGPT/Claude)
+    // MARK: - AI生成エンジン選択 (仮想LinuxVM: Google Gemma 2 / Meta Llama 3.2 ＆ 外部API: Gemini/ChatGPT/Claude)
     @Published public var selectedProvider: AIProviderType = .virtualLinuxVM {
         didSet {
             if !selectedProvider.availableModels.contains(selectedModel) {
@@ -16,9 +16,10 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             }
         }
     }
-    @Published public var selectedModel: String = "DeepSeek-R1-Distill-Qwen (8B)"
+    @Published public var selectedModel: String = "Google Gemma 2 (2B)"
 
     // MARK: - プロンプト駆動パラメータ
+    @Published public var useColabGPUIfAvailable: Bool = true
     @Published public var bgmPrompt: String = "雨の日の静かなカフェ、心落ち着くアコースティックギターとピアノのBGM"
     @Published public var sePrompt: String = "スマホのチャット着信音、ポロンと鳴るクリアな通知音"
 
@@ -587,8 +588,8 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         let provider = self.selectedProvider
         let model = self.selectedModel
 
-        // 0. Google Colab GPU Bridge がオンラインの場合は本物のAI音楽モデル (MusicGen) を優先実行
-        if provider == .virtualLinuxVM && isColabBridgeAvailable {
+        // 0. Google Colab GPU Bridge が利用可能かつ有効な場合は本物のAI音楽モデル (MusicGen) を優先実行
+        if useColabGPUIfAvailable && isColabBridgeAvailable {
             fetchColabGPUBGM(prompt: bgmPrompt, duration: Int(bgmDurationSeconds)) { [weak self] fileURL, engineName in
                 guard let self = self else { return }
                 if let fileURL = fileURL {
@@ -619,7 +620,7 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         }
 
         if provider == .virtualLinuxVM {
-            // 仮想Linux環境にあるローカルLLM (DeepSeek-R1 / Gemma-2 / Llama-3.1) に音響作曲推論を実行
+            // 仮想Linux環境にあるローカルLLM (Google Gemma 2 / Meta Llama 3.2) に音響作曲推論を実行
             let vmPrompt = "BGM制作ディレクション: \(bgmPrompt)。この情景に最適なテンポBPM、楽器構成、展開コードを推論してください。"
             TohoAIService.shared.callAPIOrGenerateSmart(prompt: vmPrompt, provider: .virtualLinuxVM, model: model) { [weak self] responseText, thinkingLog in
                 self?.executeBGMSynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: thinkingLog)
@@ -713,7 +714,7 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
                 self.soundHistory.insert(item, at: 0)
 
                 if !silent {
-                    let logPrefix = (provider == .virtualLinuxVM && thinking != nil) ? "仮想LinuxVM (DeepSeek-R1) 推論完了: " : ""
+                    let logPrefix = (provider == .virtualLinuxVM && thinking != nil) ? "仮想LinuxVM (\(model)) 推論完了: " : ""
                     AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: \(logPrefix)[\(provider.rawValue) (\(model))] からBGM「\(item.name)」を生成しました。")
                 }
             }
@@ -749,8 +750,8 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         let provider = self.selectedProvider
         let model = self.selectedModel
 
-        // 0. Google Colab GPU Bridge がオンラインの場合は Colab SE生成モデルを優先実行
-        if provider == .virtualLinuxVM && isColabBridgeAvailable {
+        // 0. Google Colab GPU Bridge が利用可能かつ有効な場合は Colab SE生成モデルを優先実行
+        if useColabGPUIfAvailable && isColabBridgeAvailable {
             fetchColabGPUSE(prompt: sePrompt, duration: Int(max(1, seDurationSeconds))) { [weak self] fileURL, engineName in
                 guard let self = self else { return }
                 if let fileURL = fileURL {
@@ -878,7 +879,7 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
                 self.soundHistory.insert(item, at: 0)
 
                 if !silent {
-                    let logPrefix = (provider == .virtualLinuxVM && thinking != nil) ? "仮想LinuxVM (DeepSeek-R1) 推論完了: " : ""
+                    let logPrefix = (provider == .virtualLinuxVM && thinking != nil) ? "仮想LinuxVM (\(model)) 推論完了: " : ""
                     AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: \(logPrefix)[\(provider.rawValue) (\(model))] からSE「\(item.name)」を生成しました。")
                 }
             }

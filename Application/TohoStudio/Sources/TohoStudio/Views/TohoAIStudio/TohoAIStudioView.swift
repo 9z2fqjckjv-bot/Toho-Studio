@@ -34,7 +34,7 @@ public struct TohoAIStudioView: View {
                     Text("TohoAIStudio")
                         .font(.system(size: 32, weight: .bold))
 
-                    Text("GCP仮想LinuxVM (DeepSeek/Gemma) & 外部API (Gemini/ChatGPT/Claude) 統合環境")
+                    Text("仮想LinuxVM (Google Gemma 2 / Meta Llama 3.2) & 外部API (Gemini/ChatGPT/Claude) 統合環境")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }

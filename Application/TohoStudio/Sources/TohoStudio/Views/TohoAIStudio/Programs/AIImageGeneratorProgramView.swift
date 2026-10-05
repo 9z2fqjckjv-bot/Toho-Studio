@@ -107,7 +107,7 @@ public struct AIImageGeneratorProgramView: View {
                 labelText = "⚡️ Colab GPU ブリッジ接続中 (\(cloudLinuxService.colabBridge.gpuName))"
             } else {
                 isConfigured = (cloudLinuxService.connectionStatus == .connected || cloudLinuxService.connectionStatus == .lowLatency)
-                labelText = isConfigured ? "仮想LinuxVM接続中 (DeepSeek-R1/Gemma)" : "スタンドアロン推論"
+                labelText = isConfigured ? "仮想LinuxVM接続中 (Google Gemma 2 / Meta Llama 3.2)" : "スタンドアロン推論"
             }
         }
 
@@ -146,6 +146,9 @@ public struct AIImageGeneratorProgramView: View {
                 }
 
                 Divider()
+
+                // Google Colab GPU Bridge 設定・状態カード
+                colabBridgeCard
 
                 // 出力メディア種別 (画像 / アニメーション動画)
                 VStack(alignment: .leading, spacing: 6) {
@@ -264,15 +267,32 @@ public struct AIImageGeneratorProgramView: View {
                             if imageService.isGenerating {
                                 ProgressView().controlSize(.small)
                             } else {
-                                Image(systemName: "sparkles")
+                                Image(systemName: imageService.selectedOutputType == .video ? "film.fill" : "sparkles")
                             }
-                            Text(imageService.isGenerating ? "生成中..." : "AI画像を生成 (1プロンプト消費)")
+                            Text(imageService.isGenerating ? "生成中..." : "\(imageService.selectedOutputType == .video ? "アニメ動画 (MP4)" : "高精細画像") を生成 (1プロンプト消費)")
                                 .bold()
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                     }
                     .buttonStyle(.borderedProminent)
+                    .disabled(imageService.isGenerating)
+
+                    // Colab GPU 直接起動ボタン
+                    Button(action: {
+                        triggerColabGPUDirectGeneration()
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "bolt.fill")
+                                .foregroundColor(.yellow)
+                            Text("⚡️ Colab GPU を動かして生成 (\(imageService.selectedOutputType == .video ? "AnimateDiff" : "SD-Turbo"))")
+                                .font(.caption)
+                                .bold()
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.bordered)
                     .disabled(imageService.isGenerating)
                 }
 
@@ -281,6 +301,82 @@ public struct AIImageGeneratorProgramView: View {
             .padding(16)
         }
         .background(Color(NSColor.controlBackgroundColor))
+    }
+
+    // MARK: - Colab GPU Bridge Control Card
+    private var colabBridgeCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: "bolt.badge.automatic.fill")
+                    .foregroundColor(.yellow)
+                Text("Google Colab GPU Bridge")
+                    .font(.caption)
+                    .bold()
+                Spacer()
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(cloudLinuxService.colabBridge.isOnline ? Color.green : Color.orange)
+                        .frame(width: 7, height: 7)
+                    Text(cloudLinuxService.colabBridge.isOnline ? "オンライン" : "未接続/待機中")
+                        .font(.caption2)
+                        .bold()
+                        .foregroundColor(cloudLinuxService.colabBridge.isOnline ? .green : .orange)
+                }
+            }
+
+            Text("NVIDIA L4/T4 (16-24GB VRAM): SD-Turbo(1秒画像) ＆ AnimateDiff(MP4アニメ動画)")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+
+            // エンドポイント入力欄
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Colab 一時URL (trycloudflare.com):")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                HStack {
+                    TextField("https://xxxx.trycloudflare.com", text: $cloudLinuxService.colabBridge.endpoint)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+
+                    Button(action: {
+                        cloudLinuxService.testColabBridgeConnection { success, message in
+                            alertMessage = message
+                            showSaveAlert = true
+                        }
+                    }) {
+                        Label("接続テスト", systemImage: "arrow.triangle.2.circlepath")
+                            .font(.caption2)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+
+            HStack(spacing: 8) {
+                Toggle("Colab GPU を優先使用", isOn: $imageService.useColabGPUIfAvailable)
+                    .font(.caption)
+
+                Spacer()
+
+                if let url = URL(string: cloudLinuxService.colabBridge.notebookUrl) {
+                    Button(action: {
+                        NSWorkspace.shared.open(url)
+                    }) {
+                        Label("Colabを開く", systemImage: "arrow.up.right.square")
+                            .font(.caption2)
+                    }
+                    .buttonStyle(.link)
+                }
+            }
+        }
+        .padding(10)
+        .background(Color.yellow.opacity(0.08))
+        .cornerRadius(8)
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.yellow.opacity(0.3), lineWidth: 1))
+    }
+
+    private func triggerColabGPUDirectGeneration() {
+        imageService.useColabGPUIfAvailable = true
+        imageService.generateImage()
     }
 
     // MARK: - Right Preview Panel

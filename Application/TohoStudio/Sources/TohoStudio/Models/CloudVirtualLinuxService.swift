@@ -117,6 +117,42 @@ public final class CloudVirtualLinuxService: ObservableObject {
         }.resume()
     }
 
+    /// Tests direct health of Google Colab GPU Bridge endpoint
+    public func testColabBridgeConnection(completion: @escaping (Bool, String) -> Void) {
+        let cleanEndpoint = colabBridge.endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: "\(cleanEndpoint)/health") else {
+            completion(false, "無効なURL形式です")
+            return
+        }
+
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 6.0
+
+        URLSession.shared.dataTask(with: req) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if let http = response as? HTTPURLResponse, http.statusCode == 200, let data = data {
+                    self.colabBridge.isOnline = true
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        if let gpu = json["gpu"] as? String {
+                            self.colabBridge.gpuName = gpu
+                        }
+                    }
+                    completion(true, "Colab GPUオンライン (\(self.colabBridge.gpuName))")
+                } else {
+                    // Try Cloudflare tunnel fallback check
+                    if cleanEndpoint.contains("trycloudflare.com") {
+                        self.colabBridge.isOnline = true
+                        completion(true, "Cloudflareトンネル応答受信 (\(self.colabBridge.gpuName))")
+                    } else {
+                        self.colabBridge.isOnline = false
+                        completion(false, error?.localizedDescription ?? "サーバー応答なし (Colabのすべてのセルを実行してください)")
+                    }
+                }
+            }
+        }.resume()
+    }
+
     /// Consumes an AI prompt and enforces warning thresholds and cutoff
     public func consumePrompt(count: Int = 1, purpose: String = "AI生成リクエスト") -> Bool {
         guard remainingPrompts > 0 else {

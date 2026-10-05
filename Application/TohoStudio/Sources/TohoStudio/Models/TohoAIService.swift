@@ -22,8 +22,8 @@ public enum AIProviderType: String, CaseIterable, Identifiable, Codable {
 
     public var defaultModel: String {
         switch self {
-        case .virtualLinuxVM: return "DeepSeek-R1-Distill-Qwen (8B)"
-        case .gemini: return "Gemini 1.5 Pro"
+        case .virtualLinuxVM: return "Google Gemma 2 (2B)"
+        case .gemini: return "Gemini 2.5 Flash"
         case .chatGPT: return "GPT-4o"
         case .claude: return "Claude 3.5 Sonnet"
         }
@@ -32,11 +32,16 @@ public enum AIProviderType: String, CaseIterable, Identifiable, Codable {
     public var availableModels: [String] {
         switch self {
         case .virtualLinuxVM:
-            return ["DeepSeek-R1-Distill-Qwen (8B)", "Gemma-2 (9B)", "Llama-3.1 (8B-Instruct)"]
+            // LLMMac.md 準拠: 中国系を排除し、Google Gemma 2 / Meta Llama 3.2 のApple Silicon最適化構成
+            return [
+                "Google Gemma 2 (2B)",   // 最推奨・日常創作 (1.6GB / 爆速30〜40tok/s)
+                "Meta Llama 3.2 (3B)",   // サブ推奨・指示追従・口調指定 (2.0GB)
+                "Google Gemma 2 (9B)"    // 品質重視・重厚プロット・スワップ併用 (5.4GB)
+            ]
         case .gemini:
-            return ["Gemini 1.5 Pro", "Gemini 1.5 Flash", "Gemini 2.0 Flash (Experimental)"]
+            return ["Gemini 2.5 Flash", "Gemini 2.0 Flash", "Gemini 1.5 Pro"]
         case .chatGPT:
-            return ["GPT-4o", "o1-preview", "GPT-4o-mini"]
+            return ["GPT-4o", "GPT-4o-mini", "o1"]
         case .claude:
             return ["Claude 3.5 Sonnet", "Claude 3.5 Haiku", "Claude 3 Opus"]
         }
@@ -161,7 +166,7 @@ public final class TohoAIService: ObservableObject {
     // MARK: - Selected Configuration
     @Published public var activeProgramTab: TohoAIProgramTab = .aiChat
     @Published public var activeProvider: AIProviderType = .virtualLinuxVM
-    @Published public var selectedModel: String = "DeepSeek-R1-Distill-Qwen (8B)"
+    @Published public var selectedModel: String = "Google Gemma 2 (2B)"
     @Published public var temperature: Double = 0.7
     @Published public var isGenerating: Bool = false
 
@@ -240,10 +245,10 @@ public final class TohoAIService: ObservableObject {
             ),
             AIChatMessage(
                 role: "assistant",
-                content: "こんにちは！東方Project制作総合AIアシスタントです。\n仮想LinuxVM (DeepSeek-R1 / Gemma-2) や外部LLMと常時接続しており、以下の制作をワンストップでサポートします：\n\n1. 【AIチャット】東方世界観・キャラクター相談・プロット作成\n2. 【AI編集・推敲】台本のブラッシュアップ・口調変換・絵コンテ自動生成\n3. 【AI画像生成】博麗神社・魔法の森・紅魔館などの背景や立ち絵イラスト生成\n4. 【AI音楽・SE生成】ZUNペット風BGMやスペルカード・弾幕SEの波形合成\n\n画面上部のタブから各種プログラムにアクセスできます。どのような作品を制作しますか？",
-                thinkingContent: "【仮想LinuxVM システム起動ログ】\n- GCP e2-standard-2 インスタンス疎通OK (Heartbeat 5s)\n- DeepSeek-R1-Distill-Qwen (8B) 8bit量子化モデルマウント完了\n- 東方Project公式二次創作ガイドライン・キャラクター口調辞書ロード完了\n- AI画像生成・AI音響合成エンジンスタンバイOK",
+                content: "こんにちは！東方Project制作総合AIアシスタントです。\nローカル仮想LinuxVM (Google Gemma 2 / Meta Llama 3.2) や外部LLMと常時接続しており、以下の制作をワンストップでサポートします：\n\n1. 【AIチャット】東方世界観・キャラクター相談・プロット作成\n2. 【AI編集・推敲】台本のブラッシュアップ・口調変換・絵コンテ自動生成\n3. 【AI画像生成】博麗神社・魔法の森・紅魔館などの背景や立ち絵イラスト・動画生成\n4. 【AI音楽・SE生成】ZUNペット風BGMやスペルカード・弾幕SEの波形合成\n\n画面上部のタブから各種プログラムにアクセスできます。どのような作品を制作しますか？",
+                thinkingContent: "【仮想LinuxVM システム起動ログ】\n- VirtualBuddy (Apple A18 Pro / 4GB RAM + 8GB Swap) 疎通OK (Heartbeat 2ms)\n- Google Gemma 2 (2B) / Meta Llama 3.2 (3B) ネイティブ推論エンジンスタンバイ完了\n- 東方Project公式二次創作ガイドライン・キャラクター口調辞書ロード完了\n- AI画像生成・AI音響合成エンジンスタンバイOK",
                 provider: .virtualLinuxVM,
-                modelName: "DeepSeek-R1-Distill-Qwen (8B)",
+                modelName: "Google Gemma 2 (2B)",
                 timestamp: Date().addingTimeInterval(-3500)
             )
         ]
@@ -542,16 +547,27 @@ public final class TohoAIService: ObservableObject {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        // LLMMac.md 準拠: モデル名の解決 (Ollamaタグ)
+        let resolvedModelTag: String
+        let lower = model.lowercased()
+        if lower.contains("llama") {
+            resolvedModelTag = "llama3.2:3b"
+        } else if lower.contains("9b") {
+            resolvedModelTag = "gemma2:9b"
+        } else {
+            resolvedModelTag = "gemma2:2b"
+        }
+
         let bodyDict: [String: Any]
         if urlStr.contains("11434") {
             bodyDict = [
-                "model": "deepseek-r1:8b",
+                "model": resolvedModelTag,
                 "messages": [["role": "user", "content": prompt]],
                 "stream": false
             ]
         } else {
             bodyDict = [
-                "model": "deepseek-r1",
+                "model": resolvedModelTag,
                 "messages": [["role": "user", "content": prompt]],
                 "temperature": temperature
             ]
@@ -567,7 +583,7 @@ public final class TohoAIService: ObservableObject {
                    let msg = first["message"] as? [String: Any],
                    let text = msg["content"] as? String {
                     DispatchQueue.main.async {
-                        completion(text, "【仮想LinuxVM DeepSeek-R1 実推論】ホスト(\(url.host ?? ""))との高速通信に成功しました。")
+                        completion(text, "【仮想LinuxVM \(model) 実推論】ホスト(\(url.host ?? ""))との高速通信に成功しました。")
                     }
                     return
                 }
@@ -575,7 +591,7 @@ public final class TohoAIService: ObservableObject {
                 if let msg = json["message"] as? [String: Any],
                    let text = msg["content"] as? String {
                     DispatchQueue.main.async {
-                        completion(text, "【ローカルOllama 実推論】DeepSeek-R1 によるローカル推論に成功しました。")
+                        completion(text, "【ローカルOllama 実推論】\(model) によるローカル推論に成功しました。")
                     }
                     return
                 }

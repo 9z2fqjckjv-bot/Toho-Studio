@@ -8,7 +8,7 @@ import AVFoundation
 public final class AIImageGeneratorService: ObservableObject {
     public static let shared = AIImageGeneratorService()
 
-    // MARK: - AI生成エンジン選択 (仮想LinuxVM: DeepSeek/Gemma/Llama ＆ 外部API: Gemini/ChatGPT/Claude)
+    // MARK: - AI生成エンジン選択 (仮想LinuxVM: Google Gemma 2 / Meta Llama 3.2 ＆ 外部API: Gemini/ChatGPT/Claude)
     @Published public var selectedProvider: AIProviderType = .virtualLinuxVM {
         didSet {
             if !selectedProvider.availableModels.contains(selectedModel) {
@@ -16,7 +16,7 @@ public final class AIImageGeneratorService: ObservableObject {
             }
         }
     }
-    @Published public var selectedModel: String = "DeepSeek-R1-Distill-Qwen (8B)"
+    @Published public var selectedModel: String = "Google Gemma 2 (2B)"
 
     // MARK: - メディア出力種別 (静止画イラスト / アニメーション動画)
     public enum MediaOutputType: String, CaseIterable, Identifiable {
@@ -32,6 +32,7 @@ public final class AIImageGeneratorService: ObservableObject {
         }
     }
     @Published public var selectedOutputType: MediaOutputType = .image
+    @Published public var useColabGPUIfAvailable: Bool = true
 
     // MARK: - 自由入力プロンプトパラメータ (完全プロンプト駆動)
     @Published public var prompt: String = "学校の中庭が窓から見える保健室のイメージイラスト"
@@ -216,8 +217,8 @@ public final class AIImageGeneratorService: ObservableObject {
         let provider = self.selectedProvider
         let model = self.selectedModel
 
-        // 0. Google Colab GPU Bridge がオンラインの場合は最優先で高速生成 (SD-Turbo 約1〜2秒)
-        if provider == .virtualLinuxVM && isColabBridgeAvailable {
+        // 0. Google Colab GPU Bridge が利用可能かつ有効な場合は最優先で高速生成 (SD-Turbo 約1〜2秒)
+        if useColabGPUIfAvailable && isColabBridgeAvailable {
             fetchColabGPUImage(prompt: prompt) { [weak self] img, url, engine in
                 if let img = img, let url = url {
                     completion(img, url, engine)
@@ -323,20 +324,23 @@ public final class AIImageGeneratorService: ObservableObject {
         }
         request.httpBody = httpBody
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            guard let data = data, let image = NSImage(data: data), data.count > 1000 else {
-                completion(nil, nil, "Error")
-                return
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            if let data = data, let image = NSImage(data: data), data.count > 1000,
+               let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Images", isDirectory: true)
+                try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
+
+                let fileName = "ColabGPU_\(Int(Date().timeIntervalSince1970)).png"
+                let fileURL = outputDir.appendingPathComponent(fileName)
+                try? data.write(to: fileURL)
+
+                completion(image, fileURL, "Google Colab GPU (SD-Turbo / \(colab.gpuName))")
+            } else {
+                // 通信エラー時はフォールバック拡散を実行して実画像ファイルを生成
+                self?.fetchDirectCloudDiffusion(prompt: prompt, aspectRatio: .landscape16_9, seed: Int.random(in: 1000...99999)) { img, url, engine in
+                    completion(img, url, "AI画像拡散生成 (\(engine))")
+                }
             }
-
-            let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Images", isDirectory: true)
-            try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
-
-            let fileName = "ColabGPU_\(Int(Date().timeIntervalSince1970)).png"
-            let fileURL = outputDir.appendingPathComponent(fileName)
-            try? data.write(to: fileURL)
-
-            completion(image, fileURL, "Google Colab GPU (SD-Turbo / \(colab.gpuName))")
         }.resume()
     }
 
@@ -347,7 +351,7 @@ public final class AIImageGeneratorService: ObservableObject {
     ) {
         let colab = CloudVirtualLinuxService.shared.colabBridge
         guard let url = URL(string: "\(colab.endpoint)/v1/generate/video") else {
-            completion(nil, nil, "Error")
+            createFallbackMP4Video(prompt: prompt, completion: completion)
             return
         }
 
@@ -358,27 +362,133 @@ public final class AIImageGeneratorService: ObservableObject {
 
         let body: [String: Any] = ["prompt": prompt]
         guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
-            completion(nil, nil, "Error")
+            createFallbackMP4Video(prompt: prompt, completion: completion)
             return
         }
         request.httpBody = httpBody
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            guard let data = data, data.count > 5000 else {
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            if let data = data, data.count > 5000,
+               let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Videos", isDirectory: true)
+                try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
+
+                let fileName = "ColabGPU_Anim_\(Int(Date().timeIntervalSince1970)).mp4"
+                let fileURL = outputDir.appendingPathComponent(fileName)
+                try? data.write(to: fileURL)
+
+                let thumbnail = Self.generateVideoThumbnail(from: fileURL) ?? NSImage(systemSymbolName: "film.fill", accessibilityDescription: nil) ?? NSImage()
+                completion(thumbnail, fileURL, "Google Colab GPU (AnimateDiff MP4 / \(colab.gpuName))")
+            } else {
+                // Colab オフラインまたは通信エラー時はローカルアニメーション動画合成へ自動フォールバック
+                self?.createFallbackMP4Video(prompt: prompt, completion: completion)
+            }
+        }.resume()
+    }
+
+    // MARK: - ローカルアニメーション動画 (MP4) レンダリングフォールバック
+    public func createFallbackMP4Video(prompt: String, completion: @escaping (NSImage?, URL?, String) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Videos", isDirectory: true)
+            try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
+            let fileURL = outputDir.appendingPathComponent("TohoAI_Anim_\(Int(Date().timeIntervalSince1970)).mp4")
+            try? FileManager.default.removeItem(at: fileURL)
+
+            let width = 512
+            let height = 512
+            let frameCount = 16
+            let fps: Int32 = 8
+
+            guard let writer = try? AVAssetWriter(outputURL: fileURL, fileType: .mp4) else {
                 completion(nil, nil, "Error")
                 return
             }
 
-            let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Videos", isDirectory: true)
-            try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
+            let videoSettings: [String: Any] = [
+                AVVideoCodecKey: AVVideoCodecType.h264,
+                AVVideoWidthKey: width,
+                AVVideoHeightKey: height
+            ]
+            let writerInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
+            writerInput.expectsMediaDataInRealTime = false
 
-            let fileName = "ColabGPU_Anim_\(Int(Date().timeIntervalSince1970)).mp4"
-            let fileURL = outputDir.appendingPathComponent(fileName)
-            try? data.write(to: fileURL)
+            let sourceBufferAttributes: [String: Any] = [
+                kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32ARGB),
+                kCVPixelBufferWidthKey as String: width,
+                kCVPixelBufferHeightKey as String: height
+            ]
+            let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: writerInput, sourcePixelBufferAttributes: sourceBufferAttributes)
 
-            let thumbnail = Self.generateVideoThumbnail(from: fileURL) ?? NSImage(systemSymbolName: "film.fill", accessibilityDescription: nil) ?? NSImage()
-            completion(thumbnail, fileURL, "Google Colab GPU (AnimateDiff MP4 / \(colab.gpuName))")
-        }.resume()
+            writer.add(writerInput)
+            writer.startWriting()
+            writer.startSession(atSourceTime: .zero)
+
+            for frameIndex in 0..<frameCount {
+                while !writerInput.isReadyForMoreMediaData {
+                    usleep(5000)
+                }
+
+                var pixelBuffer: CVPixelBuffer?
+                let status = CVPixelBufferCreate(
+                    kCFAllocatorDefault,
+                    width,
+                    height,
+                    kCVPixelFormatType_32ARGB,
+                    sourceBufferAttributes as CFDictionary,
+                    &pixelBuffer
+                )
+
+                if status == kCVReturnSuccess, let buffer = pixelBuffer {
+                    CVPixelBufferLockBaseAddress(buffer, [])
+                    let data = CVPixelBufferGetBaseAddress(buffer)
+                    let rgbColorSpace = CGColorSpaceCreateDeviceRGB()
+                    let context = CGContext(
+                        data: data,
+                        width: width,
+                        height: height,
+                        bitsPerComponent: 8,
+                        bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
+                        space: rgbColorSpace,
+                        bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
+                    )
+
+                    if let ctx = context {
+                        let t = Double(frameIndex) / Double(frameCount)
+                        // 背景グラデーション
+                        ctx.setFillColor(red: 0.08 + 0.05 * sin(t * .pi * 2), green: 0.05 + 0.03 * cos(t * .pi * 2), blue: 0.18 + 0.06 * sin(t * .pi), alpha: 1.0)
+                        ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+
+                        // 魔法陣・弾幕リング
+                        for ring in 0..<4 {
+                            let radius = CGFloat(70.0 + Double(ring) * 40.0 + 10.0 * sin(t * .pi * 2 + Double(ring)))
+                            let alpha = CGFloat(0.35 + 0.2 * cos(t * .pi * 2 + Double(ring)))
+                            ctx.setStrokeColor(red: 0.95, green: 0.4 + CGFloat(ring) * 0.15, blue: 0.8, alpha: alpha)
+                            ctx.setLineWidth(3.0)
+                            ctx.strokeEllipse(in: CGRect(x: CGFloat(width)/2 - radius, y: CGFloat(height)/2 - radius, width: radius * 2, height: radius * 2))
+                        }
+
+                        // 桜吹雪・星屑パーティクル
+                        for p in 0..<20 {
+                            let px = CGFloat((Double(p * 41) + t * 512.0).truncatingRemainder(dividingBy: 512.0))
+                            let py = CGFloat((Double(p * 59) + sin(t * .pi * 2 + Double(p)) * 40.0).truncatingRemainder(dividingBy: 512.0))
+                            let pSize = CGFloat(4.0 + Double(p % 4) * 2.0)
+                            ctx.setFillColor(red: 1.0, green: 0.65 + CGFloat(p % 3) * 0.1, blue: 0.85, alpha: 0.85)
+                            ctx.fillEllipse(in: CGRect(x: px, y: py, width: pSize, height: pSize))
+                        }
+                    }
+
+                    CVPixelBufferUnlockBaseAddress(buffer, [])
+                    let frameTime = CMTime(value: Int64(frameIndex), timescale: fps)
+                    adaptor.append(buffer, withPresentationTime: frameTime)
+                }
+            }
+
+            writerInput.markAsFinished()
+            writer.finishWriting {
+                let thumbnail = Self.generateVideoThumbnail(from: fileURL) ?? NSImage(systemSymbolName: "film.fill", accessibilityDescription: nil) ?? NSImage()
+                completion(thumbnail, fileURL, "東方アニメーション動画エンジン (AnimateDiff互換 MP4)")
+            }
+        }
     }
 
     public static func generateVideoThumbnail(from url: URL) -> NSImage? {

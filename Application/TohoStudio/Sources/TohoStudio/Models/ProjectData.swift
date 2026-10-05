@@ -34,7 +34,7 @@ public enum SoftwareModule: String, CaseIterable, Identifiable {
         case .slideScenarioMaker: return "Googleスライド / Keynote"
         case .gameMaker: return "横長ワイドRPG / ノベルエンジン"
         case .materialStudio: return "共通基幹ストレージ＆ストア"
-        case .tohoAIStudio: return "仮想LinuxVM (DeepSeek/Gemma) + 外部API"
+        case .tohoAIStudio: return "仮想LinuxVM (Google Gemma 2 / Meta Llama 3.2) + 外部API"
         }
     }
 

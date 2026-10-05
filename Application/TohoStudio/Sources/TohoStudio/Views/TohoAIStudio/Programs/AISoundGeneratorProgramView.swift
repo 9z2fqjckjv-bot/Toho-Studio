@@ -160,7 +160,10 @@ public struct AISoundGeneratorProgramView: View {
     // MARK: - Left Settings Panel
     private var leftSettingsPanel: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 18) {
+                // Google Colab GPU Bridge 設定・状態カード
+                colabBridgeCard
+
                 if activeTab == .bgm {
                     bgmSettingsSection
                 } else {
@@ -322,7 +325,7 @@ public struct AISoundGeneratorProgramView: View {
                     if (activeTab == .bgm && soundService.isBGMGenerating) ||
                        (activeTab == .se && soundService.isSEGenerating) {
                         ProgressView().controlSize(.small)
-                        Text("シンセ波形合成中...")
+                        Text("音響生成中...")
                     } else {
                         Image(systemName: "waveform.badge.plus")
                         Text(activeTab == .bgm ? "AI BGMを生成 (1プロンプト)" : "AI SEを生成 (1プロンプト)")
@@ -334,7 +337,100 @@ public struct AISoundGeneratorProgramView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(soundService.isBGMGenerating || soundService.isSEGenerating)
+
+            // Colab GPU 直接起動ボタン
+            Button(action: {
+                soundService.useColabGPUIfAvailable = true
+                if activeTab == .bgm {
+                    soundService.generateBGM()
+                } else {
+                    soundService.generateSE()
+                }
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "bolt.fill")
+                        .foregroundColor(.yellow)
+                    Text("⚡️ Colab GPU を動かして生成 (\(activeTab == .bgm ? "MusicGen" : "AudioGen"))")
+                        .font(.caption)
+                        .bold()
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+            }
+            .buttonStyle(.bordered)
+            .disabled(soundService.isBGMGenerating || soundService.isSEGenerating)
         }
+    }
+
+    // MARK: - Colab GPU Bridge Control Card
+    private var colabBridgeCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: "bolt.badge.automatic.fill")
+                    .foregroundColor(.yellow)
+                Text("Google Colab GPU Bridge")
+                    .font(.caption)
+                    .bold()
+                Spacer()
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(cloudLinuxService.colabBridge.isOnline ? Color.green : Color.orange)
+                        .frame(width: 7, height: 7)
+                    Text(cloudLinuxService.colabBridge.isOnline ? "オンライン" : "未接続/待機中")
+                        .font(.caption2)
+                        .bold()
+                        .foregroundColor(cloudLinuxService.colabBridge.isOnline ? .green : .orange)
+                }
+            }
+
+            Text("NVIDIA L4/T4 (16-24GB VRAM): MusicGen(本格BGM作曲) ＆ AudioGen(効果音生成)")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+
+            // エンドポイント入力欄
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Colab 一時URL (trycloudflare.com):")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                HStack {
+                    TextField("https://xxxx.trycloudflare.com", text: $cloudLinuxService.colabBridge.endpoint)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+
+                    Button(action: {
+                        cloudLinuxService.testColabBridgeConnection { success, message in
+                            alertMessage = message
+                            showSuccessAlert = true
+                        }
+                    }) {
+                        Label("接続テスト", systemImage: "arrow.triangle.2.circlepath")
+                            .font(.caption2)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+
+            HStack(spacing: 8) {
+                Toggle("Colab GPU を優先使用", isOn: $soundService.useColabGPUIfAvailable)
+                    .font(.caption)
+
+                Spacer()
+
+                if let url = URL(string: cloudLinuxService.colabBridge.notebookUrl) {
+                    Button(action: {
+                        NSWorkspace.shared.open(url)
+                    }) {
+                        Label("Colabを開く", systemImage: "arrow.up.right.square")
+                            .font(.caption2)
+                    }
+                    .buttonStyle(.link)
+                }
+            }
+        }
+        .padding(10)
+        .background(Color.yellow.opacity(0.08))
+        .cornerRadius(8)
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.yellow.opacity(0.3), lineWidth: 1))
     }
 
     // MARK: - Right Playback & History Panel
