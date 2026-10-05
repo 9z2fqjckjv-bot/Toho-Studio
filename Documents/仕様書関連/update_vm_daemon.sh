@@ -33,7 +33,7 @@ app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 
 # --- Colab GPU 設定管理 ---
 DEFAULT_COLAB_URL = "https://luis-oakland-commented-absolute.trycloudflare.com"
-COLAB_NOTEBOOK_URL = "https://colab.research.google.com/drive/1PTu-mN8FN1iCx4u2LbPi1x9ycG5fnnf9?usp=sharing"
+COLAB_NOTEBOOK_URL = "https://colab.research.google.com/drive/1lnh3dQi3ZRyF1Oq8qvzsSrGiHi72_hQP?usp=sharing"
 
 def load_colab_config() -> Dict[str, Any]:
     if os.path.exists(CONFIG_FILE):

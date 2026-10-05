@@ -35,8 +35,7 @@
 ## 2. Google Colab 側での起動手順（3ステップ）
 
 ### Step 1: Google Colab を開く
-1. ブラウザで [Google Colab](https://colab.research.google.com/) を開きます。
-2. リポジトリ内のノートブック [TohoStudio_GPU_Server.ipynb](file:///Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/仕様書関連/Colab/TohoStudio_GPU_Server.ipynb) をアップロードして開きます。
+1. ブラウザまたは TohoStudio の「Colabを開く」ボタンから、[Google Colab ノートブック](https://colab.research.google.com/drive/1lnh3dQi3ZRyF1Oq8qvzsSrGiHi72_hQP?usp=sharing) を開きます。
 
 ### Step 2: L4 GPU を選択する
 1. Colab のメニューバーから **「ランタイム」** ＞ **「ランタイムのタイプを変更」** をクリックします。

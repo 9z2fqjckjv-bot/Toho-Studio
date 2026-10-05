@@ -27,7 +27,7 @@ public struct VirtualLinuxMachineStatus: Codable {
 }
 
 public struct ColabGPUBridgeInfo: Codable {
-    public var notebookUrl: String = "https://colab.research.google.com/drive/1PTu-mN8FN1iCx4u2LbPi1x9ycG5fnnf9?usp=sharing"
+    public var notebookUrl: String = "https://colab.research.google.com/drive/1lnh3dQi3ZRyF1Oq8qvzsSrGiHi72_hQP?usp=sharing"
     public var endpoint: String = ""
     public var isOnline: Bool = false
     public var gpuName: String = "NVIDIA L4 (24GB VRAM)"
