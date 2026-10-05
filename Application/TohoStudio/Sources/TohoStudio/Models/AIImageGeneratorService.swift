@@ -199,13 +199,17 @@ public final class AIImageGeneratorService: ObservableObject {
                 let mediaKindStr = isVideo ? "アニメ動画" : "本格画像"
                 AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: [\(engineName)] から\(mediaKindStr)「\(item.title)」を生成しました。")
             } else {
-                self.currentStatusMessage = "生成に失敗しました (ネットワークまたはAPI・GPU接続を確認してください)"
-                AppState.shared.addSystemLog(level: "ERROR", message: "AI生成エラー: メディアデータの取得に失敗しました。")
+                if !engineName.isEmpty && engineName != "Error" {
+                    self.currentStatusMessage = "生成エラー: \(engineName)"
+                } else {
+                    self.currentStatusMessage = "生成に失敗しました (Google Colab GPU接続またはAPIキーを確認してください)"
+                }
+                AppState.shared.addSystemLog(level: "ERROR", message: "AI生成エラー: \(engineName)")
             }
         }
     }
 
-    // MARK: - 本格AI画像生成パイプライン (Colab GPU Bridge / Google Gemini / OpenAI / Claude / 仮想LinuxVM)
+    // MARK: - 本格AI画像生成パイプライン (Google Colab GPU Bridge / Google Gemini / OpenAI ChatGPT)
     private func fetchRealAIImage(
         prompt: String,
         negativePrompt: String,
@@ -217,17 +221,19 @@ public final class AIImageGeneratorService: ObservableObject {
         let provider = self.selectedProvider
         let model = self.selectedModel
 
-        // 0. Google Colab GPU Bridge が利用可能かつ有効な場合は最優先で高速生成 (SD-Turbo 約1〜2秒)
-        if useColabGPUIfAvailable && isColabBridgeAvailable {
-            fetchColabGPUImage(prompt: prompt) { [weak self] img, url, engine in
-                if let img = img, let url = url {
-                    completion(img, url, engine)
-                } else {
-                    // Colab GPU 失敗時はフォールバックへ
-                    self?.fetchFallbackDiffusion(prompt: prompt, provider: provider, model: model, aspectRatio: aspectRatio, seed: seed, completion: completion)
+        // 0. Google Colab GPU Bridge がオンラインの場合は最優先で高速高品質生成 (SD-Turbo 約1〜2秒)
+        if isColabBridgeAvailable || useColabGPUIfAvailable || provider == .virtualLinuxVM {
+            if isColabBridgeAvailable {
+                fetchColabGPUImage(prompt: prompt, negativePrompt: negativePrompt, aspectRatio: aspectRatio, seed: seed) { [weak self] img, url, engine in
+                    if let img = img, let url = url {
+                        completion(img, url, engine)
+                    } else {
+                        self?.currentStatusMessage = "⚠️ Colab GPU 応答エラー。セルの実行ログを確認してください。"
+                        completion(nil, nil, engine)
+                    }
                 }
+                return
             }
-            return
         }
 
         let englishPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
@@ -240,9 +246,7 @@ public final class AIImageGeneratorService: ObservableObject {
                     if let (img, url) = result {
                         completion(img, url, "OpenAI ChatGPT (\(model) / DALL-E 3)")
                     } else {
-                        self.fetchDirectCloudDiffusion(prompt: englishPrompt, aspectRatio: aspectRatio, seed: seed) { img, url, _ in
-                            completion(img, url, "OpenAI ChatGPT (\(model))")
-                        }
+                        completion(nil, nil, "OpenAI DALL-E 3 生成エラー")
                     }
                 }
                 return
@@ -257,32 +261,17 @@ public final class AIImageGeneratorService: ObservableObject {
                     if let (img, url) = result {
                         completion(img, url, "Google Gemini (\(model) / Imagen 3)")
                     } else {
-                        self.fetchDirectCloudDiffusion(prompt: englishPrompt, aspectRatio: aspectRatio, seed: seed) { img, url, _ in
-                            completion(img, url, "Google Gemini (\(model))")
-                        }
+                        completion(nil, nil, "Google Imagen 3 生成エラー")
                     }
                 }
                 return
             }
         }
 
-        // 3. 仮想LinuxVM または Anthropic Claude フォールバック
-        fetchFallbackDiffusion(prompt: prompt, provider: provider, model: model, aspectRatio: aspectRatio, seed: seed, completion: completion)
-    }
-
-    private func fetchFallbackDiffusion(
-        prompt: String,
-        provider: AIProviderType,
-        model: String,
-        aspectRatio: ImageAspectRatio,
-        seed: Int,
-        completion: @escaping (NSImage?, URL?, String) -> Void
-    ) {
-        // 高度日英プロンプト最適化エンジンで、ユーザーの自然言語要望を最高峰の英語拡散プロンプトに変換
-        let finalPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
-        self.fetchDirectCloudDiffusion(prompt: finalPrompt, aspectRatio: aspectRatio, seed: seed) { img, url, engine in
-            completion(img, url, "AI画像拡散生成 (\(engine))")
-        }
+        // 3. Colab GPU 未接続かつ外部APIキー未設定の案内
+        self.currentStatusMessage = "⚠️ Google Colab GPU が未接続です。「Colabを開く」からアプリ内ブラウザでGPUを起動・接続してください。"
+        AppState.shared.addSystemLog(level: "WARNING", message: "Colab GPU 未接続: アプリ内Colabブラウザから『すべてのセルを実行』してGPUに接続してください。")
+        completion(nil, nil, "Google Colab GPU 未接続")
     }
 
     // MARK: - 高精度日英プロンプト最適化エンジン (学校・保健室・東方キャラ・背景・シチュエーション完全対応)
@@ -408,51 +397,63 @@ public final class AIImageGeneratorService: ObservableObject {
         return uniqueTags.joined(separator: ", ")
     }
 
-    // MARK: - Google Colab GPU Bridge (SD-Turbo 画像生成: 1〜2秒)
+    // MARK: - Google Colab GPU Bridge (SD-Turbo 高画質イラスト生成: 1〜2秒)
     public func fetchColabGPUImage(
         prompt: String,
+        negativePrompt: String = "",
+        aspectRatio: ImageAspectRatio = .landscape16_9,
+        seed: Int = -1,
         completion: @escaping (NSImage?, URL?, String) -> Void
     ) {
         let colab = CloudVirtualLinuxService.shared.colabBridge
         let englishPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
         let endpoint = CloudVirtualLinuxService.sanitizeColabEndpoint(colab.endpoint)
+
         guard !endpoint.isEmpty, let url = URL(string: "\(endpoint)/v1/generate/image") else {
-            fetchDirectCloudDiffusion(prompt: englishPrompt, aspectRatio: .landscape16_9, seed: Int.random(in: 1000...99999)) { img, url, engine in
-                completion(img, url, "AI画像拡散生成 (\(engine))")
-            }
+            AppState.shared.addSystemLog(level: "WARNING", message: "Colab GPU Bridge 未接続: エンドポイントURLが空です。アプリ内Colabブラウザから起動してください。")
+            self.currentStatusMessage = "⚠️ Google Colab GPU が未接続です。「Colabを開く」からGPUを起動・接続してください。"
+            completion(nil, nil, "Colab GPU 未接続")
             return
         }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.timeoutInterval = 8.0
+        request.timeoutInterval = 25.0
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = ["prompt": englishPrompt]
+        let (width, height) = aspectRatio.dimensions
+        let effectiveSeed = seed == -1 ? Int.random(in: 1000...99999) : seed
+        let effectiveNegative = negativePrompt.isEmpty ? "ugly, deformed, disfigured, blurry, low quality" : negativePrompt
+
+        let body: [String: Any] = [
+            "prompt": englishPrompt,
+            "negative_prompt": effectiveNegative,
+            "width": min(width, 1024),
+            "height": min(height, 1024),
+            "seed": effectiveSeed
+        ]
+
         guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
-            fetchDirectCloudDiffusion(prompt: englishPrompt, aspectRatio: .landscape16_9, seed: Int.random(in: 1000...99999)) { img, url, engine in
-                completion(img, url, "AI画像拡散生成 (\(engine))")
-            }
+            completion(nil, nil, "リクエストJSON生成エラー")
             return
         }
         request.httpBody = httpBody
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        URLSession.shared.dataTask(with: request) { data, response, error in
             if let data = data, let image = NSImage(data: data), data.count > 1000,
                let http = response as? HTTPURLResponse, http.statusCode == 200 {
                 let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Images", isDirectory: true)
                 try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
 
-                let fileName = "ColabGPU_\(Int(Date().timeIntervalSince1970)).png"
+                let fileName = "ColabGPU_\(Int(Date().timeIntervalSince1970))_\(effectiveSeed).png"
                 let fileURL = outputDir.appendingPathComponent(fileName)
                 try? data.write(to: fileURL)
 
                 completion(image, fileURL, "Google Colab GPU (SD-Turbo / \(colab.gpuName))")
             } else {
-                // 通信エラー時はフォールバック拡散を実行して実画像ファイルを生成
-                self?.fetchDirectCloudDiffusion(prompt: englishPrompt, aspectRatio: .landscape16_9, seed: Int.random(in: 1000...99999)) { img, url, engine in
-                    completion(img, url, "AI画像拡散生成 (\(engine))")
-                }
+                let errDetail = error?.localizedDescription ?? "HTTP status \((response as? HTTPURLResponse)?.statusCode ?? 0)"
+                AppState.shared.addSystemLog(level: "ERROR", message: "Colab GPU 画像生成エラー: \(errDetail)。Colabセルの実行状態を確認してください。")
+                completion(nil, nil, "Colab GPU応答エラー: \(errDetail)")
             }
         }.resume()
     }
@@ -617,64 +618,7 @@ public final class AIImageGeneratorService: ObservableObject {
         return nil
     }
 
-    // MARK: - 実AI拡散モデル直接生成 (SD-Turbo 高速拡散エンジン: 1〜2秒)
-    private func fetchDirectCloudDiffusion(
-        prompt: String,
-        aspectRatio: ImageAspectRatio,
-        seed: Int,
-        completion: @escaping (NSImage?, URL?, String) -> Void
-    ) {
-        let (width, height) = aspectRatio.dimensions
-        let englishPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
 
-        guard let encodedPrompt = englishPrompt.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-              let url = URL(string: "https://image.pollinations.ai/prompt/\(encodedPrompt)?width=\(width)&height=\(height)&seed=\(seed)&model=turbo&nologo=true") else {
-            completion(nil, nil, "Error")
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 20.0
-        request.httpMethod = "GET"
-        request.addValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", forHTTPHeaderField: "User-Agent")
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let data = data, let image = NSImage(data: data), data.count > 3000,
-               let http = response as? HTTPURLResponse, http.statusCode == 200 {
-                let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Images", isDirectory: true)
-                try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
-
-                let fileName = "AI_Generated_\(Int(Date().timeIntervalSince1970))_\(seed).jpg"
-                let fileURL = outputDir.appendingPathComponent(fileName)
-                try? data.write(to: fileURL)
-
-                completion(image, fileURL, "SD-Turbo 高速拡散エンジン")
-                return
-            }
-
-            // フォールバック: パラメータ簡略版
-            let simplePrompt = englishPrompt.components(separatedBy: ",").prefix(6).joined(separator: ",")
-            if let encodedSimple = simplePrompt.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-               let retryUrl = URL(string: "https://image.pollinations.ai/prompt/\(encodedSimple)?width=\(width)&height=\(height)&model=turbo&nologo=true") {
-                var retryReq = URLRequest(url: retryUrl)
-                retryReq.timeoutInterval = 15.0
-                URLSession.shared.dataTask(with: retryReq) { rData, rRes, rErr in
-                    if let rData = rData, let rImage = NSImage(data: rData), rData.count > 3000 {
-                        let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Images", isDirectory: true)
-                        try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
-                        let fileName = "AI_Generated_\(Int(Date().timeIntervalSince1970))_\(seed).jpg"
-                        let fileURL = outputDir.appendingPathComponent(fileName)
-                        try? rData.write(to: fileURL)
-                        completion(rImage, fileURL, "SD-Turbo 拡散エンジン")
-                        return
-                    }
-                    completion(nil, nil, "Error")
-                }.resume()
-            } else {
-                completion(nil, nil, "Error")
-            }
-        }.resume()
-    }
 
     // MARK: - OpenAI DALL-E 3
     private func fetchOpenAIDallE3(

@@ -12,6 +12,7 @@ public struct AISoundGeneratorProgramView: View {
     @State private var activeTab: SoundGeneratorMode = .bgm
     @State private var showSuccessAlert: Bool = false
     @State private var alertMessage: String = ""
+    @State private var showColabBrowser: Bool = false
 
     public enum SoundGeneratorMode: String, CaseIterable, Identifiable {
         case bgm = "BGM生成 (プロンプト入力)"
@@ -56,6 +57,9 @@ public struct AISoundGeneratorProgramView: View {
                 message: Text(alertMessage),
                 dismissButton: .default(Text("OK"))
             )
+        }
+        .sheet(isPresented: $showColabBrowser) {
+            ColabGPUInAppBrowserView(isPresented: $showColabBrowser)
         }
     }
 
@@ -387,11 +391,44 @@ public struct AISoundGeneratorProgramView: View {
                 .font(.caption2)
                 .foregroundColor(.secondary)
 
+            // アプリ内Colab起動 ＆ 自動検出トリガーボタン
+            Button(action: {
+                showColabBrowser = true
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles.tv.fill")
+                        .font(.caption)
+                    Text(cloudLinuxService.colabBridge.isOnline ? "アプリ内Colabブラウザを表示 (接続中)" : "🌸 アプリ内Colabで起動 ＆ GPU自動接続")
+                        .font(.caption)
+                        .bold()
+                    Spacer()
+                    Image(systemName: "arrow.right.circle.fill")
+                        .font(.caption)
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(cloudLinuxService.colabBridge.isOnline ? Color.green : Color.blue)
+                )
+            }
+            .buttonStyle(.plain)
+            .help("アプリ内WebKitブラウザでColabを開き、セル実行後にURLを全自動挿入します")
+
             // エンドポイント入力欄
             VStack(alignment: .leading, spacing: 4) {
-                Text("Colab 一時URL (trycloudflare.com):")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+                HStack {
+                    Text("Colab 一時URL (trycloudflare.com):")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    if cloudLinuxService.colabBridge.isOnline {
+                        Text("自動挿入・接続済み")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.green)
+                    }
+                }
                 HStack {
                     TextField("https://xxxx.trycloudflare.com", text: $cloudLinuxService.colabBridge.endpoint)
                         .textFieldStyle(.roundedBorder)
@@ -420,7 +457,7 @@ public struct AISoundGeneratorProgramView: View {
                     Button(action: {
                         NSWorkspace.shared.open(url)
                     }) {
-                        Label("Colabを開く", systemImage: "arrow.up.right.square")
+                        Label("外部Safariで開く", systemImage: "safari")
                             .font(.caption2)
                     }
                     .buttonStyle(.link)
