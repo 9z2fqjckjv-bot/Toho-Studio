@@ -51,17 +51,17 @@ public final class AIImageGeneratorService: ObservableObject {
 
     // MARK: - アスペクト比定義
     public enum ImageAspectRatio: String, CaseIterable, Identifiable {
-        case landscape16_9 = "16:9 横長 (1024x576 - 動画・スライド・壁紙)"
-        case square1_1 = "1:1 正方形 (768x768 - アイコン・SNS用)"
-        case portrait9_16 = "9:16 縦長 (576x1024 - 立ち絵・ショート動画・スマホ用)"
+        case landscape16_9 = "16:9 横長 (1344x768 - 動画・スライド・壁紙)"
+        case square1_1 = "1:1 正方形 (1024x1024 - アイコン・SNS用)"
+        case portrait9_16 = "9:16 縦長 (768x1344 - 立ち絵・ショート動画・スマホ用)"
 
         public var id: String { rawValue }
 
         public var dimensions: (width: Int, height: Int) {
             switch self {
-            case .landscape16_9: return (1024, 576)
-            case .square1_1: return (768, 768)
-            case .portrait9_16: return (576, 1024)
+            case .landscape16_9: return (1344, 768)
+            case .square1_1: return (1024, 1024)
+            case .portrait9_16: return (768, 1344)
             }
         }
     }
@@ -124,9 +124,9 @@ public final class AIImageGeneratorService: ObservableObject {
                 if i < 3 {
                     self.currentStatusMessage = "🧠 ローカルLLM (Google Gemma 2) で英語プロンプトを自動生成・最適化中..."
                 } else if currentOutputType == .video {
-                    self.currentStatusMessage = "⚡️ Google Colab GPU (AnimateDiff) によるアニメーション動画レンダリング中... (\(Int(self.generationProgress * 100))%)"
+                    self.currentStatusMessage = "⚡️ Google Colab GPU (L4 / AnimateDiff) 動画レンダリング中... (\(Int(self.generationProgress * 100))%)"
                 } else {
-                    self.currentStatusMessage = "⚡️ Google Colab GPU (SD-Turbo) 高速画像生成中... (\(Int(self.generationProgress * 100))%)"
+                    self.currentStatusMessage = "⚡️ Google Colab GPU (L4 / SDXL 1.0) 超高解像度生成中... (\(Int(self.generationProgress * 100))%)"
                 }
             }
         }
@@ -276,23 +276,37 @@ public final class AIImageGeneratorService: ObservableObject {
         completion(nil, nil, "Google Colab GPU 未接続")
     }
 
-    // MARK: - 高精度日英プロンプト最適化エンジン (学校・保健室・東方キャラ・背景・シチュエーション完全対応)
+    // MARK: - 高精度日英プロンプト最適化エンジン (アニメ・実写写真・東方・風景・SFなど汎用完全対応)
     public static func generateOptimizedEnglishPrompt(from inputPrompt: String) -> String {
         let trimmed = inputPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            return "masterpiece, best quality, Japanese anime school infirmary, clean nurse's office, white medical bed, large sunny window overlooking school courtyard garden with green trees, soft sunlight streaming in, tranquil peaceful atmosphere, anime background concept art, highly detailed, 8k resolution"
+            return "masterpiece, best quality, breathtaking scenic landscape, atmospheric lighting, ultra-detailed, 8k resolution"
         }
 
-        // アルファベット比率のチェック (すでに大半が英語の場合はそのままクオリティサフィックスを付与)
+        // アルファベット比率のチェック (すでに大半が英語の場合はそのまま品質タグを付与)
         let asciiCount = trimmed.filter { $0.isASCII && ($0.isLetter || $0.isWhitespace || $0.isPunctuation) }.count
         if Double(asciiCount) / Double(max(1, trimmed.count)) > 0.75 {
-            return "\(trimmed), masterpiece, best quality, highly detailed, expressive anime aesthetic, cinematic lighting, 8k resolution"
+            return "\(trimmed), masterpiece, best quality, highly detailed, cinematic lighting, 8k resolution"
         }
 
         var tags: [String] = ["masterpiece", "best quality"]
         let lower = trimmed.lowercased()
 
-        // 1. 東方キャラクター判定
+        // 1. 画風・スタイルの判定（アニメ、実写写真、絵画など）
+        if lower.contains("写真") || lower.contains("実写") || lower.contains("リアル") || lower.contains("フォト") {
+            tags.append("photorealistic, hyperrealistic photo, 35mm photograph, shot on DSLR, professional photography, natural lighting, sharp focus, 8k UHD")
+        } else if lower.contains("アニメ") || lower.contains("イラスト") || lower.contains("マンガ") || lower.contains("萌え") {
+            tags.append("anime style, clean anime lineart, Japanese animation aesthetic, vibrant colors, expressive illustration")
+        } else if lower.contains("油絵") || lower.contains("水彩") {
+            tags.append("traditional oil painting style, visible brush strokes, fine art aesthetic")
+        } else if lower.contains("3d") || lower.contains("cg") {
+            tags.append("octane render, unreal engine 5 render, highly detailed 3D artwork")
+        } else {
+            // スタイル指定がない場合は高品質なデジタルイラスト/ビジュアル
+            tags.append("highly detailed visual, beautifully rendered, cinematic composition")
+        }
+
+        // 2. 東方キャラクター判定（ユーザーが東方キャラを指定した場合のみ反映）
         if lower.contains("霊夢") || lower.contains("reimu") {
             tags.append("Hakurei Reimu, touhou project, 1girl, red hair ribbon, miko shrine maiden dress, detached sleeves, brown hair, brown eyes, ofuda talismans")
         } else if lower.contains("魔理沙") || lower.contains("marisa") {
@@ -319,75 +333,40 @@ public final class AIImageGeneratorService: ObservableObject {
             tags.append("Syameimaru Aya, touhou project, 1girl, black short hair, tokin tengu hat, camera, crow wings")
         }
 
-        // 2. 東方の舞台・ロケーション判定
-        if lower.contains("博麗神社") || lower.contains("神社") {
-            tags.append("Hakurei Shrine, traditional Japanese wooden shrine architecture, vermilion torii gate, stone lantern path, engawa wooden porch")
-        } else if lower.contains("魔法の森") {
-            tags.append("Forest of Magic, mystical dense enchanted forest, giant glowing colorful mushrooms, ancient mossy trees, sunbeams filtering through dense canopy")
-        } else if lower.contains("紅魔館") {
-            tags.append("Scarlet Devil Mansion, opulent gothic victorian mansion, red carpeted grand hallway, crystal chandelier, stained glass gothic windows")
-        } else if lower.contains("白玉楼") {
-            tags.append("Hakugyokurou, ethereal afterlife palace, grand stone stairway, blooming thousand-year cherry blossom tree, pink petals in wind")
-        } else if lower.contains("竹林") {
-            tags.append("Bamboo Forest of the Lost, towering lush green bamboo grove, ethereal drifting white mist, sunlight filtering through stalks")
-        } else if lower.contains("妖怪の山") {
-            tags.append("Youkai Mountain, dramatic mountain landscape, rushing scenic waterfalls, autumn foliage, cloudy mist")
+        // 3. 汎用的な環境・舞台・背景判定
+        if lower.contains("神社") {
+            tags.append("traditional Japanese shrine, vermilion torii gate, stone lanterns, cedar trees, sacred atmosphere")
+        } else if lower.contains("森") {
+            tags.append("lush green deep forest, tall trees, sunbeams filtering through leaves, mossy rocks")
+        } else if lower.contains("学校") || lower.contains("教室") {
+            tags.append("Japanese school classroom, wooden desks, blackboard, sunny window")
+        } else if lower.contains("保健室") {
+            tags.append("school infirmary, clean medical bed, soft curtains, sunny morning window")
+        } else if lower.contains("海") || lower.contains("ビーチ") || lower.contains("海岸") {
+            tags.append("beautiful ocean beach, gentle waves, sparkling turquoise water, blue sky")
+        } else if lower.contains("宇宙") || lower.contains("星") || lower.contains("銀河") {
+            tags.append("deep cosmos space, glowing nebulae, distant glittering galaxies, stars")
+        } else if lower.contains("サイバーパンク") || lower.contains("未来都市") {
+            tags.append("futuristic cyberpunk metropolis, neon lights, skyscrapers, holographic displays")
+        } else if lower.contains("部屋") || lower.contains("室内") {
+            tags.append("cozy modern interior room, warm atmospheric lighting, comfortable aesthetic")
         }
 
-        // 3. 学校・施設・日常環境判定 (重要: 保健室・中庭・教室など)
-        if lower.contains("保健室") {
-            tags.append("Japanese anime school infirmary, clean nurse's office, pristine white medical examination bed, privacy curtains, wooden medicine cabinet, desk")
-        }
-        if lower.contains("中庭") {
-            tags.append("school courtyard garden, green manicured lawn, lush trees, flowerbeds, peaceful outdoor campus")
-        }
-        if lower.contains("窓") || lower.contains("窓から見える") || lower.contains("窓辺") {
-            tags.append("large clear glass window overlooking the courtyard, warm gentle sunlight streaming into the room, soft translucent curtains")
-        }
-        if lower.contains("教室") {
-            tags.append("Japanese high school classroom, rows of wooden desks and chairs, green blackboard, warm afternoon atmosphere")
-        }
-        if lower.contains("廊下") {
-            tags.append("school hallway corridor, polished reflective floor, lockers, windows along the wall")
-        }
-        if lower.contains("屋上") {
-            tags.append("school rooftop, wire mesh chain-link fence, expansive clear blue sky, fluffy clouds")
-        }
-        if lower.contains("図書館") || lower.contains("図書室") {
-            tags.append("quiet cozy library, tall towering wooden bookshelves filled with books, warm study desk lamp")
-        }
-        if lower.contains("カフェ") || lower.contains("喫茶店") {
-            tags.append("modern cozy coffee shop cafe interior, warm ambient wooden decor, coffee cup on table")
-        }
-        if lower.contains("部屋") || lower.contains("自室") {
-            tags.append("cozy anime bedroom, comfortable bed, study desk, gentle ambient room lighting")
+        // 4. 自然・天候・ライティング
+        if lower.contains("夕暮れ") || lower.contains("夕方") || lower.contains("夕焼け") {
+            tags.append("sunset golden hour, vibrant orange twilight glow, long shadows")
+        } else if lower.contains("夜") || lower.contains("月") {
+            tags.append("night scene, moonlight glow, mystical ambient light")
+        } else if lower.contains("雨") {
+            tags.append("rainy atmosphere, raindrops, reflective wet surfaces, moody cinematic lighting")
+        } else if lower.contains("雪") || lower.contains("冬") {
+            tags.append("winter snow scene, falling snowflakes, crisp cold air")
+        } else if lower.contains("桜") {
+            tags.append("cherry blossom petals drifting in the breeze, blooming sakura trees")
         }
 
-        // 4. 自然・情景・天候
-        if lower.contains("桜") || lower.contains("桜吹雪") {
-            tags.append("falling cherry blossom petals, sakura trees in bloom, spring atmosphere")
-        }
-        if lower.contains("夕暮れ") || lower.contains("夕方") || lower.contains("夕焼け") || lower.contains("黄昏") {
-            tags.append("golden hour sunset, vibrant orange and purple gradient twilight sky, warm glowing light")
-        }
-        if lower.contains("星空") || lower.contains("夜") || lower.contains("月") || lower.contains("夜空") {
-            tags.append("night sky, glowing luminous moon, twinkling stars, milky way, deep blue and indigo ambient")
-        }
-        if lower.contains("雨") {
-            tags.append("rainy day, gentle raindrops, reflections on wet ground, moody atmospheric overcast")
-        }
-        if lower.contains("青空") || lower.contains("晴れ") {
-            tags.append("clear vibrant blue sky, radiant bright sunshine, fluffy white clouds")
-        }
-        if lower.contains("サイバーパンク") {
-            tags.append("cyberpunk futuristic metropolis, glowing neon signage, holographic displays, rain wet asphalt")
-        }
-        if lower.contains("都市") || lower.contains("街") || lower.contains("摩天楼") {
-            tags.append("modern city cityscape, towering skyscrapers, urban architecture")
-        }
-
-        // 5. 構図・画質スタイルサフィックス
-        tags.append("anime background concept art, highly detailed, beautifully rendered, cinematic lighting, peaceful atmosphere, crisp focus, 8k resolution wallpaper")
+        // 5. 汎用仕上げタグ
+        tags.append("highly detailed, cinematic lighting, sharp focus, 8k resolution wallpaper")
 
         // 重複を除去してカンマ結合
         var uniqueTags: [String] = []
@@ -455,7 +434,7 @@ public final class AIImageGeneratorService: ObservableObject {
         return tags.joined(separator: ", ")
     }
 
-    // MARK: - Google Colab GPU Bridge (SD-Turbo 高画質イラスト生成: 1〜2秒)
+    // MARK: - Google Colab GPU Bridge (SDXL 1.0 高精度・汎用画像生成: L4 GPU)
     public func fetchColabGPUImage(
         prompt: String,
         negativePrompt: String = "",
@@ -464,7 +443,9 @@ public final class AIImageGeneratorService: ObservableObject {
         completion: @escaping (NSImage?, URL?, String) -> Void
     ) {
         let colab = CloudVirtualLinuxService.shared.colabBridge
-        let englishPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
+        let englishPrompt = CloudVirtualLinuxService.containsJapanese(prompt)
+            ? Self.generateOptimizedEnglishPrompt(from: prompt)
+            : prompt
         let englishNegative = Self.convertNegativePromptToEnglish(negativePrompt)
         let endpoint = CloudVirtualLinuxService.sanitizeColabEndpoint(colab.endpoint)
 
@@ -477,7 +458,7 @@ public final class AIImageGeneratorService: ObservableObject {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.timeoutInterval = 25.0
+        request.timeoutInterval = 60.0
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let (width, height) = aspectRatio.dimensions
@@ -513,7 +494,7 @@ public final class AIImageGeneratorService: ObservableObject {
                 let fileURL = outputDir.appendingPathComponent(fileName)
                 try? data.write(to: fileURL)
 
-                completion(image, fileURL, "Google Colab GPU (SD-Turbo / \(colab.gpuName) / \(width)x\(height))")
+                completion(image, fileURL, "Google Colab GPU (SDXL 1.0 / \(colab.gpuName) / \(width)x\(height))")
             } else {
                 let errDetail = error?.localizedDescription ?? "HTTP status \((response as? HTTPURLResponse)?.statusCode ?? 0)"
                 AppState.shared.addSystemLog(level: "ERROR", message: "Colab GPU 画像生成エラー: \(errDetail)。Colabセルの実行状態を確認してください。")

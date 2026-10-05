@@ -634,21 +634,22 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         }
     }
 
-    // MARK: - Google Colab GPU Bridge (MusicGen BGM生成)
+    // MARK: - Google Colab GPU Bridge (MusicGen Medium BGM生成: L4 GPU)
     public func fetchColabGPUBGM(
         prompt: String,
         duration: Int,
         completion: @escaping (URL?, String) -> Void
     ) {
         let colab = CloudVirtualLinuxService.shared.colabBridge
-        guard let url = URL(string: "\(colab.endpoint)/v1/generate/bgm") else {
+        let endpoint = CloudVirtualLinuxService.sanitizeColabEndpoint(colab.endpoint)
+        guard !endpoint.isEmpty, let url = URL(string: "\(endpoint)/v1/generate/bgm") else {
             completion(nil, "Error")
             return
         }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.timeoutInterval = 60.0
+        request.timeoutInterval = 90.0
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = [
@@ -675,7 +676,7 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             let fileURL = outputDir.appendingPathComponent(fileName)
             try? data.write(to: fileURL)
 
-            completion(fileURL, "Google Colab GPU (MusicGen / \(colab.gpuName))")
+            completion(fileURL, "Google Colab GPU (MusicGen Medium / \(colab.gpuName))")
         }.resume()
     }
 
@@ -799,21 +800,22 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         }
     }
 
-    // MARK: - Google Colab GPU Bridge (SE生成)
+    // MARK: - Google Colab GPU Bridge (AudioLDM 2 SE生成: L4 GPU)
     public func fetchColabGPUSE(
         prompt: String,
         duration: Int,
         completion: @escaping (URL?, String) -> Void
     ) {
         let colab = CloudVirtualLinuxService.shared.colabBridge
-        guard let url = URL(string: "\(colab.endpoint)/v1/generate/se") else {
+        let endpoint = CloudVirtualLinuxService.sanitizeColabEndpoint(colab.endpoint)
+        guard !endpoint.isEmpty, let url = URL(string: "\(endpoint)/v1/generate/se") else {
             completion(nil, "Error")
             return
         }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.timeoutInterval = 40.0
+        request.timeoutInterval = 60.0
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = [
@@ -840,7 +842,7 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             let fileURL = outputDir.appendingPathComponent(fileName)
             try? data.write(to: fileURL)
 
-            completion(fileURL, "Google Colab GPU (SE / \(colab.gpuName))")
+            completion(fileURL, "Google Colab GPU (AudioLDM 2 / \(colab.gpuName))")
         }.resume()
     }
 

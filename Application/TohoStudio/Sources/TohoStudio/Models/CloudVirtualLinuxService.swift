@@ -236,21 +236,21 @@ public final class CloudVirtualLinuxService: ObservableObject {
 
     // MARK: - ローカルLLM (LLMMac.md: Google Gemma 2 / Meta Llama 3.2) によるプロンプト英文化エンジン
     public enum LocalLLMMediaType: String {
-        case image = "画像生成 (SD-Turbo)"
-        case video = "アニメ動画生成 (AnimateDiff)"
-        case music = "BGM音楽生成 (MusicGen)"
-        case soundEffect = "効果音生成 (AudioGen/SE)"
+        case image = "画像生成 (SDXL 1.0)"
+        case video = "動画生成 (AnimateDiff / Video)"
+        case music = "BGM音楽生成 (MusicGen Medium)"
+        case soundEffect = "効果音生成 (AudioLDM 2)"
 
         var systemPrompt: String {
             switch self {
             case .image:
-                return "You are an expert prompt engineer for Stable Diffusion SD-Turbo. Translate and expand the user's Japanese scene request into a highly detailed English image prompt. Include visual details, setting, lighting, artistic style (masterpiece, best quality, anime aesthetic, 8k resolution). Output ONLY the comma-separated English prompt without any preamble, conversation, or markdown backticks."
+                return "You are an expert prompt engineer for Stable Diffusion XL (SDXL 1.0). Translate the user's Japanese prompt into a detailed, versatile English image prompt. Faithfully capture the subject, environment, lighting, and style requested by the user (whether it is anime, photorealistic, fantasy, sci-fi, oil painting, or 3D render). Do NOT force Touhou or anime tropes unless requested. Output ONLY the comma-separated English prompt without any preamble, conversation, or markdown backticks."
             case .video:
-                return "You are an expert prompt engineer for AnimateDiff anime video generation. Translate the user's Japanese animation request into a high quality English motion prompt. Emphasize fluid action, camera movement, and aesthetic quality. Output ONLY the English prompt."
+                return "You are an expert prompt engineer for video generation. Translate the user's Japanese animation or video prompt into a descriptive English motion prompt. Specify the subject, action, motion dynamics, camera movement, and aesthetic style. Do NOT assume anime unless requested. Output ONLY the English prompt."
             case .music:
-                return "You are an expert prompt engineer for Meta MusicGen BGM generator. Translate the user's Japanese music request into a descriptive English music prompt specifying genre, mood, tempo (BPM), and instrumentation. Output ONLY the English prompt."
+                return "You are an expert prompt engineer for Meta MusicGen. Translate the user's Japanese music request into a descriptive English music prompt specifying musical genre, instruments, tempo (BPM), mood, and audio textures. Output ONLY the English prompt."
             case .soundEffect:
-                return "You are an expert prompt engineer for sound effect generation. Translate the user's Japanese sound request into a concise English sound effect description. Output ONLY the English prompt."
+                return "You are an expert prompt engineer for AudioLDM 2 sound effect generation. Translate the user's Japanese sound effect request into a clean, concise English sound effect prompt (e.g., 'laser beam zap firing', 'heavy stone door sliding open with rumble', 'glass shattering on concrete'). Do NOT output musical instruments or melodies; describe real acoustic sounds and SFX. Output ONLY the English prompt."
             }
         }
     }

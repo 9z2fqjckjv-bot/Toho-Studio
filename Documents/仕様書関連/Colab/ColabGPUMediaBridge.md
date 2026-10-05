@@ -1,30 +1,32 @@
-# Google Colab GPU メディア生成ブリッジ構築ガイド（動画・画像・BGM・SE 完全対応）
+# Google Colab L4 GPU メディア生成ブリッジ構築ガイド（動画・画像・BGM・SE 完全対応）
 
-本書は、手元の Mac（MacBook Neo / メモリ8GB）やローカル Linux 仮想マシン（4GB RAM）ではスペック的に困難な**「高画質イラスト生成」「アニメ動画（MP4）生成」「BGM音楽生成」「効果音（SE）生成」**を、**Google Colab の無料 NVIDIA GPU（T4 / VRAM 16GB）に一時的に肩代わりさせ、完成したファイルをローカル環境へ直接ダウンロードする連携手順書** です。
+本書は、手元の Mac やローカル Linux 仮想マシンではスペック的に困難な**「超高精細画像生成（SDXL 1.0）」「動画生成（AnimateDiff）」「高音質BGM生成（MusicGen Medium）」「効果音生成（AudioLDM 2）」**を、**Google Colab の高性能 GPU（NVIDIA L4 / VRAM 24GB）に肩代わりさせ、完成した高品質メディアを手元の TohoStudio に直接取り込む運用マニュアル** です。
+
+東方Projectの制作に限らず、**アニメ・実写写真・SF・ファンタジー・現代日常・映画的SFXなど、あらゆる汎用的なクリエイティブワーク** に対応しています。
 
 ---
 
 ## 1. 連携アーキテクチャの概要
 
-常時起動の高額なクラウドサーバーを契約することなく、**「素材をまとめて生成したい時だけ Colab を立ち上げる」** という完全無料のハイブリッド運用です。
+手元のファンレス Mac に負担をかけることなく、必要な時だけ Google Colab 上で潤沢な 24GB VRAM を誇る L4 GPU サーバーを立ち上げ、高品質なメディア素材を高速取得します。
 
 ```
  ┌─────────────────────────────────────────────────────────────────────────┐
- │ 🌐 Google Colab（無料 NVIDIA T4 GPU / VRAM 16GB）                        │
- │  ・画像生成（SD-Turbo）   : 1〜2秒で1枚レンダリング                     │
- │  ・アニメ動画（AnimateDiff）: 16フレームの MP4 ループアニメーション動画 │
- │  ・BGM音楽（MusicGen）    : 東方風の戦闘・日常曲を作曲                  │
- │  ・効果音（SE）          : スペルカード発動音、打撃音、爆発音などを生成 │
+ │ 🌐 Google Colab（NVIDIA L4 GPU / VRAM 24GB）                             │
+ │  ・高精細画像（SDXL 1.0） : 1024px+ ネイティブ解像度 / 30steps / 汎用画質 │
+ │  ・動画生成（AnimateDiff）: 滑らかなループ動画 (MP4)                     │
+ │  ・BGM音楽（MusicGen Med）: 豊かなステレオ感と多様なジャンル対応         │
+ │  ・効果音（AudioLDM 2）   : レーザー、爆発、打撃、足音、環境音などの本物SFX│
  │  ・Cloudflare Tunnel     : 世界中から届く一時HTTPS URLを発行            │
  └──────────────────────────────────┬──────────────────────────────────────┘
                                     │
                          一時URL（https://xxxx.trycloudflare.com）
                                     │
  ┌──────────────────────────────────┴──────────────────────────────────────┐
- │ 💻 あなたの Mac（MacBook Neo）/ VirtualBuddy Linux VM                   │
- │  ・普段のテキストLLM対話 : ローカル VM（Gemma 2 / 完全無料・常時稼働）  │
- │  ・メディア生成リクエスト : Colab の一時URLにプロンプトを送信           │
- │  ・受取 : 数秒で完成した PNG、MP4、WAV が手元のストレージに即時保存！  │
+ │ 💻 あなたの Mac（TohoStudio）/ VirtualBuddy Linux VM                     │
+ │  ・プロンプト最適化     : ローカル LLM（Gemma 2 / Llama 3.2）が自動英訳 │
+ │  ・メディア生成リクエスト: Colab の一時URLにプロンプト・比率・除外指定を送信 │
+ │  ・受取                 : 完成した PNG、MP4、WAV が手元のアプリに即時保存！│
  └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -34,11 +36,12 @@
 
 ### Step 1: Google Colab を開く
 1. ブラウザで [Google Colab](https://colab.research.google.com/) を開きます。
-2. 作成したノートブック [TohoStudio_GPU_Server.ipynb](file:///Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/仕様書関連/Colab/TohoStudio_GPU_Server.ipynb) をアップロードして開きます。
+2. リポジトリ内のノートブック [TohoStudio_GPU_Server.ipynb](file:///Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/仕様書関連/Colab/TohoStudio_GPU_Server.ipynb) をアップロードして開きます。
 
-### Step 2: GPU を有効化する
+### Step 2: L4 GPU を選択する
 1. Colab のメニューバーから **「ランタイム」** ＞ **「ランタイムのタイプを変更」** をクリックします。
-2. ハードウェア アクセラレータで **「T4 GPU」** を選択し、**「保存」** をクリックします。
+2. ハードウェア アクセラレータで **「L4 GPU」**（VRAM 24GB）を選択し、**「保存」** をクリックします。
+   *(※無料枠等で T4 を利用する場合でも、メモリ自動クリーン処理により動作します)*
 
 ### Step 3: すべて実行する
 1. メニューバーの **「ランタイム」** ＞ **「すべてのセルを実行」**（ショートカット: `Command + F9`）を押します。
@@ -46,18 +49,16 @@
 
 ```text
 ===================================================================
-🎉 Colab GPU 4大メディア生成サーバーが正常に起動しました！
+🎉 Colab L4 GPU 4大メディア高品位生成サーバーが正常に起動しました！
 👉 接続先 URL: https://random-words-1234.trycloudflare.com
 ===================================================================
 ```
 
-この `https://xxxx.trycloudflare.com` という URL をコピーします。
+3. TohoStudio アプリ内の「Colab GPU 接続」欄にこの URL を入力（またはアプリ内ブラウザからの自動検出）すれば、準備完了です！
 
 ---
 
-## 3. 手元の Mac / Linux VM からの生成・受取テスト
-
-Mac の「ターミナル.app」または VirtualBuddy 内のターミナルから、以下のコマンドを実行してテストします。
+## 3. 生成エンドポイントと cURL テスト
 
 ### 1. 接続確認（ヘルスチェック）
 ```bash
@@ -67,74 +68,81 @@ curl https://xxxx.trycloudflare.com/health
 ```json
 {
   "status": "READY",
-  "gpu": "Tesla T4",
-  "vram_free_gb": 9.8,
-  "capabilities": ["image", "video", "bgm", "se"]
+  "gpu": "NVIDIA L4",
+  "vram_free_gb": 22.4,
+  "capabilities": ["image (SDXL 1.0)", "se (AudioLDM 2)", "bgm (MusicGen Medium)", "video (AnimateDiff)"]
 }
 ```
 
 ---
 
-### 2. 東方風イラストの画像生成（約1〜2秒で完了！）
+### 2. 高精細汎用画像生成 (SDXL 1.0)
+アスペクト比（16:9 / 1:1 / 9:16）、除外プロンプト（negative_prompt）、シード値に完全対応。
 ```bash
 curl -X POST https://xxxx.trycloudflare.com/v1/generate/image \
   -H "Content-Type: application/json" \
   -d '{
-    "prompt": "1girl, Hakurei Reimu, touhou project, red ribbon, miko dress, masterpiece, best quality"
+    "prompt": "futuristic cyberpunk city with neon reflections in rain, cinematic lighting, masterpiece, 8k",
+    "negative_prompt": "people, blurry, low quality, distorted",
+    "width": 1344,
+    "height": 768
   }' \
-  --output reimu_colab.png
+  --output sample_image.png
 ```
-カレントディレクトリに **`reimu_colab.png`**（512x512 PNG）が保存されます。
+カレントディレクトリに **`sample_image.png`**（1344x768 の極上イラスト・写真）が保存されます。
 
 ---
 
-### 3. アニメーション動画（MP4）の生成（約30〜45秒で完了！）
-```bash
-curl -X POST https://xxxx.trycloudflare.com/v1/generate/video \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "1girl, Hakurei Reimu floating in cherry blossoms, red ribbon fluttering in wind, masterpiece, best quality"
-  }' \
-  --output reimu_animation.mp4
-```
-カレントディレクトリに **`reimu_animation.mp4`**（8fps、16フレームの MP4 動画）が保存されます。
-
----
-
-### 4. 東方風 BGM の音楽生成（約10〜15秒で完了！）
-```bash
-curl -X POST https://xxxx.trycloudflare.com/v1/generate/bgm \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "japanese traditional flute touhou style energetic battle bgm 140bpm",
-    "duration_seconds": 8
-  }' \
-  --output touhou_battle_bgm.wav
-```
-カレントディレクトリに **`touhou_battle_bgm.wav`**（8秒間の BGM 音声ファイル）が保存されます。
-
----
-
-### 5. スペルカード発動・効果音（SE）の生成（約3〜5秒で完了！）
+### 3. 本格効果音 (SE) 生成 (AudioLDM 2)
+効果音・環境音に特化した音響合成モデル。太鼓やビートではなく、意図した通りの効果音（SFX）を直接生成します。
 ```bash
 curl -X POST https://xxxx.trycloudflare.com/v1/generate/se \
   -H "Content-Type: application/json" \
   -d '{
-    "prompt": "magic spell card laser beam burst whoosh sound effect",
-    "duration_seconds": 2
+    "prompt": "heavy futuristic energy laser cannon charging and firing burst blast",
+    "duration_seconds": 2.5
   }' \
-  --output spell_card_se.wav
+  --output laser_blast.wav
 ```
-カレントディレクトリに **`spell_card_se.wav`**（2秒間の高品位 SE ファイル）が保存されます。
+カレントディレクトリに **`laser_blast.wav`**（2.5秒間の高品位 SFX ファイル）が保存されます。
 
 ---
 
-## 4. コストと運用のポイント
+### 4. BGM 音楽生成 (MusicGen Medium)
+```bash
+curl -X POST https://xxxx.trycloudflare.com/v1/generate/bgm \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "upbeat japanese shamisen and synthwave electronic fusion, dynamic fast tempo",
+    "duration_seconds": 10
+  }' \
+  --output bgm_sample.wav
+```
+カレントディレクトリに **`bgm_sample.wav`**（10秒間の豊かなBGM音声ファイル）が保存されます。
 
-1. **利用料金**:
-   - **完全無料** です。Google アカウントの Colab 無料枠で動作します。
-2. **利用が終わったら**:
-   - ブラウザの Colab タブを閉じるか、メニューの **「ランタイム」＞「セッションを切断して削除」** を押せば終了します。
-   - 次に素材を作りたくなった時に、また「すべてのセルを実行」を押せば数分で新しい URL が発行されます。
-3. **MacBook Neo の保護**:
-   - 動画や画像の巨大なレンダリング計算（発熱・電力消費）を手元の Mac で一切行わないため、ファンレスの MacBook Neo を痛めることなく、世界トップクラスの GPU 性能を手元で享受できます。
+---
+
+### 5. 動画生成 (AnimateDiff)
+```bash
+curl -X POST https://xxxx.trycloudflare.com/v1/generate/video \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "sakura cherry blossoms floating gracefully across starry night sky, motion",
+    "width": 512,
+    "height": 512
+  }' \
+  --output animation.mp4
+```
+カレントディレクトリに **`animation.mp4`**（MP4 動画）が保存されます。
+
+---
+
+## 4. 特徴と安定運用のポイント
+
+1. **意図通りの生成クオリティ**:
+   - アスペクト比や除外プロンプトが忠実に反映されます。
+   - 効果音には音楽モデルではなく効果音特化の `AudioLDM 2` を割り当てているため、単発効果音・環境音が濁らずクリアに出力されます。
+2. **GPU メモリの自動解放**:
+   - 各生成完了後に `gc.collect()` および `torch.cuda.empty_cache()` を実行するため、画像・音声・動画を切り替えて連続生成しても VRAM OOM にならず安定稼働します。
+3. **安全・無料・手元のマシン保護**:
+   - 巨大な計算処理はすべて Colab 側で行われるため、MacBook Neo 等のファンレス軽量マシンでも発熱やバッテリー劣化を気にせず世界水準のAI生成を楽しめます。
