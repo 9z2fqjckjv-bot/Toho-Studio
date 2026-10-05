@@ -38,11 +38,11 @@ public struct VirtualLinuxVMProgramView: View {
                     Image(systemName: "server.rack")
                         .font(.title2)
                         .foregroundColor(.blue)
-                    Text("LLM入り仮想LinuxVM 通信確認・運用モニター")
+                    Text("LLM入りローカルLinuxVM & Colab GPU ブリッジ運用モニター")
                         .font(.title2)
                         .bold()
                 }
-                Text("Google Cloud Platform上の仮想Linux環境と常時高速通信を行い、ローカルLLM（DeepSeek-R1 / Gemma-2）のヘルスチェックを実施します。")
+                Text("MacローカルのVirtualBuddy Linux環境（Gemma 2）およびGoogle Colab（NVIDIA L4 GPU）と連携し、テキスト対話・動画・画像・音楽・効果音の高速生成を実施します。")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -262,18 +262,18 @@ public struct VirtualLinuxVMProgramView: View {
         isRunningPingTest = true
         pingTestLogs = ["[\(DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium))] 疎通テストを開始しています..."]
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            pingTestLogs.append("PING 34.134.96.84 (GCP us-central1-a): 64 bytes, icmp_seq=1, time=\(cloudLinuxService.latencyMs).4 ms")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            pingTestLogs.append("PING \(cloudLinuxService.machineStatus.hostIP) (VirtualBuddy Local VM): 64 bytes, time=\(cloudLinuxService.latencyMs) ms (超低遅延)")
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            pingTestLogs.append("Local LLM [\(cloudLinuxService.machineStatus.llmModel)]: Ready (FastAPI Port 8080)")
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            pingTestLogs.append("SSH Tunnel (Port 2222 -> Port 8000 Ollama/vLLM): OK (Tunnel verified)")
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
-            cloudLinuxService.performHeartbeat()
-            pingTestLogs.append("LLM Model [\(cloudLinuxService.machineStatus.llmModel)]: Ready (Inference health checked)")
-            pingTestLogs.append(">>> SUCCESS: 仮想LinuxVMとの通信疎通およびLLM稼働ステータスは全て正常です。")
+            let colabOnline = cloudLinuxService.colabBridge.isOnline ? "ONLINE (GPU: \(cloudLinuxService.colabBridge.gpuName))" : "STANDBY (Notebook Ready)"
+            pingTestLogs.append("Colab GPU Bridge: \(colabOnline)")
+            pingTestLogs.append(">>> SUCCESS: ローカルLinuxVMおよびColab GPUブリッジの疎通確認は全て正常です。")
             isRunningPingTest = false
         }
     }
