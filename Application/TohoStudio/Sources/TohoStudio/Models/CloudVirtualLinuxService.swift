@@ -210,7 +210,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
             DispatchQueue.main.async {
                 guard let self = self else { return }
 
-                if let error = error {
+                if error != nil {
                     // Fallback response if VM unreachable
                     let fallback = "【ローカル仮想Linux LLM】応答: \(prompt.prefix(30))... に対するスクリプトを生成しました。（通信オフライン）"
                     completion(.success(fallback))
@@ -232,5 +232,156 @@ public final class CloudVirtualLinuxService: ObservableObject {
                 completion(.success(decoded.response))
             }
         }.resume()
+    }
+
+    // MARK: - ローカルLLM (LLMMac.md: Google Gemma 2 / Meta Llama 3.2) によるプロンプト英文化エンジン
+    public enum LocalLLMMediaType: String {
+        case image = "画像生成 (SD-Turbo)"
+        case video = "アニメ動画生成 (AnimateDiff)"
+        case music = "BGM音楽生成 (MusicGen)"
+        case soundEffect = "効果音生成 (AudioGen/SE)"
+
+        var systemPrompt: String {
+            switch self {
+            case .image:
+                return "You are an expert prompt engineer for Stable Diffusion SD-Turbo. Translate and expand the user's Japanese scene request into a highly detailed English image prompt. Include visual details, setting, lighting, artistic style (masterpiece, best quality, anime aesthetic, 8k resolution). Output ONLY the comma-separated English prompt without any preamble, conversation, or markdown backticks."
+            case .video:
+                return "You are an expert prompt engineer for AnimateDiff anime video generation. Translate the user's Japanese animation request into a high quality English motion prompt. Emphasize fluid action, camera movement, and aesthetic quality. Output ONLY the English prompt."
+            case .music:
+                return "You are an expert prompt engineer for Meta MusicGen BGM generator. Translate the user's Japanese music request into a descriptive English music prompt specifying genre, mood, tempo (BPM), and instrumentation. Output ONLY the English prompt."
+            case .soundEffect:
+                return "You are an expert prompt engineer for sound effect generation. Translate the user's Japanese sound request into a concise English sound effect description. Output ONLY the English prompt."
+            }
+        }
+    }
+
+    /// 日本語が含まれているか判定
+    public static func containsJapanese(_ text: String) -> Bool {
+        return text.unicodeScalars.contains { scalar in
+            (0x3040...0x309F).contains(scalar.value) ||
+            (0x30A0...0x30FF).contains(scalar.value) ||
+            (0x4E00...0x9FAF).contains(scalar.value)
+        }
+    }
+
+    /// 日本語プロンプトをローカルLinux VMのLLM (Gemma 2 / Llama 3.2) で英語プロンプトに変換
+    public func translateAndOptimizePromptWithLocalLLM(
+        prompt: String,
+        mediaType: LocalLLMMediaType,
+        completion: @escaping (String) -> Void
+    ) {
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            completion(trimmed)
+            return
+        }
+
+        // 日本語が含まれていない場合はそのまま利用
+        if !Self.containsJapanese(trimmed) {
+            completion(trimmed)
+            return
+        }
+
+        // 1. VirtualBuddy Linux VM デーモン (ポート 8080) へ送信
+        let daemonURLString = "http://\(machineStatus.hostIP):8080/v1/chat/completions"
+        if let url = URL(string: daemonURLString) {
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.timeoutInterval = 7.0
+
+            let body: [String: Any] = [
+                "user_id": "tohostudio-prompt-translator",
+                "system_prompt": mediaType.systemPrompt,
+                "user_prompt": "Request: \(trimmed)\nEnglish Prompt:",
+                "model": "gemma2:2b"
+            ]
+
+            if let bodyData = try? JSONSerialization.data(withJSONObject: body) {
+                req.httpBody = bodyData
+
+                URLSession.shared.dataTask(with: req) { data, response, error in
+                    if let data = data,
+                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let responseText = json["response"] as? String,
+                       !responseText.isEmpty,
+                       !responseText.contains("【ローカル生成フォールバック】") {
+                        let cleaned = Self.cleanLLMPromptOutput(responseText)
+                        AppState.shared.addSystemLog(level: "INFO", message: "ローカルLLM (Gemma 2) が英語プロンプトを生成: \(cleaned.prefix(60))...")
+                        DispatchQueue.main.async {
+                            completion(cleaned)
+                        }
+                        return
+                    }
+
+                    // 2. ホスト側 Ollama (ポート 11434) へのフォールバック
+                    Self.tryOllamaDirect(prompt: trimmed, mediaType: mediaType, completion: completion)
+                }.resume()
+                return
+            }
+        }
+
+        Self.tryOllamaDirect(prompt: trimmed, mediaType: mediaType, completion: completion)
+    }
+
+    /// Ollama 直接アクセス (127.0.0.1:11434)
+    private static func tryOllamaDirect(
+        prompt: String,
+        mediaType: LocalLLMMediaType,
+        completion: @escaping (String) -> Void
+    ) {
+        guard let url = URL(string: "http://127.0.0.1:11434/api/generate") else {
+            completion(prompt)
+            return
+        }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.timeoutInterval = 5.0
+
+        let payload: [String: Any] = [
+            "model": "gemma2:2b",
+            "prompt": "\(mediaType.systemPrompt)\n\nUser Request: \(prompt)\nEnglish Prompt:",
+            "stream": false
+        ]
+
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: payload) else {
+            completion(prompt)
+            return
+        }
+        req.httpBody = bodyData
+
+        URLSession.shared.dataTask(with: req) { data, response, error in
+            if let data = data,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let resText = json["response"] as? String,
+               !resText.isEmpty {
+                let cleaned = cleanLLMPromptOutput(resText)
+                AppState.shared.addSystemLog(level: "INFO", message: "Ollama (Gemma 2) が英語プロンプトを生成: \(cleaned.prefix(60))...")
+                DispatchQueue.main.async {
+                    completion(cleaned)
+                }
+                return
+            }
+
+            // オフライン時は元のプロンプトを返却（呼び出し元の辞書エンジンに委ねる）
+            DispatchQueue.main.async {
+                completion(prompt)
+            }
+        }.resume()
+    }
+
+    /// LLMが出力したプロンプト文字列から余計な装飾をクリーンアップ
+    private static func cleanLLMPromptOutput(_ raw: String) -> String {
+        var str = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if str.hasPrefix("```") {
+            let lines = str.components(separatedBy: "\n")
+            str = lines.filter { !$0.hasPrefix("```") }.joined(separator: " ")
+        }
+        str = str.replacingOccurrences(of: "\"", with: "")
+        str = str.replacingOccurrences(of: "English Prompt:", with: "")
+        str = str.replacingOccurrences(of: "Prompt:", with: "")
+        return str.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

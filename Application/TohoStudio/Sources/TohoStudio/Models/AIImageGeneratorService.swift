@@ -129,34 +129,40 @@ public final class AIImageGeneratorService: ObservableObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * stepInterval) { [weak self] in
                 guard let self = self, self.isGenerating else { return }
                 self.generationProgress = min(0.92, Double(i) / Double(stepsCount))
-                if currentOutputType == .video {
+                if i < 3 {
+                    self.currentStatusMessage = "🧠 ローカルLLM (Google Gemma 2) で英語プロンプトを自動生成・最適化中..."
+                } else if currentOutputType == .video {
                     self.currentStatusMessage = "⚡️ Google Colab GPU (AnimateDiff) によるアニメーション動画レンダリング中... (\(Int(self.generationProgress * 100))%)"
-                } else if self.isColabBridgeAvailable && self.selectedProvider == .virtualLinuxVM {
-                    self.currentStatusMessage = "⚡️ Colab L4/T4 GPU (SD-Turbo) 高速画像生成中... (\(Int(self.generationProgress * 100))%)"
-                } else if i < 4 {
-                    self.currentStatusMessage = "[\(self.selectedProvider.rawValue)] プロンプト解析・AI推論中... (\(Int(self.generationProgress * 100))%)"
-                } else if i < 8 {
-                    self.currentStatusMessage = "最新AI拡散モデルによる高精細ピクセル生成中... (\(Int(self.generationProgress * 100))%)"
                 } else {
-                    self.currentStatusMessage = "高解像度レンダリング・カラープロファイル適用中..."
+                    self.currentStatusMessage = "⚡️ Google Colab GPU (SD-Turbo) 高速画像生成中... (\(Int(self.generationProgress * 100))%)"
                 }
             }
         }
 
-        // 動画モードまたは画像モードの分岐
-        if currentOutputType == .video {
-            fetchColabGPUVideo(prompt: currentPrompt) { [weak self] image, fileURL, engineName in
-                self?.handleGenerationResult(image: image, fileURL: fileURL, engineName: engineName, currentPrompt: currentPrompt, currentSeed: currentSeed, isVideo: true)
-            }
-        } else {
-            // 実AI画像生成パイプライン実行
-            fetchRealAIImage(
-                prompt: currentPrompt,
-                negativePrompt: negativePrompt,
-                aspectRatio: currentAspect,
-                seed: currentSeed
-            ) { [weak self] image, fileURL, engineName in
-                self?.handleGenerationResult(image: image, fileURL: fileURL, engineName: engineName, currentPrompt: currentPrompt, currentSeed: currentSeed, isVideo: false)
+        // 1. ローカルLLM (LLMMac.md: Google Gemma 2 / Meta Llama 3.2) で英語プロンプトを生成
+        let mediaType: CloudVirtualLinuxService.LocalLLMMediaType = currentOutputType == .video ? .video : .image
+        linuxService.translateAndOptimizePromptWithLocalLLM(prompt: currentPrompt, mediaType: mediaType) { [weak self] generatedEnglish in
+            guard let self = self else { return }
+
+            // 万一ローカルLLMがオフラインで日本語が残った場合は高精度辞書エンジンで補完
+            let finalEnglishPrompt = CloudVirtualLinuxService.containsJapanese(generatedEnglish)
+                ? Self.generateOptimizedEnglishPrompt(from: generatedEnglish)
+                : generatedEnglish
+
+            // 2. Colab GPU Bridge へリクエスト送信
+            if currentOutputType == .video {
+                self.fetchColabGPUVideo(prompt: finalEnglishPrompt) { [weak self] image, fileURL, engineName in
+                    self?.handleGenerationResult(image: image, fileURL: fileURL, engineName: engineName, currentPrompt: currentPrompt, currentSeed: currentSeed, isVideo: true)
+                }
+            } else {
+                self.fetchRealAIImage(
+                    prompt: finalEnglishPrompt,
+                    negativePrompt: self.negativePrompt,
+                    aspectRatio: currentAspect,
+                    seed: currentSeed
+                ) { [weak self] image, fileURL, engineName in
+                    self?.handleGenerationResult(image: image, fileURL: fileURL, engineName: engineName, currentPrompt: currentPrompt, currentSeed: currentSeed, isVideo: false)
+                }
             }
         }
     }

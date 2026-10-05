@@ -588,32 +588,36 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         let provider = self.selectedProvider
         let model = self.selectedModel
 
-        // 0. Google Colab GPU Bridge が利用可能かつ有効な場合は本物のAI音楽モデル (MusicGen) を優先実行
+        // 0. Google Colab GPU Bridge が利用可能な場合はローカルLLMで英語化して最優先実行 (MusicGen)
         if useColabGPUIfAvailable && isColabBridgeAvailable {
-            fetchColabGPUBGM(prompt: bgmPrompt, duration: Int(bgmDurationSeconds)) { [weak self] fileURL, engineName in
+            let linuxService = CloudVirtualLinuxService.shared
+            linuxService.translateAndOptimizePromptWithLocalLLM(prompt: bgmPrompt, mediaType: .music) { [weak self] englishPrompt in
                 guard let self = self else { return }
-                if let fileURL = fileURL {
-                    DispatchQueue.main.async {
-                        self.isBGMGenerating = false
-                        self.generatedBGMURL = fileURL
+                self.fetchColabGPUBGM(prompt: englishPrompt, duration: Int(self.bgmDurationSeconds)) { [weak self] fileURL, engineName in
+                    guard let self = self else { return }
+                    if let fileURL = fileURL {
+                        DispatchQueue.main.async {
+                            self.isBGMGenerating = false
+                            self.generatedBGMURL = fileURL
 
-                        let item = GeneratedSoundItem(
-                            name: "[Colab GPU] \(self.bgmPrompt.prefix(16)) (MusicGen)",
-                            type: "BGM",
-                            duration: inferred.duration,
-                            fileURL: fileURL,
-                            createdAt: Date(),
-                            detailDescription: "\(engineName) | 尺: \(Int(inferred.duration))秒, プロンプト: \(self.bgmPrompt)"
-                        )
-                        self.soundHistory.insert(item, at: 0)
+                            let item = GeneratedSoundItem(
+                                name: "[Colab GPU] \(self.bgmPrompt.prefix(16)) (MusicGen)",
+                                type: "BGM",
+                                duration: inferred.duration,
+                                fileURL: fileURL,
+                                createdAt: Date(),
+                                detailDescription: "\(engineName) | 尺: \(Int(inferred.duration))秒, 英語プロンプト: \(englishPrompt)"
+                            )
+                            self.soundHistory.insert(item, at: 0)
 
-                        if !silent {
-                            AppState.shared.addSystemLog(level: "SUCCESS", message: "TohoAIStudio: \(engineName) からAI BGM「\(item.name)」を生成しました。")
+                            if !silent {
+                                AppState.shared.addSystemLog(level: "SUCCESS", message: "TohoAIStudio: \(engineName) からAI BGM「\(item.name)」を生成しました。")
+                            }
                         }
+                    } else {
+                        // Colab 失敗時はローカルシンセ合成へ自動フォールバック
+                        self.executeBGMSynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: nil)
                     }
-                } else {
-                    // Colab 失敗時はローカルシンセ合成へ自動フォールバック
-                    self.executeBGMSynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: nil)
                 }
             }
             return
@@ -750,32 +754,36 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         let provider = self.selectedProvider
         let model = self.selectedModel
 
-        // 0. Google Colab GPU Bridge が利用可能かつ有効な場合は Colab SE生成モデルを優先実行
+        // 0. Google Colab GPU Bridge が利用可能な場合はローカルLLMで英語化して最優先実行 (AudioGen/SE)
         if useColabGPUIfAvailable && isColabBridgeAvailable {
-            fetchColabGPUSE(prompt: sePrompt, duration: Int(max(1, seDurationSeconds))) { [weak self] fileURL, engineName in
+            let linuxService = CloudVirtualLinuxService.shared
+            linuxService.translateAndOptimizePromptWithLocalLLM(prompt: sePrompt, mediaType: .soundEffect) { [weak self] englishPrompt in
                 guard let self = self else { return }
-                if let fileURL = fileURL {
-                    DispatchQueue.main.async {
-                        self.isSEGenerating = false
-                        self.generatedSEURL = fileURL
+                self.fetchColabGPUSE(prompt: englishPrompt, duration: Int(max(1, self.seDurationSeconds))) { [weak self] fileURL, engineName in
+                    guard let self = self else { return }
+                    if let fileURL = fileURL {
+                        DispatchQueue.main.async {
+                            self.isSEGenerating = false
+                            self.generatedSEURL = fileURL
 
-                        let item = GeneratedSoundItem(
-                            name: "[Colab GPU] \(self.sePrompt.prefix(16))",
-                            type: "SE",
-                            duration: inferred.duration,
-                            fileURL: fileURL,
-                            createdAt: Date(),
-                            detailDescription: "\(engineName) | 尺: \(String(format: "%.2f", inferred.duration))秒, プロンプト: \(self.sePrompt)"
-                        )
-                        self.soundHistory.insert(item, at: 0)
+                            let item = GeneratedSoundItem(
+                                name: "[Colab GPU] \(self.sePrompt.prefix(16))",
+                                type: "SE",
+                                duration: inferred.duration,
+                                fileURL: fileURL,
+                                createdAt: Date(),
+                                detailDescription: "\(engineName) | 尺: \(String(format: "%.2f", inferred.duration))秒, 英語プロンプト: \(englishPrompt)"
+                            )
+                            self.soundHistory.insert(item, at: 0)
 
-                        if !silent {
-                            AppState.shared.addSystemLog(level: "SUCCESS", message: "TohoAIStudio: \(engineName) からAI SE「\(item.name)」を生成しました。")
+                            if !silent {
+                                AppState.shared.addSystemLog(level: "SUCCESS", message: "TohoAIStudio: \(engineName) からAI SE「\(item.name)」を生成しました。")
+                            }
                         }
+                    } else {
+                        // Colab 失敗時はローカルシンセ合成へ自動フォールバック
+                        self.executeSESynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: nil)
                     }
-                } else {
-                    // Colab 失敗時はローカルシンセ合成へ自動フォールバック
-                    self.executeSESynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: nil)
                 }
             }
             return

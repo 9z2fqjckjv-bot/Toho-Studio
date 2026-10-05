@@ -315,54 +315,63 @@ public struct AISoundGeneratorProgramView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Generate Button Section
+    // MARK: - Generate Button Section (⚡️ GPU経由の統合生成ボタン)
     private var generateButtonSection: some View {
         VStack(spacing: 8) {
             Button(action: {
-                if activeTab == .bgm {
-                    soundService.generateBGM()
+                if !cloudLinuxService.colabBridge.isOnline || cloudLinuxService.colabBridge.endpoint.isEmpty {
+                    // 未接続時はアプリ内Colabブラウザを自動起動してGPU接続へ誘導
+                    showColabBrowser = true
                 } else {
-                    soundService.generateSE()
+                    soundService.useColabGPUIfAvailable = true
+                    if activeTab == .bgm {
+                        soundService.generateBGM()
+                    } else {
+                        soundService.generateSE()
+                    }
                 }
             }) {
                 HStack(spacing: 8) {
                     if (activeTab == .bgm && soundService.isBGMGenerating) ||
                        (activeTab == .se && soundService.isSEGenerating) {
                         ProgressView().controlSize(.small)
-                        Text("音響生成中...")
+                        Text("GPU音響生成処理中...")
+                            .bold()
                     } else {
-                        Image(systemName: "waveform.badge.plus")
-                        Text(activeTab == .bgm ? "AI BGMを生成 (1プロンプト)" : "AI SEを生成 (1プロンプト)")
+                        Image(systemName: "bolt.fill")
+                            .foregroundColor(.yellow)
+                        Text(activeTab == .bgm
+                             ? "⚡️ GPU経由でBGMを生成 (Colab MusicGen)"
+                             : "⚡️ GPU経由で効果音を生成 (Colab AudioGen/SE)")
                             .bold()
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
+                .padding(.vertical, 10)
+                .foregroundColor(.white)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.teal, Color.cyan],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                )
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.plain)
             .disabled(soundService.isBGMGenerating || soundService.isSEGenerating)
 
-            // Colab GPU 直接起動ボタン
-            Button(action: {
-                soundService.useColabGPUIfAvailable = true
-                if activeTab == .bgm {
-                    soundService.generateBGM()
-                } else {
-                    soundService.generateSE()
-                }
-            }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "bolt.fill")
-                        .foregroundColor(.yellow)
-                    Text("⚡️ Colab GPU を動かして生成 (\(activeTab == .bgm ? "MusicGen" : "AudioGen"))")
-                        .font(.caption)
-                        .bold()
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
+            // 接続状況およびローカルLLM連携の補足情報
+            HStack(spacing: 4) {
+                Image(systemName: "brain.head.profile")
+                    .font(.system(size: 10))
+                    .foregroundColor(.blue)
+                Text("日本語入力時はローカルLLM (Gemma 2) が英語化してからGPUへ送信")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
             }
-            .buttonStyle(.bordered)
-            .disabled(soundService.isBGMGenerating || soundService.isSEGenerating)
         }
     }
 

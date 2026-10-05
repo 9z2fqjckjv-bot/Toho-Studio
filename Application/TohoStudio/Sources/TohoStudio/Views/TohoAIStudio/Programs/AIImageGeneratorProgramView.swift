@@ -264,40 +264,56 @@ public struct AIImageGeneratorProgramView: View {
                             .bold()
                     }
 
+                    // ⚡️ GPU経由の統合生成ボタン (Colab SD-Turbo / AnimateDiff)
                     Button(action: {
-                        imageService.generateImage()
+                        if !cloudLinuxService.colabBridge.isOnline || cloudLinuxService.colabBridge.endpoint.isEmpty {
+                            // 未接続時はアプリ内Colabブラウザを自動起動してGPU接続へ誘導
+                            showColabBrowser = true
+                        } else {
+                            imageService.useColabGPUIfAvailable = true
+                            imageService.generateImage()
+                        }
                     }) {
                         HStack(spacing: 8) {
                             if imageService.isGenerating {
                                 ProgressView().controlSize(.small)
+                                Text("GPU生成処理中...")
+                                    .bold()
                             } else {
-                                Image(systemName: imageService.selectedOutputType == .video ? "film.fill" : "sparkles")
+                                Image(systemName: "bolt.fill")
+                                    .foregroundColor(.yellow)
+                                Text(imageService.selectedOutputType == .video
+                                     ? "⚡️ GPU経由でアニメ動画を生成 (Colab AnimateDiff)"
+                                     : "⚡️ GPU経由で高精細画像を生成 (Colab SD-Turbo)")
+                                    .bold()
                             }
-                            Text(imageService.isGenerating ? "生成中..." : "\(imageService.selectedOutputType == .video ? "アニメ動画 (MP4)" : "高精細画像") を生成 (1プロンプト消費)")
-                                .bold()
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 10)
+                        .foregroundColor(.white)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.indigo, Color.purple],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                        )
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.plain)
                     .disabled(imageService.isGenerating)
 
-                    // Colab GPU 直接起動ボタン
-                    Button(action: {
-                        triggerColabGPUDirectGeneration()
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "bolt.fill")
-                                .foregroundColor(.yellow)
-                            Text("⚡️ Colab GPU を動かして生成 (\(imageService.selectedOutputType == .video ? "AnimateDiff" : "SD-Turbo"))")
-                                .font(.caption)
-                                .bold()
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+                    // 接続状況およびローカルLLM連携の補足情報
+                    HStack(spacing: 4) {
+                        Image(systemName: "brain.head.profile")
+                            .font(.system(size: 10))
+                            .foregroundColor(.blue)
+                        Text("日本語入力時はローカルLLM (Gemma 2) が英語化してからGPUへ送信")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
                     }
-                    .buttonStyle(.bordered)
-                    .disabled(imageService.isGenerating)
                 }
 
                 Spacer()
