@@ -5,6 +5,12 @@ public struct CharacterMakerView: View {
     @ObservedObject var appState = AppState.shared
     @ObservedObject var imageService = CharacterImageService.shared
     @ObservedObject var psdService = PSDToolService.shared
+    @ObservedObject var aiImageService = AIImageGeneratorService.shared
+
+    // AI立ち絵・差分生成
+    @State private var aiPrompt: String = "博麗霊夢 笑顔 巫女服 立ち絵"
+    @State private var aiPartType: String = "part"
+    @State private var isAIGeneratingPart: Bool = false
 
     @State private var showHomeScreen: Bool = false
     @State private var canvasViewMode: CanvasViewMode = .composite
@@ -427,6 +433,19 @@ public struct CharacterMakerView: View {
 
             // アクションボタングループ
             HStack(spacing: 5) {
+                // ✨ AI立ち絵生成ショートカット
+                Button(action: {
+                    inspectorTab = .extensions
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "sparkles")
+                        Text("AI立ち絵生成")
+                    }
+                    .foregroundColor(.yellow)
+                }
+                .buttonStyle(.bordered)
+                .help("AI拡散モデル・Colab GPUを使って立ち絵パーツや背景を即座に生成します")
+
                 // PSDToolで選んだ差分をキャンバスへ瞬時に取り込むボタン
                 Button(action: {
                     psdService.requestExport(target: "characterMaker")
@@ -1277,10 +1296,98 @@ public struct CharacterMakerView: View {
     }
 
     // MARK: - 4-4. 拡張機能タブ (PSDTool / Photoshop / Pixelmator Pro / 独自機能)
+    // MARK: - AI 立ち絵・衣装・背景ジェネレーターカード
+    private var aiCharacterGeneratorCard: some View {
+        GroupBox(label: Label("✨ AI 立ち絵・衣装・背景ジェネレーター", systemImage: "sparkles.rectangle.stack.fill")) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Google Colab GPU (SD-Turbo) ＆ 最新AI拡散モデルと連携し、自由なプロンプトから立ち絵パーツや背景を直接生成・取り込みます。")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+
+                // 生成種別選択
+                Picker("生成種別:", selection: $aiPartType) {
+                    Text("👤 立ち絵パーツ (レイヤー追加)").tag("part")
+                    Text("🌄 背景画像 (最背面に配置)").tag("background")
+                }
+                .pickerStyle(.segmented)
+
+                // クイックキャラクターサジェスト
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        Button("博麗霊夢") { aiPrompt = "博麗霊夢 笑顔 巫女服 赤リボン 立ち絵" }.buttonStyle(.bordered).font(.caption2)
+                        Button("霧雨魔理沙") { aiPrompt = "霧雨魔理沙 魔法使い帽子 金髪 笑顔 立ち絵" }.buttonStyle(.bordered).font(.caption2)
+                        Button("古明地こいし") { aiPrompt = "古明地こいし 第3の目 帽子 笑顔 立ち絵" }.buttonStyle(.bordered).font(.caption2)
+                        Button("十六夜咲夜") { aiPrompt = "十六夜咲夜 メイド服 ナイフ 微笑み 立ち絵" }.buttonStyle(.bordered).font(.caption2)
+                        Button("魂魄妖夢") { aiPrompt = "魂魄妖夢 楼観剣 凛々しい表情 立ち絵" }.buttonStyle(.bordered).font(.caption2)
+                        Button("東風谷早苗") { aiPrompt = "東風谷早苗 巫女服 カエル髪飾り 立ち絵" }.buttonStyle(.bordered).font(.caption2)
+                        Button("フランドール") { aiPrompt = "フランドール・スカーレット 虹色の翼 笑顔 立ち絵" }.buttonStyle(.bordered).font(.caption2)
+                    }
+                }
+
+                // プロンプト入力欄
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("生成プロンプト:").font(.caption).bold()
+                    TextField("例: 博麗霊夢 笑顔 巫女服 立ち絵 高解像度", text: $aiPrompt)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+                }
+
+                // AI状態＆生成ボタン
+                HStack {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(aiImageService.isColabBridgeAvailable ? Color.green : Color.blue)
+                            .frame(width: 6, height: 6)
+                        Text(aiImageService.isColabBridgeAvailable ? "Colab GPU (SD-Turbo 1秒)" : "AI拡散モデル連携")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+
+                    Button(action: {
+                        isAIGeneratingPart = true
+                        aiImageService.generateImage(userPrompt: aiPrompt)
+                        
+                        // 生成完了を監視してパーツ追加
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                            if let latest = aiImageService.generatedImagesHistory.first {
+                                if aiPartType == "background" {
+                                    aiImageService.sendToCharacterMakerAsBackground(item: latest)
+                                } else {
+                                    aiImageService.sendToCharacterMakerAsPart(item: latest)
+                                }
+                            }
+                            isAIGeneratingPart = false
+                        }
+                    }) {
+                        HStack(spacing: 6) {
+                            if isAIGeneratingPart || aiImageService.isGenerating {
+                                ProgressView().controlSize(.small)
+                                Text("生成中...")
+                            } else {
+                                Image(systemName: "sparkles")
+                                Text(aiPartType == "background" ? "AI背景を生成して設定" : "AI立ち絵を生成して追加")
+                                    .bold()
+                            }
+                        }
+                        .font(.caption)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isAIGeneratingPart || aiImageService.isGenerating || aiPrompt.isEmpty)
+                }
+            }
+            .padding(8)
+        }
+    }
+
     private var extensionsTabContent: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("アプリ拡張機能")
                 .font(.headline)
+
+            // ✨ AI立ち絵・衣装・背景ジェネレーター (Colab GPU & 外部API統合)
+            aiCharacterGeneratorCard
 
             // PSDTool 拡張 (PSDTool_files完全統合)
             GroupBox(label: Label("PSDTool 立ち絵・差分エディタ (PSD/PSB/ZIP解析)", systemImage: "photo.stack.fill")) {

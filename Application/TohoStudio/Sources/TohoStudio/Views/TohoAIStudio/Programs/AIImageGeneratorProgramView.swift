@@ -102,8 +102,13 @@ public struct AIImageGeneratorProgramView: View {
             isConfigured = !tohoAIService.claudeConfig.apiKey.isEmpty
             labelText = isConfigured ? "Claude連携中" : "Claude推論＋高精細拡散"
         case .virtualLinuxVM:
-            isConfigured = (cloudLinuxService.connectionStatus == .connected || cloudLinuxService.connectionStatus == .lowLatency)
-            labelText = isConfigured ? "仮想LinuxVM接続中 (DeepSeek-R1/Gemma)" : "スタンドアロン推論"
+            if cloudLinuxService.colabBridge.isOnline && !cloudLinuxService.colabBridge.endpoint.isEmpty {
+                isConfigured = true
+                labelText = "⚡️ Colab GPU ブリッジ接続中 (\(cloudLinuxService.colabBridge.gpuName))"
+            } else {
+                isConfigured = (cloudLinuxService.connectionStatus == .connected || cloudLinuxService.connectionStatus == .lowLatency)
+                labelText = isConfigured ? "仮想LinuxVM接続中 (DeepSeek-R1/Gemma)" : "スタンドアロン推論"
+            }
         }
 
         return HStack(spacing: 4) {
@@ -112,7 +117,8 @@ public struct AIImageGeneratorProgramView: View {
                 .frame(width: 7, height: 7)
             Text(labelText)
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .bold()
+                .foregroundColor(isConfigured ? .primary : .secondary)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
@@ -130,9 +136,9 @@ public struct AIImageGeneratorProgramView: View {
                         .font(.title2)
                         .foregroundColor(.blue)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("本格AI画像ジェネレーター")
+                        Text("本格AI画像・動画ジェネレーター")
                             .font(.headline)
-                        Text("Geminiアプリ同様、自由なプロンプト1つで高精細AI画像を生成")
+                        Text("プロンプト1つで高精細AIイラストやMP4アニメ動画を生成")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
@@ -140,6 +146,31 @@ public struct AIImageGeneratorProgramView: View {
                 }
 
                 Divider()
+
+                // 出力メディア種別 (画像 / アニメーション動画)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("出力メディア種別:")
+                        .font(.caption)
+                        .bold()
+
+                    Picker("", selection: $imageService.selectedOutputType) {
+                        ForEach(AIImageGeneratorService.MediaOutputType.allCases) { type in
+                            Label(type.rawValue, systemImage: type.iconName).tag(type)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    if imageService.selectedOutputType == .video {
+                        HStack(spacing: 4) {
+                            Image(systemName: "bolt.fill")
+                                .foregroundColor(.yellow)
+                            Text("Google Colab GPU (AnimateDiff) による16フレームループMP4動画")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.top, 2)
+                    }
+                }
 
                 // プロンプト入力エリア (メイン)
                 VStack(alignment: .leading, spacing: 6) {
@@ -164,12 +195,12 @@ public struct AIImageGeneratorProgramView: View {
                     // クイック入力サジェストタグ
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 6) {
+                            promptTagButton("博麗霊夢 笑顔 巫女服 桜吹雪")
+                            promptTagButton("霧雨魔理沙 魔法の森 星空 マスタースパーク")
+                            promptTagButton("十六夜咲夜 紅魔館 懐中時計 ナイフ")
                             promptTagButton("学校の中庭が窓から見える保健室のイラスト")
                             promptTagButton("夕暮れの現代都市と摩天楼")
-                            promptTagButton("雨上がりのカフェテラス")
-                            promptTagButton("満天の星空と天の川の風景")
                             promptTagButton("サイバーパンクのネオン街")
-                            promptTagButton("博麗神社で縁側のお茶会")
                         }
                     }
                 }
@@ -269,23 +300,61 @@ public struct AIImageGeneratorProgramView: View {
                 Spacer()
 
                 if let current = imageService.generatedImagesHistory.first {
-                    HStack(spacing: 8) {
-                        Button(action: {
-                            imageService.saveToMaterialStudio(item: current)
-                            alertMessage = "『\(current.title)』を素材スタジオに登録しました！"
-                            showSaveAlert = true
-                        }) {
-                            Label("素材スタジオへ保存", systemImage: "folder.badge.plus")
+                    HStack(spacing: 6) {
+                        Menu {
+                            Button(action: {
+                                imageService.sendToCharacterMakerAsPart(item: current)
+                                alertMessage = "『\(current.title)』をキャラクターメーカーの立ち絵パーツとして登録しました！"
+                                showSaveAlert = true
+                            }) {
+                                Label("立ち絵パーツとして転送", systemImage: "person.crop.rectangle.badge.plus")
+                            }
+
+                            Button(action: {
+                                imageService.sendToCharacterMakerAsBackground(item: current)
+                                alertMessage = "『\(current.title)』をキャラクターメーカーの背景に設定しました！"
+                                showSaveAlert = true
+                            }) {
+                                Label("立ち絵の背景に設定", systemImage: "photo.stack")
+                            }
+
+                            Button(action: {
+                                imageService.sendToSlideScenarioMaker(item: current)
+                                alertMessage = "『\(current.title)』をスライドシナリオメーカーに挿入しました！"
+                                showSaveAlert = true
+                            }) {
+                                Label("スライドへ挿入", systemImage: "rectangle.inset.filled.and.person.filled")
+                            }
+
+                            Button(action: {
+                                imageService.applyToMovieMakerBackground(item: current)
+                                alertMessage = "『\(current.title)』をムービーメーカーの背景に設定しました！"
+                                showSaveAlert = true
+                            }) {
+                                Label("ムービー背景に設定", systemImage: "film")
+                            }
+
+                            Divider()
+
+                            Button(action: {
+                                imageService.saveToMaterialStudio(item: current)
+                                alertMessage = "『\(current.title)』を素材スタジオに登録しました！"
+                                showSaveAlert = true
+                            }) {
+                                Label("素材スタジオへ保存", systemImage: "folder.badge.plus")
+                            }
+                        } label: {
+                            Label("他ツールへ転送", systemImage: "square.and.arrow.up")
                                 .font(.caption)
                         }
-                        .buttonStyle(.bordered)
+                        .menuStyle(.borderedButton)
 
                         Button(action: {
-                            imageService.applyToMovieMakerBackground(item: current)
-                            alertMessage = "『\(current.title)』をムービーメーカーの背景に設定しました！"
+                            imageService.sendToCharacterMakerAsPart(item: current)
+                            alertMessage = "『\(current.title)』をキャラクターメーカーの立ち絵パーツに追加しました！"
                             showSaveAlert = true
                         }) {
-                            Label("ムービー背景に設定", systemImage: "film")
+                            Label("立ち絵パーツ化", systemImage: "person.crop.rectangle.badge.plus")
                                 .font(.caption)
                         }
                         .buttonStyle(.borderedProminent)
@@ -293,7 +362,7 @@ public struct AIImageGeneratorProgramView: View {
                         Button(action: {
                             NSWorkspace.shared.activateFileViewerSelecting([current.fileURL])
                         }) {
-                            Label("Finderで表示", systemImage: "arrow.up.right.square")
+                            Label("Finder", systemImage: "arrow.up.right.square")
                                 .font(.caption)
                         }
                         .buttonStyle(.bordered)
@@ -316,7 +385,7 @@ public struct AIImageGeneratorProgramView: View {
                             .frame(width: 280)
                         Text(imageService.currentStatusMessage)
                             .font(.headline)
-                        Text("最新AI拡散モデル（Gemini / Imagen 3 / DALL-E / 拡散AI）による高精細ピクセル生成中...")
+                        Text(imageService.selectedOutputType == .video ? "Google Colab GPU (AnimateDiff) によるアニメーション動画生成中..." : "最新AI拡散モデル（Colab GPU / Gemini / Imagen 3 / DALL-E）による高精細ピクセル生成中...")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Spacer()
@@ -324,12 +393,29 @@ public struct AIImageGeneratorProgramView: View {
                 } else if let img = imageService.generatedImage {
                     VStack(spacing: 12) {
                         Spacer()
-                        Image(nsImage: img)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .cornerRadius(12)
-                            .shadow(color: Color.black.opacity(0.3), radius: 10, x: 0, y: 5)
-                            .padding(20)
+                        ZStack(alignment: .topTrailing) {
+                            Image(nsImage: img)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .cornerRadius(12)
+                                .shadow(color: Color.black.opacity(0.3), radius: 10, x: 0, y: 5)
+                                .padding(20)
+
+                            if let first = imageService.generatedImagesHistory.first, first.isVideo {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "film.fill")
+                                    Text("MP4アニメ動画")
+                                }
+                                .font(.caption2)
+                                .bold()
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Color.red.opacity(0.85))
+                                .cornerRadius(8)
+                                .padding(30)
+                            }
+                        }
                         Spacer()
                     }
                 } else {
@@ -338,7 +424,7 @@ public struct AIImageGeneratorProgramView: View {
                         Image(systemName: "sparkles.rectangle.stack")
                             .font(.system(size: 64))
                             .foregroundColor(.secondary.opacity(0.5))
-                        Text("Google Geminiアプリと同様に、プロンプトを自由に入力して「AI画像を生成」をクリックすると、\n最先端AIモデルによる本格的な高解像度画像が生成されます。")
+                        Text("Google Geminiアプリ同様、自由なプロンプト1つで高精細イラストやアニメ動画を生成できます。\nGoogle Colab GPUブリッジ接続時は最先端SD-Turbo / AnimateDiffにより1〜2秒で即座に手元に届きます。")
                             .font(.caption)
                             .multilineTextAlignment(.center)
                             .foregroundColor(.secondary)

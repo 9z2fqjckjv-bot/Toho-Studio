@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import AppKit
+import AVFoundation
 
 /// 本格 AI画像生成サービス (Google Gemini / Imagen 3 / ChatGPT / Claude / 仮想LinuxVM 統合)
 /// 固定のシーンプリセットや擬似描画を全廃し、プロンプト1つから最先端AI拡散モデルによる本格画像を生成
@@ -17,6 +18,21 @@ public final class AIImageGeneratorService: ObservableObject {
     }
     @Published public var selectedModel: String = "DeepSeek-R1-Distill-Qwen (8B)"
 
+    // MARK: - メディア出力種別 (静止画イラスト / アニメーション動画)
+    public enum MediaOutputType: String, CaseIterable, Identifiable {
+        case image = "高精細画像 (PNG)"
+        case video = "アニメ動画 (MP4 - Colab GPU)"
+
+        public var id: String { rawValue }
+        public var iconName: String {
+            switch self {
+            case .image: return "photo"
+            case .video: return "film"
+            }
+        }
+    }
+    @Published public var selectedOutputType: MediaOutputType = .image
+
     // MARK: - 自由入力プロンプトパラメータ (完全プロンプト駆動)
     @Published public var prompt: String = "学校の中庭が窓から見える保健室のイメージイラスト"
     @Published public var negativePrompt: String = "低解像度, 崩れた構図, ノイズ, ぼやけ, 文字化け"
@@ -29,6 +45,7 @@ public final class AIImageGeneratorService: ObservableObject {
     @Published public var currentStatusMessage: String = "待機中"
     @Published public var generatedImage: NSImage? = nil
     @Published public var generatedImageURL: URL? = nil
+    @Published public var generatedVideoURL: URL? = nil
     @Published public var generatedImagesHistory: [GeneratedImageItem] = []
 
     // MARK: - アスペクト比定義
@@ -58,13 +75,19 @@ public final class AIImageGeneratorService: ObservableObject {
         public let createdAt: Date
         public let providerName: String
         public let modelName: String
+        public var isVideo: Bool = false
+    }
+
+    public var isColabBridgeAvailable: Bool {
+        let colab = CloudVirtualLinuxService.shared.colabBridge
+        return colab.isOnline && !colab.endpoint.isEmpty
     }
 
     private init() {
         // 初期状態は完全に空っぽ（フェイク画像は生成しない）
     }
 
-    // MARK: - 画像生成実行 (プロンプト1つで本格AIモデルを駆動)
+    // MARK: - 画像・動画生成実行 (プロンプト1つで本格AIモデルを駆動)
     public func generateImage(userPrompt: String? = nil) {
         guard !isGenerating else { return }
 
@@ -74,8 +97,8 @@ public final class AIImageGeneratorService: ObservableObject {
         }
 
         let linuxService = CloudVirtualLinuxService.shared
-        guard linuxService.consumePrompt(count: 1, purpose: "TohoAIStudio AI画像生成") else {
-            AppState.shared.addSystemLog(level: "ERROR", message: "AI画像生成失敗: プロンプト残数が0です。")
+        guard linuxService.consumePrompt(count: 1, purpose: "TohoAIStudio AI生成") else {
+            AppState.shared.addSystemLog(level: "ERROR", message: "AI生成失敗: プロンプト残数が0です。")
             return
         }
 
@@ -96,14 +119,20 @@ public final class AIImageGeneratorService: ObservableObject {
         let currentSeed = seed == -1 ? Int.random(in: 1000...99999) : seed
         let currentPrompt = prompt
         let currentAspect = selectedAspectRatio
+        let currentOutputType = selectedOutputType
 
         // 進捗メッセージアニメーション
-        let stepsCount = 12
+        let stepsCount = currentOutputType == .video ? 16 : 10
+        let stepInterval = currentOutputType == .video ? 0.8 : 0.2
         for i in 1...stepsCount {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.2) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * stepInterval) { [weak self] in
                 guard let self = self, self.isGenerating else { return }
                 self.generationProgress = min(0.92, Double(i) / Double(stepsCount))
-                if i < 4 {
+                if currentOutputType == .video {
+                    self.currentStatusMessage = "⚡️ Google Colab GPU (AnimateDiff) によるアニメーション動画レンダリング中... (\(Int(self.generationProgress * 100))%)"
+                } else if self.isColabBridgeAvailable && self.selectedProvider == .virtualLinuxVM {
+                    self.currentStatusMessage = "⚡️ Colab L4/T4 GPU (SD-Turbo) 高速画像生成中... (\(Int(self.generationProgress * 100))%)"
+                } else if i < 4 {
                     self.currentStatusMessage = "[\(self.selectedProvider.rawValue)] プロンプト解析・AI推論中... (\(Int(self.generationProgress * 100))%)"
                 } else if i < 8 {
                     self.currentStatusMessage = "最新AI拡散モデルによる高精細ピクセル生成中... (\(Int(self.generationProgress * 100))%)"
@@ -113,46 +142,69 @@ public final class AIImageGeneratorService: ObservableObject {
             }
         }
 
-        // 実AI画像生成パイプライン実行
-        fetchRealAIImage(
-            prompt: currentPrompt,
-            negativePrompt: negativePrompt,
-            aspectRatio: currentAspect,
-            seed: currentSeed
-        ) { [weak self] image, fileURL, engineName in
-            guard let self = self else { return }
-
-            DispatchQueue.main.async {
-                self.isGenerating = false
-                self.generationProgress = 1.0
-
-                if let img = image, let url = fileURL {
-                    self.generatedImage = img
-                    self.generatedImageURL = url
-                    self.currentStatusMessage = "生成完了 [\(engineName)] (Seed: \(currentSeed))"
-
-                    let cleanPrompt = currentPrompt.prefix(16)
-                    let item = GeneratedImageItem(
-                        title: "\(cleanPrompt)_\(currentSeed)",
-                        prompt: currentPrompt,
-                        image: img,
-                        fileURL: url,
-                        createdAt: Date(),
-                        providerName: self.selectedProvider.rawValue,
-                        modelName: self.selectedModel
-                    )
-                    self.generatedImagesHistory.insert(item, at: 0)
-
-                    AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: [\(engineName)] から本格画像「\(item.title)」を生成しました。")
-                } else {
-                    self.currentStatusMessage = "画像生成に失敗しました (ネットワークまたはAPIを確認してください)"
-                    AppState.shared.addSystemLog(level: "ERROR", message: "AI画像生成エラー: 画像データの取得に失敗しました。")
-                }
+        // 動画モードまたは画像モードの分岐
+        if currentOutputType == .video {
+            fetchColabGPUVideo(prompt: currentPrompt) { [weak self] image, fileURL, engineName in
+                self?.handleGenerationResult(image: image, fileURL: fileURL, engineName: engineName, currentPrompt: currentPrompt, currentSeed: currentSeed, isVideo: true)
+            }
+        } else {
+            // 実AI画像生成パイプライン実行
+            fetchRealAIImage(
+                prompt: currentPrompt,
+                negativePrompt: negativePrompt,
+                aspectRatio: currentAspect,
+                seed: currentSeed
+            ) { [weak self] image, fileURL, engineName in
+                self?.handleGenerationResult(image: image, fileURL: fileURL, engineName: engineName, currentPrompt: currentPrompt, currentSeed: currentSeed, isVideo: false)
             }
         }
     }
 
-    // MARK: - 本格AI画像生成パイプライン (Google Gemini / OpenAI / Claude / 仮想LinuxVM)
+    private func handleGenerationResult(
+        image: NSImage?,
+        fileURL: URL?,
+        engineName: String,
+        currentPrompt: String,
+        currentSeed: Int,
+        isVideo: Bool
+    ) {
+        DispatchQueue.main.async {
+            self.isGenerating = false
+            self.generationProgress = 1.0
+
+            if let img = image, let url = fileURL {
+                if isVideo {
+                    self.generatedVideoURL = url
+                    self.generatedImage = img
+                } else {
+                    self.generatedImage = img
+                    self.generatedImageURL = url
+                }
+                self.currentStatusMessage = "生成完了 [\(engineName)]"
+
+                let cleanPrompt = currentPrompt.prefix(16)
+                let item = GeneratedImageItem(
+                    title: "\(cleanPrompt)_\(currentSeed)",
+                    prompt: currentPrompt,
+                    image: img,
+                    fileURL: url,
+                    createdAt: Date(),
+                    providerName: self.selectedProvider.rawValue,
+                    modelName: isVideo ? "AnimateDiff (MP4)" : self.selectedModel,
+                    isVideo: isVideo
+                )
+                self.generatedImagesHistory.insert(item, at: 0)
+
+                let mediaKindStr = isVideo ? "アニメ動画" : "本格画像"
+                AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: [\(engineName)] から\(mediaKindStr)「\(item.title)」を生成しました。")
+            } else {
+                self.currentStatusMessage = "生成に失敗しました (ネットワークまたはAPI・GPU接続を確認してください)"
+                AppState.shared.addSystemLog(level: "ERROR", message: "AI生成エラー: メディアデータの取得に失敗しました。")
+            }
+        }
+    }
+
+    // MARK: - 本格AI画像生成パイプライン (Colab GPU Bridge / Google Gemini / OpenAI / Claude / 仮想LinuxVM)
     private func fetchRealAIImage(
         prompt: String,
         negativePrompt: String,
@@ -164,6 +216,19 @@ public final class AIImageGeneratorService: ObservableObject {
         let provider = self.selectedProvider
         let model = self.selectedModel
 
+        // 0. Google Colab GPU Bridge がオンラインの場合は最優先で高速生成 (SD-Turbo 約1〜2秒)
+        if provider == .virtualLinuxVM && isColabBridgeAvailable {
+            fetchColabGPUImage(prompt: prompt) { [weak self] img, url, engine in
+                if let img = img, let url = url {
+                    completion(img, url, engine)
+                } else {
+                    // Colab GPU 失敗時はフォールバックへ
+                    self?.fetchFallbackDiffusion(prompt: prompt, provider: provider, model: model, aspectRatio: aspectRatio, seed: seed, completion: completion)
+                }
+            }
+            return
+        }
+
         // 1. OpenAI ChatGPT (DALL-E 3)
         if provider == .chatGPT {
             let openAIKey = tohoAI.chatGPTConfig.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -172,7 +237,6 @@ public final class AIImageGeneratorService: ObservableObject {
                     if let (img, url) = result {
                         completion(img, url, "OpenAI ChatGPT (\(model) / DALL-E 3)")
                     } else {
-                        // フォールバック: 実AI拡散モデル (POST)
                         let enhancedPrompt = "masterpiece, highly detailed, \(prompt), cinematic lighting, 8k resolution"
                         self.fetchDirectCloudDiffusion(prompt: enhancedPrompt, aspectRatio: aspectRatio, seed: seed) { img, url, _ in
                             completion(img, url, "OpenAI ChatGPT (\(model))")
@@ -191,7 +255,6 @@ public final class AIImageGeneratorService: ObservableObject {
                     if let (img, url) = result {
                         completion(img, url, "Google Gemini (\(model) / Imagen 3)")
                     } else {
-                        // フォールバック: 実AI拡散モデル (POST)
                         let enhancedPrompt = "masterpiece, vibrant colors, stunning natural lighting, highly detailed, \(prompt)"
                         self.fetchDirectCloudDiffusion(prompt: enhancedPrompt, aspectRatio: aspectRatio, seed: seed) { img, url, _ in
                             completion(img, url, "Google Gemini (\(model))")
@@ -202,11 +265,21 @@ public final class AIImageGeneratorService: ObservableObject {
             }
         }
 
-        // 3. 仮想LinuxVM (ローカルLLM: DeepSeek-R1 / Gemma-2 / Llama-3.1) または Anthropic Claude
-        // LLMに画像生成用プロンプトの最適化を行わせた上で実AI拡散モデルへ投入
+        // 3. 仮想LinuxVM または Anthropic Claude フォールバック
+        fetchFallbackDiffusion(prompt: prompt, provider: provider, model: model, aspectRatio: aspectRatio, seed: seed, completion: completion)
+    }
+
+    private func fetchFallbackDiffusion(
+        prompt: String,
+        provider: AIProviderType,
+        model: String,
+        aspectRatio: ImageAspectRatio,
+        seed: Int,
+        completion: @escaping (NSImage?, URL?, String) -> Void
+    ) {
         let systemDirective = "あなたは画像生成AIのプロンプトディレクターです。ユーザーの要望「\(prompt)」を、最新の画像生成モデル（Diffusion）が最高峰のクオリティで描画できるように、英語のポジティブプロンプト（被写体・構図・照明・質感）に変換・最適化して出力してください。"
 
-        tohoAI.callAPIOrGenerateSmart(prompt: systemDirective, provider: provider, model: model) { [weak self] responseText, _ in
+        TohoAIService.shared.callAPIOrGenerateSmart(prompt: systemDirective, provider: provider, model: model) { [weak self] responseText, _ in
             guard let self = self else { return }
 
             let cleanedDirective = responseText
@@ -225,6 +298,98 @@ public final class AIImageGeneratorService: ObservableObject {
                 completion(img, url, "\(provider.rawValue) (\(model))")
             }
         }
+    }
+
+    // MARK: - Google Colab GPU Bridge (SD-Turbo 画像生成: 1〜2秒)
+    public func fetchColabGPUImage(
+        prompt: String,
+        completion: @escaping (NSImage?, URL?, String) -> Void
+    ) {
+        let colab = CloudVirtualLinuxService.shared.colabBridge
+        guard let url = URL(string: "\(colab.endpoint)/v1/generate/image") else {
+            completion(nil, nil, "Error")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 45.0
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = ["prompt": prompt]
+        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
+            completion(nil, nil, "Error")
+            return
+        }
+        request.httpBody = httpBody
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data, let image = NSImage(data: data), data.count > 1000 else {
+                completion(nil, nil, "Error")
+                return
+            }
+
+            let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Images", isDirectory: true)
+            try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
+
+            let fileName = "ColabGPU_\(Int(Date().timeIntervalSince1970)).png"
+            let fileURL = outputDir.appendingPathComponent(fileName)
+            try? data.write(to: fileURL)
+
+            completion(image, fileURL, "Google Colab GPU (SD-Turbo / \(colab.gpuName))")
+        }.resume()
+    }
+
+    // MARK: - Google Colab GPU Bridge (AnimateDiff アニメ動画生成: 30〜45秒)
+    public func fetchColabGPUVideo(
+        prompt: String,
+        completion: @escaping (NSImage?, URL?, String) -> Void
+    ) {
+        let colab = CloudVirtualLinuxService.shared.colabBridge
+        guard let url = URL(string: "\(colab.endpoint)/v1/generate/video") else {
+            completion(nil, nil, "Error")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 120.0
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = ["prompt": prompt]
+        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
+            completion(nil, nil, "Error")
+            return
+        }
+        request.httpBody = httpBody
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data, data.count > 5000 else {
+                completion(nil, nil, "Error")
+                return
+            }
+
+            let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Videos", isDirectory: true)
+            try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
+
+            let fileName = "ColabGPU_Anim_\(Int(Date().timeIntervalSince1970)).mp4"
+            let fileURL = outputDir.appendingPathComponent(fileName)
+            try? data.write(to: fileURL)
+
+            let thumbnail = Self.generateVideoThumbnail(from: fileURL) ?? NSImage(systemSymbolName: "film.fill", accessibilityDescription: nil) ?? NSImage()
+            completion(thumbnail, fileURL, "Google Colab GPU (AnimateDiff MP4 / \(colab.gpuName))")
+        }.resume()
+    }
+
+    public static func generateVideoThumbnail(from url: URL) -> NSImage? {
+        let asset = AVAsset(url: url)
+        let imageGenerator = AVAssetImageGenerator(asset: asset)
+        imageGenerator.appliesPreferredTrackTransform = true
+        let time = CMTime(seconds: 0.1, preferredTimescale: 600)
+        if let cgImage = try? imageGenerator.copyCGImage(at: time, actualTime: nil) {
+            return NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
+        }
+        return nil
     }
 
     // MARK: - 実AI拡散モデル直接生成 (POST API - 本物のAI画像を生成)
@@ -443,5 +608,37 @@ public final class AIImageGeneratorService: ObservableObject {
             AppState.shared.movieScenes[idx].backgroundName = item.title
         }
         AppState.shared.addSystemLog(level: "INFO", message: "ムービーメーカーの背景に「\(item.title)」を適用しました。")
+    }
+
+    /// キャラクターメーカーの立ち絵パーツ（レイヤー）として直接転送・追加
+    public func sendToCharacterMakerAsPart(item: GeneratedImageItem) {
+        saveToMaterialStudio(item: item)
+        let part = CharacterPart(name: item.title, assetPath: item.fileURL.path, scale: 1.0)
+        AppState.shared.currentCharacter.parts.append(part)
+        AppState.shared.currentModule = .characterMaker
+        AppState.shared.addHistory("AI生成画像「\(item.title)」を立ち絵パーツへ追加")
+        AppState.shared.addSystemLog(level: "INFO", message: "キャラクターメーカーに新規立ち絵パーツ「\(item.title)」を追加しました。")
+    }
+
+    /// キャラクターメーカーの背景パーツ（最背面レイヤー）として直接設定
+    public func sendToCharacterMakerAsBackground(item: GeneratedImageItem) {
+        saveToMaterialStudio(item: item)
+        let bgPart = CharacterPart(name: "背景_\(item.title)", assetPath: item.fileURL.path, scale: 1.0)
+        AppState.shared.currentCharacter.parts.insert(bgPart, at: 0)
+        AppState.shared.currentModule = .characterMaker
+        AppState.shared.addHistory("AI生成画像「\(item.title)」を立ち絵背景へ設定")
+        AppState.shared.addSystemLog(level: "INFO", message: "キャラクターメーカーの背景パーツとして「\(item.title)」を設定しました。")
+    }
+
+    /// スライドシナリオメーカーのカレントスライドへ画像として配置
+    public func sendToSlideScenarioMaker(item: GeneratedImageItem) {
+        saveToMaterialStudio(item: item)
+        if !AppState.shared.slides.isEmpty {
+            let idx = max(0, min(AppState.shared.selectedSceneIndex, AppState.shared.slides.count - 1))
+            AppState.shared.slides[idx].characterImagePath = item.fileURL.path
+        }
+        AppState.shared.currentModule = .slideScenarioMaker
+        AppState.shared.addHistory("AI生成画像「\(item.title)」をスライドへ挿入")
+        AppState.shared.addSystemLog(level: "INFO", message: "スライドシナリオメーカーのシーンに画像「\(item.title)」を配置しました。")
     }
 }

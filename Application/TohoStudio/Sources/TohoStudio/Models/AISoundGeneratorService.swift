@@ -554,6 +554,11 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         return InferredSEParams(preset: preset, baseFreq: baseFreq, duration: duration, noiseMix: noiseMix, isReversed: isReversed, summary: summary)
     }
 
+    public var isColabBridgeAvailable: Bool {
+        let colab = CloudVirtualLinuxService.shared.colabBridge
+        return colab.isOnline && !colab.endpoint.isEmpty
+    }
+
     // MARK: - BGM生成実行 (プロンプト駆動)
     public func generateBGM(userPrompt: String? = nil, silent: Bool = false) {
         guard !isBGMGenerating else { return }
@@ -582,6 +587,37 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         let provider = self.selectedProvider
         let model = self.selectedModel
 
+        // 0. Google Colab GPU Bridge がオンラインの場合は本物のAI音楽モデル (MusicGen) を優先実行
+        if provider == .virtualLinuxVM && isColabBridgeAvailable {
+            fetchColabGPUBGM(prompt: bgmPrompt, duration: Int(bgmDurationSeconds)) { [weak self] fileURL, engineName in
+                guard let self = self else { return }
+                if let fileURL = fileURL {
+                    DispatchQueue.main.async {
+                        self.isBGMGenerating = false
+                        self.generatedBGMURL = fileURL
+
+                        let item = GeneratedSoundItem(
+                            name: "[Colab GPU] \(self.bgmPrompt.prefix(16)) (MusicGen)",
+                            type: "BGM",
+                            duration: inferred.duration,
+                            fileURL: fileURL,
+                            createdAt: Date(),
+                            detailDescription: "\(engineName) | 尺: \(Int(inferred.duration))秒, プロンプト: \(self.bgmPrompt)"
+                        )
+                        self.soundHistory.insert(item, at: 0)
+
+                        if !silent {
+                            AppState.shared.addSystemLog(level: "SUCCESS", message: "TohoAIStudio: \(engineName) からAI BGM「\(item.name)」を生成しました。")
+                        }
+                    }
+                } else {
+                    // Colab 失敗時はローカルシンセ合成へ自動フォールバック
+                    self.executeBGMSynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: nil)
+                }
+            }
+            return
+        }
+
         if provider == .virtualLinuxVM {
             // 仮想Linux環境にあるローカルLLM (DeepSeek-R1 / Gemma-2 / Llama-3.1) に音響作曲推論を実行
             let vmPrompt = "BGM制作ディレクション: \(bgmPrompt)。この情景に最適なテンポBPM、楽器構成、展開コードを推論してください。"
@@ -591,6 +627,51 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         } else {
             self.executeBGMSynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: nil)
         }
+    }
+
+    // MARK: - Google Colab GPU Bridge (MusicGen BGM生成)
+    public func fetchColabGPUBGM(
+        prompt: String,
+        duration: Int,
+        completion: @escaping (URL?, String) -> Void
+    ) {
+        let colab = CloudVirtualLinuxService.shared.colabBridge
+        guard let url = URL(string: "\(colab.endpoint)/v1/generate/bgm") else {
+            completion(nil, "Error")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 60.0
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "prompt": prompt,
+            "duration_seconds": duration
+        ]
+        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
+            completion(nil, "Error")
+            return
+        }
+        request.httpBody = httpBody
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data, data.count > 1000 else {
+                completion(nil, "Error")
+                return
+            }
+
+            let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Audio", isDirectory: true)
+            try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
+
+            let cleanName = prompt.prefix(10).replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
+            let fileName = "Colab_MusicGen_\(cleanName)_\(Int(Date().timeIntervalSince1970)).wav"
+            let fileURL = outputDir.appendingPathComponent(fileName)
+            try? data.write(to: fileURL)
+
+            completion(fileURL, "Google Colab GPU (MusicGen / \(colab.gpuName))")
+        }.resume()
     }
 
     private func executeBGMSynthesis(inferred: InferredBGMParams, provider: AIProviderType, model: String, silent: Bool, thinking: String?) {
@@ -668,6 +749,37 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         let provider = self.selectedProvider
         let model = self.selectedModel
 
+        // 0. Google Colab GPU Bridge がオンラインの場合は Colab SE生成モデルを優先実行
+        if provider == .virtualLinuxVM && isColabBridgeAvailable {
+            fetchColabGPUSE(prompt: sePrompt, duration: Int(max(1, seDurationSeconds))) { [weak self] fileURL, engineName in
+                guard let self = self else { return }
+                if let fileURL = fileURL {
+                    DispatchQueue.main.async {
+                        self.isSEGenerating = false
+                        self.generatedSEURL = fileURL
+
+                        let item = GeneratedSoundItem(
+                            name: "[Colab GPU] \(self.sePrompt.prefix(16))",
+                            type: "SE",
+                            duration: inferred.duration,
+                            fileURL: fileURL,
+                            createdAt: Date(),
+                            detailDescription: "\(engineName) | 尺: \(String(format: "%.2f", inferred.duration))秒, プロンプト: \(self.sePrompt)"
+                        )
+                        self.soundHistory.insert(item, at: 0)
+
+                        if !silent {
+                            AppState.shared.addSystemLog(level: "SUCCESS", message: "TohoAIStudio: \(engineName) からAI SE「\(item.name)」を生成しました。")
+                        }
+                    }
+                } else {
+                    // Colab 失敗時はローカルシンセ合成へ自動フォールバック
+                    self.executeSESynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: nil)
+                }
+            }
+            return
+        }
+
         if provider == .virtualLinuxVM {
             let seDirective = "効果音(SE)音響物理設計: \(sePrompt)。基本周波数(Hz)、エンベロープ(アタック/減衰時間)、ノイズ成分比率を推論してください。"
             TohoAIService.shared.callAPIOrGenerateSmart(prompt: seDirective, provider: .virtualLinuxVM, model: model) { [weak self] responseText, thinkingLog in
@@ -676,6 +788,51 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         } else {
             self.executeSESynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: nil)
         }
+    }
+
+    // MARK: - Google Colab GPU Bridge (SE生成)
+    public func fetchColabGPUSE(
+        prompt: String,
+        duration: Int,
+        completion: @escaping (URL?, String) -> Void
+    ) {
+        let colab = CloudVirtualLinuxService.shared.colabBridge
+        guard let url = URL(string: "\(colab.endpoint)/v1/generate/se") else {
+            completion(nil, "Error")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 40.0
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "prompt": prompt,
+            "duration_seconds": duration
+        ]
+        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
+            completion(nil, "Error")
+            return
+        }
+        request.httpBody = httpBody
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data, data.count > 1000 else {
+                completion(nil, "Error")
+                return
+            }
+
+            let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Audio", isDirectory: true)
+            try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
+
+            let cleanName = prompt.prefix(10).replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
+            let fileName = "Colab_SE_\(cleanName)_\(Int(Date().timeIntervalSince1970)).wav"
+            let fileURL = outputDir.appendingPathComponent(fileName)
+            try? data.write(to: fileURL)
+
+            completion(fileURL, "Google Colab GPU (SE / \(colab.gpuName))")
+        }.resume()
     }
 
     private func executeSESynthesis(inferred: InferredSEParams, provider: AIProviderType, model: String, silent: Bool, thinking: String?) {
@@ -772,44 +929,72 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
     }
 
     // MARK: - 制作スタジオ連携
-    public func applyToSoundMaker(item: GeneratedSoundItem) {
-        let clip = SoundClip(
-            name: item.name,
-            type: item.type,
-            duration: item.duration,
-            volume: 0.8,
-            startTime: 0.0,
-            audioFilePath: item.fileURL.path
-        )
-        AppState.shared.soundClips.append(clip)
-        AppState.shared.addHistory("AI生成音声「\(item.name)」をサウンドメーカーのタイムラインへ配置")
-    }
-
-    public func applyToMovieMaker(item: GeneratedSoundItem) {
-        if let lastIdx = AppState.shared.movieScenes.indices.last {
-            if item.type == "BGM" {
-                AppState.shared.movieScenes[lastIdx].audioTrack = item.fileURL.lastPathComponent
-                AppState.shared.movieScenes[lastIdx].bgmAudioPath = item.fileURL.path
-                AppState.shared.movieScenes[lastIdx].bgmName = item.name
-            } else {
-                AppState.shared.movieScenes[lastIdx].seAudioPath = item.fileURL.path
-                AppState.shared.movieScenes[lastIdx].seName = item.name
-            }
-        }
-        AppState.shared.addHistory("AI生成音声「\(item.name)」をムービーメーカーへ適用")
-    }
-
     public func saveToMaterialStudio(item: GeneratedSoundItem) {
         let mat = MaterialItem(
             title: item.name,
             type: "音声",
-            category: item.type == "BGM" ? "AI生成BGM" : "AI生成効果音",
+            category: item.type == "BGM" ? "AI BGM" : "AI 効果音",
             filePath: item.fileURL.path,
-            fileSize: (try? FileManager.default.attributesOfItem(atPath: item.fileURL.path)[.size] as? Int64) ?? 102400,
+            fileSize: (try? FileManager.default.attributesOfItem(atPath: item.fileURL.path)[.size] as? Int64) ?? 262144,
             createdAt: Date()
         )
         AppState.shared.materials.append(mat)
-        AppState.shared.addHistory("AI生成音声「\(item.name)」を素材スタジオへ登録")
+        AppState.shared.addHistory("AI\(item.type)「\(item.name)」を素材スタジオへ登録")
+        AppState.shared.addSystemLog(level: "INFO", message: "素材スタジオに音声「\(item.name)」を追加しました。")
+    }
+
+    /// サウンドメーカー (SoundMaker DAW) のタイムラインへ直接クリップを挿入
+    public func insertToSoundMaker(item: GeneratedSoundItem, trackType: String = "bgm") {
+        saveToMaterialStudio(item: item)
+
+        let isBgm = (trackType == "bgm" || item.type == "BGM")
+        let targetTrackId = isBgm ? "track_bgm" : "track_se"
+
+        let sameTrackClips = AppState.shared.soundClips.filter { $0.trackId == targetTrackId }
+        let startTime = sameTrackClips.map { $0.startTime + $0.duration }.max() ?? 0.0
+
+        let clip = SoundClip(
+            name: item.name,
+            type: isBgm ? "BGM" : "SE",
+            duration: item.duration,
+            volume: 0.8,
+            startTime: startTime,
+            trackId: targetTrackId,
+            isLooping: isBgm,
+            audioFilePath: item.fileURL.path
+        )
+
+        AppState.shared.soundClips.append(clip)
+        AppState.shared.currentModule = .soundMaker
+        AppState.shared.addHistory("AI\(item.type)「\(item.name)」をサウンドメーカーへ挿入")
+        AppState.shared.addSystemLog(level: "INFO", message: "サウンドメーカーの\(isBgm ? "BGM" : "SE")トラックにクリップ「\(item.name)」を配置しました。")
+    }
+
+    public func applyToSoundMaker(item: GeneratedSoundItem) {
+        insertToSoundMaker(item: item, trackType: item.type == "BGM" ? "bgm" : "se")
+    }
+
+    /// ムービーメーカーのカレントシーンの BGM または SE として設定
+    public func sendToMovieMaker(item: GeneratedSoundItem) {
+        saveToMaterialStudio(item: item)
+        if !AppState.shared.movieScenes.isEmpty {
+            let idx = max(0, min(AppState.shared.selectedSceneIndex, AppState.shared.movieScenes.count - 1))
+            if item.type == "BGM" {
+                AppState.shared.movieScenes[idx].audioTrack = item.fileURL.lastPathComponent
+                AppState.shared.movieScenes[idx].bgmAudioPath = item.fileURL.path
+                AppState.shared.movieScenes[idx].bgmName = item.name
+            } else {
+                AppState.shared.movieScenes[idx].seAudioPath = item.fileURL.path
+                AppState.shared.movieScenes[idx].seName = item.name
+            }
+        }
+        AppState.shared.currentModule = .movieMaker
+        AppState.shared.addHistory("AI\(item.type)「\(item.name)」をムービーメーカーへ適用")
+        AppState.shared.addSystemLog(level: "INFO", message: "ムービーメーカーのシーンにAI\(item.type)「\(item.name)」を設定しました。")
+    }
+
+    public func applyToMovieMaker(item: GeneratedSoundItem) {
+        sendToMovieMaker(item: item)
     }
 
     // MARK: - BGM多重トラック波形合成

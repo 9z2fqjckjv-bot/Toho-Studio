@@ -21,6 +21,11 @@ public struct SoundMakerView: View {
     @ObservedObject var appState = AppState.shared
     @ObservedObject var aquesTalk = AquesTalkBridge.shared
     @ObservedObject var soundManager = SoundMakerAudioManager.shared
+    @ObservedObject var aiSoundService = AISoundGeneratorService.shared
+
+    // AIサウンド生成ステート
+    @State private var aiSoundMode: String = "bgm"
+    @State private var showAIDrawer: Bool = true
 
     // Timeline State
     @State private var currentTime: Double = 0.0
@@ -356,6 +361,23 @@ public struct SoundMakerView: View {
                 .buttonStyle(.bordered)
                 .help("スライド＆シナリオの全セリフをゆっくりボイスで一括音声生成してタイムラインに配置")
 
+                // ✨ AIサウンド生成 (MusicGen / SE / プロシージャル合成)
+                Button(action: {
+                    withAnimation {
+                        showInspector = true
+                        inspectorTab = "generator"
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "sparkles")
+                        Text("AIサウンド生成")
+                    }
+                    .font(.caption)
+                    .foregroundColor(.yellow)
+                }
+                .buttonStyle(.bordered)
+                .help("AIでBGMや効果音を作曲・生成してタイムラインに挿入します")
+
                 // Span Audio Insert Button (複数シーン跨ぎBGM/SE挿入ポップアップ)
                 Button(action: { showSpanAudioInsertSheet = true }) {
                     Label("跨ぎBGM/SE挿入...", systemImage: "arrow.triangle.merge")
@@ -452,7 +474,7 @@ public struct SoundMakerView: View {
             HStack(spacing: 4) {
                 inspectorTabButton(title: "シーン編集", icon: "film.stack", tag: "scene")
                 inspectorTabButton(title: "リージョン", icon: "slider.horizontal.below.rectangle", tag: "region")
-                inspectorTabButton(title: "生成", icon: "waveform.badge.plus", tag: "generator")
+                inspectorTabButton(title: "AI & 音声生成", icon: "sparkles", tag: "generator")
                 inspectorTabButton(title: "ミキサー", icon: "slider.vertical.3", tag: "mixer")
             }
             .padding(.horizontal, 8)
@@ -474,6 +496,8 @@ public struct SoundMakerView: View {
                         regionInspectorCard
                         dualChannelStripView
                     } else if inspectorTab == "generator" {
+                        // ✨ AI BGM & 効果音 作曲・生成
+                        aiSoundGeneratorCard
                         // 🎙️ AquesTalk クイック生成
                         aquesTalkQuickGeneratorCard
                         regionInspectorCard
@@ -1873,6 +1897,190 @@ public struct SoundMakerView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 4)
             }
+        }
+        .padding(8)
+        .background(Color(red: 0.16, green: 0.17, blue: 0.19))
+        .cornerRadius(6)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(DAWTheme.trackBorder, lineWidth: 1)
+        )
+    }
+
+    // MARK: - AI Sound Generator Card (MusicGen / SE / プロシージャルシンセ)
+    private var aiSoundGeneratorCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            DisclosureGroup(
+                isExpanded: $showAIDrawer,
+                content: {
+                    VStack(alignment: .leading, spacing: 8) {
+                        // AI Engine Badge
+                        HStack {
+                            Circle()
+                                .fill(aiSoundService.isColabBridgeAvailable ? Color.green : Color.blue)
+                                .frame(width: 6, height: 6)
+                            Text(aiSoundService.isColabBridgeAvailable ? "⚡️ Colab L4/T4 GPU (MusicGen/SE)" : "東方・日常プロシージャル合成")
+                                .font(.system(size: 10))
+                                .foregroundColor(Color(white: 0.8))
+                            Spacer()
+                        }
+
+                        // モードセレクター
+                        Picker("", selection: $aiSoundMode) {
+                            Text("🎵 AI BGM 作曲").tag("bgm")
+                            Text("⚡️ AI 効果音 (SE)").tag("se")
+                        }
+                        .pickerStyle(.segmented)
+
+                        if aiSoundMode == "bgm" {
+                            // クイックサジェスト
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 4) {
+                                    Button("東方戦闘") { aiSoundService.bgmPrompt = "東方風 激しい戦闘曲 140bpm 弾幕バトル" }.buttonStyle(.bordered).font(.system(size: 9))
+                                    Button("博麗神社") { aiSoundService.bgmPrompt = "東方・博麗神社 少女綺想曲風 巫女の日常と疾走" }.buttonStyle(.bordered).font(.system(size: 9))
+                                    Button("魔法の森") { aiSoundService.bgmPrompt = "東方・魔法の森 恋色マスタースパーク風 シンセロック" }.buttonStyle(.bordered).font(.system(size: 9))
+                                    Button("街角カフェ") { aiSoundService.bgmPrompt = "街角カフェ アコースティックギターとピアノのBGM" }.buttonStyle(.bordered).font(.system(size: 9))
+                                    Button("深夜Lo-Fi") { aiSoundService.bgmPrompt = "深夜のデスク Lo-Fi チルビート 穏やかな作業用" }.buttonStyle(.bordered).font(.system(size: 9))
+                                }
+                            }
+
+                            // プロンプト入力
+                            TextField("BGMの情景・スタイルを入力", text: $aiSoundService.bgmPrompt)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.caption)
+
+                            // 尺とBPM
+                            HStack {
+                                Text("尺: \(Int(aiSoundService.bgmDurationSeconds))秒")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(Color(white: 0.7))
+                                Slider(value: $aiSoundService.bgmDurationSeconds, in: 5...30, step: 1)
+                            }
+
+                            // アクション
+                            HStack(spacing: 6) {
+                                Button(action: {
+                                    aiSoundService.togglePlayBGM()
+                                }) {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: aiSoundService.isBGMPlaying ? "stop.fill" : "play.fill")
+                                        Text(aiSoundService.isBGMPlaying ? "停止" : "試聴")
+                                    }
+                                    .font(.caption2)
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(aiSoundService.generatedBGMURL == nil)
+
+                                Button(action: {
+                                    aiSoundService.generateBGM()
+                                }) {
+                                    HStack(spacing: 4) {
+                                        if aiSoundService.isBGMGenerating {
+                                            ProgressView().controlSize(.small)
+                                        } else {
+                                            Image(systemName: "sparkles")
+                                        }
+                                        Text(aiSoundService.isBGMGenerating ? "作曲中..." : "AI BGM 作曲")
+                                            .font(.caption2)
+                                            .bold()
+                                    }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(aiSoundService.isBGMGenerating)
+
+                                if let item = aiSoundService.soundHistory.first(where: { $0.type == "BGM" }) {
+                                    Button(action: {
+                                        aiSoundService.insertToSoundMaker(item: item, trackType: "bgm")
+                                    }) {
+                                        HStack(spacing: 3) {
+                                            Image(systemName: "plus.circle.fill")
+                                            Text("タイムライン配置")
+                                        }
+                                        .font(.caption2)
+                                        .foregroundColor(.green)
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                            }
+                        } else {
+                            // SE モード
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 4) {
+                                    Button("スペルカード") { aiSoundService.sePrompt = "スペルカード発動 レーザービーム 衝撃波 効果音" }.buttonStyle(.bordered).font(.system(size: 9))
+                                    Button("打撃・爆発") { aiSoundService.sePrompt = "重い打撃と爆発音 ドカーン" }.buttonStyle(.bordered).font(.system(size: 9))
+                                    Button("決定チャイム") { aiSoundService.sePrompt = "ゲームの決定音 ピロリン クリアなチャイム" }.buttonStyle(.bordered).font(.system(size: 9))
+                                    Button("スマホ通知") { aiSoundService.sePrompt = "スマホのチャット着信音 ポロンと鳴るクリアな通知音" }.buttonStyle(.bordered).font(.system(size: 9))
+                                    Button("光・魔法") { aiSoundService.sePrompt = "キラキラ光る魔法効果音 シャラララン" }.buttonStyle(.bordered).font(.system(size: 9))
+                                }
+                            }
+
+                            // プロンプト入力
+                            TextField("効果音の情景を入力", text: $aiSoundService.sePrompt)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.caption)
+
+                            // アクション
+                            HStack(spacing: 6) {
+                                Button(action: {
+                                    aiSoundService.togglePlaySE()
+                                }) {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: aiSoundService.isSEPlaying ? "stop.fill" : "play.fill")
+                                        Text(aiSoundService.isSEPlaying ? "停止" : "試聴")
+                                    }
+                                    .font(.caption2)
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(aiSoundService.generatedSEURL == nil)
+
+                                Button(action: {
+                                    aiSoundService.generateSE()
+                                }) {
+                                    HStack(spacing: 4) {
+                                        if aiSoundService.isSEGenerating {
+                                            ProgressView().controlSize(.small)
+                                        } else {
+                                            Image(systemName: "bolt.fill")
+                                        }
+                                        Text(aiSoundService.isSEGenerating ? "生成中..." : "AI SE 生成")
+                                            .font(.caption2)
+                                            .bold()
+                                    }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(aiSoundService.isSEGenerating)
+
+                                if let item = aiSoundService.soundHistory.first(where: { $0.type == "SE" }) {
+                                    Button(action: {
+                                        aiSoundService.insertToSoundMaker(item: item, trackType: "se")
+                                    }) {
+                                        HStack(spacing: 3) {
+                                            Image(systemName: "plus.circle.fill")
+                                            Text("タイムライン配置")
+                                        }
+                                        .font(.caption2)
+                                        .foregroundColor(.green)
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                            }
+                        }
+                    }
+                    .padding(8)
+                    .background(Color(red: 0.12, green: 0.13, blue: 0.15))
+                    .cornerRadius(4)
+                },
+                label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                            .foregroundColor(.yellow)
+                        Text("✨ AI BGM & 効果音 作曲・生成")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white)
+                        Spacer()
+                    }
+                }
+            )
         }
         .padding(8)
         .background(Color(red: 0.16, green: 0.17, blue: 0.19))

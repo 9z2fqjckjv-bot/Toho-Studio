@@ -134,8 +134,13 @@ public struct AISoundGeneratorProgramView: View {
             isConfigured = !tohoAIService.claudeConfig.apiKey.isEmpty
             labelText = isConfigured ? "Claude連携中" : "Claude音響推論"
         case .virtualLinuxVM:
-            isConfigured = (cloudLinuxService.connectionStatus == .connected || cloudLinuxService.connectionStatus == .lowLatency)
-            labelText = isConfigured ? "仮想LinuxVM接続中 (DeepSeek-R1/Gemma)" : "スタンドアロン音響推論"
+            if cloudLinuxService.colabBridge.isOnline && !cloudLinuxService.colabBridge.endpoint.isEmpty {
+                isConfigured = true
+                labelText = "⚡️ Colab GPU ブリッジ (MusicGen/SE / \(cloudLinuxService.colabBridge.gpuName))"
+            } else {
+                isConfigured = (cloudLinuxService.connectionStatus == .connected || cloudLinuxService.connectionStatus == .lowLatency)
+                labelText = isConfigured ? "仮想LinuxVM (ローカルLLM/シンセ波形合成)" : "スタンドアロン音響合成"
+            }
         }
 
         return HStack(spacing: 4) {
@@ -390,19 +395,20 @@ public struct AISoundGeneratorProgramView: View {
 
                 // 制作スタジオ連携ボタン群
                 if let latest = soundService.soundHistory.first {
-                    HStack(spacing: 12) {
+                    HStack(spacing: 8) {
                         Button(action: {
-                            soundService.applyToSoundMaker(item: latest)
-                            alertMessage = "『\(latest.name)』をサウンドメーカーのタイムラインへ配置しました！"
+                            soundService.insertToSoundMaker(item: latest, trackType: latest.type == "BGM" ? "bgm" : "se")
+                            alertMessage = "『\(latest.name)』をサウンドメーカーの\(latest.type == "BGM" ? "BGM" : "SE")トラックへ挿入しました！"
                             showSuccessAlert = true
                         }) {
-                            Label("サウンドメーカーへ配置", systemImage: "timeline.selection")
+                            Label("SoundMakerの\(latest.type)トラックへ挿入", systemImage: "timeline.selection")
                                 .font(.caption)
+                                .bold()
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.borderedProminent)
 
                         Button(action: {
-                            soundService.applyToMovieMaker(item: latest)
+                            soundService.sendToMovieMaker(item: latest)
                             alertMessage = "『\(latest.name)』をムービーメーカーのオーディオトラックに設定しました！"
                             showSuccessAlert = true
                         }) {
@@ -416,7 +422,7 @@ public struct AISoundGeneratorProgramView: View {
                             alertMessage = "『\(latest.name)』を素材スタジオに登録しました！"
                             showSuccessAlert = true
                         }) {
-                            Label("素材スタジオに保存", systemImage: "folder.badge.plus")
+                            Label("素材スタジオ保存", systemImage: "folder.badge.plus")
                                 .font(.caption)
                         }
                         .buttonStyle(.bordered)
@@ -424,7 +430,7 @@ public struct AISoundGeneratorProgramView: View {
                         Button(action: {
                             NSWorkspace.shared.activateFileViewerSelecting([latest.fileURL])
                         }) {
-                            Label("WAV表示", systemImage: "arrow.up.right.square")
+                            Label("Finder", systemImage: "arrow.up.right.square")
                                 .font(.caption)
                         }
                         .buttonStyle(.bordered)
