@@ -244,7 +244,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
         var systemPrompt: String {
             switch self {
             case .image:
-                return "You are an expert prompt engineer for Stable Diffusion XL (SDXL 1.0). Translate the user's Japanese prompt into a detailed, versatile English image prompt. Faithfully capture the subject, environment, lighting, and style requested by the user (whether it is anime, photorealistic, fantasy, sci-fi, oil painting, or 3D render). Do NOT force Touhou or anime tropes unless requested. Output ONLY the comma-separated English prompt without any preamble, conversation, or markdown backticks."
+                return "You are an expert prompt engineer for Stable Diffusion XL (SDXL 1.0). Translate the user's Japanese prompt into a detailed, versatile English image prompt. Faithfully capture the exact subject and specific facility requested (e.g. 'accessible restroom', 'courtyard garden', 'swimming pool', 'infirmary'). If the prompt mentions school but specifies a particular facility, describe THAT specific place and do NOT default to a classroom. If the user request does NOT mention characters or people, always include 'no humans, empty scene, architectural interior' and never add girls or characters. Output ONLY the comma-separated English prompt without any preamble, conversation, or markdown backticks."
             case .video:
                 return "You are an expert prompt engineer for video generation. Translate the user's Japanese animation or video prompt into a descriptive English motion prompt. Specify the subject, action, motion dynamics, camera movement, and aesthetic style. Do NOT assume anime unless requested. Output ONLY the English prompt."
             case .music:

@@ -284,7 +284,7 @@ public struct AIImageGeneratorProgramView: View {
                                     .foregroundColor(.yellow)
                                 Text(imageService.selectedOutputType == .video
                                      ? "⚡️ GPU経由でアニメ動画を生成 (Colab AnimateDiff)"
-                                     : "⚡️ GPU経由で高精細画像を生成 (Colab SD-Turbo)")
+                                     : "⚡️ GPU経由で高精細画像を生成 (Colab SDXL 1.0)")
                                     .bold()
                             }
                         }
@@ -344,7 +344,7 @@ public struct AIImageGeneratorProgramView: View {
                 }
             }
 
-            Text("NVIDIA L4/T4 (16-24GB VRAM): SD-Turbo(1秒画像) ＆ AnimateDiff(MP4アニメ動画)")
+            Text("NVIDIA L4/T4 (16-24GB VRAM): SDXL 1.0(高精細画像) ＆ AnimateDiff(MP4アニメ動画)")
                 .font(.caption2)
                 .foregroundColor(.secondary)
 
@@ -573,7 +573,7 @@ public struct AIImageGeneratorProgramView: View {
                         Image(systemName: "sparkles.rectangle.stack")
                             .font(.system(size: 64))
                             .foregroundColor(.secondary.opacity(0.5))
-                        Text("Google Geminiアプリ同様、自由なプロンプト1つで高精細イラストやアニメ動画を生成できます。\nGoogle Colab GPUブリッジ接続時は最先端SD-Turbo / AnimateDiffにより1〜2秒で即座に手元に届きます。")
+                        Text("Google Geminiアプリ同様、自由なプロンプト1つで高精細イラストやアニメ動画を生成できます。\nGoogle Colab GPUブリッジ接続時は最先端SDXL 1.0 / AnimateDiffにより高精細な画像・動画が手元に届きます。")
                             .font(.caption)
                             .multilineTextAlignment(.center)
                             .foregroundColor(.secondary)

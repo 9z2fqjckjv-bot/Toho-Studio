@@ -1300,7 +1300,7 @@ public struct CharacterMakerView: View {
     private var aiCharacterGeneratorCard: some View {
         GroupBox(label: Label("✨ AI 立ち絵・衣装・背景ジェネレーター", systemImage: "sparkles.rectangle.stack.fill")) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Google Colab GPU (SD-Turbo) ＆ 最新AI拡散モデルと連携し、自由なプロンプトから立ち絵パーツや背景を直接生成・取り込みます。")
+                Text("Google Colab GPU (SDXL 1.0) ＆ 最新AI拡散モデルと連携し、自由なプロンプトから立ち絵パーツや背景を直接生成・取り込みます。")
                     .font(.caption2)
                     .foregroundColor(.secondary)
 
@@ -1338,7 +1338,7 @@ public struct CharacterMakerView: View {
                         Circle()
                             .fill(aiImageService.isColabBridgeAvailable ? Color.green : Color.blue)
                             .frame(width: 6, height: 6)
-                        Text(aiImageService.isColabBridgeAvailable ? "Colab GPU (SD-Turbo 1秒)" : "AI拡散モデル連携")
+                        Text(aiImageService.isColabBridgeAvailable ? "Colab GPU (SDXL 1.0 高精細)" : "AI拡散モデル連携")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }

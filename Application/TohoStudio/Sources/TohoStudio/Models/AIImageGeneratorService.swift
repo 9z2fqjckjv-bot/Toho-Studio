@@ -276,7 +276,20 @@ public final class AIImageGeneratorService: ObservableObject {
         completion(nil, nil, "Google Colab GPU 未接続")
     }
 
-    // MARK: - 高精度日英プロンプト最適化エンジン (アニメ・実写写真・東方・風景・SFなど汎用完全対応)
+    // MARK: - 高精度日英プロンプト最適化エンジン (文脈解析・施設別判定・人物混入完全防止)
+    public static func hasExplicitCharacterOrPerson(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        let keywords = [
+            "人", "人物", "キャラ", "少女", "女の子", "女子", "男の子", "男子", "女性", "男性", "少年", "子供", "生徒", "先生",
+            "立ち絵", "ポーズ", "表情", "笑顔", "ツインテール", "ポニーテール", "金髪", "黒髪", "銀髪",
+            "霊夢", "reimu", "魔理沙", "marisa", "咲夜", "sakuya", "レミリア", "remilia", "フラン", "flandre",
+            "妖夢", "youmu", "幽々子", "yuyuko", "早苗", "sanae", "チルノ", "cirno", "アリス", "alice",
+            "パチュリー", "patchouli", "文", "aya", "こいし", "koishi", "さとり", "satori",
+            "girl", "boy", "person", "human", "character", "1girl", "1boy", "woman", "man", "portrait"
+        ]
+        return keywords.contains { lower.contains($0) }
+    }
+
     public static func generateOptimizedEnglishPrompt(from inputPrompt: String) -> String {
         let trimmed = inputPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
@@ -291,22 +304,26 @@ public final class AIImageGeneratorService: ObservableObject {
 
         var tags: [String] = ["masterpiece", "best quality"]
         let lower = trimmed.lowercased()
+        let hasPerson = hasExplicitCharacterOrPerson(trimmed)
 
-        // 1. 画風・スタイルの判定（アニメ、実写写真、絵画など）
+        // 1. 画風・スタイルの判定（人物の有無に応じて適切なサフィックスを付与）
         if lower.contains("写真") || lower.contains("実写") || lower.contains("リアル") || lower.contains("フォト") {
             tags.append("photorealistic, hyperrealistic photo, 35mm photograph, shot on DSLR, professional photography, natural lighting, sharp focus, 8k UHD")
         } else if lower.contains("アニメ") || lower.contains("イラスト") || lower.contains("マンガ") || lower.contains("萌え") {
-            tags.append("anime style, clean anime lineart, Japanese animation aesthetic, vibrant colors, expressive illustration")
+            if hasPerson {
+                tags.append("anime style, clean anime lineart, Japanese animation aesthetic, vibrant colors, expressive illustration")
+            } else {
+                tags.append("anime background concept art, clean anime scenery illustration, Japanese animation background aesthetic, vibrant atmospheric lighting")
+            }
         } else if lower.contains("油絵") || lower.contains("水彩") {
-            tags.append("traditional oil painting style, visible brush strokes, fine art aesthetic")
+            tags.append("traditional painting style, visible brush strokes, fine art aesthetic")
         } else if lower.contains("3d") || lower.contains("cg") {
             tags.append("octane render, unreal engine 5 render, highly detailed 3D artwork")
         } else {
-            // スタイル指定がない場合は高品質なデジタルイラスト/ビジュアル
-            tags.append("highly detailed visual, beautifully rendered, cinematic composition")
+            tags.append(hasPerson ? "highly detailed digital illustration" : "highly detailed scenic background art, architectural concept art")
         }
 
-        // 2. 東方キャラクター判定（ユーザーが東方キャラを指定した場合のみ反映）
+        // 2. 東方キャラクター判定（明示的に指定された場合のみ）
         if lower.contains("霊夢") || lower.contains("reimu") {
             tags.append("Hakurei Reimu, touhou project, 1girl, red hair ribbon, miko shrine maiden dress, detached sleeves, brown hair, brown eyes, ofuda talismans")
         } else if lower.contains("魔理沙") || lower.contains("marisa") {
@@ -333,23 +350,109 @@ public final class AIImageGeneratorService: ObservableObject {
             tags.append("Syameimaru Aya, touhou project, 1girl, black short hair, tokin tengu hat, camera, crow wings")
         }
 
-        // 3. 汎用的な環境・舞台・背景判定
+        // 3. 【最重要】施設・ロケーション・被写体判定 (学校単体による教室強制を撤廃し、施設文脈を最優先)
+        var facilityDetected = false
+
+        // A. トイレ・サニタリー関連
+        if lower.contains("多目的トイレ") || lower.contains("車椅子トイレ") || lower.contains("バリアフリートイレ") || lower.contains("だれでもトイレ") || lower.contains("身障者用トイレ") {
+            tags.append("accessible toilet, universal design restroom, spacious handicap accessible bathroom interior, stainless steel safety handrails beside toilet, modern ceramic toilet bowl, automatic sink washbasin, emergency call button, clean hygienic tiled floor and walls, modern institutional architectural interior")
+            facilityDetected = true
+        } else if lower.contains("トイレ") || lower.contains("お手洗い") || lower.contains("便所") || lower.contains("洗面所") || lower.contains("化粧室") || lower.contains("レストルーム") {
+            tags.append("clean modern public restroom interior, sanitary ceramic washbasin with mirror, hand dryers, clean restroom stalls, indoor architecture")
+            facilityDetected = true
+        }
+
+        // B. 学校関連施設 (中庭、体育館、プール、廊下、屋上、保健室など)
+        if lower.contains("中庭") || lower.contains("パティオ") {
+            tags.append("school campus courtyard garden, open air manicured lawn, lush green trees, stone pavement path, outdoor benches, serene atmosphere")
+            facilityDetected = true
+        }
+        if lower.contains("窓から見える") || lower.contains("窓越し") || lower.contains("窓") {
+            tags.append("view from large clear glass window, gentle daylight streaming in, scenic view outside the window frame")
+            facilityDetected = true
+        }
+        if lower.contains("体育館") || lower.contains("アリーナ") {
+            tags.append("school indoor gymnasium, polished wooden court floor, basketball hoops, high vaulted ceiling, spacious athletic arena")
+            facilityDetected = true
+        }
+        if lower.contains("プール") || lower.contains("水泳") {
+            tags.append("school outdoor swimming pool, crystal clear azure blue water, lane dividers, bleachers, summer campus")
+            facilityDetected = true
+        }
+        if lower.contains("廊下") {
+            tags.append("school hallway corridor, polished reflective wooden floor, row of sliding classroom doors, long perspective view, sunny large windows")
+            facilityDetected = true
+        }
+        if lower.contains("階段") || lower.contains("踊り場") {
+            tags.append("school staircase, wooden steps with handrail, landing platform with sunny window")
+            facilityDetected = true
+        }
+        if lower.contains("屋上") {
+            tags.append("school rooftop, wire mesh chain-link fence, panoramic view of town horizon under open blue sky")
+            facilityDetected = true
+        }
+        if lower.contains("保健室") {
+            tags.append("school infirmary, clean nurse's medical office, white examination bed, soft partition curtain, medicine cabinet, quiet peaceful sunlit room")
+            facilityDetected = true
+        }
+        if lower.contains("図書室") || lower.contains("図書館") {
+            tags.append("quiet school library, tall wooden bookshelves packed with books, study tables with lamps, peaceful ambiance")
+            facilityDetected = true
+        }
+        if lower.contains("部室") {
+            tags.append("school club room, whiteboard, table, casual student room")
+            facilityDetected = true
+        }
+        if lower.contains("下駄箱") || lower.contains("昇降口") || lower.contains("靴箱") {
+            tags.append("school entrance hall, getabako wooden shoe lockers, student entryway")
+            facilityDetected = true
+        }
+        if lower.contains("職員室") {
+            tags.append("teachers faculty office room, desks piled with textbooks and papers")
+            facilityDetected = true
+        }
+        if lower.contains("校庭") || lower.contains("グラウンド") {
+            tags.append("school athletic sports field, running track, soccer goalposts, open grounds")
+            facilityDetected = true
+        }
+
+        // C. 「教室」または施設名がなく「学校」とだけ指定された場合のみ教室・校舎を適用
+        if lower.contains("教室") {
+            tags.append("Japanese school classroom interior, rows of wooden desks and chairs, green chalkboard, afternoon sunlight from windows")
+            facilityDetected = true
+        } else if (lower.contains("学校") || lower.contains("学園") || lower.contains("校舎")) && !facilityDetected {
+            tags.append("Japanese high school campus building exterior, educational institution architecture")
+            facilityDetected = true
+        }
+
+        // D. 一般ロケーション・環境
         if lower.contains("神社") {
             tags.append("traditional Japanese shrine, vermilion torii gate, stone lanterns, cedar trees, sacred atmosphere")
-        } else if lower.contains("森") {
-            tags.append("lush green deep forest, tall trees, sunbeams filtering through leaves, mossy rocks")
-        } else if lower.contains("学校") || lower.contains("教室") {
-            tags.append("Japanese school classroom, wooden desks, blackboard, sunny window")
-        } else if lower.contains("保健室") {
-            tags.append("school infirmary, clean medical bed, soft curtains, sunny morning window")
+            facilityDetected = true
+        } else if lower.contains("森") || lower.contains("林") {
+            tags.append("lush deep forest, tall trees, sunbeams filtering through leaves, mossy rocks")
+            facilityDetected = true
         } else if lower.contains("海") || lower.contains("ビーチ") || lower.contains("海岸") {
             tags.append("beautiful ocean beach, gentle waves, sparkling turquoise water, blue sky")
+            facilityDetected = true
         } else if lower.contains("宇宙") || lower.contains("星") || lower.contains("銀河") {
             tags.append("deep cosmos space, glowing nebulae, distant glittering galaxies, stars")
+            facilityDetected = true
         } else if lower.contains("サイバーパンク") || lower.contains("未来都市") {
             tags.append("futuristic cyberpunk metropolis, neon lights, skyscrapers, holographic displays")
-        } else if lower.contains("部屋") || lower.contains("室内") {
+            facilityDetected = true
+        } else if lower.contains("部屋") || lower.contains("室内") || lower.contains("リビング") {
             tags.append("cozy modern interior room, warm atmospheric lighting, comfortable aesthetic")
+            facilityDetected = true
+        } else if lower.contains("カフェ") || lower.contains("喫茶店") {
+            tags.append("cozy coffee shop cafe interior, warm ambient wooden decor, coffee cup on table")
+            facilityDetected = true
+        } else if lower.contains("駅") || lower.contains("ホーム") {
+            tags.append("train station platform, railway tracks, overhead signage")
+            facilityDetected = true
+        } else if lower.contains("公園") {
+            tags.append("peaceful public green park, lush trees, walking path, sunny day")
+            facilityDetected = true
         }
 
         // 4. 自然・天候・ライティング
@@ -365,7 +468,12 @@ public final class AIImageGeneratorService: ObservableObject {
             tags.append("cherry blossom petals drifting in the breeze, blooming sakura trees")
         }
 
-        // 5. 汎用仕上げタグ
+        // 5. 【人物完全防止】人物指定がない背景・環境の場合、絶対にキャラクターを混入させない
+        if !hasPerson {
+            tags.append("no humans, empty scene, architectural interior, environment concept art, scenery")
+        }
+
+        // 6. 汎用仕上げタグ
         tags.append("highly detailed, cinematic lighting, sharp focus, 8k resolution wallpaper")
 
         // 重複を除去してカンマ結合
@@ -446,7 +554,7 @@ public final class AIImageGeneratorService: ObservableObject {
         let englishPrompt = CloudVirtualLinuxService.containsJapanese(prompt)
             ? Self.generateOptimizedEnglishPrompt(from: prompt)
             : prompt
-        let englishNegative = Self.convertNegativePromptToEnglish(negativePrompt)
+        var englishNegative = Self.convertNegativePromptToEnglish(negativePrompt)
         let endpoint = CloudVirtualLinuxService.sanitizeColabEndpoint(colab.endpoint)
 
         guard !endpoint.isEmpty, let url = URL(string: "\(endpoint)/v1/generate/image") else {
@@ -464,10 +572,15 @@ public final class AIImageGeneratorService: ObservableObject {
         let (width, height) = aspectRatio.dimensions
         let effectiveSeed = seed == -1 ? Int.random(in: 1000...99999) : seed
 
-        // ポジティブプロンプトの補強（除外プロンプトに人物指定があれば、ポジティブ側でも背景のみを強調）
+        // 人物指定がない場合はネガティブ側にも「人物・女性・男性」を自動追加して人物混入を物理的に完全防止
+        let hasPerson = Self.hasExplicitCharacterOrPerson(prompt)
+        if !hasPerson && !englishNegative.contains("people") {
+            englishNegative += ", people, person, humans, girl, boy, 1girl, 1boy, female, male, character, face, portrait"
+        }
+
         var finalPositivePrompt = englishPrompt
-        if englishNegative.contains("people") || englishNegative.contains("human") {
-            finalPositivePrompt += ", no humans, empty scene, scenery, landscape"
+        if !hasPerson && !finalPositivePrompt.contains("no humans") {
+            finalPositivePrompt += ", no humans, empty scene, scenery, interior architecture"
         }
 
         let body: [String: Any] = [
@@ -511,7 +624,9 @@ public final class AIImageGeneratorService: ObservableObject {
         completion: @escaping (NSImage?, URL?, String) -> Void
     ) {
         let colab = CloudVirtualLinuxService.shared.colabBridge
-        let englishPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
+        let englishPrompt = CloudVirtualLinuxService.containsJapanese(prompt)
+            ? Self.generateOptimizedEnglishPrompt(from: prompt)
+            : prompt
         let englishNegative = Self.convertNegativePromptToEnglish(negativePrompt)
         let (width, height) = aspectRatio.dimensions
         let endpoint = CloudVirtualLinuxService.sanitizeColabEndpoint(colab.endpoint)
