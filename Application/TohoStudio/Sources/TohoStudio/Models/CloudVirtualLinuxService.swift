@@ -117,9 +117,26 @@ public final class CloudVirtualLinuxService: ObservableObject {
         }.resume()
     }
 
+    /// Sanitizes and auto-completes Colab temporary endpoint URL
+    public static func sanitizeColabEndpoint(_ raw: String) -> String {
+        var str = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if str.isEmpty { return "" }
+        if !str.hasPrefix("http://") && !str.hasPrefix("https://") {
+            str = "https://" + str
+        }
+        if !str.contains(".trycloudflare.com") && !str.contains("localhost") && !str.contains("127.0.0.1") && !str.contains("ngrok") && !str.contains("loca.lt") {
+            str = str + ".trycloudflare.com"
+        }
+        if str.hasSuffix("/") {
+            str.removeLast()
+        }
+        return str
+    }
+
     /// Tests direct health of Google Colab GPU Bridge endpoint
     public func testColabBridgeConnection(completion: @escaping (Bool, String) -> Void) {
-        let cleanEndpoint = colabBridge.endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanEndpoint = Self.sanitizeColabEndpoint(colabBridge.endpoint)
+        self.colabBridge.endpoint = cleanEndpoint
         guard let url = URL(string: "\(cleanEndpoint)/health") else {
             completion(false, "無効なURL形式です")
             return

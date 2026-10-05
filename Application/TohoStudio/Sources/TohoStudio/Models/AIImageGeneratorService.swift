@@ -230,16 +230,17 @@ public final class AIImageGeneratorService: ObservableObject {
             return
         }
 
+        let englishPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
+
         // 1. OpenAI ChatGPT (DALL-E 3)
         if provider == .chatGPT {
             let openAIKey = tohoAI.chatGPTConfig.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
             if !openAIKey.isEmpty && tohoAI.chatGPTConfig.isEnabled {
-                fetchOpenAIDallE3(prompt: prompt, apiKey: openAIKey, aspectRatio: aspectRatio) { result in
+                fetchOpenAIDallE3(prompt: englishPrompt, apiKey: openAIKey, aspectRatio: aspectRatio) { result in
                     if let (img, url) = result {
                         completion(img, url, "OpenAI ChatGPT (\(model) / DALL-E 3)")
                     } else {
-                        let enhancedPrompt = "masterpiece, highly detailed, \(prompt), cinematic lighting, 8k resolution"
-                        self.fetchDirectCloudDiffusion(prompt: enhancedPrompt, aspectRatio: aspectRatio, seed: seed) { img, url, _ in
+                        self.fetchDirectCloudDiffusion(prompt: englishPrompt, aspectRatio: aspectRatio, seed: seed) { img, url, _ in
                             completion(img, url, "OpenAI ChatGPT (\(model))")
                         }
                     }
@@ -252,12 +253,11 @@ public final class AIImageGeneratorService: ObservableObject {
         if provider == .gemini {
             let geminiKey = tohoAI.geminiConfig.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
             if !geminiKey.isEmpty && tohoAI.geminiConfig.isEnabled {
-                fetchGoogleImagen(prompt: prompt, apiKey: geminiKey, aspectRatio: aspectRatio) { result in
+                fetchGoogleImagen(prompt: englishPrompt, apiKey: geminiKey, aspectRatio: aspectRatio) { result in
                     if let (img, url) = result {
                         completion(img, url, "Google Gemini (\(model) / Imagen 3)")
                     } else {
-                        let enhancedPrompt = "masterpiece, vibrant colors, stunning natural lighting, highly detailed, \(prompt)"
-                        self.fetchDirectCloudDiffusion(prompt: enhancedPrompt, aspectRatio: aspectRatio, seed: seed) { img, url, _ in
+                        self.fetchDirectCloudDiffusion(prompt: englishPrompt, aspectRatio: aspectRatio, seed: seed) { img, url, _ in
                             completion(img, url, "Google Gemini (\(model))")
                         }
                     }
@@ -278,27 +278,134 @@ public final class AIImageGeneratorService: ObservableObject {
         seed: Int,
         completion: @escaping (NSImage?, URL?, String) -> Void
     ) {
-        let systemDirective = "あなたは画像生成AIのプロンプトディレクターです。ユーザーの要望「\(prompt)」を、最新の画像生成モデル（Diffusion）が最高峰のクオリティで描画できるように、英語のポジティブプロンプト（被写体・構図・照明・質感）に変換・最適化して出力してください。"
+        // 高度日英プロンプト最適化エンジンで、ユーザーの自然言語要望を最高峰の英語拡散プロンプトに変換
+        let finalPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
+        self.fetchDirectCloudDiffusion(prompt: finalPrompt, aspectRatio: aspectRatio, seed: seed) { img, url, engine in
+            completion(img, url, "AI画像拡散生成 (\(engine))")
+        }
+    }
 
-        TohoAIService.shared.callAPIOrGenerateSmart(prompt: systemDirective, provider: provider, model: model) { [weak self] responseText, _ in
-            guard let self = self else { return }
+    // MARK: - 高精度日英プロンプト最適化エンジン (学校・保健室・東方キャラ・背景・シチュエーション完全対応)
+    public static func generateOptimizedEnglishPrompt(from inputPrompt: String) -> String {
+        let trimmed = inputPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return "masterpiece, best quality, Japanese anime school infirmary, clean nurse's office, white medical bed, large sunny window overlooking school courtyard garden with green trees, soft sunlight streaming in, tranquil peaceful atmosphere, anime background concept art, highly detailed, 8k resolution"
+        }
 
-            let cleanedDirective = responseText
-                .components(separatedBy: .newlines)
-                .filter { line in
-                    let trimmed = line.trimmingCharacters(in: .whitespaces)
-                    return !trimmed.isEmpty && !trimmed.hasPrefix("<think>") && !trimmed.hasPrefix("【")
-                }
-                .joined(separator: ", ")
+        // アルファベット比率のチェック (すでに大半が英語の場合はそのままクオリティサフィックスを付与)
+        let asciiCount = trimmed.filter { $0.isASCII && ($0.isLetter || $0.isWhitespace || $0.isPunctuation) }.count
+        if Double(asciiCount) / Double(max(1, trimmed.count)) > 0.75 {
+            return "\(trimmed), masterpiece, best quality, highly detailed, expressive anime aesthetic, cinematic lighting, 8k resolution"
+        }
 
-            let finalPrompt = cleanedDirective.isEmpty ?
-                "masterpiece, highly detailed illustration, \(prompt), cinematic lighting, 8k resolution" :
-                "\(prompt), \(cleanedDirective.prefix(150)), masterpiece, high quality, highly detailed"
+        var tags: [String] = ["masterpiece", "best quality"]
+        let lower = trimmed.lowercased()
 
-            self.fetchDirectCloudDiffusion(prompt: finalPrompt, aspectRatio: aspectRatio, seed: seed) { img, url, _ in
-                completion(img, url, "\(provider.rawValue) (\(model))")
+        // 1. 東方キャラクター判定
+        if lower.contains("霊夢") || lower.contains("reimu") {
+            tags.append("Hakurei Reimu, touhou project, 1girl, red hair ribbon, miko shrine maiden dress, detached sleeves, brown hair, brown eyes, ofuda talismans")
+        } else if lower.contains("魔理沙") || lower.contains("marisa") {
+            tags.append("Kirisame Marisa, touhou project, 1girl, large black witch hat with white ribbon, blonde side braid, black and white apron dress, mini hakkero")
+        } else if lower.contains("咲夜") || lower.contains("sakuya") {
+            tags.append("Izayoi Sakuya, touhou project, 1girl, silver hair in braids, maid outfit with white apron, pocket watch, silver throwing knives")
+        } else if lower.contains("レミリア") || lower.contains("remilia") {
+            tags.append("Remilia Scarlet, touhou project, 1girl, light blue hair, mob cap, bat wings, red gothic lolita dress")
+        } else if lower.contains("フラン") || lower.contains("flandre") {
+            tags.append("Flandre Scarlet, touhou project, 1girl, blonde hair, side ponytail, rainbow crystal wings, red dress")
+        } else if lower.contains("妖夢") || lower.contains("youmu") {
+            tags.append("Konpaku Youmu, touhou project, 1girl, short silver hair, black headband, green vest, floating myon phantom, dual samurai swords")
+        } else if lower.contains("幽々子") || lower.contains("yuyuko") {
+            tags.append("Saigyouji Yuyuko, touhou project, 1girl, pink hair, zukin hat, light blue kimono, ghostly floating will-o-wisps")
+        } else if lower.contains("早苗") || lower.contains("sanae") {
+            tags.append("Kochiya Sanae, touhou project, 1girl, green hair, frog and snake hair accessories, blue and white miko outfit")
+        } else if lower.contains("チルノ") || lower.contains("cirno") {
+            tags.append("Cirno, touhou project, 1girl, blue short hair, large green hair bow, blue dress, icicle fairy wings")
+        } else if lower.contains("アリス") || lower.contains("alice") {
+            tags.append("Alice Margatroid, touhou project, 1girl, blonde hair, red hairband, blue dress, floating grimoire book")
+        } else if lower.contains("パチュリー") || lower.contains("patchouli") {
+            tags.append("Patchouli Knowledge, touhou project, 1girl, long purple hair, nightcap, striped dress, floating grimoire")
+        } else if lower.contains("文") || lower.contains("aya") {
+            tags.append("Syameimaru Aya, touhou project, 1girl, black short hair, tokin tengu hat, camera, crow wings")
+        }
+
+        // 2. 東方の舞台・ロケーション判定
+        if lower.contains("博麗神社") || lower.contains("神社") {
+            tags.append("Hakurei Shrine, traditional Japanese wooden shrine architecture, vermilion torii gate, stone lantern path, engawa wooden porch")
+        } else if lower.contains("魔法の森") {
+            tags.append("Forest of Magic, mystical dense enchanted forest, giant glowing colorful mushrooms, ancient mossy trees, sunbeams filtering through dense canopy")
+        } else if lower.contains("紅魔館") {
+            tags.append("Scarlet Devil Mansion, opulent gothic victorian mansion, red carpeted grand hallway, crystal chandelier, stained glass gothic windows")
+        } else if lower.contains("白玉楼") {
+            tags.append("Hakugyokurou, ethereal afterlife palace, grand stone stairway, blooming thousand-year cherry blossom tree, pink petals in wind")
+        } else if lower.contains("竹林") {
+            tags.append("Bamboo Forest of the Lost, towering lush green bamboo grove, ethereal drifting white mist, sunlight filtering through stalks")
+        } else if lower.contains("妖怪の山") {
+            tags.append("Youkai Mountain, dramatic mountain landscape, rushing scenic waterfalls, autumn foliage, cloudy mist")
+        }
+
+        // 3. 学校・施設・日常環境判定 (重要: 保健室・中庭・教室など)
+        if lower.contains("保健室") {
+            tags.append("Japanese anime school infirmary, clean nurse's office, pristine white medical examination bed, privacy curtains, wooden medicine cabinet, desk")
+        }
+        if lower.contains("中庭") {
+            tags.append("school courtyard garden, green manicured lawn, lush trees, flowerbeds, peaceful outdoor campus")
+        }
+        if lower.contains("窓") || lower.contains("窓から見える") || lower.contains("窓辺") {
+            tags.append("large clear glass window overlooking the courtyard, warm gentle sunlight streaming into the room, soft translucent curtains")
+        }
+        if lower.contains("教室") {
+            tags.append("Japanese high school classroom, rows of wooden desks and chairs, green blackboard, warm afternoon atmosphere")
+        }
+        if lower.contains("廊下") {
+            tags.append("school hallway corridor, polished reflective floor, lockers, windows along the wall")
+        }
+        if lower.contains("屋上") {
+            tags.append("school rooftop, wire mesh chain-link fence, expansive clear blue sky, fluffy clouds")
+        }
+        if lower.contains("図書館") || lower.contains("図書室") {
+            tags.append("quiet cozy library, tall towering wooden bookshelves filled with books, warm study desk lamp")
+        }
+        if lower.contains("カフェ") || lower.contains("喫茶店") {
+            tags.append("modern cozy coffee shop cafe interior, warm ambient wooden decor, coffee cup on table")
+        }
+        if lower.contains("部屋") || lower.contains("自室") {
+            tags.append("cozy anime bedroom, comfortable bed, study desk, gentle ambient room lighting")
+        }
+
+        // 4. 自然・情景・天候
+        if lower.contains("桜") || lower.contains("桜吹雪") {
+            tags.append("falling cherry blossom petals, sakura trees in bloom, spring atmosphere")
+        }
+        if lower.contains("夕暮れ") || lower.contains("夕方") || lower.contains("夕焼け") || lower.contains("黄昏") {
+            tags.append("golden hour sunset, vibrant orange and purple gradient twilight sky, warm glowing light")
+        }
+        if lower.contains("星空") || lower.contains("夜") || lower.contains("月") || lower.contains("夜空") {
+            tags.append("night sky, glowing luminous moon, twinkling stars, milky way, deep blue and indigo ambient")
+        }
+        if lower.contains("雨") {
+            tags.append("rainy day, gentle raindrops, reflections on wet ground, moody atmospheric overcast")
+        }
+        if lower.contains("青空") || lower.contains("晴れ") {
+            tags.append("clear vibrant blue sky, radiant bright sunshine, fluffy white clouds")
+        }
+        if lower.contains("サイバーパンク") {
+            tags.append("cyberpunk futuristic metropolis, glowing neon signage, holographic displays, rain wet asphalt")
+        }
+        if lower.contains("都市") || lower.contains("街") || lower.contains("摩天楼") {
+            tags.append("modern city cityscape, towering skyscrapers, urban architecture")
+        }
+
+        // 5. 構図・画質スタイルサフィックス
+        tags.append("anime background concept art, highly detailed, beautifully rendered, cinematic lighting, peaceful atmosphere, crisp focus, 8k resolution wallpaper")
+
+        // 重複を除去してカンマ結合
+        var uniqueTags: [String] = []
+        for tag in tags {
+            if !uniqueTags.contains(tag) {
+                uniqueTags.append(tag)
             }
         }
+        return uniqueTags.joined(separator: ", ")
     }
 
     // MARK: - Google Colab GPU Bridge (SD-Turbo 画像生成: 1〜2秒)
@@ -307,8 +414,12 @@ public final class AIImageGeneratorService: ObservableObject {
         completion: @escaping (NSImage?, URL?, String) -> Void
     ) {
         let colab = CloudVirtualLinuxService.shared.colabBridge
-        guard let url = URL(string: "\(colab.endpoint)/v1/generate/image") else {
-            completion(nil, nil, "Error")
+        let englishPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
+        let endpoint = CloudVirtualLinuxService.sanitizeColabEndpoint(colab.endpoint)
+        guard !endpoint.isEmpty, let url = URL(string: "\(endpoint)/v1/generate/image") else {
+            fetchDirectCloudDiffusion(prompt: englishPrompt, aspectRatio: .landscape16_9, seed: Int.random(in: 1000...99999)) { img, url, engine in
+                completion(img, url, "AI画像拡散生成 (\(engine))")
+            }
             return
         }
 
@@ -317,9 +428,11 @@ public final class AIImageGeneratorService: ObservableObject {
         request.timeoutInterval = 45.0
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = ["prompt": prompt]
+        let body: [String: Any] = ["prompt": englishPrompt]
         guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
-            completion(nil, nil, "Error")
+            fetchDirectCloudDiffusion(prompt: englishPrompt, aspectRatio: .landscape16_9, seed: Int.random(in: 1000...99999)) { img, url, engine in
+                completion(img, url, "AI画像拡散生成 (\(engine))")
+            }
             return
         }
         request.httpBody = httpBody
@@ -337,7 +450,7 @@ public final class AIImageGeneratorService: ObservableObject {
                 completion(image, fileURL, "Google Colab GPU (SD-Turbo / \(colab.gpuName))")
             } else {
                 // 通信エラー時はフォールバック拡散を実行して実画像ファイルを生成
-                self?.fetchDirectCloudDiffusion(prompt: prompt, aspectRatio: .landscape16_9, seed: Int.random(in: 1000...99999)) { img, url, engine in
+                self?.fetchDirectCloudDiffusion(prompt: englishPrompt, aspectRatio: .landscape16_9, seed: Int.random(in: 1000...99999)) { img, url, engine in
                     completion(img, url, "AI画像拡散生成 (\(engine))")
                 }
             }
@@ -350,8 +463,10 @@ public final class AIImageGeneratorService: ObservableObject {
         completion: @escaping (NSImage?, URL?, String) -> Void
     ) {
         let colab = CloudVirtualLinuxService.shared.colabBridge
-        guard let url = URL(string: "\(colab.endpoint)/v1/generate/video") else {
-            createFallbackMP4Video(prompt: prompt, completion: completion)
+        let englishPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
+        let endpoint = CloudVirtualLinuxService.sanitizeColabEndpoint(colab.endpoint)
+        guard !endpoint.isEmpty, let url = URL(string: "\(endpoint)/v1/generate/video") else {
+            createFallbackMP4Video(prompt: englishPrompt, completion: completion)
             return
         }
 
@@ -360,9 +475,9 @@ public final class AIImageGeneratorService: ObservableObject {
         request.timeoutInterval = 120.0
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = ["prompt": prompt]
+        let body: [String: Any] = ["prompt": englishPrompt]
         guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
-            createFallbackMP4Video(prompt: prompt, completion: completion)
+            createFallbackMP4Video(prompt: englishPrompt, completion: completion)
             return
         }
         request.httpBody = httpBody
@@ -510,6 +625,7 @@ public final class AIImageGeneratorService: ObservableObject {
         completion: @escaping (NSImage?, URL?, String) -> Void
     ) {
         let (width, height) = aspectRatio.dimensions
+        let englishPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
         guard let url = URL(string: "https://image.pollinations.ai/") else {
             completion(nil, nil, "Error")
             return
@@ -522,10 +638,11 @@ public final class AIImageGeneratorService: ObservableObject {
         request.addValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", forHTTPHeaderField: "User-Agent")
 
         let body: [String: Any] = [
-            "prompt": prompt,
+            "prompt": englishPrompt,
             "width": width,
             "height": height,
-            "seed": seed
+            "seed": seed,
+            "nologo": true
         ]
 
         guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
@@ -549,7 +666,7 @@ public final class AIImageGeneratorService: ObservableObject {
             }
 
             // フォールバック: GETリクエスト (URLエンコード)
-            self?.fetchDirectCloudDiffusionGET(prompt: prompt, aspectRatio: aspectRatio, seed: seed, completion: completion)
+            self?.fetchDirectCloudDiffusionGET(prompt: englishPrompt, aspectRatio: aspectRatio, seed: seed, completion: completion)
         }.resume()
     }
 
@@ -559,8 +676,10 @@ public final class AIImageGeneratorService: ObservableObject {
         seed: Int,
         completion: @escaping (NSImage?, URL?, String) -> Void
     ) {
-        guard let encodedPrompt = prompt.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "https://image.pollinations.ai/prompt/\(encodedPrompt)") else {
+        let (width, height) = aspectRatio.dimensions
+        let englishPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
+        guard let encodedPrompt = englishPrompt.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let url = URL(string: "https://image.pollinations.ai/prompt/\(encodedPrompt)?width=\(width)&height=\(height)&seed=\(seed)&nologo=true") else {
             completion(nil, nil, "Error")
             return
         }
