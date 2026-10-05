@@ -107,19 +107,11 @@ public final class AIImageGeneratorService: ObservableObject {
         generationProgress = 0.0
         currentStatusMessage = "AIモデル準備中..."
 
-        // プロンプトからアスペクト比を自然言語自動推定
-        let lower = prompt.lowercased()
-        if lower.contains("縦長") || lower.contains("9:16") || lower.contains("スマホ") || lower.contains("立ち絵") || lower.contains("portrait") {
-            selectedAspectRatio = .portrait9_16
-        } else if lower.contains("正方形") || lower.contains("1:1") || lower.contains("アイコン") || lower.contains("square") {
-            selectedAspectRatio = .square1_1
-        } else if lower.contains("16:9") || lower.contains("横長") || lower.contains("landscape") || lower.contains("背景") {
-            selectedAspectRatio = .landscape16_9
-        }
-
         let currentSeed = seed == -1 ? Int.random(in: 1000...99999) : seed
         let currentPrompt = prompt
+        // ユーザーが選択したアスペクト比を最優先で維持 (勝手な上書きを廃止)
         let currentAspect = selectedAspectRatio
+        let currentNegative = negativePrompt
         let currentOutputType = selectedOutputType
 
         // 進捗メッセージアニメーション
@@ -149,15 +141,19 @@ public final class AIImageGeneratorService: ObservableObject {
                 ? Self.generateOptimizedEnglishPrompt(from: generatedEnglish)
                 : generatedEnglish
 
-            // 2. Colab GPU Bridge へリクエスト送信
+            // 2. Colab GPU Bridge へリクエスト送信 (アスペクト比・除外プロンプト完全反映)
             if currentOutputType == .video {
-                self.fetchColabGPUVideo(prompt: finalEnglishPrompt) { [weak self] image, fileURL, engineName in
+                self.fetchColabGPUVideo(
+                    prompt: finalEnglishPrompt,
+                    negativePrompt: currentNegative,
+                    aspectRatio: currentAspect
+                ) { [weak self] image, fileURL, engineName in
                     self?.handleGenerationResult(image: image, fileURL: fileURL, engineName: engineName, currentPrompt: currentPrompt, currentSeed: currentSeed, isVideo: true)
                 }
             } else {
                 self.fetchRealAIImage(
                     prompt: finalEnglishPrompt,
-                    negativePrompt: self.negativePrompt,
+                    negativePrompt: currentNegative,
                     aspectRatio: currentAspect,
                     seed: currentSeed
                 ) { [weak self] image, fileURL, engineName in
@@ -403,6 +399,62 @@ public final class AIImageGeneratorService: ObservableObject {
         return uniqueTags.joined(separator: ", ")
     }
 
+    // MARK: - 除外プロンプト (ネガティブプロンプト) の日英変換エンジン
+    public static func convertNegativePromptToEnglish(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return "ugly, deformed, disfigured, blurry, low quality, bad anatomy, noise, watermark, distorted, text"
+        }
+
+        // 日本語が含まれていない場合はそのまま利用
+        if !CloudVirtualLinuxService.containsJapanese(trimmed) {
+            return trimmed
+        }
+
+        var tags: [String] = []
+        let lower = trimmed.lowercased()
+
+        // 人物・人間関連の除外
+        if lower.contains("人物") || lower.contains("人間") || lower.contains("人") || lower.contains("キャラ") || lower.contains("立ち絵") || lower.contains("少女") || lower.contains("女の子") || lower.contains("男") {
+            tags.append("people, person, humans, character, girl, boy, 1girl, 1boy, face, portrait")
+        }
+
+        // 品質・アーティファクト関連の除外
+        if lower.contains("低解像度") || lower.contains("低画質") || lower.contains("粗い") || lower.contains("低品質") {
+            tags.append("low quality, worst quality, lowres, jpeg artifacts")
+        }
+        if lower.contains("ぼやけ") || lower.contains("ブレ") || lower.contains("ピンボケ") || lower.contains("ボケ") {
+            tags.append("blurry, blurred, depth of field, motion blur, out of focus")
+        }
+        if lower.contains("崩れ") || lower.contains("変形") || lower.contains("奇形") || lower.contains("デフォルメ") || lower.contains("手") || lower.contains("指") {
+            tags.append("deformed, bad anatomy, disfigured, poorly drawn hands, missing fingers, extra limbs, mutated")
+        }
+        if lower.contains("ノイズ") || lower.contains("ざらざら") {
+            tags.append("noisy, grainy, artifacts")
+        }
+
+        // 文字・署名・透かし・フレーム関連の除外
+        if lower.contains("文字") || lower.contains("テキスト") || lower.contains("フォント") || lower.contains("署名") || lower.contains("ロゴ") || lower.contains("透かし") || lower.contains("ウォーターマーク") {
+            tags.append("text, watermark, signature, username, logo, typography, letters, words")
+        }
+        if lower.contains("枠") || lower.contains("フレーム") || lower.contains("見切れ") || lower.contains("トリミング") {
+            tags.append("border, frame, cropped, out of frame")
+        }
+
+        // 雰囲気・色彩関連の除外
+        if lower.contains("暗い") || lower.contains("黒") || lower.contains("ホラー") || lower.contains("グロ") {
+            tags.append("dark, creepy, horror, blood, gore")
+        }
+        if lower.contains("白黒") || lower.contains("モノクロ") {
+            tags.append("monochrome, greyscale, black and white")
+        }
+
+        // 基本品質担保タグを追加
+        tags.append("ugly, deformed, disfigured, blurry, low quality")
+
+        return tags.joined(separator: ", ")
+    }
+
     // MARK: - Google Colab GPU Bridge (SD-Turbo 高画質イラスト生成: 1〜2秒)
     public func fetchColabGPUImage(
         prompt: String,
@@ -413,6 +465,7 @@ public final class AIImageGeneratorService: ObservableObject {
     ) {
         let colab = CloudVirtualLinuxService.shared.colabBridge
         let englishPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
+        let englishNegative = Self.convertNegativePromptToEnglish(negativePrompt)
         let endpoint = CloudVirtualLinuxService.sanitizeColabEndpoint(colab.endpoint)
 
         guard !endpoint.isEmpty, let url = URL(string: "\(endpoint)/v1/generate/image") else {
@@ -429,13 +482,18 @@ public final class AIImageGeneratorService: ObservableObject {
 
         let (width, height) = aspectRatio.dimensions
         let effectiveSeed = seed == -1 ? Int.random(in: 1000...99999) : seed
-        let effectiveNegative = negativePrompt.isEmpty ? "ugly, deformed, disfigured, blurry, low quality" : negativePrompt
+
+        // ポジティブプロンプトの補強（除外プロンプトに人物指定があれば、ポジティブ側でも背景のみを強調）
+        var finalPositivePrompt = englishPrompt
+        if englishNegative.contains("people") || englishNegative.contains("human") {
+            finalPositivePrompt += ", no humans, empty scene, scenery, landscape"
+        }
 
         let body: [String: Any] = [
-            "prompt": englishPrompt,
-            "negative_prompt": effectiveNegative,
-            "width": min(width, 1024),
-            "height": min(height, 1024),
+            "prompt": finalPositivePrompt,
+            "negative_prompt": englishNegative,
+            "width": width,
+            "height": height,
             "seed": effectiveSeed
         ]
 
@@ -455,7 +513,7 @@ public final class AIImageGeneratorService: ObservableObject {
                 let fileURL = outputDir.appendingPathComponent(fileName)
                 try? data.write(to: fileURL)
 
-                completion(image, fileURL, "Google Colab GPU (SD-Turbo / \(colab.gpuName))")
+                completion(image, fileURL, "Google Colab GPU (SD-Turbo / \(colab.gpuName) / \(width)x\(height))")
             } else {
                 let errDetail = error?.localizedDescription ?? "HTTP status \((response as? HTTPURLResponse)?.statusCode ?? 0)"
                 AppState.shared.addSystemLog(level: "ERROR", message: "Colab GPU 画像生成エラー: \(errDetail)。Colabセルの実行状態を確認してください。")
@@ -467,11 +525,16 @@ public final class AIImageGeneratorService: ObservableObject {
     // MARK: - Google Colab GPU Bridge (AnimateDiff アニメ動画生成: 30〜45秒)
     public func fetchColabGPUVideo(
         prompt: String,
+        negativePrompt: String = "",
+        aspectRatio: ImageAspectRatio = .landscape16_9,
         completion: @escaping (NSImage?, URL?, String) -> Void
     ) {
         let colab = CloudVirtualLinuxService.shared.colabBridge
         let englishPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
+        let englishNegative = Self.convertNegativePromptToEnglish(negativePrompt)
+        let (width, height) = aspectRatio.dimensions
         let endpoint = CloudVirtualLinuxService.sanitizeColabEndpoint(colab.endpoint)
+
         guard !endpoint.isEmpty, let url = URL(string: "\(endpoint)/v1/generate/video") else {
             createFallbackMP4Video(prompt: englishPrompt, completion: completion)
             return
@@ -482,7 +545,12 @@ public final class AIImageGeneratorService: ObservableObject {
         request.timeoutInterval = 120.0
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = ["prompt": englishPrompt]
+        let body: [String: Any] = [
+            "prompt": englishPrompt,
+            "negative_prompt": englishNegative,
+            "width": width,
+            "height": height
+        ]
         guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
             createFallbackMP4Video(prompt: englishPrompt, completion: completion)
             return
@@ -500,7 +568,7 @@ public final class AIImageGeneratorService: ObservableObject {
                 try? data.write(to: fileURL)
 
                 let thumbnail = Self.generateVideoThumbnail(from: fileURL) ?? NSImage(systemSymbolName: "film.fill", accessibilityDescription: nil) ?? NSImage()
-                completion(thumbnail, fileURL, "Google Colab GPU (AnimateDiff MP4 / \(colab.gpuName))")
+                completion(thumbnail, fileURL, "Google Colab GPU (AnimateDiff MP4 / \(colab.gpuName) / \(width)x\(height))")
             } else {
                 // Colab オフラインまたは通信エラー時はローカルアニメーション動画合成へ自動フォールバック
                 self?.createFallbackMP4Video(prompt: prompt, completion: completion)
