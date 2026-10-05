@@ -425,7 +425,7 @@ public final class AIImageGeneratorService: ObservableObject {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.timeoutInterval = 45.0
+        request.timeoutInterval = 8.0
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = ["prompt": englishPrompt]
@@ -617,7 +617,7 @@ public final class AIImageGeneratorService: ObservableObject {
         return nil
     }
 
-    // MARK: - 実AI拡散モデル直接生成 (POST API - 本物のAI画像を生成)
+    // MARK: - 実AI拡散モデル直接生成 (SD-Turbo 高速拡散エンジン: 1〜2秒)
     private func fetchDirectCloudDiffusion(
         prompt: String,
         aspectRatio: ImageAspectRatio,
@@ -626,34 +626,21 @@ public final class AIImageGeneratorService: ObservableObject {
     ) {
         let (width, height) = aspectRatio.dimensions
         let englishPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
-        guard let url = URL(string: "https://image.pollinations.ai/") else {
+
+        guard let encodedPrompt = englishPrompt.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let url = URL(string: "https://image.pollinations.ai/prompt/\(encodedPrompt)?width=\(width)&height=\(height)&seed=\(seed)&model=turbo&nologo=true") else {
             completion(nil, nil, "Error")
             return
         }
 
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 30.0
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 20.0
+        request.httpMethod = "GET"
         request.addValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", forHTTPHeaderField: "User-Agent")
 
-        let body: [String: Any] = [
-            "prompt": englishPrompt,
-            "width": width,
-            "height": height,
-            "seed": seed,
-            "nologo": true
-        ]
-
-        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
-            completion(nil, nil, "Error")
-            return
-        }
-        request.httpBody = httpBody
-
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            if let data = data, let image = NSImage(data: data), data.count > 1000 {
-                // 生成成功: 本物のAI画像をキャッシュ保存
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let data = data, let image = NSImage(data: data), data.count > 3000,
+               let http = response as? HTTPURLResponse, http.statusCode == 200 {
                 let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Images", isDirectory: true)
                 try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
 
@@ -661,48 +648,31 @@ public final class AIImageGeneratorService: ObservableObject {
                 let fileURL = outputDir.appendingPathComponent(fileName)
                 try? data.write(to: fileURL)
 
-                completion(image, fileURL, "AI拡散モデル")
+                completion(image, fileURL, "SD-Turbo 高速拡散エンジン")
                 return
             }
 
-            // フォールバック: GETリクエスト (URLエンコード)
-            self?.fetchDirectCloudDiffusionGET(prompt: englishPrompt, aspectRatio: aspectRatio, seed: seed, completion: completion)
-        }.resume()
-    }
-
-    private func fetchDirectCloudDiffusionGET(
-        prompt: String,
-        aspectRatio: ImageAspectRatio,
-        seed: Int,
-        completion: @escaping (NSImage?, URL?, String) -> Void
-    ) {
-        let (width, height) = aspectRatio.dimensions
-        let englishPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
-        guard let encodedPrompt = englishPrompt.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-              let url = URL(string: "https://image.pollinations.ai/prompt/\(encodedPrompt)?width=\(width)&height=\(height)&seed=\(seed)&nologo=true") else {
-            completion(nil, nil, "Error")
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 25.0
-        request.httpMethod = "GET"
-        request.addValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", forHTTPHeaderField: "User-Agent")
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            guard let data = data, let image = NSImage(data: data), data.count > 1000 else {
+            // フォールバック: パラメータ簡略版
+            let simplePrompt = englishPrompt.components(separatedBy: ",").prefix(6).joined(separator: ",")
+            if let encodedSimple = simplePrompt.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+               let retryUrl = URL(string: "https://image.pollinations.ai/prompt/\(encodedSimple)?width=\(width)&height=\(height)&model=turbo&nologo=true") {
+                var retryReq = URLRequest(url: retryUrl)
+                retryReq.timeoutInterval = 15.0
+                URLSession.shared.dataTask(with: retryReq) { rData, rRes, rErr in
+                    if let rData = rData, let rImage = NSImage(data: rData), rData.count > 3000 {
+                        let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Images", isDirectory: true)
+                        try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
+                        let fileName = "AI_Generated_\(Int(Date().timeIntervalSince1970))_\(seed).jpg"
+                        let fileURL = outputDir.appendingPathComponent(fileName)
+                        try? rData.write(to: fileURL)
+                        completion(rImage, fileURL, "SD-Turbo 拡散エンジン")
+                        return
+                    }
+                    completion(nil, nil, "Error")
+                }.resume()
+            } else {
                 completion(nil, nil, "Error")
-                return
             }
-
-            let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Images", isDirectory: true)
-            try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
-
-            let fileName = "AI_Generated_\(Int(Date().timeIntervalSince1970))_\(seed).jpg"
-            let fileURL = outputDir.appendingPathComponent(fileName)
-            try? data.write(to: fileURL)
-
-            completion(image, fileURL, "AI拡散モデル")
         }.resume()
     }
 

@@ -28,8 +28,8 @@ public struct VirtualLinuxMachineStatus: Codable {
 
 public struct ColabGPUBridgeInfo: Codable {
     public var notebookUrl: String = "https://colab.research.google.com/drive/1PTu-mN8FN1iCx4u2LbPi1x9ycG5fnnf9?usp=sharing"
-    public var endpoint: String = "https://luis-oakland-commented-absolute.trycloudflare.com"
-    public var isOnline: Bool = true
+    public var endpoint: String = ""
+    public var isOnline: Bool = false
     public var gpuName: String = "NVIDIA L4 (24GB VRAM)"
     public var capabilities: [String] = ["image", "video", "bgm", "se"]
 }
@@ -157,14 +157,8 @@ public final class CloudVirtualLinuxService: ObservableObject {
                     }
                     completion(true, "Colab GPUオンライン (\(self.colabBridge.gpuName))")
                 } else {
-                    // Try Cloudflare tunnel fallback check
-                    if cleanEndpoint.contains("trycloudflare.com") {
-                        self.colabBridge.isOnline = true
-                        completion(true, "Cloudflareトンネル応答受信 (\(self.colabBridge.gpuName))")
-                    } else {
-                        self.colabBridge.isOnline = false
-                        completion(false, error?.localizedDescription ?? "サーバー応答なし (Colabのすべてのセルを実行してください)")
-                    }
+                    self.colabBridge.isOnline = false
+                    completion(false, error?.localizedDescription ?? "サーバー応答なし (Colabのすべてのセルを実行してURLを入力してください)")
                 }
             }
         }.resume()
