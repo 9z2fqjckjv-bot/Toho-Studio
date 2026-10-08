@@ -1,0 +1,108 @@
+@charset "UTF-8";
+/*mobile.css */
+
+#hdr-mobile {
+	display:none; /*通常時は非表示にしておきます*/
+}
+
+/*Media-queries_____________________________________*/
+@media screen and (max-height: 640px) {
+}
+
+@media screen and (max-width: 640px) {
+#hdr-pc {
+	display:none; /*通常時は非表示にしておきます*/
+}
+body {
+	padding: 0px;
+}
+#hdr-mobile {
+	padding: 0px;
+	display:block;
+	width:100%;
+/*	background-color: rgba(255, 0, 0, 1.0);
+	color:rgba(255,255,255,1.0);*/
+	border-bottom-color: #CCC;
+	border-bottom-style: solid;
+	border-bottom-width: 2px;
+}
+#logo-mobile {
+	padding-top: 10px;
+}
+
+/* Toggle(Menu Button) */
+#navToggle {
+	display:block;
+	position:absolute;/*to body*/
+	left:13px;
+	top:13px;
+	width:30px;
+	height:25px;
+	cursor:pointer}
+#navToggle div {position:relative}
+#navToggle span {
+	display:block;
+	position:absolute;/*to div*/
+	width:100%;
+	border-bottom:solid 3px #999;
+	-webkit-transition: .35s ease-in-out;
+	-moz-transition: .35s ease-in-out;
+	transition: .35s ease-in-out}
+#navToggle span:nth-child(1) {top:0}
+#navToggle span:nth-child(2) {top:11px}
+#navToggle span:nth-child(3) {top:22px}
+
+#btn-menu {
+	display: block;
+	position: absolute;
+	left: 50px;
+	top: 22px;
+	font-size:75%;
+}
+#hdr-mobile nav {
+/*	display: block;*/
+	position:absolute;
+	left:0;
+    top:-342px; /*通常時はビュー外*/
+	/* background:rgba(222,222,222,.9); */
+	 background:rgba(222,222,222,0.9); 
+    width:50%;
+	padding:0 10px;
+	-webkit-transition:.5s ease-in-out;
+	-moz-transition:.5s ease-in-out;
+	-o-transition:.5s ease-in-out;
+	transition:.5s ease-in-out;
+	text-align:left;
+}
+#hdr-mobile nav ul {margin:0}
+#hdr-mobile nav ul li {display:block;margin:0;border-bottom:dotted 1px #888; line-height:3}
+#hdr-mobile nav ul li a {display:block;text-decoration: none}
+#hdr-mobile nav ul li::after {content:''}
+#hdr-mobile nav ul li:last-child {border-bottom:none}
+#hdr-mobile nav ul li a {color:inherit}
+/* Toggle(Button) */
+/*#navToggle {display: block}*/
+/* Click Toggle(Button) */
+.openNav #navToggle span:nth-child(1) {
+	top: 11px;
+	-webkit-transform:rotate(-45deg);
+	-moz-transform:rotate(-45deg);
+	transform:rotate(-45deg)}
+.openNav #navToggle span:nth-child(2),
+.openNav #navToggle span:nth-child(3) {
+	top: 11px;
+	-webkit-transform:rotate(45deg);
+	-moz-transform:rotate(45deg);
+	transform:rotate(45deg)}
+/*header menu*/
+.openNav nav {
+	-moz-transform: translateY(393px);
+	-webkit-transform: translateY(393px);
+	transform: translateY(393px)}
+
+#main {
+	padding-left: 10px;
+	padding-right: 10px;
+}
+
+}

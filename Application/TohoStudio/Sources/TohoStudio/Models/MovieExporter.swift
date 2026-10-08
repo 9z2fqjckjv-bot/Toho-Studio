@@ -249,7 +249,7 @@ public enum MovieExporter {
 
         let resolvedSlideImagePath: String? = {
             if let p = scene.slideImagePath, fm.fileExists(atPath: p) { return p }
-            return nil
+            return resolveSlideImageFallback(sceneIndex: index + 1)
         }()
 
         let resolvedBgPath: String? = {
@@ -438,15 +438,42 @@ public enum MovieExporter {
         return String(s.suffix(maxLen))
     }
 
+    private static func resolveSlideImageFallback(sceneIndex: Int) -> String? {
+        let fm = FileManager.default
+        let slidesCacheBase = "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/keynote_slides"
+        guard fm.fileExists(atPath: slidesCacheBase) else { return nil }
+
+        let idx3 = String(format: "%03d", sceneIndex)
+        let idxPatterns = [".\(idx3).jpeg", ".\(idx3).jpg", ".\(sceneIndex).jpeg", ".\(sceneIndex).jpg", "_\(idx3).jpeg"]
+
+        if let enumerator = fm.enumerator(atPath: slidesCacheBase) {
+            for case let file as String in enumerator {
+                for pattern in idxPatterns {
+                    if file.contains(pattern) {
+                        let fullPath = (slidesCacheBase as NSString).appendingPathComponent(file)
+                        if fm.fileExists(atPath: fullPath) {
+                            return fullPath
+                        }
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
     private static func resolveImageFallback(name: String, subfolder: String) -> String? {
         guard !name.isEmpty else { return nil }
         let cleanName = name.replacingOccurrences(of: ".png", with: "")
             .replacingOccurrences(of: ".jpg", with: "")
             .replacingOccurrences(of: ".jpeg", with: "")
         let searchDirs = [
-            "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/\(subfolder)",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/\(subfolder)",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用",
             "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/keynote_extracted",
-            "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/keynote_slides"
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/keynote_slides",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/character_parts",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/\(subfolder)",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用"
         ]
         let fm = FileManager.default
         for dir in searchDirs where fm.fileExists(atPath: dir) {

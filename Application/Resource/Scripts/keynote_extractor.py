@@ -29,7 +29,11 @@ REPO_ROOT = "/Volumes/ZSSD/GitHub/repository/TohoStudio"
 CACHE_ROOT = os.path.join(REPO_ROOT, ".cache/keynote_extracted")
 CACHE_SLIDES_ROOT = os.path.join(REPO_ROOT, ".cache/keynote_slides")
 CACHE_ANIMATIONS_ROOT = os.path.join(REPO_ROOT, ".cache/keynote_animations")
-VIDEO_DIR = os.path.join(REPO_ROOT, "動画用")
+VIDEO_DIR = os.path.join(REPO_ROOT, "Documents/動画用") if os.path.exists(os.path.join(REPO_ROOT, "Documents/動画用")) else os.path.join(REPO_ROOT, "動画用")
+VIDEO_DIRS = [
+    os.path.join(REPO_ROOT, "Documents/動画用"),
+    os.path.join(REPO_ROOT, "動画用")
+]
 
 CHAR_MAP = {
     "霊夢": "博麗霊夢",
@@ -132,11 +136,11 @@ def get_keynote_app_name():
 def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s)]
 
-def export_slide_images_if_needed(filepath):
+def export_slide_images_if_needed(filepath, expected_count=0):
     """
     Keynoteファイルからスライド画面そのもの(高解像度1920x1080 JPEG)を一括エクスポートし、
     スライド順の画像ファイルパスのリストを返す。
-    すでにキャッシュが存在し、mtimeが一致していれば瞬時にキャッシュを再利用する。
+    すでにキャッシュが存在し、枚数がexpected_countを満たしていればキャッシュを再利用する。
     """
     if not filepath or not os.path.exists(filepath):
         return []
@@ -151,7 +155,18 @@ def export_slide_images_if_needed(filepath):
         hash_str = hashlib.md5(f"{filepath}:{mtime}:{size}".encode("utf-8")).hexdigest()[:10]
         cache_dir = os.path.join(CACHE_SLIDES_ROOT, f"{safe_slug}_{hash_str}")
 
-        # 既存キャッシュディレクトリの探索（NFC/NFD揺れ対策）
+        # 1. 完全一致ハッシュディレクトリの検証
+        if os.path.isdir(cache_dir):
+            existing = sorted(
+                glob.glob(os.path.join(cache_dir, "*.jpeg")) + glob.glob(os.path.join(cache_dir, "*.jpg")),
+                key=natural_sort_key
+            )
+            if existing and (expected_count <= 0 or len(existing) >= expected_count):
+                return existing
+
+        # 2. 未一致キャッシュディレクトリの探索（エクスポート失敗時のフォールバック用候補）
+        best_candidate_dir = None
+        best_count = 0
         for candidate in os.listdir(CACHE_SLIDES_ROOT):
             cand_norm = unicodedata.normalize("NFC", candidate)
             if cand_norm.startswith(f"{safe_slug}_"):
@@ -160,10 +175,15 @@ def export_slide_images_if_needed(filepath):
                     glob.glob(os.path.join(cand_dir, "*.jpeg")) + glob.glob(os.path.join(cand_dir, "*.jpg")),
                     key=natural_sort_key
                 )
-                if existing:
-                    return existing
+                if len(existing) > best_count:
+                    best_count = len(existing)
+                    best_candidate_dir = cand_dir
 
         os.makedirs(cache_dir, exist_ok=True)
+
+        # Keynoteアプリケーションが起動していない場合(-600エラー対策)、open コマンドで確実に起動
+        subprocess.run(["open", "-a", "/Applications/Keynote Creator Studio.app"], capture_output=True)
+        time.sleep(0.8)
 
         script = f'''
 tell application id "com.apple.Keynote"
@@ -177,13 +197,28 @@ tell application id "com.apple.Keynote"
 end tell
 '''
         res = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=90)
-        if res.returncode == 0:
+        
+        # エクスポート完了を少し待機（非同期ファイルフラッシュ対策）
+        for _ in range(10):
             exported_images = sorted(
                 glob.glob(os.path.join(cache_dir, "*.jpeg")) + glob.glob(os.path.join(cache_dir, "*.jpg")),
                 key=natural_sort_key
             )
-            if exported_images:
+            if exported_images and (expected_count <= 0 or len(exported_images) >= expected_count):
                 return exported_images
+            time.sleep(0.5)
+
+        if exported_images:
+            return exported_images
+
+        # エクスポートが空だった場合、best_candidate_dirがあればフォールバック
+        if best_candidate_dir:
+            fallback_images = sorted(
+                glob.glob(os.path.join(best_candidate_dir, "*.jpeg")) + glob.glob(os.path.join(best_candidate_dir, "*.jpg")),
+                key=natural_sort_key
+            )
+            if fallback_images:
+                return fallback_images
     except Exception:
         pass
 
@@ -341,7 +376,8 @@ def build_asset_index():
 
     index = {}
     info_map = {}
-    for base_dir in [CACHE_ROOT, VIDEO_DIR]:
+    scan_dirs = [CACHE_ROOT] + VIDEO_DIRS
+    for base_dir in scan_dirs:
         if os.path.exists(base_dir):
             for root, _, files in os.walk(base_dir):
                 for f in files:
@@ -2169,13 +2205,22 @@ def extract_keynote_slides(filepath):
             }
 
     # スライド画面そのものの高解像度レンダリング画像(1920x1080 JPEG)を一括エクスポート＆キャッシュからマッピング
-    slide_images = export_slide_images_if_needed(filepath)
+    slide_count = len(res["slides"]) if res and "slides" in res else 0
+    slide_images = export_slide_images_if_needed(filepath, expected_count=slide_count)
     if res and "slides" in res:
         for idx, slide in enumerate(res["slides"]):
+            s_idx = slide.get("slideIndex", idx + 1)
             if idx < len(slide_images):
                 slide["slideImagePath"] = slide_images[idx]
             else:
                 slide["slideImagePath"] = None
+
+            # スライド番号（例: .068.jpeg または _068.jpeg）による確実なマッチングフォールバック
+            if not slide.get("slideImagePath") or not os.path.exists(slide["slideImagePath"]):
+                for cand in slide_images:
+                    if f".{s_idx:03d}." in cand or f".{s_idx}." in cand or f"_{s_idx:03d}." in cand:
+                        slide["slideImagePath"] = cand
+                        break
         if slide_images:
             res["exportedSlideImagesCount"] = len(slide_images)
 

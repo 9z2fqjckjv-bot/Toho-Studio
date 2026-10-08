@@ -895,6 +895,9 @@ public struct MovieMakerView: View {
         let sPath = scene.slideImagePath ?? matchedSlide?.slideImagePath
         if let sp = sPath, fm.fileExists(atPath: sp) {
             slideImg = NSImage(contentsOfFile: sp)
+        } else {
+            // スライド画像フォールバック探索: .cache/keynote_slides からプロジェクト名とスライド番号で自動探索
+            slideImg = resolveSlideFallbackImage(slideIndex: slideIndex)
         }
 
         // 3. 背景画像の解決
@@ -905,9 +908,41 @@ public struct MovieMakerView: View {
         // 4. キャラクター画像の解決
         let charPath = scene.characterImagePath ?? matchedSlide?.characterImagePath
         let charName = !scene.characterName.isEmpty ? scene.characterName : matchedSlide?.characterName
-        let charImg = resolveImage(path: charPath, name: charName, subfolder: "立ち絵")
+        let charImg = resolveImage(path: charPath, name: charName, subfolder: "キャラクター")
 
         return (videoPath, slideImg, bgImg, charImg)
+    }
+
+    private func resolveSlideFallbackImage(slideIndex: Int) -> NSImage? {
+        let fm = FileManager.default
+        let slidesCacheBase = "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/keynote_slides"
+        guard fm.fileExists(atPath: slidesCacheBase) else { return nil }
+
+        let cleanProject = appState.currentProjectName
+            .replacingOccurrences(of: ".key", with: "")
+            .replacingOccurrences(of: ".tspm", with: "")
+            .replacingOccurrences(of: ".tssm", with: "")
+            .replacingOccurrences(of: ".tsvm", with: "")
+
+        let idx3 = String(format: "%03d", slideIndex)
+        let idxPatterns = [".\(idx3).jpeg", ".\(idx3).jpg", ".\(slideIndex).jpeg", ".\(slideIndex).jpg", "_\(idx3).jpeg"]
+
+        if let enumerator = fm.enumerator(atPath: slidesCacheBase) {
+            for case let file as String in enumerator {
+                if !cleanProject.isEmpty && !file.contains(cleanProject) {
+                    continue
+                }
+                for pattern in idxPatterns {
+                    if file.contains(pattern) {
+                        let fullPath = (slidesCacheBase as NSString).appendingPathComponent(file)
+                        if let img = NSImage(contentsOfFile: fullPath) {
+                            return img
+                        }
+                    }
+                }
+            }
+        }
+        return nil
     }
 
     private func resolveImage(path: String?, name: String?, subfolder: String?) -> NSImage? {
@@ -924,13 +959,15 @@ public struct MovieMakerView: View {
             .replacingOccurrences(of: ".jpeg", with: "")
 
         let cacheBases = [
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用",
             "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/keynote_extracted",
             "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/keynote_slides",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/character_parts",
             "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用"
         ]
 
         for base in cacheBases {
-            let searchDir = (subfolder != nil && base.hasSuffix("動画用")) ? (base as NSString).appendingPathComponent(subfolder!) : base
+            let searchDir = (subfolder != nil && base.contains("動画用")) ? (base as NSString).appendingPathComponent(subfolder!) : base
             guard fm.fileExists(atPath: searchDir) else { continue }
             if let enumerator = fm.enumerator(atPath: searchDir) {
                 for case let file as String in enumerator {

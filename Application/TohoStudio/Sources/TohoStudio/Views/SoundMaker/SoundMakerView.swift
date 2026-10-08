@@ -3636,14 +3636,19 @@ public struct SoundMakerView: View {
             }
         }
 
-        let repoBase = "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用"
-        let searchFolder = subfolder != nil ? (repoBase as NSString).appendingPathComponent(subfolder!) : repoBase
-        if fm.fileExists(atPath: searchFolder), let enumerator = fm.enumerator(atPath: searchFolder) {
-            for case let file as String in enumerator {
-                if file.contains(targetName) || file.contains(cleanName) {
-                    let fullPath = (searchFolder as NSString).appendingPathComponent(file)
-                    if let img = NSImage(contentsOfFile: fullPath) {
-                        return img
+        let repoBases = [
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用"
+        ]
+        for repoBase in repoBases {
+            let searchFolder = subfolder != nil ? (repoBase as NSString).appendingPathComponent(subfolder!) : repoBase
+            if fm.fileExists(atPath: searchFolder), let enumerator = fm.enumerator(atPath: searchFolder) {
+                for case let file as String in enumerator {
+                    if file.contains(targetName) || file.contains(cleanName) {
+                        let fullPath = (searchFolder as NSString).appendingPathComponent(file)
+                        if let img = NSImage(contentsOfFile: fullPath) {
+                            return img
+                        }
                     }
                 }
             }

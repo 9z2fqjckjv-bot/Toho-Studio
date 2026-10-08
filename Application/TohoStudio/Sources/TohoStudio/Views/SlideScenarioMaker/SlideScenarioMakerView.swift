@@ -48,11 +48,15 @@ public struct SlideScenarioMakerView: View {
                         panel.allowsMultipleSelection = false
                         panel.canChooseFiles = true
                         panel.allowedContentTypes = [
+                            UTType(filenameExtension: "tspm") ?? .data,
                             UTType(filenameExtension: "key") ?? .data,
+                            UTType(filenameExtension: "json") ?? .data,
                             .presentation,
                             .plainText
                         ]
-                        panel.message = "スライドまたは台本ファイルを選択してください"
+                        panel.allowsOtherFileTypes = true
+                        panel.directoryURL = URL(fileURLWithPath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Slide&ScenarioMarker")
+                        panel.message = "スライド編集ファイル（.tspm）またはKeynoteファイルを選択してください"
                         if panel.runModal() == .OK, let url = panel.url {
                             selectedFilePath = url.path
                             recognitionService.loadAndRecognizeSlides(
@@ -206,21 +210,12 @@ public struct SlideScenarioMakerView: View {
                 .controlSize(.small)
 
                 Button(action: {
-                    let newIndex = appState.slides.count + 1
-                    let newSlide = SlideItem(
-                        slideIndex: newIndex,
-                        title: "シーン \(newIndex): 博麗霊夢",
-                        telop: "霊夢「新しいシーンの台本セリフを入力してください」",
-                        presenterNote: "演出ノート: キャラクター登場0.5秒後、BGM再生",
-                        backgroundName: "nc73538_【背景素材】博麗神社.jpg",
-                        characterName: "博麗霊夢"
-                    )
-                    appState.slides.append(newSlide)
-                    selectedSlideIdx = appState.slides.count - 1
+                    addNewSlide()
                 }) {
                     Image(systemName: "plus")
                 }
                 .buttonStyle(.plain)
+                .help("新しいスライドを追加")
             }
             .padding(.horizontal, 10)
             .padding(.top, 8)
@@ -298,6 +293,16 @@ public struct SlideScenarioMakerView: View {
                             Text("⏱️\(String(format: "%.1f", slide.duration))s")
                                 .font(.system(size: 8))
                                 .foregroundColor(.secondary)
+
+                            Button(action: {
+                                deleteSlide(at: idx)
+                            }) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 8))
+                                    .foregroundColor(.red.opacity(0.7))
+                            }
+                            .buttonStyle(.plain)
+                            .help("スライドを削除")
                         }
 
                         Text(slide.title)
@@ -520,11 +525,41 @@ public struct SlideScenarioMakerView: View {
                                let slidePath = slide.slideImagePath,
                                let slideOriginalImg = resolveImage(path: slidePath, name: nil, subfolder: nil) {
                                 // 🌟 スライド画面そのものの完全レンダリング画像 (Keynote Native) 🌟
-                                Image(nsImage: slideOriginalImg)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(width: canvasW, height: canvasH)
-                                    .clipped()
+                                ZStack {
+                                    Image(nsImage: slideOriginalImg)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(width: canvasW, height: canvasH)
+                                        .clipped()
+
+                                    // 編集された最新テロップ・台本セリフの画面オーバーレイ（編集内容をキャンバス上にも即座に反映）
+                                    if !slide.telop.isEmpty && slide.slideType != "sectionHeader" {
+                                        VStack {
+                                            Spacer()
+                                            HStack(alignment: .center, spacing: 6) {
+                                                if !slide.characterName.isEmpty && slide.characterName != "ナレーション" {
+                                                    Text("【\(slide.characterName)】")
+                                                        .font(.system(size: max(canvasH * 0.034, 11), weight: .heavy))
+                                                        .foregroundColor(.yellow)
+                                                }
+                                                Text(slide.displayTelop.isEmpty ? slide.telop : slide.displayTelop)
+                                                    .font(.system(size: max(canvasH * 0.040, 12), weight: .medium))
+                                                    .foregroundColor(.white)
+                                                    .lineLimit(2)
+                                                    .multilineTextAlignment(.leading)
+                                                Spacer()
+                                            }
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 8)
+                                            .background(Color.black.opacity(0.85))
+                                            .cornerRadius(6)
+                                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.2), lineWidth: 0.5))
+                                            .padding(.horizontal, 16)
+                                            .padding(.bottom, 12)
+                                        }
+                                        .frame(width: canvasW, height: canvasH)
+                                    }
+                                }
                             } else {
                                 // --- 要素レイヤー分解表示 (編集プレビュー / フォールバック) ---
                                 // A. Slide Background Image Layer
@@ -938,14 +973,19 @@ public struct SlideScenarioMakerView: View {
             }
         }
 
-        let repoBase = "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用"
-        let searchFolder = subfolder != nil ? (repoBase as NSString).appendingPathComponent(subfolder!) : repoBase
-        if fm.fileExists(atPath: searchFolder), let enumerator = fm.enumerator(atPath: searchFolder) {
-            for case let file as String in enumerator {
-                if file.contains(targetName) || file.contains(cleanName) {
-                    let fullPath = (searchFolder as NSString).appendingPathComponent(file)
-                    if let img = NSImage(contentsOfFile: fullPath) {
-                        return img
+        let repoBases = [
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用"
+        ]
+        for repoBase in repoBases {
+            let searchFolder = subfolder != nil ? (repoBase as NSString).appendingPathComponent(subfolder!) : repoBase
+            if fm.fileExists(atPath: searchFolder), let enumerator = fm.enumerator(atPath: searchFolder) {
+                for case let file as String in enumerator {
+                    if file.contains(targetName) || file.contains(cleanName) {
+                        let fullPath = (searchFolder as NSString).appendingPathComponent(file)
+                        if let img = NSImage(contentsOfFile: fullPath) {
+                            return img
+                        }
                     }
                 }
             }
@@ -990,14 +1030,20 @@ public struct SlideScenarioMakerView: View {
                     Text("シーンタイトル:").font(.caption).foregroundColor(.secondary)
                     TextField("タイトル", text: Binding(
                         get: { slide.title },
-                        set: { appState.slides[selectedSlideIdx].title = $0 }
+                        set: {
+                            appState.slides[selectedSlideIdx].title = $0
+                            handleSlideModified(at: selectedSlideIdx)
+                        }
                     ))
                     .textFieldStyle(.roundedBorder)
 
                     Text("テロップ / セリフ入力:").font(.caption).foregroundColor(.secondary)
                     TextEditor(text: Binding(
                         get: { slide.displayTelop.isEmpty ? slide.telop : slide.displayTelop },
-                        set: { appState.slides[selectedSlideIdx].telop = SlideItem.cleanDialogueText(from: $0) }
+                        set: {
+                            appState.slides[selectedSlideIdx].telop = SlideItem.cleanDialogueText(from: $0)
+                            handleSlideModified(at: selectedSlideIdx)
+                        }
                     ))
                     .frame(height: 80)
                     .border(Color.secondary.opacity(0.2))
@@ -1025,6 +1071,7 @@ public struct SlideScenarioMakerView: View {
                         set: {
                             // UIから入力・編集された際も、カッコ書き話者タグおよびセリフ後の()書き表記（アニメーション）を除いたクリーンなテキストとして保持
                             appState.slides[selectedSlideIdx].presenterNote = SlideItem.cleanDialogueText(from: $0)
+                            handleSlideModified(at: selectedSlideIdx)
                         }
                     ))
                     .frame(height: 80)
@@ -1034,7 +1081,10 @@ public struct SlideScenarioMakerView: View {
                         Text("表示時間(秒):").font(.caption).foregroundColor(.secondary)
                         TextField("秒数", value: Binding(
                             get: { slide.duration },
-                            set: { appState.slides[selectedSlideIdx].duration = $0 }
+                            set: {
+                                appState.slides[selectedSlideIdx].duration = $0
+                                handleSlideModified(at: selectedSlideIdx)
+                            }
                         ), formatter: NumberFormatter())
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
@@ -1068,6 +1118,7 @@ public struct SlideScenarioMakerView: View {
                                 set: {
                                     appState.slides[selectedSlideIdx].transitionEffect = $0
                                     appState.slides[selectedSlideIdx].transitionTag = $0
+                                    handleSlideModified(at: selectedSlideIdx)
                                 }
                             ))
                             .textFieldStyle(.roundedBorder)
@@ -1077,7 +1128,10 @@ public struct SlideScenarioMakerView: View {
                             Text("開始:").font(.caption2).foregroundColor(.secondary).frame(width: 40, alignment: .leading)
                             Picker("", selection: Binding(
                                 get: { slide.transitionTrigger },
-                                set: { appState.slides[selectedSlideIdx].transitionTrigger = $0 }
+                                set: {
+                                    appState.slides[selectedSlideIdx].transitionTrigger = $0
+                                    handleSlideModified(at: selectedSlideIdx)
+                                }
                             )) {
                                 Text("クリック時").tag("クリック時")
                                 Text("自動").tag("自動")
@@ -1090,7 +1144,10 @@ public struct SlideScenarioMakerView: View {
                                 Text("時間:").font(.caption2).foregroundColor(.secondary).frame(width: 40, alignment: .leading)
                                 TextField("秒数", value: Binding(
                                     get: { slide.transitionDuration },
-                                    set: { appState.slides[selectedSlideIdx].transitionDuration = $0 }
+                                    set: {
+                                        appState.slides[selectedSlideIdx].transitionDuration = $0
+                                        handleSlideModified(at: selectedSlideIdx)
+                                    }
                                 ), formatter: NumberFormatter())
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 50)
@@ -1101,7 +1158,10 @@ public struct SlideScenarioMakerView: View {
                                 Text("遅延:").font(.caption2).foregroundColor(.secondary)
                                 TextField("秒数", value: Binding(
                                     get: { slide.transitionDelay },
-                                    set: { appState.slides[selectedSlideIdx].transitionDelay = $0 }
+                                    set: {
+                                        appState.slides[selectedSlideIdx].transitionDelay = $0
+                                        handleSlideModified(at: selectedSlideIdx)
+                                    }
                                 ), formatter: NumberFormatter())
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 50)
@@ -1309,14 +1369,100 @@ public struct SlideScenarioMakerView: View {
 
     private func selectFileViaOpenPanel() {
         let openPanel = NSOpenPanel()
-        openPanel.allowedContentTypes = []
+        openPanel.allowedContentTypes = [
+            UTType(filenameExtension: "tspm") ?? .data,
+            UTType(filenameExtension: "key") ?? .data,
+            UTType(filenameExtension: "json") ?? .data,
+            .presentation,
+            .plainText
+        ]
         openPanel.allowsOtherFileTypes = true
         openPanel.canChooseFiles = true
         openPanel.canChooseDirectories = false
-        openPanel.directoryURL = URL(fileURLWithPath: "/Volumes/ZSSD/GitHub/repository/TohoStudio")
+        openPanel.directoryURL = URL(fileURLWithPath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Slide&ScenarioMarker")
 
         if openPanel.runModal() == .OK, let url = openPanel.url {
             selectedFilePath = url.path
+        }
+    }
+
+    private func handleSlideModified(at index: Int) {
+        guard index >= 0 && index < appState.slides.count else { return }
+        let slide = appState.slides[index]
+
+        // ムービーメーカーのシーンとも自動同期
+        if index < appState.movieScenes.count {
+            appState.movieScenes[index].slideTitle = slide.slideType == "title" ? "タイトル" : (slide.slideType == "sectionHeader" ? "中扉" : "第\(slide.slideIndex)スライド")
+            appState.movieScenes[index].telop = SlideItem.cleanDialogueText(from: slide.telop)
+            appState.movieScenes[index].duration = max(slide.duration, 2.0)
+            appState.movieScenes[index].backgroundName = slide.backgroundName
+            appState.movieScenes[index].characterName = slide.characterName
+            appState.movieScenes[index].transitionName = slide.transitionEffect
+        }
+
+        appState.totalDuration = appState.movieScenes.reduce(0.0) { $0 + $1.duration }
+        appState.saveUndoSnapshot()
+
+        if autoSaveProject {
+            let prjName = appState.currentProjectName.isEmpty ? "SlideProject" : appState.currentProjectName
+            recognitionService.autoSaveProject(fileName: prjName)
+        }
+    }
+
+    private func addNewSlide() {
+        let newIndex = appState.slides.count + 1
+        let newSlide = SlideItem(
+            slideIndex: newIndex,
+            title: "シーン \(newIndex): 博麗霊夢",
+            telop: "霊夢「新しいシーンの台本セリフを入力してください」",
+            presenterNote: "演出ノート: キャラクター登場0.5秒後、BGM再生",
+            backgroundName: "nc73538_【背景素材】博麗神社.jpg",
+            characterName: "博麗霊夢"
+        )
+        appState.slides.append(newSlide)
+        let newScene = MovieScene(
+            title: newSlide.title,
+            duration: max(newSlide.duration, 2.0),
+            slideTitle: "第\(newIndex)スライド",
+            backgroundName: newSlide.backgroundName,
+            characterName: newSlide.characterName,
+            telop: SlideItem.cleanDialogueText(from: newSlide.telop),
+            transitionName: newSlide.transitionEffect
+        )
+        appState.movieScenes.append(newScene)
+        appState.totalDuration = appState.movieScenes.reduce(0.0) { $0 + $1.duration }
+        selectedSlideIdx = appState.slides.count - 1
+        appState.saveUndoSnapshot()
+
+        if autoSaveProject {
+            let prjName = appState.currentProjectName.isEmpty ? "SlideProject" : appState.currentProjectName
+            recognitionService.autoSaveProject(fileName: prjName)
+        }
+    }
+
+    private func deleteSlide(at index: Int) {
+        guard index >= 0 && index < appState.slides.count else { return }
+        appState.slides.remove(at: index)
+        if index < appState.movieScenes.count {
+            appState.movieScenes.remove(at: index)
+        }
+        for i in 0..<appState.slides.count {
+            appState.slides[i].slideIndex = i + 1
+        }
+        for i in 0..<appState.movieScenes.count {
+            if appState.movieScenes[i].slideTitle.hasPrefix("第") && appState.movieScenes[i].slideTitle.hasSuffix("スライド") {
+                appState.movieScenes[i].slideTitle = "第\(i + 1)スライド"
+            }
+        }
+        appState.totalDuration = appState.movieScenes.reduce(0.0) { $0 + $1.duration }
+        if selectedSlideIdx >= appState.slides.count {
+            selectedSlideIdx = max(0, appState.slides.count - 1)
+        }
+        appState.saveUndoSnapshot()
+
+        if autoSaveProject {
+            let prjName = appState.currentProjectName.isEmpty ? "SlideProject" : appState.currentProjectName
+            recognitionService.autoSaveProject(fileName: prjName)
         }
     }
 }

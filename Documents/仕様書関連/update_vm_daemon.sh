@@ -114,21 +114,22 @@ def handle_chat_completion(req: PromptRequest):
     cfg = load_colab_config()
     colab_url = cfg.get("colab_url", "").rstrip("/")
     
-    # 意図判定（Intent Detection）
-    is_video = any(k in prompt_text for k in ["動画", "アニメ", "動かして", "ループ動画", "video", "movie", "animation"])
-    is_image = any(k in prompt_text for k in ["画像", "イラスト", "絵", "描いて", "立ち絵", "picture", "image", "draw"])
-    is_bgm = any(k in prompt_text for k in ["BGM", "音楽", "曲", "作曲", "テーマ曲", "bgm", "music", "song"])
-    is_se = any(k in prompt_text for k in ["効果音", "SE", "音鳴らして", "爆発音", "レーザー音", "発動音", "sound effect", "sfx"])
-    
+    # 意図判定（Intent Detection: プロンプト翻訳リクエスト時は除外）
     media_type = None
-    if is_video:
-        media_type = "video"
-    elif is_image:
-        media_type = "image"
-    elif is_se:
-        media_type = "se"
-    elif is_bgm:
-        media_type = "bgm"
+    if req.user_id != "tohostudio-prompt-translator":
+        is_video = any(k in prompt_text for k in ["動画", "アニメ", "動かして", "ループ動画", "video", "movie", "animation"])
+        is_image = any(k in prompt_text for k in ["画像", "イラスト", "絵", "描いて", "立ち絵", "picture", "image", "draw"])
+        is_bgm = any(k in prompt_text for k in ["BGM", "音楽", "曲", "作曲", "テーマ曲", "bgm", "music", "song"])
+        is_se = any(k in prompt_text for k in ["効果音", "SE", "音鳴らして", "爆発音", "レーザー音", "発動音", "sound effect", "sfx"])
+
+        if is_video:
+            media_type = "video"
+        elif is_image:
+            media_type = "image"
+        elif is_se:
+            media_type = "se"
+        elif is_bgm:
+            media_type = "bgm"
         
     # --- メディア生成リクエストの場合（Colab GPU へ中継） ---
     if media_type is not None:

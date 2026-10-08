@@ -272,9 +272,13 @@ public final class AppState: ObservableObject {
                 // スライド＆シナリオの生データも保持
                 self.slides = loadedSlides
                 self.currentProjectPath = path
-                self.currentProjectName = url.deletingPathExtension().lastPathComponent
+                let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: fileName)
+                self.currentProjectName = cleanBase
 
                 let count = self.applySlidesToModule(slides: loadedSlides, module: dest)
+                if dest == .movieMaker {
+                    self.resolveMovieScenesMedia()
+                }
                 let successMsg = "スライド＆シナリオ『\(fileName)』から \(loadedSlides.count) スライドを [\(dest.rawValue)] にインポートしました"
                 self.log(successMsg)
                 self.addHistory("インポート: \(fileName) → \(dest.rawValue) (\(count)件反映)")
@@ -295,6 +299,9 @@ public final class AppState: ObservableObject {
         }
 
         let count = applySlidesToModule(slides: slides, module: dest)
+        if dest == .movieMaker {
+            resolveMovieScenesMedia()
+        }
         let successMsg = "スライド＆シナリオ (\(slides.count)スライド) を [\(dest.rawValue)] にインポートしました"
         log(successMsg)
         addHistory("インポート: スライド＆シナリオ → \(dest.rawValue) (\(count)件反映)")
@@ -337,7 +344,7 @@ public final class AppState: ObservableObject {
         lastSavedSnapshot = movieScenes
 
         let ext = currentModule.projectExtension
-        let cleanName = currentProjectName.hasSuffix(".\(ext)") ? String(currentProjectName.dropLast(ext.count + 1)) : currentProjectName
+        let cleanName = SlideRecognitionService.cleanProjectBaseName(from: currentProjectName)
         let fileNameWithExt = "\(cleanName).\(ext)"
 
         // モジュールに応じたデータシリアライズと保存
@@ -346,6 +353,8 @@ public final class AppState: ObservableObject {
         case .slideScenarioMaker:
             if let data = try? JSONEncoder().encode(slides) {
                 success = StorageManager.shared.saveProjectFile(module: .slideScenarioMaker, fileName: fileNameWithExt, data: data)
+                _ = StorageManager.shared.saveProjectFile(module: .slideScenarioMaker, fileName: "\(cleanName).key.tspm", data: data)
+                _ = StorageManager.shared.saveProjectFile(module: .slideScenarioMaker, fileName: "\(cleanName)_sync.json", data: data)
             } else {
                 success = false
             }
@@ -751,9 +760,14 @@ public final class AppState: ObservableObject {
         case .soundMaker:
             log("サウンドメーカー: キャラクター音声およびBGM/SEの波形データを再生成しました")
         case .slideScenarioMaker:
-            let path = SlideRecognitionService.shared.loadedProjectName.contains("/") ? SlideRecognitionService.shared.loadedProjectName : currentProjectPath
-            SlideRecognitionService.shared.loadSlideProgram(filePath: path, replaceState: true) { _, _ in }
-            log("スライド＆シナリオメーカー: 表示中のスライド元ファイル『\(path)』を再読み込みしました")
+            let targetPath: String
+            if let latest = SlideRecognitionService.findLatestTspmPath(for: currentProjectName) {
+                targetPath = latest
+            } else {
+                targetPath = SlideRecognitionService.shared.loadedProjectName.contains("/") ? SlideRecognitionService.shared.loadedProjectName : currentProjectPath
+            }
+            SlideRecognitionService.shared.loadSlideProgram(filePath: targetPath, replaceState: true) { _, _ in }
+            log("スライド＆シナリオメーカー: 表示中のスライド元ファイル『\(targetPath)』を再読み込みしました")
         case .gameMaker:
             log("ゲームメーカー: 設定された全ゲームコマンドと分岐判定を再検証・再読み込みしました")
         case .materialStudio:
@@ -1732,12 +1746,16 @@ public final class AppState: ObservableObject {
         let generatedAudioDir = appSupport.appendingPathComponent("TohoStudio/GeneratedAudio", isDirectory: true).path
 
         let bgmDirs = [
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/音楽/BGM",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/音楽",
             "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/音楽/BGM",
             "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/素材/BGM",
             "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/音楽"
         ]
 
         let seDirs = [
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/音楽/効果音",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/音楽",
             "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/音楽/効果音",
             "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/素材/効果音",
             "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/音楽"
@@ -2181,9 +2199,19 @@ public final class AppState: ObservableObject {
     }
 
     /// ムービーシーンのスライド画像や動画、背景・立ち絵パスを現在のスライド一覧から自動補完・再解決
+    /// ムービーシーンのスライド画像や動画、背景・立ち絵パスを現在のスライド一覧およびキャッシュから自動補完・再解決
     public func resolveMovieScenesMedia() {
         guard !movieScenes.isEmpty else { return }
+        let fm = FileManager.default
         let slideMap = Dictionary(uniqueKeysWithValues: slides.map { ($0.slideIndex, $0) })
+        let slidesCacheBase = "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/keynote_slides"
+
+        let cleanProject = currentProjectName
+            .replacingOccurrences(of: ".key", with: "")
+            .replacingOccurrences(of: ".tspm", with: "")
+            .replacingOccurrences(of: ".tssm", with: "")
+            .replacingOccurrences(of: ".tsvm", with: "")
+
         for idx in 0..<movieScenes.count {
             let sceneNum = idx + 1
             if let slide = slideMap[sceneNum] {
@@ -2198,6 +2226,33 @@ public final class AppState: ObservableObject {
                 }
                 if movieScenes[idx].characterImagePath == nil || movieScenes[idx].characterImagePath?.isEmpty == true {
                     movieScenes[idx].characterImagePath = slide.characterImagePath
+                }
+            }
+
+            // スライド画像が未解決またはファイルが存在しない場合の自動キャッシュ探索
+            let currentPath = movieScenes[idx].slideImagePath
+            if currentPath == nil || currentPath?.isEmpty == true || !fm.fileExists(atPath: currentPath!) {
+                let idx3 = String(format: "%03d", sceneNum)
+                let idxPatterns = [".\(idx3).jpeg", ".\(idx3).jpg", ".\(sceneNum).jpeg", ".\(sceneNum).jpg", "_\(idx3).jpeg"]
+
+                if fm.fileExists(atPath: slidesCacheBase), let enumerator = fm.enumerator(atPath: slidesCacheBase) {
+                    for case let file as String in enumerator {
+                        if !cleanProject.isEmpty && !file.contains(cleanProject) {
+                            continue
+                        }
+                        for pattern in idxPatterns {
+                            if file.contains(pattern) {
+                                let fullPath = (slidesCacheBase as NSString).appendingPathComponent(file)
+                                if fm.fileExists(atPath: fullPath) {
+                                    movieScenes[idx].slideImagePath = fullPath
+                                    break
+                                }
+                            }
+                        }
+                        if movieScenes[idx].slideImagePath != nil && fm.fileExists(atPath: movieScenes[idx].slideImagePath!) {
+                            break
+                        }
+                    }
                 }
             }
         }

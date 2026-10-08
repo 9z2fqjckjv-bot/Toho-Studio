@@ -1,0 +1,42 @@
+@charset "UTF-8";
+/*html5doctor.com Reset Stylesheet v1.6.1 (http://html5doctor.com/html-5-reset-stylesheet/)+*/
+html,body,div,span,object,iframe,img,p,h1,h2,h3,h4,h5,h6,
+blockquote,pre,abbr,address,cite,code,del,dfn,em,ins,kbd,q,samp,
+small,strong,sub,sup,var,b,i,dl,dt,dd,ol,ul,li,fieldset,
+form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td,
+article,aside,canvas,details,figcaption,figure,footer,header,nav,section,
+time,mark,audio,video{
+    margin:0;
+	padding:0;
+	border:0;
+	outline:0;
+	font-size:100%;
+	vertical-align:baseline;
+	background:transparent}
+body{line-height:1}
+article,aside,details,figcaption,figure,footer,header,hgroup,menu,nav,section {display:block}
+nav ul li, ul li {list-style:none}
+blockquote, q {quotes:none}
+blockquote:before, blockquote:after, q:before, q:after {content:'';content:none}
+embed {outline:none; border:none}
+
+/*for Form Element on SmartPhone
+input[type="submit"] {-webkit-appearance:none;border-radius:0;vertical-align:middle; text-align:center}*/
+
+/*anchor, img*/
+a {margin:0;padding:0;font-size:100%;vertical-align:baseline;background:transparent;outline:none;
+	color: #666;
+	text-decoration:underline;
+	-webkit-transition:all 0.5s ease-out;
+	-moz-transition:all 0.5s ease-out;
+	-o-transition:all 0.5s ease-out;
+	transition:all 0.5s ease-out;
+	overflow:hidden;}
+a:hover {
+	color:#F92169;
+	text-decoration:underline}
+img{max-width:100%;height:auto}
+img, a img {border:none;}
+a img:hover {opacity:.8; filter:alpha(opacity=80)}
+/*clear*/
+.clearfix:after {content:''; display:table; clear:both}

@@ -298,7 +298,6 @@ public final class AquesTalkBridge: ObservableObject {
         if name.contains("大妖精") { return .f1 }
         if name.contains("ルーミア") { return .f1 }
         if name.contains("慧音") { return .imd1 }
-        if name.contains("永琳") { return .imd1 }
         if name.contains("燐") || name.contains("お燐") { return .f2 }
         if name.contains("幽香") { return .imd1 }
         if name.contains("小鈴") { return .f1 }
@@ -312,6 +311,7 @@ public final class AquesTalkBridge: ObservableObject {
         if name.contains("村紗") { return .f2 }
 
         // 4. Gスカブログ準拠（ゆっくりボイスメーカー・コゲの日記にないキャラ）
+        if name.contains("永琳") { return .imd1 }
         if name.contains("華扇") { return .f1 }
         if name.contains("あうん") { return .f1 }
         if name.contains("スターサファイア") { return .f2 }
@@ -405,7 +405,6 @@ public final class AquesTalkBridge: ObservableObject {
         if name.contains("大妖精") { return (.f1, 96, 138) }
         if name.contains("ルーミア") { return (.f1, 63, 165) }
         if name.contains("慧音") { return (.imd1, 95, 145) }
-        if name.contains("永琳") { return (.imd1, 97, 106) }
         if name.contains("燐") || name.contains("お燐") { return (.f2, 130, 125) }
         if name.contains("幽香") { return (.imd1, 100, 160) }
         if name.contains("小鈴") { return (.f1, 99, 130) }
@@ -419,6 +418,7 @@ public final class AquesTalkBridge: ObservableObject {
         if name.contains("村紗") { return (.f2, 100, 132) }
 
         // 4. Gスカブログ準拠（ゆっくりボイスメーカー・コゲの日記にないキャラ）
+        if name.contains("永琳") { return (.imd1, 90, 130) }
         if name.contains("華扇") { return (.f1, 100, 140) }
         if name.contains("あうん") { return (.f1, 83, 140) }
         if name.contains("スターサファイア") { return (.f2, 60, 150) }

@@ -184,11 +184,15 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
     public enum SEPresetType: String, CaseIterable, Identifiable {
         // --- 現代社会・オフィス・日常 ---
         case smartphoneNotification = "スマホ通知・チャット着信 (ポロン・クリアベル)"
+        case telephoneRing = "電話着信・コール音 (プルルルル・電子ベル音)"
+        case bellChime = "鈴・ベル・チャイム (チリンチリン・金属余韻)"
         case cameraShutter = "一眼レフ・カメラスナップ (カシャッ・メカニカル)"
         case keyboardTyping = "PCキーボード打鍵音 (カタカタ・オフィスワーク)"
         case doorKnockOpen = "ドアノック＆開扉 (コンコン・日常シーン)"
         case carHornDrive = "車のクラクション＆街頭 (ププッ・現代都市)"
         case paperRustle = "書類めくり・本のページ音 (ササッ・読書/会議)"
+        case footstepsWalk = "足音・歩行 (トコトコ・足音)"
+        case waterDrop = "水滴・水音 (ポチャン・清流)"
 
         // --- 一般ゲーム・映像演出・UI ---
         case uiConfirm = "UI決定音 (澄んだ高音ベルチャイム)"
@@ -200,6 +204,12 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         case massiveExplosion = "大爆発・ボム炸裂 (ドカーン・轟音クラッシュ)"
         case swordSlashBlade = "刀剣抜刀・鋭利な斬撃 (シャキン・金属スパーク)"
         case cyberGlitchNoise = "サイバーグリッチ・電子ノイズ (ジジッ・デジタル歪み)"
+        case gunshotFire = "銃声・発砲 (バキューン・ピストル射撃)"
+        case thunderStrike = "落雷・稲妻 (バリバリ・雷鳴轟音)"
+        case fireFlame = "炎・爆火 (ボッ・メラメラ燃焼)"
+        case glassShatter = "ガラス破壊 (パリン・破片クラッシュ)"
+        case jumpSpring = "ジャンプ・跳躍 (ピョン・バネ音)"
+        case itemGetLevelUp = "アイテム獲得・レベルアップ (チャリン・ファンファーレ)"
 
         // --- 東方Project・幻想郷 ---
         case spellCardChime = "東方・スペルカード展開 (キラーン・煌びやかチャイム)"
@@ -210,28 +220,38 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         case teleportWarp = "東方・瞬間移動・ワープ (高速フェイザー突風)"
         case grazeSound = "東方・グレイズかすり音 (クリスプ高音チャイム)"
         case teaCupSound = "東方・縁側のお茶啜り・日常音 (ほのぼの環境音)"
+        case magicShine = "東方・魔法・閃光・キラキラ (シャラララン・幻想ファンタジー)"
+
+        // --- AIプロシージャル適応合成 ---
+        case customSynthesized = "AIプロシージャル適応合成 (プロンプト特化音響)"
 
         public var id: String { rawValue }
 
         public var category: String {
             switch self {
-            case .smartphoneNotification, .cameraShutter, .keyboardTyping, .doorKnockOpen, .carHornDrive, .paperRustle:
+            case .smartphoneNotification, .telephoneRing, .bellChime, .cameraShutter, .keyboardTyping, .doorKnockOpen, .carHornDrive, .paperRustle, .footstepsWalk, .waterDrop:
                 return "現代社会・日常"
-            case .uiConfirm, .uiCancel, .quizCorrectChime, .quizWrongBuzzer, .sceneTransitionWhoosh, .heavyPunchHit, .massiveExplosion, .swordSlashBlade, .cyberGlitchNoise:
+            case .uiConfirm, .uiCancel, .quizCorrectChime, .quizWrongBuzzer, .sceneTransitionWhoosh, .heavyPunchHit, .massiveExplosion, .swordSlashBlade, .cyberGlitchNoise, .gunshotFire, .thunderStrike, .fireFlame, .glassShatter, .jumpSpring, .itemGetLevelUp:
                 return "一般ゲーム・UI演出・バトル"
-            case .spellCardChime, .masterSparkLaser, .danmakuShot, .playerPichuun, .timeStopSakuya, .teleportWarp, .grazeSound, .teaCupSound:
+            case .spellCardChime, .masterSparkLaser, .danmakuShot, .playerPichuun, .timeStopSakuya, .teleportWarp, .grazeSound, .teaCupSound, .magicShine:
                 return "東方Project・幻想郷"
+            case .customSynthesized:
+                return "AIプロシージャル合成"
             }
         }
 
         public var defaultFrequency: Double {
             switch self {
             case .smartphoneNotification: return 1046.5 // C6
+            case .telephoneRing: return 440.0
+            case .bellChime: return 1760.0
             case .cameraShutter: return 1800.0
             case .keyboardTyping: return 2400.0
             case .doorKnockOpen: return 220.0
             case .carHornDrive: return 440.0
             case .paperRustle: return 3200.0
+            case .footstepsWalk: return 120.0
+            case .waterDrop: return 750.0
 
             case .uiConfirm: return 1046.5
             case .uiCancel: return 523.25
@@ -242,6 +262,12 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             case .massiveExplosion: return 65.0
             case .swordSlashBlade: return 3500.0
             case .cyberGlitchNoise: return 1200.0
+            case .gunshotFire: return 300.0
+            case .thunderStrike: return 85.0
+            case .fireFlame: return 160.0
+            case .glassShatter: return 2800.0
+            case .jumpSpring: return 240.0
+            case .itemGetLevelUp: return 1046.5
 
             case .spellCardChime: return 1320.0
             case .masterSparkLaser: return 180.0
@@ -251,17 +277,23 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             case .teleportWarp: return 400.0
             case .grazeSound: return 2400.0
             case .teaCupSound: return 440.0
+            case .magicShine: return 1480.0
+            case .customSynthesized: return 880.0
             }
         }
 
         public var defaultDuration: Double {
             switch self {
             case .smartphoneNotification: return 0.55
+            case .telephoneRing: return 2.20
+            case .bellChime: return 1.20
             case .cameraShutter: return 0.35
             case .keyboardTyping: return 0.18
             case .doorKnockOpen: return 0.75
             case .carHornDrive: return 0.65
             case .paperRustle: return 0.45
+            case .footstepsWalk: return 0.35
+            case .waterDrop: return 0.40
 
             case .uiConfirm: return 0.35
             case .uiCancel: return 0.30
@@ -272,6 +304,12 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             case .massiveExplosion: return 2.20
             case .swordSlashBlade: return 0.60
             case .cyberGlitchNoise: return 0.50
+            case .gunshotFire: return 0.65
+            case .thunderStrike: return 2.40
+            case .fireFlame: return 1.20
+            case .glassShatter: return 0.70
+            case .jumpSpring: return 0.45
+            case .itemGetLevelUp: return 0.85
 
             case .spellCardChime: return 1.6
             case .masterSparkLaser: return 2.8
@@ -281,6 +319,8 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             case .teleportWarp: return 0.6
             case .grazeSound: return 0.25
             case .teaCupSound: return 1.0
+            case .magicShine: return 1.40
+            case .customSynthesized: return 0.80
             }
         }
     }
@@ -424,17 +464,72 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
     public func analyzeSEPrompt(_ text: String) -> InferredSEParams {
         let lower = text.lowercased()
 
-        var preset: SEPresetType = .smartphoneNotification
-        var baseFreq: Double = 1046.5
-        var duration: Double = 0.55
+        var preset: SEPresetType = .customSynthesized
+        var baseFreq: Double = 880.0
+        var duration: Double = 0.80
         var noiseMix: Double = 0.15
         var isReversed: Bool = false
 
-        if lower.contains("スマホ") || lower.contains("通知") || lower.contains("着信") || lower.contains("メッセージ") || lower.contains("チャット") || lower.contains("ポロン") {
+        if lower.contains("電話") || lower.contains("コール") || lower.contains("プルル") || lower.contains("phone") || lower.contains("tel") || lower.contains("呼出") || lower.contains("呼び出し") || lower.contains("着信音") || lower.contains("リンリン") {
+            preset = .telephoneRing
+            baseFreq = 440.0
+            duration = 2.20
+            noiseMix = 0.05
+        } else if lower.contains("鈴") || lower.contains("ベル") || lower.contains("鐘") || lower.contains("チリン") || lower.contains("チャイム") || lower.contains("bell") || lower.contains("chime") {
+            preset = .bellChime
+            baseFreq = 1760.0
+            duration = 1.20
+            noiseMix = 0.05
+        } else if lower.contains("スマホ") || lower.contains("通知") || lower.contains("着信") || lower.contains("メッセージ") || lower.contains("チャット") || lower.contains("ポロン") {
             preset = .smartphoneNotification
             baseFreq = 1046.5
             duration = 0.55
             noiseMix = 0.10
+        } else if lower.contains("魔法") || lower.contains("光") || lower.contains("キラキラ") || lower.contains("シャララ") || lower.contains("ファンタジー") || lower.contains("閃光") || lower.contains("magic") || lower.contains("sparkle") {
+            preset = .magicShine
+            baseFreq = 1480.0
+            duration = 1.40
+            noiseMix = 0.08
+        } else if lower.contains("銃") || lower.contains("発砲") || lower.contains("ピストル") || lower.contains("射撃") || lower.contains("ライフル") || lower.contains("バキューン") || lower.contains("gun") || lower.contains("shot") {
+            preset = .gunshotFire
+            baseFreq = 300.0
+            duration = 0.65
+            noiseMix = 0.45
+        } else if lower.contains("足音") || lower.contains("歩く") || lower.contains("走る") || lower.contains("歩行") || lower.contains("トコトコ") || lower.contains("カツカツ") || lower.contains("footstep") || lower.contains("walk") {
+            preset = .footstepsWalk
+            baseFreq = 120.0
+            duration = 0.35
+            noiseMix = 0.25
+        } else if lower.contains("水") || lower.contains("水滴") || lower.contains("雨") || lower.contains("ポチャン") || lower.contains("滴") || lower.contains("波") || lower.contains("water") || lower.contains("rain") || lower.contains("drop") {
+            preset = .waterDrop
+            baseFreq = 750.0
+            duration = 0.40
+            noiseMix = 0.10
+        } else if lower.contains("雷") || lower.contains("稲妻") || lower.contains("落雷") || lower.contains("電撃") || lower.contains("放電") || lower.contains("サンダー") || lower.contains("thunder") || lower.contains("lightning") {
+            preset = .thunderStrike
+            baseFreq = 85.0
+            duration = 2.40
+            noiseMix = 0.55
+        } else if lower.contains("炎") || lower.contains("火") || lower.contains("燃える") || lower.contains("火炎") || lower.contains("パチパチ") || lower.contains("fire") || lower.contains("flame") || lower.contains("burn") {
+            preset = .fireFlame
+            baseFreq = 160.0
+            duration = 1.20
+            noiseMix = 0.40
+        } else if lower.contains("ガラス") || lower.contains("割れる") || lower.contains("破片") || lower.contains("パリン") || lower.contains("クラッシュ") || lower.contains("glass") || lower.contains("shatter") {
+            preset = .glassShatter
+            baseFreq = 2800.0
+            duration = 0.70
+            noiseMix = 0.35
+        } else if lower.contains("ジャンプ") || lower.contains("跳ぶ") || lower.contains("ピョン") || lower.contains("バネ") || lower.contains("jump") || lower.contains("hop") {
+            preset = .jumpSpring
+            baseFreq = 240.0
+            duration = 0.45
+            noiseMix = 0.05
+        } else if lower.contains("コイン") || lower.contains("チャリン") || lower.contains("獲得") || lower.contains("レベルアップ") || lower.contains("アイテム") || lower.contains("成功") || lower.contains("coin") || lower.contains("item") {
+            preset = .itemGetLevelUp
+            baseFreq = 1046.5
+            duration = 0.85
+            noiseMix = 0.05
         } else if lower.contains("カメラ") || lower.contains("シャッター") || lower.contains("写真") || lower.contains("カシャ") {
             preset = .cameraShutter
             baseFreq = 1800.0
@@ -545,13 +640,38 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             baseFreq = 440.0
             duration = 1.0
             noiseMix = 0.10
+        } else {
+            // 未知・自由記述プロンプト: テキストの意味的特徴から動的にプロシージャル音響パラメータを自動合成
+            preset = .customSynthesized
+            let hashVal = abs(text.hashValue)
+            let derivedFreq = 180.0 + Double(hashVal % 1600)
+            let derivedDur = 0.35 + Double((hashVal / 17) % 120) / 100.0
+            let derivedNoise = 0.10 + Double((hashVal / 31) % 40) / 100.0
+
+            if lower.contains("高") || lower.contains("鋭") || lower.contains("細") || lower.contains("high") {
+                baseFreq = max(1200.0, derivedFreq)
+            } else if lower.contains("低") || lower.contains("重") || lower.contains("深") || lower.contains("low") || lower.contains("bass") {
+                baseFreq = min(220.0, max(55.0, derivedFreq * 0.25))
+            } else {
+                baseFreq = derivedFreq
+            }
+
+            if lower.contains("長") || lower.contains("持続") || lower.contains("余韻") || lower.contains("long") {
+                duration = max(1.5, derivedDur)
+            } else if lower.contains("短") || lower.contains("瞬") || lower.contains("short") {
+                duration = min(0.3, derivedDur)
+            } else {
+                duration = derivedDur
+            }
+
+            noiseMix = derivedNoise
         }
 
         if lower.contains("逆再生") || lower.contains("リバース") || lower.contains("反転") {
             isReversed = true
         }
 
-        let summary = "SE: \(preset.rawValue.prefix(8)) / Freq: \(Int(baseFreq))Hz / 尺: \(String(format: "%.2f", duration))s"
+        let summary = "SE: \(preset.rawValue.prefix(10)) / Freq: \(Int(baseFreq))Hz / 尺: \(String(format: "%.2f", duration))s"
         return InferredSEParams(preset: preset, baseFreq: baseFreq, duration: duration, noiseMix: noiseMix, isReversed: isReversed, summary: summary)
     }
 
@@ -731,9 +851,8 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         guard !isSEGenerating else { return }
 
         let targetPrompt = (userPrompt ?? sePrompt).trimmingCharacters(in: .whitespacesAndNewlines)
-        if targetPrompt.isEmpty {
-            sePrompt = "スマホのチャット着信音、ポロンと鳴るクリアな通知音"
-        }
+        let effectivePrompt = targetPrompt.isEmpty ? "スマホのチャット着信音、ポロンと鳴るクリアな通知音" : targetPrompt
+        self.sePrompt = effectivePrompt
 
         if !silent {
             let linuxService = CloudVirtualLinuxService.shared
@@ -745,7 +864,7 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         }
 
         // プロンプトから動的推論
-        let inferred = analyzeSEPrompt(sePrompt)
+        let inferred = analyzeSEPrompt(effectivePrompt)
         sePreset = inferred.preset
         seBaseFrequency = inferred.baseFreq
         seDurationSeconds = inferred.duration
@@ -758,7 +877,7 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         // 0. Google Colab GPU Bridge が利用可能な場合はローカルLLMで英語化して最優先実行 (AudioGen/SE)
         if useColabGPUIfAvailable && isColabBridgeAvailable {
             let linuxService = CloudVirtualLinuxService.shared
-            linuxService.translateAndOptimizePromptWithLocalLLM(prompt: sePrompt, mediaType: .soundEffect) { [weak self] englishPrompt in
+            linuxService.translateAndOptimizePromptWithLocalLLM(prompt: effectivePrompt, mediaType: .soundEffect) { [weak self] englishPrompt in
                 guard let self = self else { return }
                 self.fetchColabGPUSE(prompt: englishPrompt, duration: Int(max(1, self.seDurationSeconds))) { [weak self] fileURL, engineName in
                     guard let self = self else { return }
@@ -783,7 +902,7 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
                         }
                     } else {
                         // Colab 失敗時はローカルシンセ合成へ自動フォールバック
-                        self.executeSESynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: nil)
+                        self.executeSESynthesis(inferred: inferred, prompt: effectivePrompt, provider: provider, model: model, silent: silent, thinking: nil)
                     }
                 }
             }
@@ -791,12 +910,12 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         }
 
         if provider == .virtualLinuxVM {
-            let seDirective = "効果音(SE)音響物理設計: \(sePrompt)。基本周波数(Hz)、エンベロープ(アタック/減衰時間)、ノイズ成分比率を推論してください。"
+            let seDirective = "効果音(SE)音響物理設計: \(effectivePrompt)。基本周波数(Hz)、エンベロープ(アタック/減衰時間)、ノイズ成分比率を推論してください。"
             TohoAIService.shared.callAPIOrGenerateSmart(prompt: seDirective, provider: .virtualLinuxVM, model: model) { [weak self] responseText, thinkingLog in
-                self?.executeSESynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: thinkingLog)
+                self?.executeSESynthesis(inferred: inferred, prompt: effectivePrompt, provider: provider, model: model, silent: silent, thinking: thinkingLog)
             }
         } else {
-            self.executeSESynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: nil)
+            self.executeSESynthesis(inferred: inferred, prompt: effectivePrompt, provider: provider, model: model, silent: silent, thinking: nil)
         }
     }
 
@@ -838,7 +957,7 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
 
             let cleanName = prompt.prefix(10).replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
-            let fileName = "Colab_SE_\(cleanName)_\(Int(Date().timeIntervalSince1970)).wav"
+            let fileName = "Colab_SE_\(cleanName)_\(Int(Date().timeIntervalSince1970))_\(Int.random(in: 100...999)).wav"
             let fileURL = outputDir.appendingPathComponent(fileName)
             try? data.write(to: fileURL)
 
@@ -846,7 +965,7 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         }.resume()
     }
 
-    private func executeSESynthesis(inferred: InferredSEParams, provider: AIProviderType, model: String, silent: Bool, thinking: String?) {
+    private func executeSESynthesis(inferred: InferredSEParams, prompt: String, provider: AIProviderType, model: String, silent: Bool, thinking: String?) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
 
@@ -856,7 +975,8 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
                 baseFreq: inferred.baseFreq,
                 duration: inferred.duration,
                 noiseMix: inferred.noiseMix,
-                sampleRate: sampleRate
+                sampleRate: sampleRate,
+                prompt: prompt
             )
 
             if inferred.isReversed {
@@ -868,8 +988,8 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Audio", isDirectory: true)
             try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
 
-            let cleanName = self.sePrompt.prefix(10).replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
-            let fileName = "AI_SE_\(cleanName)_\(Int(Date().timeIntervalSince1970)).wav"
+            let cleanName = prompt.prefix(10).replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
+            let fileName = "AI_SE_\(cleanName)_\(Int(Date().timeIntervalSince1970))_\(Int.random(in: 100...999)).wav"
             let fileURL = outputDir.appendingPathComponent(fileName)
             try? wavData.write(to: fileURL)
 
@@ -879,7 +999,7 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
 
                 let providerTag = "[\(provider.rawValue)]"
                 let item = GeneratedSoundItem(
-                    name: "\(providerTag) \(self.sePrompt.prefix(16))",
+                    name: "\(providerTag) \(prompt.prefix(16))",
                     type: "SE",
                     duration: inferred.duration,
                     fileURL: fileURL,
@@ -1141,31 +1261,69 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         baseFreq: Double,
         duration: Double,
         noiseMix: Double,
-        sampleRate: Int
+        sampleRate: Int,
+        prompt: String = ""
     ) -> [Float] {
-        let total = Int(duration * Double(sampleRate))
+        // オーガニックな乱数揺らぎ（同じプロンプトの連続生成でも毎回微妙に異なる自然なテクスチャを付与）
+        let pitchJitter = Double.random(in: 0.97...1.03)
+        let effectiveFreq = baseFreq * pitchJitter
+        let durJitter = Double.random(in: 0.96...1.04)
+        let effectiveDuration = max(0.1, duration * durJitter)
+        let total = Int(effectiveDuration * Double(sampleRate))
         var out = [Float](repeating: 0, count: total)
+        let effectiveNoise = max(0.02, min(0.95, noiseMix * Double.random(in: 0.90...1.10)))
+        let randomPhase = Double.random(in: 0...(2.0 * .pi))
 
         switch preset {
         // --- 現代社会・日常 ---
         case .smartphoneNotification:
             // ポロン♪ 2音アルペジオ (E6 -> G#6 / B6)
-            let note1Len = duration * 0.45
-            let note2Start = duration * 0.25
+            let note1Len = effectiveDuration * 0.45
+            let note2Start = effectiveDuration * 0.25
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
                 var s: Double = 0.0
                 if t < note1Len {
                     let env1 = exp(-t * 12.0)
-                    s += (sin(2.0 * .pi * baseFreq * t) + sin(2.0 * .pi * baseFreq * 2.0 * t) * 0.3) * env1
+                    s += (sin(2.0 * .pi * effectiveFreq * t + randomPhase) + sin(2.0 * .pi * effectiveFreq * 2.0 * t) * 0.3) * env1
                 }
                 if t >= note2Start {
                     let t2 = t - note2Start
                     let env2 = exp(-t2 * 9.0)
-                    let f2 = baseFreq * 1.3348 // 4度上
-                    s += (sin(2.0 * .pi * f2 * t2) + sin(2.0 * .pi * f2 * 2.0 * t2) * 0.3) * env2
+                    let f2 = effectiveFreq * 1.3348 // 4度上
+                    s += (sin(2.0 * .pi * f2 * t2 + randomPhase) + sin(2.0 * .pi * f2 * 2.0 * t2) * 0.3) * env2
                 }
                 out[i] = Float(s * 0.42)
+            }
+
+        case .telephoneRing:
+            // 電話着信・コール音: 440Hz + 480Hz の電子ベル和音に 16Hz のトレモロ変調 (プルルルルル)
+            let f1 = effectiveFreq
+            let f2 = effectiveFreq * (480.0 / 440.0) // デュアルトーン
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                // 1.0秒鳴動 + 0.5秒休止のコールサイクル
+                let cycle = fmod(t, 1.5)
+                var s: Double = 0.0
+                if cycle < 1.0 {
+                    let tremolo = 0.5 + 0.5 * sin(2.0 * .pi * 16.0 * t) // 16Hzトレモロ変調
+                    let tone = sin(2.0 * .pi * f1 * t + randomPhase) + sin(2.0 * .pi * f2 * t) * 0.8
+                    s = tone * tremolo
+                }
+                out[i] = Float(s * 0.40)
+            }
+
+        case .bellChime:
+            // 鈴・ベル・チャイム: 金属的な倍音と余韻 (チリンチリン)
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let strike = fmod(t, 0.45)
+                let env = exp(-strike * 10.0)
+                let f = effectiveFreq
+                let s = sin(2.0 * .pi * f * t + randomPhase) * 0.6
+                      + sin(2.0 * .pi * (f * 2.756) * t) * 0.3
+                      + sin(2.0 * .pi * (f * 5.404) * t) * 0.15
+                out[i] = Float(s * env * 0.45)
             }
 
         case .cameraShutter:
@@ -1173,19 +1331,17 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
                 var s: Double = 0.0
-                // 前半クリック
                 if t < 0.08 {
                     let env = exp(-t * 80.0)
-                    let click = sin(2.0 * .pi * 2200.0 * t) * env
-                    let noise = Double.random(in: -1...1) * env * 0.7
+                    let click = sin(2.0 * .pi * 2200.0 * t + randomPhase) * env
+                    let noise = Double.random(in: -1...1) * env * 0.7 * effectiveNoise
                     s += (click + noise)
                 }
-                // 後半シャッター走行＆ミラーダウン
                 if t >= 0.12 && t < 0.28 {
                     let t2 = t - 0.12
                     let env = exp(-t2 * 45.0)
                     let click = sin(2.0 * .pi * 1400.0 * t2) * env
-                    let mechNoise = Double.random(in: -1...1) * env * 0.8
+                    let mechNoise = Double.random(in: -1...1) * env * 0.8 * effectiveNoise
                     s += (click + mechNoise)
                 }
                 out[i] = Float(s * 0.55)
@@ -1197,8 +1353,8 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
                 let t = Double(i) / Double(sampleRate)
                 let clickEnv = exp(-t * 120.0)
                 let thudEnv = exp(-t * 35.0)
-                let click = sin(2.0 * .pi * baseFreq * t) * clickEnv
-                let noise = Double.random(in: -1...1) * clickEnv * 0.6
+                let click = sin(2.0 * .pi * effectiveFreq * t + randomPhase) * clickEnv
+                let noise = Double.random(in: -1...1) * clickEnv * 0.6 * effectiveNoise
                 let resonance = sin(2.0 * .pi * 450.0 * t) * thudEnv * 0.4
                 out[i] = Float((click + noise + resonance) * 0.50)
             }
@@ -1208,21 +1364,18 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
                 var s: Double = 0.0
-                // ノック1
                 if t < 0.15 {
                     let env = exp(-t * 40.0)
-                    s += sin(2.0 * .pi * 180.0 * t) * env * 0.7 + Double.random(in: -1...1) * env * 0.3
+                    s += sin(2.0 * .pi * effectiveFreq * t + randomPhase) * env * 0.7 + Double.random(in: -1...1) * env * 0.3 * effectiveNoise
                 }
-                // ノック2
                 if t >= 0.20 && t < 0.35 {
                     let t2 = t - 0.20
                     let env = exp(-t2 * 40.0)
-                    s += sin(2.0 * .pi * 180.0 * t2) * env * 0.7 + Double.random(in: -1...1) * env * 0.3
+                    s += sin(2.0 * .pi * effectiveFreq * t2) * env * 0.7 + Double.random(in: -1...1) * env * 0.3 * effectiveNoise
                 }
-                // ドアきしみ微音
                 if t >= 0.45 {
                     let t3 = t - 0.45
-                    let env = sin(.pi * t3 / (duration - 0.45))
+                    let env = sin(.pi * t3 / max(0.01, effectiveDuration - 0.45))
                     s += sin(2.0 * .pi * 320.0 * t3) * env * 0.25
                 }
                 out[i] = Float(s * 0.55)
@@ -1232,10 +1385,10 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             // クラクション: 2音和音 (F#4 + A#4)
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
-                let env = (t < 0.05) ? (t / 0.05) : (t > duration - 0.08 ? (duration - t) / 0.08 : 1.0)
-                let s1 = sin(2.0 * .pi * baseFreq * t)
-                let s2 = sin(2.0 * .pi * (baseFreq * 1.25) * t)
-                let buzz = sin(2.0 * .pi * (baseFreq * 3.0) * t) * 0.3
+                let env = (t < 0.05) ? (t / 0.05) : (t > effectiveDuration - 0.08 ? (effectiveDuration - t) / 0.08 : 1.0)
+                let s1 = sin(2.0 * .pi * effectiveFreq * t + randomPhase)
+                let s2 = sin(2.0 * .pi * (effectiveFreq * 1.25) * t)
+                let buzz = sin(2.0 * .pi * (effectiveFreq * 3.0) * t) * 0.3
                 out[i] = Float((s1 + s2 + buzz) * env * 0.35)
             }
 
@@ -1243,10 +1396,32 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             // 紙めくり: 帯域通過ノイズのパサッという擦れ音
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
-                let env = sin(.pi * t / duration)
+                let env = sin(.pi * t / effectiveDuration)
                 let noise = Double.random(in: -1...1)
-                let rustle = noise * env * (0.5 + 0.5 * sin(2.0 * .pi * 12.0 * t))
+                let rustle = noise * env * (0.5 + 0.5 * sin(2.0 * .pi * 12.0 * t + randomPhase))
                 out[i] = Float(rustle * 0.45)
+            }
+
+        case .footstepsWalk:
+            // 足音・歩行: 短い床衝撃低音 (ドッ) + 微細な擦れノイズ
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let env = exp(-t * 28.0)
+                let thud = sin(2.0 * .pi * effectiveFreq * t + randomPhase) * env * 0.8
+                let scuff = Double.random(in: -1...1) * env * effectiveNoise * 0.6
+                out[i] = Float((thud + scuff) * 0.55)
+            }
+
+        case .waterDrop:
+            // 水滴・水音: ポチャン (上昇ピッチスイープ + 気泡レゾナンス)
+            var phase: Double = randomPhase
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let env = exp(-t * 12.0)
+                let f = effectiveFreq * (0.8 + 1.2 * (t / effectiveDuration))
+                phase += 2.0 * .pi * f / Double(sampleRate)
+                let drop = sin(phase) * env
+                out[i] = Float(drop * 0.55)
             }
 
         // --- 一般ゲーム・映像演出・UI ---
@@ -1255,7 +1430,7 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
                 let env = exp(-t * 10.0)
-                let s = sin(2.0 * .pi * baseFreq * t) + sin(2.0 * .pi * (baseFreq * 1.5) * t) * 0.5
+                let s = sin(2.0 * .pi * effectiveFreq * t + randomPhase) + sin(2.0 * .pi * (effectiveFreq * 1.5) * t) * 0.5
                 out[i] = Float(s * env * 0.45)
             }
 
@@ -1263,22 +1438,20 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             // UIキャンセル音: 下降2音
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
-                let f = t < duration / 2.0 ? baseFreq : baseFreq * 0.75
-                let env = exp(-fmod(t, duration / 2.0) * 14.0)
-                out[i] = Float(sin(2.0 * .pi * f * t) * env * 0.45)
+                let f = t < effectiveDuration / 2.0 ? effectiveFreq : effectiveFreq * 0.75
+                let env = exp(-fmod(t, effectiveDuration / 2.0) * 14.0)
+                out[i] = Float(sin(2.0 * .pi * f * t + randomPhase) * env * 0.45)
             }
 
         case .quizCorrectChime:
             // クイズ正解: ピンポンピンポン♪
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
-                var s: Double = 0.0
-                let half = duration / 2.0
+                let half = effectiveDuration / 2.0
                 let tLocal = fmod(t, half)
                 let env = exp(-tLocal * 7.0)
-                // ピン (高音) -> ポン (4度下)
-                let f = tLocal < (half * 0.45) ? baseFreq : baseFreq * 0.749
-                s = sin(2.0 * .pi * f * tLocal) * env
+                let f = tLocal < (half * 0.45) ? effectiveFreq : effectiveFreq * 0.749
+                let s = sin(2.0 * .pi * f * tLocal + randomPhase) * env
                 out[i] = Float(s * 0.48)
             }
 
@@ -1287,8 +1460,8 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
                 let env = (t < 0.04) ? (t / 0.04) : 1.0
-                let p1 = fmod(t * baseFreq, 1.0) < 0.5 ? 1.0 : -1.0
-                let p2 = fmod(t * (baseFreq * 1.05), 1.0) < 0.5 ? 1.0 : -1.0
+                let p1 = fmod(t * effectiveFreq + randomPhase, 1.0) < 0.5 ? 1.0 : -1.0
+                let p2 = fmod(t * (effectiveFreq * 1.05), 1.0) < 0.5 ? 1.0 : -1.0
                 out[i] = Float((p1 * 0.6 + p2 * 0.4) * env * 0.45)
             }
 
@@ -1296,37 +1469,37 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             // シーン切替・画面転換: 鋭い風切りスウィープ (シュッ)
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
-                let env = sin(.pi * t / duration)
-                let sweepFreq = baseFreq * (1.0 + sin(.pi * t / duration) * 3.0)
-                let noise = Double.random(in: -1...1) * 0.6
-                let s = sin(2.0 * .pi * sweepFreq * t) * 0.4 + noise
+                let env = sin(.pi * t / effectiveDuration)
+                let sweepFreq = effectiveFreq * (1.0 + sin(.pi * t / effectiveDuration) * 3.0)
+                let noise = Double.random(in: -1...1) * 0.6 * effectiveNoise
+                let s = sin(2.0 * .pi * sweepFreq * t + randomPhase) * 0.4 + noise
                 out[i] = Float(s * env * 0.60)
             }
 
         case .heavyPunchHit:
             // 重打撃・パンチヒット: 急降下サブベース＋インパクトクラッシュ
-            var phase: Double = 0.0
+            var phase: Double = randomPhase
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
                 let env = exp(-t * 12.0)
-                let f = max(40.0, baseFreq * exp(-t * 25.0))
+                let f = max(40.0, effectiveFreq * exp(-t * 25.0))
                 phase += 2.0 * .pi * f / Double(sampleRate)
-                let impact = sin(phase) * 0.7 + Double.random(in: -1...1) * exp(-t * 40.0) * 0.6
+                let impact = sin(phase) * 0.7 + Double.random(in: -1...1) * exp(-t * 40.0) * 0.6 * effectiveNoise
                 let distorted = tanh(impact * 2.5)
                 out[i] = Float(distorted * env * 0.65)
             }
 
         case .massiveExplosion:
             // 大爆発・ボム: 超重低音＋長時間ノイズ爆風
-            var phase: Double = 0.0
+            var phase: Double = randomPhase
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
                 let subEnv = exp(-t * 4.0)
                 let noiseEnv = exp(-t * 2.0)
-                let f = max(35.0, baseFreq * exp(-t * 6.0))
+                let f = max(35.0, effectiveFreq * exp(-t * 6.0))
                 phase += 2.0 * .pi * f / Double(sampleRate)
                 let sub = sin(phase) * subEnv * 0.5
-                let blast = Double.random(in: -1...1) * noiseEnv * 0.6
+                let blast = Double.random(in: -1...1) * noiseEnv * 0.6 * effectiveNoise
                 let totalWave = (sub + blast)
                 out[i] = Float(tanh(totalWave * 1.8) * 0.65)
             }
@@ -1337,8 +1510,8 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
                 let t = Double(i) / Double(sampleRate)
                 let ringEnv = exp(-t * 7.0)
                 let whooshEnv = exp(-t * 18.0)
-                let metallicRing = (sin(2.0 * .pi * baseFreq * t) + sin(2.0 * .pi * baseFreq * 1.73 * t) * 0.5) * ringEnv
-                let slashNoise = Double.random(in: -1...1) * whooshEnv * 0.5
+                let metallicRing = (sin(2.0 * .pi * effectiveFreq * t + randomPhase) + sin(2.0 * .pi * effectiveFreq * 1.73 * t) * 0.5) * ringEnv
+                let slashNoise = Double.random(in: -1...1) * whooshEnv * 0.5 * effectiveNoise
                 out[i] = Float((metallicRing * 0.5 + slashNoise) * 0.55)
             }
 
@@ -1347,17 +1520,96 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
                 let stepT = floor(t * 24.0)
-                let glitchFreq = baseFreq * (1.0 + sin(stepT * 37.0) * 0.8)
+                let glitchFreq = effectiveFreq * (1.0 + sin(stepT * 37.0 + randomPhase) * 0.8)
                 let pulse = fmod(t * glitchFreq, 1.0) < 0.3 ? 0.8 : -0.8
-                let noise = Double.random(in: -1...1) * noiseMix * 0.5
-                let env = max(0.0, 1.0 - t / duration)
+                let noise = Double.random(in: -1...1) * effectiveNoise * 0.5
+                let env = max(0.0, 1.0 - t / effectiveDuration)
                 out[i] = Float((pulse + noise) * env * 0.45)
+            }
+
+        case .gunshotFire:
+            // 銃声・発砲: 鋭いアタック衝撃波 + ピッチ降下サブベース + 残響ノイズ
+            var phase: Double = randomPhase
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let crackEnv = exp(-t * 35.0)
+                let tailEnv = exp(-t * 6.0)
+                let f = max(40.0, effectiveFreq * exp(-t * 20.0))
+                phase += 2.0 * .pi * f / Double(sampleRate)
+                let punch = sin(phase) * crackEnv * 0.7
+                let blast = Double.random(in: -1...1) * (crackEnv * 0.8 + tailEnv * 0.3) * effectiveNoise
+                out[i] = Float(tanh((punch + blast) * 2.2) * 0.65)
+            }
+
+        case .thunderStrike:
+            // 落雷・稲妻: 放電クラック + 長時間重低音ランブル
+            var phase: Double = randomPhase
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let strikeEnv = exp(-t * 16.0)
+                let rumbleEnv = exp(-t * 1.5)
+                let f = max(35.0, effectiveFreq * (1.0 + sin(2.0 * .pi * 5.0 * t) * 0.3))
+                phase += 2.0 * .pi * f / Double(sampleRate)
+                let crack = Double.random(in: -1...1) * strikeEnv * 0.9
+                let rumble = sin(phase) * rumbleEnv * 0.5 + Double.random(in: -1...1) * rumbleEnv * 0.4 * effectiveNoise
+                out[i] = Float(tanh((crack + rumble) * 1.8) * 0.60)
+            }
+
+        case .fireFlame:
+            // 炎・燃焼: 帯域ゆらぎノイズ (メラメラ) + パチパチ火の粉
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let env = sin(.pi * t / effectiveDuration)
+                let flutter = 0.5 + 0.5 * sin(2.0 * .pi * 6.0 * t + randomPhase)
+                let roar = Double.random(in: -1...1) * env * flutter * 0.5 * effectiveNoise
+                let pop = (fmod(Double(i), Double(sampleRate) * 0.15) < 30.0 && Double.random(in: 0...1) > 0.6)
+                    ? Double.random(in: -1...1) * 0.7
+                    : 0.0
+                out[i] = Float((roar + pop) * 0.55)
+            }
+
+        case .glassShatter:
+            // ガラス破壊: 金属/ガラス高音リング + 破片散乱バースト
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let env = exp(-t * 8.0)
+                let ring = (sin(2.0 * .pi * effectiveFreq * t + randomPhase) + sin(2.0 * .pi * (effectiveFreq * 1.414) * t) * 0.6) * env * 0.5
+                let shatter = Double.random(in: -1...1) * env * 0.6 * effectiveNoise
+                out[i] = Float((ring + shatter) * 0.55)
+            }
+
+        case .jumpSpring:
+            // ジャンプ・バネ: 上昇スイープ (ピョン)
+            var phase: Double = randomPhase
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let env = exp(-t * 6.0)
+                let f = effectiveFreq * (1.0 + (t / effectiveDuration) * 2.5)
+                phase += 2.0 * .pi * f / Double(sampleRate)
+                out[i] = Float(sin(phase) * env * 0.55)
+            }
+
+        case .itemGetLevelUp:
+            // アイテム獲得・レベルアップ: 上昇3音チャイム (C -> E -> G)
+            let freqs = [effectiveFreq, effectiveFreq * 1.2599, effectiveFreq * 1.4983]
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                var s: Double = 0.0
+                for (idx, f) in freqs.enumerated() {
+                    let start = Double(idx) * (effectiveDuration * 0.22)
+                    if t >= start {
+                        let tLocal = t - start
+                        let env = exp(-tLocal * 9.0)
+                        s += sin(2.0 * .pi * f * tLocal + randomPhase) * env
+                    }
+                }
+                out[i] = Float(s * 0.42)
             }
 
         // --- 東方Project・幻想郷 ---
         case .spellCardChime:
             // 華やかなアルペジオチャイム (4重和音)
-            let freqs = [baseFreq, baseFreq * 1.2599, baseFreq * 1.4983, baseFreq * 2.0]
+            let freqs = [effectiveFreq, effectiveFreq * 1.2599, effectiveFreq * 1.4983, effectiveFreq * 2.0]
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
                 var sum: Double = 0
@@ -1366,50 +1618,68 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
                     if t >= delay {
                         let noteT = t - delay
                         let env = exp(-noteT * 3.8)
-                        sum += sin(2.0 * .pi * f * noteT) * env
+                        sum += sin(2.0 * .pi * f * noteT + randomPhase) * env
                     }
                 }
                 out[i] = Float(sum * 0.32)
             }
 
+        case .magicShine:
+            // 魔法・閃光・キラキラ: 4重の美しいベル和音 (アルペジオ) + 煌めくトレモロ
+            let freqs = [effectiveFreq, effectiveFreq * 1.2599, effectiveFreq * 1.4983, effectiveFreq * 1.8877]
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                var sum: Double = 0
+                for (idx, f) in freqs.enumerated() {
+                    let delay = Double(idx) * 0.06
+                    if t >= delay {
+                        let noteT = t - delay
+                        let env = exp(-noteT * 3.5)
+                        let shimmer = 1.0 + 0.3 * sin(2.0 * .pi * 8.0 * noteT + Double(idx))
+                        sum += sin(2.0 * .pi * f * noteT + randomPhase) * env * shimmer
+                    }
+                }
+                let sparkle = Double.random(in: -1...1) * effectiveNoise * 0.4 * exp(-t * 2.5)
+                out[i] = Float((sum * 0.30 + sparkle) * 0.60)
+            }
+
         case .masterSparkLaser:
             // 極太レーザー: サブベース + 急降下周波数 + ディストーション
-            var phase: Double = 0
+            var phase: Double = randomPhase
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
                 let env = exp(-t * 1.5)
-                let freq = max(60.0, baseFreq * exp(-t * 2.2))
+                let freq = max(60.0, effectiveFreq * exp(-t * 2.2))
                 phase += 2.0 * .pi * freq / Double(sampleRate)
 
                 let s = sin(phase)
-                let noise = Double.random(in: -1...1) * noiseMix
+                let noise = Double.random(in: -1...1) * effectiveNoise
                 let wave = (s + noise) * env
-                // クランチ・ディストーション
                 let distorted = tanh(wave * 2.2)
                 out[i] = Float(distorted * 0.65)
             }
 
         case .danmakuShot:
             // 弾幕ショット: ピュンピュン高音スイープ
-            var phase: Double = 0
+            var phase: Double = randomPhase
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
                 let env = exp(-t * 12.0)
-                let freq = max(300.0, baseFreq * exp(-t * 18.0))
+                let freq = max(300.0, effectiveFreq * exp(-t * 18.0))
                 phase += 2.0 * .pi * freq / Double(sampleRate)
                 out[i] = Float(sin(phase) * env * 0.55)
             }
 
         case .playerPichuun:
             // ピチューン: 下降ピッチ＋レトロノイズ
-            var phase: Double = 0
+            var phase: Double = randomPhase
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
                 let env = exp(-t * 3.5)
-                let freq = max(80.0, baseFreq * (1.0 - t / duration))
+                let freq = max(80.0, effectiveFreq * (1.0 - t / effectiveDuration))
                 phase += 2.0 * .pi * freq / Double(sampleRate)
                 let tone = sin(phase) * 0.6
-                let noise = Double.random(in: -1...1) * 0.35 * exp(-t * 8.0)
+                let noise = Double.random(in: -1...1) * 0.35 * exp(-t * 8.0) * effectiveNoise
                 out[i] = Float((tone + noise) * env * 0.60)
             }
 
@@ -1418,19 +1688,19 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
                 let tick = (fmod(t, 0.25) < 0.02) ? sin(2.0 * .pi * 2200.0 * t) * 0.8 : 0.0
-                let sweep = sin(2.0 * .pi * (baseFreq + t * 400.0) * t) * exp(-t * 2.0) * 0.3
+                let sweep = sin(2.0 * .pi * (effectiveFreq + t * 400.0) * t + randomPhase) * exp(-t * 2.0) * 0.3
                 out[i] = Float((tick + sweep) * 0.55)
             }
 
         case .teleportWarp:
             // ワープ: 高速フェイザーノイズ
-            var phase: Double = 0
+            var phase: Double = randomPhase
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
-                let env = sin(.pi * t / duration)
-                let freq = baseFreq + sin(2.0 * .pi * 8.0 * t) * 300.0
+                let env = sin(.pi * t / effectiveDuration)
+                let freq = effectiveFreq + sin(2.0 * .pi * 8.0 * t) * 300.0
                 phase += 2.0 * .pi * freq / Double(sampleRate)
-                let noise = Double.random(in: -1...1) * 0.4
+                let noise = Double.random(in: -1...1) * 0.4 * effectiveNoise
                 out[i] = Float((sin(phase) * 0.5 + noise) * env * 0.60)
             }
 
@@ -1439,8 +1709,8 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             for i in 0..<total {
                 let t = Double(i) / Double(sampleRate)
                 let env = exp(-t * 35.0)
-                let s1 = sin(2.0 * .pi * baseFreq * t)
-                let s2 = sin(2.0 * .pi * (baseFreq * 1.5) * t) * 0.5
+                let s1 = sin(2.0 * .pi * effectiveFreq * t + randomPhase)
+                let s2 = sin(2.0 * .pi * (effectiveFreq * 1.5) * t) * 0.5
                 out[i] = Float((s1 + s2) * env * 0.50)
             }
 
@@ -1450,8 +1720,21 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
                 let t = Double(i) / Double(sampleRate)
                 let env = exp(-t * 22.0)
                 let click = sin(2.0 * .pi * 850.0 * t) * exp(-t * 40.0) * 0.8
-                let resonance = sin(2.0 * .pi * 320.0 * t) * env * 0.4
+                let resonance = sin(2.0 * .pi * 320.0 * t + randomPhase) * env * 0.4
                 out[i] = Float((click + resonance) * 0.55)
+            }
+
+        // --- AIプロシージャル適応合成 (自由記述プロンプト) ---
+        case .customSynthesized:
+            var phase: Double = randomPhase
+            for i in 0..<total {
+                let t = Double(i) / Double(sampleRate)
+                let env = exp(-t * (4.0 / effectiveDuration))
+                let f = effectiveFreq * (1.0 + 0.15 * sin(2.0 * .pi * 5.0 * t))
+                phase += 2.0 * .pi * f / Double(sampleRate)
+                let tone = (sin(phase) + sin(phase * 2.0) * 0.3) * env * 0.6
+                let noise = Double.random(in: -1...1) * effectiveNoise * env * 0.5
+                out[i] = Float(tanh((tone + noise) * 1.4) * 0.55)
             }
         }
 

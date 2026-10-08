@@ -1,0 +1,641 @@
+@charset "UTF-8";
+/*base.css */
+
+/*Base setting_____________________________________*/
+body {
+  font-family: "Hiragino Kaku Gothic ProN", "ヒラギノ角ゴ ProN", Meiryo, "メイリオ", YuGothic, "游ゴシック", "proxima-nova", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: normal;
+  background: #fff;
+  font-size: 16px;
+  line-height: 1.8;
+  color: #2f2f2f;
+  	padding-left: 20px;
+	padding-right: 20px;
+	max-width: 760px;
+	margin: auto;
+	overflow-x:hidden;
+}
+
+ul{margin: 0; padding: 0; list-style-type: none}
+li{margin-bottom: 1em; margin-top: 0.2em}
+h1{font-size: 2.2em; margin: 0.5em 0 0.5em; line-height: 1.2}
+h2{font-size: 1.85em; margin: 2.25em 0 0.75em; line-height: 1.3}
+h3, h4{margin: 2.0em 0 0; line-height: 1.4}
+h3{font-size: 1.4em}
+h4{font-size: 1.1em}
+p{margin: 0.5em 0 1em}
+table {	border-collapse: collapse;}
+th, td {
+	vertical-align: middle;
+	font-size: 90%;
+	border: 1px solid #dddddd;
+	padding: 0.5em 0.8em;
+	line-height: 1.4;
+	text-align: left;
+}
+th {background: #f7f7f7;}
+td {background: #fcfcfc;}
+pre {	/* program code use google prettyprint */
+	font-family: Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+	font-size: 14px;
+	line-height: 1.4;
+	background: #f7f7f7;
+}
+blockquote {
+    background-color: #f4f4f4;
+    margin-top: 1em;
+    margin-bottom: 1em;
+    padding: 1em 50px;
+    /* line-height: 30px; */
+    position: relative;
+}
+blockquote:before {
+    content: '';
+    position: absolute;
+    left: 25px;
+    height: auto;
+    width: 5px;
+    background-color: #c8c8c8;
+    height: 74%;
+    top: 0;
+    bottom: 0;
+    margin: auto;
+}		
+
+/*header menu_____________________________________*/
+header {
+	text-align: center;
+}
+#logo-pc {
+	padding-top: 30px;
+	padding-bottom: 10px;
+	padding-left: 16px;
+
+    font-family: 'Yanone Kaffeesatz', sans-serif;
+    color: #666;
+    font-size: 20px;
+	line-height: 20px;
+	
+	text-align: left;
+}
+#logo-pc img {
+	vertical-align: -6px;
+}
+#logo-pc .h_search {
+	float: right;
+ 	padding-top: 22px;
+}
+#logo-pc .h_search .search_txt {
+	background: #f8f8f8;
+    border: none;
+ 	height: 28px;
+	width: 150px;
+    padding: 0 8px;
+}
+#logo-pc .h_search .submit_btn {
+    background: url(../img/icon_search.png) no-repeat scroll center center/14px auto #f8f8f8;
+    cursor: pointer;
+	border: none;
+    float: right;
+	height: 28px;
+    width: 30px;
+    padding: 0;
+	margin-right: 18px;
+    text-indent: -999px;
+}
+
+
+#hdr-pc nav {
+	display: inline-block;
+	padding-top: 15px;
+	padding-bottom: 10px;
+	/* padding-left: 50px; */
+	margin-bottom: 20px;
+	width:100%;
+	box-sizing: inherit;
+	text-align: center;
+	border-top-color: rgba(0,0,0,0.1);
+	border-top-style: double;
+	border-top-width: 3px;
+	border-bottom-color: rgba(0,0,0,0.1);
+	border-bottom-style: solid;
+	border-bottom-width: 1px;
+	line-height: 50px;
+}
+#hdr-pc nav ul {
+	display: block;
+	margin: 0;
+	padding: 0;
+	box-sizing: inherit;
+}
+#hdr-pc nav li  {
+	display: inline-block;
+	margin-bottom: 0;
+	margin-top: 0;
+}
+#hdr-pc nav li > a {
+/*	padding: 10px 15px;*/
+	padding: 10px 10px;
+	color: #666;
+	text-decoration: none;
+}
+#hdr-pc nav li:nth-of-type(5n+1) > a:hover {color: #154BE5;}
+#hdr-pc nav li:nth-of-type(5n+2) > a:hover {color: #F98512;}
+#hdr-pc nav li:nth-of-type(5n+3) > a:hover {color: #09C674;}
+#hdr-pc nav li:nth-of-type(5n+4) > a:hover {color: #F92169;}
+#hdr-pc nav li:nth-of-type(5n+0) > a:hover {color: #8618A0;}
+
+
+/*footer _____________________________________*/
+footer {
+	text-align: left;
+	border-top-color: rgba(0,0,0,0.1);
+	border-top-style: solid;
+	border-top-width: 1px;
+	/* width:100%; */
+	font-size:85%;
+	padding:8px 0 8px 20px;
+	margin-top: 4em;
+	background-color: rgb(243, 242, 240);
+	color:#666;
+}
+footer a {
+	color:inherit;
+	text-decoration: none;
+}
+/* 左右に振り分け */
+footer  { 
+	 position: relative; 
+}
+footer span {
+	 position: absolute; 
+	 right: 20px; 
+}
+
+/*main_____________________________________*/
+
+#main > h2 {
+  line-height: 1;
+  padding-left: 0.6em;
+  border-left-width: 7px;
+  border-left-style: solid;
+}
+
+#main > h2:nth-of-type(5n+1) {border-color: #F92169}
+#main > h2:nth-of-type(5n+2) {border-color: #F98512}
+#main > h2:nth-of-type(5n+3) {border-color: #09C674}
+#main > h2:nth-of-type(5n+4) {border-color: #154BE5}
+#main > h2:nth-of-type(5n+0) {border-color: #8618A0}
+
+.about-datalist dt{
+  float: left;
+  width: 10em;
+}
+.about-datalist dd{
+  margin-left: 12em;
+}
+/* list with color round marker */
+.mark-list li{
+	list-style-type: none;
+	margin-left:15px; 
+	margin-bottom: 0;
+}
+.mark-list li:before {
+	content: '';
+	width: 6px;
+	height: 6px;
+	display: inline-block;
+	border-radius: 100%;
+	position: relative;
+	left: -15px;
+	top: -3px;
+}
+.mark-list li:nth-of-type(5n+1):before {background: #F92169}
+.mark-list li:nth-of-type(5n+2):before {background: #F98512}
+.mark-list li:nth-of-type(5n+3):before {background: #09C674}
+.mark-list li:nth-of-type(5n+4):before {background: #154BE5}
+.mark-list li:nth-of-type(5n+0):before {background: #8618A0}
+.mark-list li a:hover {
+	color:inherit;
+}
+/* dl list with color round marker */
+dl.mark-list {
+	margin-top: 0.5em;
+	padding-left: 0.5em; 
+}
+.mark-list dt{
+	font-weight: bolder; 
+	/* line-height: 1; */
+	/* list-style-type: none; */
+	margin-left:15px; 
+	margin-bottom: 0;
+}
+.mark-list dt:before {
+	content: '';
+	width: 6px;
+	height: 6px;
+	display: inline-block;
+	border-radius: 100%;
+	position: relative;
+	left: -15px;
+	top: -3px;
+}
+.mark-list dt a:hover {
+	color:inherit;
+}
+.mark-list dd {
+	/* font-size: 0.9em;  */
+	margin-left:20px; 
+	margin-bottom: 1em;
+}
+.mark-list dt:nth-of-type(5n+1):before {background: #F92169}
+.mark-list dt:nth-of-type(5n+2):before {background: #F98512}
+.mark-list dt:nth-of-type(5n+3):before {background: #09C674}
+.mark-list dt:nth-of-type(5n+4):before {background: #154BE5}
+.mark-list dt:nth-of-type(5n+0):before {background: #8618A0}
+.mark-list dt a:hover {
+	color:inherit;
+}
+/* 順序番号つきのリスト */
+.order-list dt {
+	counter-increment: number;
+	font-weight: bolder;  
+	margin-left:15px; 
+}
+.order-list dt:before {
+	content: counter(number) ". ";
+}
+.order-list dd {
+	/* font-size: 0.9em;  */
+	margin-left:34px; 
+	margin-bottom: 1em;
+}
+.order-list dt:nth-of-type(5n+1):before {color: #F92169}
+.order-list dt:nth-of-type(5n+2):before {color: #F98512}
+.order-list dt:nth-of-type(5n+3):before {color: #09C674}
+.order-list dt:nth-of-type(5n+4):before {color: #154BE5}
+.order-list dt:nth-of-type(5n+0):before {color: #8618A0}
+.order-list dt a:hover {
+	color:inherit;
+}
+.annotate {
+	font-size: 74%;
+	margin: 0;
+}
+
+.news_list {
+	display: block;
+    -webkit-margin-before: 1em;
+    -webkit-margin-after: 1em;
+    -webkit-margin-start: 0px;
+    -webkit-margin-end: 0px;	
+}
+.news_list dt {
+    float: left;
+    width: 90px;
+    margin-top: 15px;	
+	font-size: 0.9em;
+}
+.news_list dt.dt_ver {
+    width: 75px;
+	text-align: center;
+	background-color:#F98512;
+	color:#fff;
+	border-radius:5px;
+}
+.news_list dt.dt_release {
+    width: 75px;
+	text-align: center;
+	background-color:#F92169;
+	color:#fff;
+	border-radius:5px;
+}
+.news_list dt.dt_oshirase {
+    width: 75px;
+	text-align: center;
+	background-color:#154BE5;
+	color:#fff;
+	border-radius:5px;
+}
+.news_list dd {
+	padding: 15px 0 15px 175px!important;
+	border-bottom: 1px solid #CCCCCC;
+}
+/* 10セット（dtが20個）より後のdtを非表示にする */
+#news-list.is-hidden dt:nth-of-type(n+21) {
+  display: none;
+}
+/* 10セット（ddが10個）より後のddを非表示にする */
+#news-list.is-hidden dd:nth-of-type(n+11) {
+  display: none;
+}
+/* for mail form */
+#mail-form > div {
+	border-radius: 3px;
+    background-color: #f6f6f6;
+    vertical-align: middle;
+    border: 1px solid #dddddd;
+    margin-top: 20px;
+    margin-bottom: 15px;
+    padding: 20px;
+}
+#mail-form input[type="text"],
+#mail-form input[type="email"],
+#mail-form textarea {
+	display: block;
+	width: 94%;
+	padding:10px;
+	margin-bottom: 10px;
+	font: inherit;
+}
+#mail-form button {
+	font: inherit;
+	padding:6px 0px 6px 0px;
+	width:100px;
+	border-radius: 5px;
+}
+/*	webformsent.htmlのボタン*/
+a.btn-link > button {
+	font: inherit;
+	padding:6px 6px 6px 6px;
+	border-radius: 5px;
+}
+
+/* Online Demo Form（試してみる・KM デモ） */
+.demo-controls { display: flex; flex-wrap: wrap; align-items: center; gap: .6em 1.5em; margin: .5em 0 1em; }
+.demo-controls label { display: inline-flex; align-items: center; gap: .5em; }
+#sample-demo select, #free-demo select, #free-demo input[type="text"] {
+	font: inherit; padding: .35em .5em; border: 1px solid #bbb; border-radius: 6px; background: #fff;
+}
+#free-demo input[name="speed"] { width: 4.5em; }
+/* ボタン：白地にオレンジの枠（サイト共通のボタンと同じ系統） */
+#sample-demo input[type="button"], #free-demo input[type="button"] {
+	font: inherit; font-size: .9em; padding: .35em .9em; border: 1px solid #b34700; border-radius: 6px;
+	background: #fff; color: #b34700; cursor: pointer; white-space: nowrap;
+}
+#sample-demo input[type="button"]:hover, #free-demo input[type="button"]:hover { background: #b34700; color: #fff; }
+/* 固定メッセージ：ボタンと文を横に並べ、行を区切り線でそろえる */
+.demo-msg { display: flex; align-items: baseline; gap: .8em; padding: .5em 0; border-bottom: 1px solid #e6e6e6; line-height: 1.6; }
+.demo-msg:last-child { border-bottom: none; }
+/* フリーテキスト：①変換 ②再生 の2段階を枠で分ける */
+.demo-step { background: #f5f7f9; border-radius: 6px; padding: .8em 1.2em 1em; margin-bottom: 1em; }
+.demo-step-title { font-weight: bold; margin: 0 0 .6em; }
+.demo-step-title small { font-weight: normal; color: #555; }
+.demo-label { display: block; font-size: .9em; color: #555; margin-bottom: .3em; }
+#free-demo textarea {
+	display: block; width: 100%; box-sizing: border-box; padding: .6em; margin-bottom: .6em;
+	font: inherit; border: 1px solid #bbb; border-radius: 6px; background: #fff;
+}
+#free-demo .demo-step .demo-controls { margin-bottom: 0; }
+
+/* 目次のボックス */
+.mokuji {
+    box-shadow: 0 2px 2px rgba(0,0,0,0.2);
+    margin: 50px 20px 0;
+    padding: 15px;
+    background: #fafafa;
+}
+/* YouTube responsive size. use <div class="youtube">..</div> */
+div.youtube {
+  position:relative;
+  width:100%;
+  max-width: 560px;
+}
+div.youtube::before{
+  content: "";
+  display: block;
+  width: 100%;
+  padding-top: 56.25%;
+}
+div.youtube iframe{
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+}
+/* AquesTalk / AqKankji2Koe Button　*/
+.btn-border {
+  display: inline-block;
+  max-width: 180px;
+  font-size: 16px;
+  color: #ffffff;
+  text-decoration: none;
+/*  font-weight: bold;*/
+  padding: 4px 12px;
+  border-radius: 4px;
+}
+.btn-border:hover {
+  opacity: .7;
+  color: #FFF;
+  text-decoration: none;
+}
+.col-online-store {
+  /* 白地にオレンジの枠と文字（控えめなデザイン）。マウスを乗せると塗りつぶし */
+  background-color: #fff;
+  color: #b34700;
+  border: 2px solid #b34700;
+}
+
+/* Download / PDF / Link Button　*/
+.btn-download {
+  display: inline-block;
+  width: 50px;
+  text-align: center;
+  font-size: 10px;
+  color: #ffffff;
+  text-decoration: none;
+/*  font-weight: bold;*/
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.btn-download:hover {
+  opacity: .7;
+  color: #FFF;
+  text-decoration: none;
+}
+.col-download {
+  background-color: #4DB7B7;
+}
+.col-pdf {
+  background-color: #F54D71;
+}
+.col-link {
+  background-color: #4169e1;
+}
+
+/*黄色のマーカー*/
+.marker{background: linear-gradient(transparent 80%, #ffff66 80%);}
+
+/*Media-queries_____________________________________*/
+@media screen and (max-width: 1000px) {
+html {-webkit-text-size-adjust:100%}/*disable webkit text size adjust (for iPhone)*/
+a img:hover {opacity:1}
+header h1 a img {height:30px}
+}
+@media screen and (max-height: 640px) {
+html {-webkit-text-size-adjust:100%}/*disable webkit text size adjust (for iPhone)*/
+a img:hover {opacity:1}
+header h1 a img {height:30px}
+}
+/*smaller than 640-----------------------------*/
+@media screen and (max-width: 640px) {
+html {-webkit-text-size-adjust:100%}/*disable webkit text size adjust (for iPhone)*/
+a img:hover {opacity:1}
+header h1 a img {height:30px}
+footer {font-size:80%; padding:5px 10px 5px 10px}
+footer span { right: 10px; }
+
+}
+
+/*----- アコーディオンタイプ--------*/
+.accordion {
+  width: 100%;
+}
+/* チェックボックスは非表示 */
+.accordion-hidden{
+  display: none;
+}
+/* Question部分 */
+.accordion-open {
+  display: block;
+  padding: 10px 80px 10px 10px;
+  background: #fafafa;
+  cursor: pointer;
+  margin: 5px 0;
+  position: relative;
+}
+/* 開閉状態を示すアイコン+の作成 beforeが横棒 afterは縦棒から横棒に変化*/
+.accordion-open::before,
+.accordion-open::after {
+  content: '';
+  width: 20px;
+  height: 3px;
+  background: #000;
+  position: absolute;
+  top: 50%;
+  right: 5%;
+  transform: translateY(-50%);
+}
+/* 一本は縦にして+を作る */
+.accordion-open::after {
+  transform: translateY(-50%) rotate(90deg);
+  transition: .5s;
+}
+/* アイコン＋を左に表示するときの追加のクラス */
+.accordion-left {
+  padding: 10px 80px 10px 40px;
+}
+.accordion-left::before,
+.accordion-left::after {
+  left: 10px;
+}
+
+/* アコーディオンが開いたら縦棒を横棒にして-にする */
+.accordion-hidden:checked + .accordion-open:after {
+  transform: translateY(-50%) rotate(0);
+}
+/* Answer部分 */
+.accordion-close {
+  display: block;
+  height: 0;
+  overflow: hidden;
+  padding: 0;
+  opacity: 0;
+  transition: 0.5s;/* 表示速度の設定 */
+}
+/* チェックボックスにチェックが入ったらAnswer部分を表示する */
+.accordion-hidden:checked + .accordion-open + .accordion-close {
+  height: auto;
+  opacity: 1;
+  padding: 10px;
+}
+/* Q&A追加 */
+.accordion_qa .Q{
+  position: relative;
+}
+.accordion_qa .accordion-open{
+  padding-left: 2.5em;
+}
+.accordion_qa .Q::before{
+  content: 'Q.';
+  font-size: 1.5em;
+  display: block;
+  position: absolute;
+  top: -.6em;
+  left: -1.3em;
+  color: #0F78E1;
+}
+.accordion_qa .A{
+  position: relative;
+  padding-left: 2em;
+}
+.accordion_qa .A::before{
+  content: 'A.';
+  font-size: 1.2em;
+  display: block;
+  position: absolute;
+  top: -.1em;
+  left: 0;
+  color: #ff6767;
+}
+
+/* 動画制作者向けページ（video.html）。判定結果の枠・購入ボタンは他ページでも使える */
+.vp-lead { font-size: 1.05em; }
+.vp-toc { background: #f5f7f9; padding: 1em 1.5em; border-radius: 6px; }
+.vp-chart { list-style: none; padding: 0; margin: 1.5em 0; }
+.vp-q { border: 1px solid #cfd8dc; border-radius: 6px; padding: 1em 1.2em; margin-bottom: .6em; }
+.vp-q strong { display: block; margin-bottom: .3em; }
+.vp-yes { color: #c62828; font-weight: bold; }
+.vp-result { border-radius: 6px; padding: 1em 1.2em; margin: .8em 0; }
+.vp-result.free { background: #e8f5e9; border: 1px solid #a5d6a7; }
+.vp-result.need { background: #fff3e0; border: 1px solid #ffcc80; }
+/* 白地にオレンジの枠と文字（控えめなデザイン）。マウスを乗せると塗りつぶし */
+.vp-buy { display: inline-block; background: #fff; color: #b34700 !important; border: 2px solid #b34700; padding: .6em 1.4em;
+          border-radius: 6px; text-decoration: none; font-weight: bold; margin: .5em 0; }
+.vp-buy:hover { background: #b34700; color: #fff !important; }
+.vp-table { width: 100%; }
+.vp-table th, .vp-table td { vertical-align: top; }
+.vp-table th { width: 30%; }
+.vp-faq dt { font-weight: bold; margin-top: 1.2em; }
+.vp-faq dd { margin-left: 0; padding-left: 1em; border-left: 3px solid #cfd8dc; }
+
+/* ライセンスページ（licence.html）冒頭の、利用方法別の振り分け表 */
+.lic-select { width: 100%; margin: 1em 0; }
+.lic-select th, .lic-select td { text-align: center; vertical-align: middle; }
+.lic-select td a { font-weight: bold; }
+
+/* 番号付きの手順を1行ずつ短く並べる（licence.html の導入の流れ） */
+.order-list-short dt { font-weight: normal; margin-bottom: .3em; }
+
+/* トップページの訪問者の入口（製品に組み込みたい方／アプリで使いたい方） */
+.entry { display: flex; gap: 1em; margin: 1.5em 0; }
+.entry-box { flex: 1; background: #f5f7f9; border-radius: 6px; padding: .5em 1.2em 1em; }
+.entry-box h3 { margin-top: .6em; }
+.entry-box li { margin-bottom: .6em; }
+@media screen and (max-width: 640px) {
+  .entry { flex-direction: column; }
+}
+
+/* フッターのミニサイトマップ（日本語ページ共通。英語ページは従来の簡易フッター） */
+.footer-map { display: flex; flex-wrap: wrap; gap: .5em 2em; padding: .8em 20px .5em 0; }
+.footer-map > div { flex: 1; min-width: 140px; }
+.footer-map-title { font-weight: bold; color: #333; margin: 0 0 .3em; }
+.footer-map ul { margin: 0; }
+.footer-map li { margin: 0 0 .2em; }
+.footer-map a:hover { text-decoration: underline; }
+.footer-bottom { position: relative; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: .5em; }
+
+/* 本文中のリンクは濃いグレー（下線で区別）。:where() で詳細度を上げず、ボタン（.btn-border 等）の文字色や a:hover の色を優先させる */
+:where(#main) a { color: #333333; }
+
+/* トップページの入口：各列の見出し直下のボタン（.vp-buy を流用） */
+.entry-cta { margin: .2em 0 .8em; }
+
+/* デモページ（demo/index.html）：エンジンの必要リソース表、固定メッセージの注記、下部のボタン */
+.demo-spec th { width: auto; }
+.demo-note { color: #666; margin-left: .5em; }
+.demo-cta a { margin-right: .5em; }
+
+/* ストアのボタンのホバー（.btn-border:hover の白文字・半透明を上書きし、塗りつぶしにする） */
+.col-online-store:hover { background-color: #b34700; color: #fff; opacity: 1; }

@@ -1,0 +1,416 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		7B02D6E12DBDFD3300E929D6 /* libAquesTalk2Eva.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B02D6E02DBDFD3300E929D6 /* libAquesTalk2Eva.dylib */; };
+		7B02D6E32DBDFD6100E929D6 /* libAquesTalk2Eva.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7B02D6E02DBDFD3300E929D6 /* libAquesTalk2Eva.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		7B02D6F32DBE031800E929D6 /* aq_mf1.phont in Resources */ = {isa = PBXBuildFile; fileRef = 7B02D6E82DBE031800E929D6 /* aq_mf1.phont */; };
+		7B02D6F42DBE031800E929D6 /* aq_m4b.phont in Resources */ = {isa = PBXBuildFile; fileRef = 7B02D6E72DBE031800E929D6 /* aq_m4b.phont */; };
+		7B02D6F52DBE031800E929D6 /* ar_rm3.phont in Resources */ = {isa = PBXBuildFile; fileRef = 7B02D6F12DBE031800E929D6 /* ar_rm3.phont */; };
+		7B02D6F62DBE031800E929D6 /* aq_f3a.phont in Resources */ = {isa = PBXBuildFile; fileRef = 7B02D6E52DBE031800E929D6 /* aq_f3a.phont */; };
+		7B02D6F72DBE031800E929D6 /* aq_yukkuri.phont in Resources */ = {isa = PBXBuildFile; fileRef = 7B02D6ED2DBE031800E929D6 /* aq_yukkuri.phont */; };
+		7B02D6F82DBE031800E929D6 /* aq_rb2.phont in Resources */ = {isa = PBXBuildFile; fileRef = 7B02D6E92DBE031800E929D6 /* aq_rb2.phont */; };
+		7B02D6F92DBE031800E929D6 /* ar_m5.phont in Resources */ = {isa = PBXBuildFile; fileRef = 7B02D6EF2DBE031800E929D6 /* ar_m5.phont */; };
+		7B02D6FA2DBE031800E929D6 /* ar_mf2.phont in Resources */ = {isa = PBXBuildFile; fileRef = 7B02D6F02DBE031800E929D6 /* ar_mf2.phont */; };
+		7B02D6FB2DBE031800E929D6 /* aq_robo.phont in Resources */ = {isa = PBXBuildFile; fileRef = 7B02D6EC2DBE031800E929D6 /* aq_robo.phont */; };
+		7B02D6FC2DBE031800E929D6 /* aq_rm.phont in Resources */ = {isa = PBXBuildFile; fileRef = 7B02D6EB2DBE031800E929D6 /* aq_rm.phont */; };
+		7B02D6FD2DBE031800E929D6 /* aq_rb3.phont in Resources */ = {isa = PBXBuildFile; fileRef = 7B02D6EA2DBE031800E929D6 /* aq_rb3.phont */; };
+		7B02D6FE2DBE031800E929D6 /* ar_f4.phont in Resources */ = {isa = PBXBuildFile; fileRef = 7B02D6EE2DBE031800E929D6 /* ar_f4.phont */; };
+		7B02D6FF2DBE031800E929D6 /* aq_f1c.phont in Resources */ = {isa = PBXBuildFile; fileRef = 7B02D6E42DBE031800E929D6 /* aq_f1c.phont */; };
+		7B02D7002DBE031800E929D6 /* aq_huskey.phont in Resources */ = {isa = PBXBuildFile; fileRef = 7B02D6E62DBE031800E929D6 /* aq_huskey.phont */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7B9F682D2DB4AF6C00A0912C /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				7B02D6E32DBDFD6100E929D6 /* libAquesTalk2Eva.dylib in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		7B02D6E02DBDFD3300E929D6 /* libAquesTalk2Eva.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libAquesTalk2Eva.dylib; sourceTree = "<group>"; };
+		7B02D6E42DBE031800E929D6 /* aq_f1c.phont */ = {isa = PBXFileReference; lastKnownFileType = file; path = aq_f1c.phont; sourceTree = "<group>"; };
+		7B02D6E52DBE031800E929D6 /* aq_f3a.phont */ = {isa = PBXFileReference; lastKnownFileType = file; path = aq_f3a.phont; sourceTree = "<group>"; };
+		7B02D6E62DBE031800E929D6 /* aq_huskey.phont */ = {isa = PBXFileReference; lastKnownFileType = file; path = aq_huskey.phont; sourceTree = "<group>"; };
+		7B02D6E72DBE031800E929D6 /* aq_m4b.phont */ = {isa = PBXFileReference; lastKnownFileType = file; path = aq_m4b.phont; sourceTree = "<group>"; };
+		7B02D6E82DBE031800E929D6 /* aq_mf1.phont */ = {isa = PBXFileReference; lastKnownFileType = file; path = aq_mf1.phont; sourceTree = "<group>"; };
+		7B02D6E92DBE031800E929D6 /* aq_rb2.phont */ = {isa = PBXFileReference; lastKnownFileType = file; path = aq_rb2.phont; sourceTree = "<group>"; };
+		7B02D6EA2DBE031800E929D6 /* aq_rb3.phont */ = {isa = PBXFileReference; lastKnownFileType = file; path = aq_rb3.phont; sourceTree = "<group>"; };
+		7B02D6EB2DBE031800E929D6 /* aq_rm.phont */ = {isa = PBXFileReference; lastKnownFileType = file; path = aq_rm.phont; sourceTree = "<group>"; };
+		7B02D6EC2DBE031800E929D6 /* aq_robo.phont */ = {isa = PBXFileReference; lastKnownFileType = file; path = aq_robo.phont; sourceTree = "<group>"; };
+		7B02D6ED2DBE031800E929D6 /* aq_yukkuri.phont */ = {isa = PBXFileReference; lastKnownFileType = file; path = aq_yukkuri.phont; sourceTree = "<group>"; };
+		7B02D6EE2DBE031800E929D6 /* ar_f4.phont */ = {isa = PBXFileReference; lastKnownFileType = file; path = ar_f4.phont; sourceTree = "<group>"; };
+		7B02D6EF2DBE031800E929D6 /* ar_m5.phont */ = {isa = PBXFileReference; lastKnownFileType = file; path = ar_m5.phont; sourceTree = "<group>"; };
+		7B02D6F02DBE031800E929D6 /* ar_mf2.phont */ = {isa = PBXFileReference; lastKnownFileType = file; path = ar_mf2.phont; sourceTree = "<group>"; };
+		7B02D6F12DBE031800E929D6 /* ar_rm3.phont */ = {isa = PBXFileReference; lastKnownFileType = file; path = ar_rm3.phont; sourceTree = "<group>"; };
+		7B9F681A2DB4ADBB00A0912C /* HelloAquesTalk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HelloAquesTalk.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		7B9F681C2DB4ADBB00A0912C /* HelloAquesTalk */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = HelloAquesTalk;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7B9F68172DB4ADBB00A0912C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7B02D6E12DBDFD3300E929D6 /* libAquesTalk2Eva.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		7B02D6F22DBE031800E929D6 /* phont */ = {
+			isa = PBXGroup;
+			children = (
+				7B02D6E42DBE031800E929D6 /* aq_f1c.phont */,
+				7B02D6E52DBE031800E929D6 /* aq_f3a.phont */,
+				7B02D6E62DBE031800E929D6 /* aq_huskey.phont */,
+				7B02D6E72DBE031800E929D6 /* aq_m4b.phont */,
+				7B02D6E82DBE031800E929D6 /* aq_mf1.phont */,
+				7B02D6E92DBE031800E929D6 /* aq_rb2.phont */,
+				7B02D6EA2DBE031800E929D6 /* aq_rb3.phont */,
+				7B02D6EB2DBE031800E929D6 /* aq_rm.phont */,
+				7B02D6EC2DBE031800E929D6 /* aq_robo.phont */,
+				7B02D6ED2DBE031800E929D6 /* aq_yukkuri.phont */,
+				7B02D6EE2DBE031800E929D6 /* ar_f4.phont */,
+				7B02D6EF2DBE031800E929D6 /* ar_m5.phont */,
+				7B02D6F02DBE031800E929D6 /* ar_mf2.phont */,
+				7B02D6F12DBE031800E929D6 /* ar_rm3.phont */,
+			);
+			path = phont;
+			sourceTree = "<group>";
+		};
+		7B9F68112DB4ADBB00A0912C = {
+			isa = PBXGroup;
+			children = (
+				7B02D6F22DBE031800E929D6 /* phont */,
+				7B02D6E02DBDFD3300E929D6 /* libAquesTalk2Eva.dylib */,
+				7B9F681C2DB4ADBB00A0912C /* HelloAquesTalk */,
+				7B9F681B2DB4ADBB00A0912C /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		7B9F681B2DB4ADBB00A0912C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7B9F681A2DB4ADBB00A0912C /* HelloAquesTalk.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7B9F68192DB4ADBB00A0912C /* HelloAquesTalk */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7B9F68262DB4ADBC00A0912C /* Build configuration list for PBXNativeTarget "HelloAquesTalk" */;
+			buildPhases = (
+				7B9F68162DB4ADBB00A0912C /* Sources */,
+				7B9F68172DB4ADBB00A0912C /* Frameworks */,
+				7B9F68182DB4ADBB00A0912C /* Resources */,
+				7B9F682D2DB4AF6C00A0912C /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				7B9F681C2DB4ADBB00A0912C /* HelloAquesTalk */,
+			);
+			name = HelloAquesTalk;
+			packageProductDependencies = (
+			);
+			productName = HelloAquesTalk;
+			productReference = 7B9F681A2DB4ADBB00A0912C /* HelloAquesTalk.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7B9F68122DB4ADBB00A0912C /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1630;
+				LastUpgradeCheck = 1630;
+				TargetAttributes = {
+					7B9F68192DB4ADBB00A0912C = {
+						CreatedOnToolsVersion = 16.3;
+					};
+				};
+			};
+			buildConfigurationList = 7B9F68152DB4ADBB00A0912C /* Build configuration list for PBXProject "HelloAquesTalk" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 7B9F68112DB4ADBB00A0912C;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 7B9F681B2DB4ADBB00A0912C /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				7B9F68192DB4ADBB00A0912C /* HelloAquesTalk */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		7B9F68182DB4ADBB00A0912C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7B02D6F32DBE031800E929D6 /* aq_mf1.phont in Resources */,
+				7B02D6F42DBE031800E929D6 /* aq_m4b.phont in Resources */,
+				7B02D6F52DBE031800E929D6 /* ar_rm3.phont in Resources */,
+				7B02D6F62DBE031800E929D6 /* aq_f3a.phont in Resources */,
+				7B02D6F72DBE031800E929D6 /* aq_yukkuri.phont in Resources */,
+				7B02D6F82DBE031800E929D6 /* aq_rb2.phont in Resources */,
+				7B02D6F92DBE031800E929D6 /* ar_m5.phont in Resources */,
+				7B02D6FA2DBE031800E929D6 /* ar_mf2.phont in Resources */,
+				7B02D6FB2DBE031800E929D6 /* aq_robo.phont in Resources */,
+				7B02D6FC2DBE031800E929D6 /* aq_rm.phont in Resources */,
+				7B02D6FD2DBE031800E929D6 /* aq_rb3.phont in Resources */,
+				7B02D6FE2DBE031800E929D6 /* ar_f4.phont in Resources */,
+				7B02D6FF2DBE031800E929D6 /* aq_f1c.phont in Resources */,
+				7B02D7002DBE031800E929D6 /* aq_huskey.phont in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		7B9F68162DB4ADBB00A0912C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		7B9F68242DB4ADBC00A0912C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		7B9F68252DB4ADBC00A0912C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		7B9F68272DB4ADBC00A0912C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = HelloAquesTalk/HelloAquesTalk.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "a-quest.HelloAquesTalk";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "HelloAquesTalk/HelloAquesTalk-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		7B9F68282DB4ADBC00A0912C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = HelloAquesTalk/HelloAquesTalk.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "a-quest.HelloAquesTalk";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "HelloAquesTalk/HelloAquesTalk-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		7B9F68152DB4ADBB00A0912C /* Build configuration list for PBXProject "HelloAquesTalk" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7B9F68242DB4ADBC00A0912C /* Debug */,
+				7B9F68252DB4ADBC00A0912C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7B9F68262DB4ADBC00A0912C /* Build configuration list for PBXNativeTarget "HelloAquesTalk" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7B9F68272DB4ADBC00A0912C /* Debug */,
+				7B9F68282DB4ADBC00A0912C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 7B9F68122DB4ADBB00A0912C /* Project object */;
+}

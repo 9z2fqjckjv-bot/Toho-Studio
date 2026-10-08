@@ -1147,6 +1147,57 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         self.animationVideoPath = animationVideoPath
         self.rawPresenterNote = rawPresenterNote ?? presenterNote
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = (try? container.decode(UUID.self, forKey: .id)) ?? UUID()
+        self.slideIndex = (try? container.decode(Int.self, forKey: .slideIndex)) ?? 1
+        self.title = (try? container.decode(String.self, forKey: .title)) ?? ""
+        self.telop = (try? container.decode(String.self, forKey: .telop)) ?? ""
+        self.presenterNote = (try? container.decode(String.self, forKey: .presenterNote)) ?? ""
+        self.backgroundName = (try? container.decode(String.self, forKey: .backgroundName)) ?? "nc73538_【背景素材】博麗神社.jpg"
+        self.characterName = (try? container.decode(String.self, forKey: .characterName)) ?? "ナレーション"
+        self.detectedObjects = (try? container.decode([String].self, forKey: .detectedObjects)) ?? []
+        self.animationTag = (try? container.decode(String.self, forKey: .animationTag)) ?? "なし"
+        self.transitionTag = (try? container.decode(String.self, forKey: .transitionTag)) ?? "フェード"
+        self.slideType = (try? container.decode(String.self, forKey: .slideType)) ?? "content"
+        self.duration = (try? container.decode(Double.self, forKey: .duration)) ?? 3.0
+        self.transitionEffect = (try? container.decode(String.self, forKey: .transitionEffect)) ?? "なし"
+        self.transitionTrigger = (try? container.decode(String.self, forKey: .transitionTrigger)) ?? "クリック時"
+        self.transitionDelay = (try? container.decode(Double.self, forKey: .transitionDelay)) ?? 0.0
+        self.transitionDuration = (try? container.decode(Double.self, forKey: .transitionDuration)) ?? 1.0
+        self.animations = (try? container.decode([SlideAnimationItem].self, forKey: .animations)) ?? []
+        self.buildOrder = (try? container.decode([BuildOrderItem].self, forKey: .buildOrder)) ?? []
+        self.slideWidth = (try? container.decode(Double.self, forKey: .slideWidth)) ?? 1920
+        self.slideHeight = (try? container.decode(Double.self, forKey: .slideHeight)) ?? 1080
+        self.backgroundImagePath = try? container.decode(String.self, forKey: .backgroundImagePath)
+        self.backgroundX = (try? container.decode(Double.self, forKey: .backgroundX)) ?? 0
+        self.backgroundY = (try? container.decode(Double.self, forKey: .backgroundY)) ?? 0
+        self.backgroundWidth = (try? container.decode(Double.self, forKey: .backgroundWidth)) ?? 1920
+        self.backgroundHeight = (try? container.decode(Double.self, forKey: .backgroundHeight)) ?? 1080
+        self.characterImagePath = try? container.decode(String.self, forKey: .characterImagePath)
+        self.characterX = try? container.decode(Double.self, forKey: .characterX)
+        self.characterY = try? container.decode(Double.self, forKey: .characterY)
+        self.characterWidth = try? container.decode(Double.self, forKey: .characterWidth)
+        self.characterHeight = try? container.decode(Double.self, forKey: .characterHeight)
+        self.telopX = try? container.decode(Double.self, forKey: .telopX)
+        self.telopY = try? container.decode(Double.self, forKey: .telopY)
+        self.telopWidth = try? container.decode(Double.self, forKey: .telopWidth)
+        self.telopHeight = try? container.decode(Double.self, forKey: .telopHeight)
+        self.objects = (try? container.decode([SlideObjectItem].self, forKey: .objects)) ?? []
+        self.slideImagePath = try? container.decode(String.self, forKey: .slideImagePath)
+        self.animationVideoPath = try? container.decode(String.self, forKey: .animationVideoPath)
+        self.rawPresenterNote = try? container.decode(String.self, forKey: .rawPresenterNote)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, slideIndex, title, telop, presenterNote, backgroundName, characterName, detectedObjects
+        case animationTag, transitionTag, slideType, duration, transitionEffect, transitionTrigger
+        case transitionDelay, transitionDuration, animations, buildOrder, slideWidth, slideHeight
+        case backgroundImagePath, backgroundX, backgroundY, backgroundWidth, backgroundHeight
+        case characterImagePath, characterX, characterY, characterWidth, characterHeight
+        case telopX, telopY, telopWidth, telopHeight, objects, slideImagePath, animationVideoPath, rawPresenterNote
+    }
 }
 
 // MARK: - Game Maker Models

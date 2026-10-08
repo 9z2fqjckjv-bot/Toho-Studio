@@ -46,7 +46,13 @@ public final class SlideRecognitionService: ObservableObject {
     @Published public var logs: [RecognitionLogEntry] = []
     @Published public var loadedProjectName: String = "交換夫婦（21.22話目）"
 
-    private let videoAssetsPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用"
+    private var videoAssetsPath: String {
+        let docPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用"
+        if FileManager.default.fileExists(atPath: docPath) {
+            return docPath
+        }
+        return "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用"
+    }
     private let programsExtractorScriptPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Slide&ScenarioMarker/Programs/keynote_extractor.py"
     private let primaryExtractorScriptPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Slide&ScenarioMarker/Scripts/keynote_extractor.py"
     private let legacyExtractorScriptPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Scripts/keynote_extractor.py"
@@ -73,94 +79,212 @@ public final class SlideRecognitionService: ObservableObject {
 
     private init() {}
 
+    // MARK: - Path & Project Resolution Utilities
+
+    public static func cleanProjectBaseName(from pathOrName: String) -> String {
+        var name = URL(fileURLWithPath: pathOrName).lastPathComponent
+        let exts = [".tspm", ".key", ".tsvm", ".tssm", ".tscm", ".tsgm", ".json", ".txt", ".pptx", ".keynote", ".gslide"]
+        var changed = true
+        while changed {
+            changed = false
+            for ext in exts {
+                if name.lowercased().hasSuffix(ext) {
+                    name = String(name.dropLast(ext.count))
+                    changed = true
+                }
+            }
+        }
+        return name
+    }
+
+    /// スライド＆シナリオメーカーで保存・変更された最新の .tspm ファイルのパスを探索して取得
+    public static func findLatestTspmPath(for projectPathOrName: String) -> String? {
+        let fm = FileManager.default
+        let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: projectPathOrName)
+        guard !cleanBase.isEmpty else { return nil }
+
+        // パス自体が実在する .tspm ファイルならそれを優先
+        if projectPathOrName.hasSuffix(".tspm") && fm.fileExists(atPath: projectPathOrName) {
+            return projectPathOrName
+        }
+
+        let normClean = cleanBase
+            .replacingOccurrences(of: ",", with: "")
+            .replacingOccurrences(of: "，", with: "")
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "　", with: "")
+
+        var searchDirs = [
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Slide&ScenarioMarker"
+        ]
+        let parentDir = URL(fileURLWithPath: projectPathOrName).deletingLastPathComponent().path
+        if !parentDir.isEmpty && parentDir != "/" && fm.fileExists(atPath: parentDir) {
+            searchDirs.append(parentDir)
+        }
+
+        var candidates: [String] = []
+
+        for dir in searchDirs where fm.fileExists(atPath: dir) {
+            guard let files = try? fm.contentsOfDirectory(atPath: dir) else { continue }
+            for file in files where file.hasSuffix(".tspm") {
+                let fullPath = (dir as NSString).appendingPathComponent(file)
+                let fClean = SlideRecognitionService.cleanProjectBaseName(from: file)
+                let normF = fClean
+                    .replacingOccurrences(of: ",", with: "")
+                    .replacingOccurrences(of: "，", with: "")
+                    .replacingOccurrences(of: " ", with: "")
+                    .replacingOccurrences(of: "　", with: "")
+
+                if fClean == cleanBase || normF == normClean {
+                    candidates.append(fullPath)
+                    continue
+                }
+                let v1 = normClean.replacingOccurrences(of: "話目", with: "話")
+                let v2 = normClean.replacingOccurrences(of: "21話22話", with: "21.22話目")
+                let v3 = normClean.replacingOccurrences(of: "21.22話目", with: "21話22話")
+                if normF.contains(v1) || normF.contains(v2) || normF.contains(v3) ||
+                   normClean.contains(normF) || normF.contains(normClean) {
+                    candidates.append(fullPath)
+                }
+            }
+        }
+
+        // 最も新しい更新日時の .tspm ファイルを選択
+        let sorted = candidates.sorted { p1, p2 in
+            let date1 = (try? fm.attributesOfItem(atPath: p1)[.modificationDate] as? Date) ?? Date.distantPast
+            let date2 = (try? fm.attributesOfItem(atPath: p2)[.modificationDate] as? Date) ?? Date.distantPast
+            return date1 > date2
+        }
+
+        return sorted.first
+    }
+
     /// Returns all available Keynote presentation files located in the repository
     public func getAvailableKeynoteProjects() -> [KeynoteProjectItem] {
-        return [
+        var projects = [
+            KeynoteProjectItem(
+                title: "交換夫婦（27話目）",
+                category: "交換夫婦",
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/交換夫婦/交換夫婦（27話目）.key",
+                description: "最新エピソード。93スライド構成。スライド＆シナリオメーカーでの最新編集内容完全連動"
+            ),
             KeynoteProjectItem(
                 title: "交換夫婦（26話目）",
                 category: "交換夫婦",
                 filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/交換夫婦/交換夫婦（26話目）.key",
-                description: "テスト対象ファイル。91スライド構成。スライドトランジション（カラーでフェード等）および演出・アニメーション完備"
+                description: "91スライド構成。スライドトランジション（カラーでフェード等）および演出・アニメーション完備"
             ),
             KeynoteProjectItem(
                 title: "交換夫婦（21.22話目）",
                 category: "交換夫婦",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/交換夫婦/交換夫婦（21.22話目）.key",
-                description: "指示書対象ファイル。319スライド構成。タイトル/中扉/通常スライド、ポケベル、バウンス/回転アニメーション完備"
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/交換夫婦/交換夫婦（21.22話目）.key",
+                description: "319スライド構成。タイトル/中扉/通常スライド、ポケベル、バウンス/回転アニメーション完備"
+            ),
+            KeynoteProjectItem(
+                title: "元女子校の日常　第3話",
+                category: "元女子校の日常",
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/元女子校の日常/元女子校の日常　第3話.key",
+                description: "68スライド構成。スライド＆シナリオメーカー最新編集版"
+            ),
+            KeynoteProjectItem(
+                title: "元女子校の日常　第2話",
+                category: "元女子校の日常",
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/元女子校の日常/元女子校の日常　第2話.key",
+                description: "69スライド構成。保健室シーン・シナリオ編集反映版"
+            ),
+            KeynoteProjectItem(
+                title: "元女子校の日常　第1話",
+                category: "元女子校の日常",
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/元女子校の日常/元女子校の日常　第1話.key",
+                description: "51スライド構成。学校の日常シリーズ第1話"
             ),
             KeynoteProjectItem(
                 title: "交換夫婦（1話目）",
                 category: "交換夫婦",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/交換夫婦/交換夫婦（1話目）.key",
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/交換夫婦/交換夫婦（1話目）.key",
                 description: "日常と非日常の交錯ドラマシナリオ第1話"
             ),
             KeynoteProjectItem(
                 title: "東方惑情録　第1話",
                 category: "東方惑情録",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方惑情録/東方惑情録　第1話.key",
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/東方惑情録/東方惑情録　第1話.key",
                 description: "62スライド構成。異変調査の幕開けと紅魔館・神社の静寂"
             ),
             KeynoteProjectItem(
                 title: "東方惑情録　第2話",
                 category: "東方惑情録",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方惑情録/東方惑情録　第2話.key",
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/東方惑情録/東方惑情録　第2話.key",
                 description: "魔法の森探索とパチュリー・魔理沙の心理戦"
             ),
             KeynoteProjectItem(
                 title: "東方惑情録　第3話",
                 category: "東方惑情録",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方惑情録/東方惑情録　第3話.key",
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/東方惑情録/東方惑情録　第3話.key",
                 description: "白玉楼と冥界の波紋。幽々子と妖夢の掛け合い"
             ),
             KeynoteProjectItem(
                 title: "東方惑情録　第４話",
                 category: "東方惑情録",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方惑情録/東方惑情録　第４話.key",
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/東方惑情録/東方惑情録　第４話.key",
                 description: "地霊殿急襲、さとりとこいしの姉妹遭遇"
             ),
             KeynoteProjectItem(
                 title: "東方惑情録　第5話",
                 category: "東方惑情録",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方惑情録/東方惑情録　第5話.key",
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/東方惑情録/東方惑情録　第5話.key",
                 description: "永遠亭・竹林での激戦と境界の綻び"
             ),
             KeynoteProjectItem(
                 title: "東方惑情録　第6話",
                 category: "東方惑情録",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方惑情録/東方惑情録　第6話.key",
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/東方惑情録/東方惑情録　第6話.key",
                 description: "八雲紫との対峙と異変解決のクライマックス"
             ),
             KeynoteProjectItem(
                 title: "東方操夢録　第1話",
                 category: "東方操夢録",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方操夢録/東方操夢録　第1話.key",
-                description: "夢の世界と幻想郷が交錯する心理サスペンス第1話"
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/東方操夢録/東方操夢録　第2話.key",
+                description: "夢の世界と幻想郷が交錯する心理サスペンス"
             ),
             KeynoteProjectItem(
-                title: "東方操夢録　第2話",
-                category: "東方操夢録",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方操夢録/東方操夢録　第2話.key",
-                description: "操られた記憶と夢魂の行方"
-            ),
-            KeynoteProjectItem(
-                title: "彷徨う二人　第1話",
+                title: "彷徨う二人　(1)",
                 category: "短編シリーズ",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/彷徨う二人/彷徨う二人　第1話.key",
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/彷徨う二人/(1).key",
                 description: "幻想郷の境界に迷い込んだ二人の物語"
             ),
             KeynoteProjectItem(
                 title: "幼き日の夢　第1話",
                 category: "短編シリーズ",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/幼き日の夢/幼き日の夢　第1話.key",
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/幼き日の夢/第1話.key",
                 description: "幼少期の博麗神社と過ぎ去りし日々の回想"
             ),
             KeynoteProjectItem(
                 title: "ゲームシナリオ",
                 category: "ゲーム",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/ゲームシナリオ.key",
+                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/ゲームシナリオ.key",
                 description: "横長ワイドRPG/ノベル制作用分岐シナリオスライド"
             )
         ]
+
+        // Documents/Slides フォルダから他の Keynote ファイルも動的に補完追加
+        let slidesDir = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides"
+        if let enumerator = FileManager.default.enumerator(atPath: slidesDir) {
+            for case let file as String in enumerator where file.hasSuffix(".key") {
+                let fullPath = (slidesDir as NSString).appendingPathComponent(file)
+                if !projects.contains(where: { $0.filePath == fullPath }) {
+                    let title = URL(fileURLWithPath: file).deletingPathExtension().lastPathComponent
+                    let category = (file as NSString).pathComponents.first ?? "スライド"
+                    projects.append(KeynoteProjectItem(
+                        title: title,
+                        category: category,
+                        filePath: fullPath,
+                        description: "\(title) スライドプロジェクト"
+                    ))
+                }
+            }
+        }
+
+        return projects
     }
 
     /// 指示書 Slide 14 統合プログラム:
@@ -281,7 +405,10 @@ public final class SlideRecognitionService: ObservableObject {
             DispatchQueue.main.async {
                 let app = AppState.shared
                 app.slides = recognizedSlides
-                self.loadedProjectName = fileName
+                let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: fileName)
+                app.currentProjectPath = filePath
+                app.currentProjectName = cleanBase
+                self.loadedProjectName = cleanBase
 
                 if syncMovieMaker {
                     self.syncToMovieMaker(slides: recognizedSlides)
@@ -304,7 +431,7 @@ public final class SlideRecognitionService: ObservableObject {
                 }
 
                 if autoSave {
-                    self.autoSaveProject(fileName: fileName)
+                    self.autoSaveProject(fileName: cleanBase)
                     self.appendLog(&logEntries, slide: 0, step: "プロジェクト自動保存", status: "SUCCESS", details: "ローカルおよびNanndemoyaCloud/GoogleDriveへ最新状態を自動保存")
                 }
 
@@ -701,62 +828,93 @@ public final class SlideRecognitionService: ObservableObject {
         }
     }
 
-    private func autoSaveProject(fileName: String) {
+    public func autoSaveProject(fileName: String) {
         let app = AppState.shared
+        let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: fileName)
+        guard !cleanBase.isEmpty, !app.slides.isEmpty else { return }
+
         // スライド全データを直接エンコードして .tspm に保存
         if let slideData = try? JSONEncoder().encode(app.slides) {
-            _ = StorageManager.shared.saveProjectFile(module: .slideScenarioMaker, fileName: "\(fileName).tspm", data: slideData)
-            _ = StorageManager.shared.saveProjectFile(module: .slideScenarioMaker, fileName: "\(fileName)_sync.json", data: slideData)
+            _ = StorageManager.shared.saveProjectFile(module: .slideScenarioMaker, fileName: "\(cleanBase).tspm", data: slideData)
+            _ = StorageManager.shared.saveProjectFile(module: .slideScenarioMaker, fileName: "\(cleanBase).key.tspm", data: slideData)
+            _ = StorageManager.shared.saveProjectFile(module: .slideScenarioMaker, fileName: "\(cleanBase)_sync.json", data: slideData)
         }
         if let movieData = try? JSONEncoder().encode(app.movieScenes) {
-            _ = StorageManager.shared.saveProjectFile(module: .movieMaker, fileName: "\(fileName).tsvm", data: movieData)
-            _ = StorageManager.shared.saveProjectFile(module: .movieMaker, fileName: "\(fileName)_movie_sync.json", data: movieData)
+            _ = StorageManager.shared.saveProjectFile(module: .movieMaker, fileName: "\(cleanBase).tsvm", data: movieData)
+            _ = StorageManager.shared.saveProjectFile(module: .movieMaker, fileName: "\(cleanBase)_movie_sync.json", data: movieData)
         }
+    }
+
+    /// Loads [SlideItem] from a given .tspm or .json file
+    public func loadSlidesFromTspmOrJson(path: String) -> [SlideItem]? {
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: path),
+              let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else {
+            return nil
+        }
+        if let directSlides = try? JSONDecoder().decode([SlideItem].self, from: data), !directSlides.isEmpty {
+            return directSlides
+        }
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let slidesArray = json["slides"] as? [[String: Any]],
+               let subData = try? JSONSerialization.data(withJSONObject: slidesArray),
+               let decoded = try? JSONDecoder().decode([SlideItem].self, from: subData), !decoded.isEmpty {
+                return decoded
+            }
+        }
+        return nil
+    }
+
+    /// Resolves Keynote file path across known slide directories if moved or relative
+    public func resolveKeynotePath(_ path: String) -> String {
+        let fm = FileManager.default
+        if fm.fileExists(atPath: path) { return path }
+        let fileName = URL(fileURLWithPath: path).lastPathComponent
+        let slidesDir = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides"
+        if let enumerator = fm.enumerator(atPath: slidesDir) {
+            for case let file as String in enumerator where file.hasSuffix(fileName) {
+                let candidate = (slidesDir as NSString).appendingPathComponent(file)
+                if fm.fileExists(atPath: candidate) { return candidate }
+            }
+        }
+        return path
     }
 
     // MARK: - Core Extraction Logic
 
     public func extractSlidesFromPath(filePath: String) -> [SlideItem] {
         let fileManager = FileManager.default
-        guard fileManager.fileExists(atPath: filePath) else {
-            return generateFallbackSlides(filePath: filePath, count: 12)
-        }
 
-        // 仕様書 Slide 228: .tspm 編集ファイルの直接読み込みサポート
+        // 1. 指定ファイル自体が .tspm または .json の場合は直接読み込み
         let ext = URL(fileURLWithPath: filePath).pathExtension.lowercased()
         if ext == "tspm" || ext == "json" {
-            if let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)) {
-                if let directSlides = try? JSONDecoder().decode([SlideItem].self, from: data), !directSlides.isEmpty {
-                    return directSlides
-                }
-                // ディクショナリ形式の解析
-                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    if let slidesArray = json["slides"] as? [[String: Any]],
-                       let subData = try? JSONSerialization.data(withJSONObject: slidesArray),
-                       let decoded = try? JSONDecoder().decode([SlideItem].self, from: subData), !decoded.isEmpty {
-                        return decoded
-                    }
-                    // projectName から元ファイル（.key等）を探して抽出
-                    if let originalProjectName = json["projectName"] as? String {
-                        let candidateBase = originalProjectName.replacingOccurrences(of: ".tspm", with: "")
-                        let possiblePaths = [
-                            "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方惑情録/\(candidateBase).key",
-                            "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方惑情録/東方惑情録　第1話.key",
-                            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Slide&ScenarioMarker/\(candidateBase).tspm",
-                            URL(fileURLWithPath: filePath).deletingLastPathComponent().appendingPathComponent("\(candidateBase).key").path
-                        ]
-                        for path in possiblePaths {
-                            if fileManager.fileExists(atPath: path) && path != filePath {
-                                let slides = extractSlidesFromPath(filePath: path)
-                                if !slides.isEmpty { return slides }
-                            }
-                        }
-                    }
-                }
+            if let directSlides = loadSlidesFromTspmOrJson(path: filePath), !directSlides.isEmpty {
+                return directSlides
             }
-            if !AppState.shared.slides.isEmpty {
-                return AppState.shared.slides
+        }
+
+        // 2. 指示書仕様: 編集元ファイル(.key)とスライド＆シナリオ保存ファイル(.tspm)の更新日時を比較
+        if let latestTspm = SlideRecognitionService.findLatestTspmPath(for: filePath) {
+            let actualKeyPath = resolveKeynotePath(filePath)
+            let isKeyFile = actualKeyPath.hasSuffix(".key") && fileManager.fileExists(atPath: actualKeyPath)
+
+            let keyModDate = isKeyFile ? ((try? fileManager.attributesOfItem(atPath: actualKeyPath)[.modificationDate] as? Date) ?? Date.distantPast) : Date.distantPast
+            let tspmModDate = (try? fileManager.attributesOfItem(atPath: latestTspm)[.modificationDate] as? Date) ?? Date.distantPast
+
+            // .key ファイルが .tspm よりも新しく更新されている場合（Keynoteで編集された場合）は、
+            // Keynoteファイルから最新スライドを再抽出する。
+            // 逆に .tspm の方が新しいか同等（スライド＆シナリオメーカーで編集・保存された場合）は、
+            // 編集済み .tspm を最優先で読み込む。
+            if (!isKeyFile || tspmModDate >= keyModDate),
+               let savedSlides = loadSlidesFromTspmOrJson(path: latestTspm), !savedSlides.isEmpty {
+                return savedSlides
             }
+        }
+
+        // 3. Keynote ファイルの実体パス解決
+        let actualKeynotePath = resolveKeynotePath(filePath)
+        guard fileManager.fileExists(atPath: actualKeynotePath) else {
+            return generateFallbackSlides(filePath: filePath, count: 12)
         }
 
         let scriptPath = resolvedExtractorScriptPath
@@ -768,7 +926,7 @@ public final class SlideRecognitionService: ObservableObject {
 
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
-            process.arguments = [scriptPath, filePath, tempOutputURL.path]
+            process.arguments = [scriptPath, actualKeynotePath, tempOutputURL.path]
             process.standardOutput = FileHandle.nullDevice
             process.standardError = FileHandle.nullDevice
 

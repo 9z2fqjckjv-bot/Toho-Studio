@@ -268,7 +268,13 @@ public struct AISoundGeneratorProgramView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         soundTagButton("スマホのチャット着信音、クリアな通知ベル", isBGM: false)
+                        soundTagButton("キラキラ光る魔法効果音 シャラララン", isBGM: false)
                         soundTagButton("一眼レフカメラのシャッター音", isBGM: false)
+                        soundTagButton("銃声・ピストル発砲音 バキューン", isBGM: false)
+                        soundTagButton("雨と水滴のポチャン音", isBGM: false)
+                        soundTagButton("激しい雷鳴と落雷バリバリ", isBGM: false)
+                        soundTagButton("ジャンプ音 ピョン", isBGM: false)
+                        soundTagButton("コイン獲得チャリン音", isBGM: false)
                         soundTagButton("PCキーボードの高速タイピング打鍵音", isBGM: false)
                         soundTagButton("格闘ゲームの重いパンチ打撃音", isBGM: false)
                         soundTagButton("大爆発と轟音クラッシュ", isBGM: false)
@@ -315,15 +321,20 @@ public struct AISoundGeneratorProgramView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Generate Button Section (⚡️ GPU経由の統合生成ボタン)
+    // MARK: - Generate Button Section (GPU / ローカル統合生成ボタン)
     private var generateButtonSection: some View {
         VStack(spacing: 8) {
             Button(action: {
-                if !cloudLinuxService.colabBridge.isOnline || cloudLinuxService.colabBridge.endpoint.isEmpty {
-                    // 未接続時はアプリ内Colabブラウザを自動起動してGPU接続へ誘導
-                    showColabBrowser = true
+                if cloudLinuxService.colabBridge.isOnline && !cloudLinuxService.colabBridge.endpoint.isEmpty && soundService.useColabGPUIfAvailable {
+                    // Colab GPU 実行
+                    if activeTab == .bgm {
+                        soundService.generateBGM()
+                    } else {
+                        soundService.generateSE()
+                    }
                 } else {
-                    soundService.useColabGPUIfAvailable = true
+                    // ローカルAI・高品質プロシージャル合成を実行 (Colabオフラインでも即座に生成可能)
+                    soundService.useColabGPUIfAvailable = false
                     if activeTab == .bgm {
                         soundService.generateBGM()
                     } else {
@@ -335,15 +346,24 @@ public struct AISoundGeneratorProgramView: View {
                     if (activeTab == .bgm && soundService.isBGMGenerating) ||
                        (activeTab == .se && soundService.isSEGenerating) {
                         ProgressView().controlSize(.small)
-                        Text("GPU音響生成処理中...")
+                        Text(cloudLinuxService.colabBridge.isOnline && soundService.useColabGPUIfAvailable ? "GPU音響生成処理中..." : "AI音響生成中...")
                             .bold()
                     } else {
-                        Image(systemName: "bolt.fill")
-                            .foregroundColor(.yellow)
-                        Text(activeTab == .bgm
-                             ? "⚡️ GPU経由でBGMを生成 (Colab MusicGen)"
-                             : "⚡️ GPU経由で効果音を生成 (Colab AudioGen/SE)")
-                            .bold()
+                        if cloudLinuxService.colabBridge.isOnline && soundService.useColabGPUIfAvailable {
+                            Image(systemName: "bolt.fill")
+                                .foregroundColor(.yellow)
+                            Text(activeTab == .bgm
+                                 ? "⚡️ GPU経由でBGMを生成 (Colab MusicGen)"
+                                 : "⚡️ GPU経由で効果音を生成 (Colab AudioGen/SE)")
+                                .bold()
+                        } else {
+                            Image(systemName: "waveform.badge.plus")
+                                .foregroundColor(.cyan)
+                            Text(activeTab == .bgm
+                                 ? "AI BGMを生成 (\(soundService.selectedProvider.rawValue))"
+                                 : "AI 効果音(SE)を生成 (\(soundService.selectedProvider.rawValue))")
+                                .bold()
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -352,8 +372,14 @@ public struct AISoundGeneratorProgramView: View {
                 .background(
                     RoundedRectangle(cornerRadius: 8)
                         .fill(
-                            LinearGradient(
+                            (cloudLinuxService.colabBridge.isOnline && soundService.useColabGPUIfAvailable)
+                            ? LinearGradient(
                                 colors: [Color.teal, Color.cyan],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                            : LinearGradient(
+                                colors: [Color.purple, Color.indigo],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -363,14 +389,29 @@ public struct AISoundGeneratorProgramView: View {
             .buttonStyle(.plain)
             .disabled(soundService.isBGMGenerating || soundService.isSEGenerating)
 
-            // 接続状況およびローカルLLM連携の補足情報
-            HStack(spacing: 4) {
-                Image(systemName: "brain.head.profile")
-                    .font(.system(size: 10))
-                    .foregroundColor(.blue)
-                Text("日本語入力時はローカルLLM (Gemma 2) が英語化してからGPUへ送信")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
+            // GPU未接続時のColab接続誘導
+            if !cloudLinuxService.colabBridge.isOnline {
+                Button(action: {
+                    showColabBrowser = true
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "bolt.badge.automatic.fill")
+                            .foregroundColor(.yellow)
+                        Text("Google Colab L4 GPU を接続して生成する")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
+                HStack(spacing: 4) {
+                    Image(systemName: "brain.head.profile")
+                        .font(.system(size: 10))
+                        .foregroundColor(.blue)
+                    Text("日本語入力時はローカルLLM (Gemma 2) が英語化してからGPUへ送信")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
             }
         }
     }
