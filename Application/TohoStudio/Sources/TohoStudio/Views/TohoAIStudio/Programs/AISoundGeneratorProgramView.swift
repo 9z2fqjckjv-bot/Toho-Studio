@@ -13,6 +13,8 @@ public struct AISoundGeneratorProgramView: View {
     @State private var showSuccessAlert: Bool = false
     @State private var alertMessage: String = ""
     @State private var showColabBrowser: Bool = false
+    @State private var showScoreViewer: Bool = false
+    @State private var scoreViewerAudioURL: URL? = nil
 
     public enum SoundGeneratorMode: String, CaseIterable, Identifiable {
         case bgm = "BGM生成 (プロンプト入力)"
@@ -60,6 +62,9 @@ public struct AISoundGeneratorProgramView: View {
         }
         .sheet(isPresented: $showColabBrowser) {
             ColabGPUInAppBrowserView(isPresented: $showColabBrowser)
+        }
+        .sheet(isPresented: $showScoreViewer) {
+            ScoreViewerSheetView(initialAudioURL: scoreViewerAudioURL)
         }
     }
 
@@ -611,6 +616,16 @@ public struct AISoundGeneratorProgramView: View {
                         .buttonStyle(.bordered)
 
                         Button(action: {
+                            scoreViewerAudioURL = latest.fileURL
+                            showScoreViewer = true
+                        }) {
+                            Label("五線譜PDF楽譜化", systemImage: "music.quarternote.3")
+                                .font(.caption)
+                                .bold()
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button(action: {
                             NSWorkspace.shared.activateFileViewerSelecting([latest.fileURL])
                         }) {
                             Label("Finder", systemImage: "arrow.up.right.square")
@@ -642,6 +657,15 @@ public struct AISoundGeneratorProgramView: View {
                     .bold()
                     .foregroundColor(.secondary)
                 Spacer()
+
+                Button(action: {
+                    scoreViewerAudioURL = nil
+                    showScoreViewer = true
+                }) {
+                    Label("楽譜ビューアを開く", systemImage: "music.quarternote.3")
+                        .font(.caption2)
+                }
+                .buttonStyle(.bordered)
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -688,6 +712,17 @@ public struct AISoundGeneratorProgramView: View {
                                     .foregroundColor(.blue)
                             }
                             .buttonStyle(.plain)
+
+                            Button(action: {
+                                scoreViewerAudioURL = item.fileURL
+                                showScoreViewer = true
+                            }) {
+                                Image(systemName: "music.quarternote.3")
+                                    .font(.title3)
+                                    .foregroundColor(.purple)
+                            }
+                            .buttonStyle(.plain)
+                            .help("この音声をBasic Pitchで自動採譜し五線譜PDFを生成")
 
                             Button(action: {
                                 soundService.applyToSoundMaker(item: item)

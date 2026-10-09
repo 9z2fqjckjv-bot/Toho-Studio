@@ -11,12 +11,23 @@ struct TohoStudioApp: App {
         // Configure macOS app behavior
         NSApplication.shared.setActivationPolicy(.regular)
 
+        if CommandLine.arguments.contains("--test-all") {
+            runCharacterMakerSelfTest()
+            runSoundMakerExportSelfTest()
+            runAIImagePromptSelfTest()
+            print("\n🎉 ALL TOHOSTUDIO SELF-TESTS PASSED SUCCESSFULLY! 🎉\n")
+            exit(0)
+        }
         if CommandLine.arguments.contains("--test-character-maker") {
             runCharacterMakerSelfTest()
             exit(0)
         }
         if CommandLine.arguments.contains("--test-sound-maker-export") {
             runSoundMakerExportSelfTest()
+            exit(0)
+        }
+        if CommandLine.arguments.contains("--test-ai-image-prompt") {
+            runAIImagePromptSelfTest()
             exit(0)
         }
     }
@@ -155,6 +166,57 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         print("=== [TEST] ALL CHARACTER MAKER & PSDTOOL TESTS PASSED SUCCESSFULLY! ===")
     }
 
+    private func runAIImagePromptSelfTest() {
+        print("=== [TEST] AI Image Generator Prompt Self-Test Started ===")
+        let testPrompt = "汗がたらたらと垂れている古明地こいしの立ち絵を作成"
+        let hasChar = AIImageGeneratorService.hasExplicitCharacterOrPerson(testPrompt)
+        print("   Character detected: \(hasChar)")
+        assert(hasChar, "Prompt with Komeiji Koishi should be recognized as having a character")
+
+        let english = AIImageGeneratorService.generateOptimizedEnglishPrompt(from: testPrompt)
+        print("   Generated English Prompt for Koishi:")
+        print("   \(english)")
+
+        assert(english.hasPrefix("anime style"), "Anime style MUST be at the very front for CLIP 77-token priority")
+        assert(english.contains("Komeiji Koishi"), "English prompt MUST contain 'Komeiji Koishi'")
+        assert(english.contains("sweat"), "English prompt MUST contain sweating tags")
+        assert(english.contains("standing"), "Standing prompt MUST contain standing pose tag")
+        assert(!english.contains("no humans"), "Character prompt MUST NOT contain 'no humans'")
+        assert(!english.contains("schoolyard"), "Character prompt MUST NOT mistakenly inject schoolyard")
+
+        let negative = AIImageGeneratorService.convertNegativePromptToEnglish("低解像度, 崩れた構図, ノイズ, ぼやけ, 文字化け")
+        print("   Generated Negative Prompt:")
+        print("   \(negative)")
+        assert(negative.contains("photorealistic") || negative.contains("photograph"), "Negative prompt MUST exclude photorealism for Touhou anime art")
+
+        // Local Reference Archive Search & Composition Test
+        print("   Testing TohoLocalReferenceAssetService search...")
+        let localMatch = TohoLocalReferenceAssetService.shared.searchAndComposeAsset(prompt: testPrompt, aspectRatio: .portrait9_16)
+        print("   Local match result: \(String(describing: localMatch?.description))")
+        assert(localMatch != nil, "Local asset search MUST find Koishi in reference archive")
+        assert(localMatch?.characterName == "古明地こいし", "Character name must be 古明地こいし")
+        assert(localMatch?.composedImage != nil, "Composed image must be generated")
+        print("   Successfully verified local reference asset match & composition for Koishi!")
+
+        // Test background facility search
+        let bgPrompt = "紅魔館のロビーの背景"
+        let bgMatch = TohoLocalReferenceAssetService.shared.searchAndComposeAsset(prompt: bgPrompt, aspectRatio: .landscape16_9)
+        print("   Background match result: \(String(describing: bgMatch?.description))")
+        assert(bgMatch != nil, "Local asset search MUST find Scarlet Mansion lobby background")
+        assert(bgMatch?.facilityName == "紅魔館", "Facility name must match 紅魔館")
+        print("   Successfully verified local background reference asset match & composition!")
+
+        // Test user's exact prompt variation: "汗をたらたらと流す古明地こいしの立ち絵を作成"
+        let userExactPrompt = "汗をたらたらと流す古明地こいしの立ち絵を作成"
+        let exactMatch = TohoLocalReferenceAssetService.shared.searchAndComposeAsset(prompt: userExactPrompt, aspectRatio: .portrait9_16)
+        print("   Exact match result: \(String(describing: exactMatch?.description))")
+        assert(exactMatch != nil, "Local asset search MUST find Koishi with exact user prompt")
+        assert(exactMatch?.characterName == "古明地こいし", "Character name must be 古明地こいし")
+        print("   Successfully verified local reference asset match for exact prompt!")
+
+        print("=== [TEST] AI Image Generator Prompt Self-Test PASSED SUCCESSFULLY! ===")
+    }
+
     private func runSoundMakerExportSelfTest() {
         print("=== [TEST] SoundMaker Export Self-Test Started ===")
         let tmpDir = URL(fileURLWithPath: "/tmp/tohostudio_soundmaker_test")
@@ -184,7 +246,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             )
         ]
 
-        let sem = DispatchSemaphore(value: 0)
+        var isFinished = false
 
         Task {
             do {
@@ -256,10 +318,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 print("=== [TEST] FAILED: \(error) ===")
                 exit(1)
             }
-            sem.signal()
+            isFinished = true
         }
 
-        sem.wait()
+        while !isFinished {
+            RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.1))
+        }
     }
 
     var body: some Scene {

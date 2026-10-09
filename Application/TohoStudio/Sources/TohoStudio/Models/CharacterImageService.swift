@@ -13,7 +13,19 @@ public final class CharacterImageService: ObservableObject {
 
     private let repoRoot = "/Volumes/ZSSD/GitHub/repository/TohoStudio"
     private var charBaseDir: String {
+        let preferred = "\(repoRoot)/New/Application/Documents/参考資料/動画用/キャラクター"
+        if FileManager.default.fileExists(atPath: preferred) {
+            return preferred
+        }
         return "\(repoRoot)/Documents/動画用/キャラクター"
+    }
+
+    private var materialBaseDir: String {
+        let preferred = "\(repoRoot)/New/Application/Documents/参考資料/動画用/手作り素材"
+        if FileManager.default.fileExists(atPath: preferred) {
+            return preferred
+        }
+        return "\(repoRoot)/Documents/動画用/手作り素材"
     }
 
     private var cachePartsDir: String {
@@ -140,19 +152,25 @@ public final class CharacterImageService: ObservableObject {
         } else if characterName.contains("こいし") {
             // 第3の目パーツ（仕様書補足事項: こいしの第3の目が開いているなど）
             let eyePaths = [
-                "\(repoRoot)/Documents/動画用/手作り素材/psdtool/古明地姉妹/古明地こいし/帽子目なし目閉じ小口開け頬照り.png",
-                "\(repoRoot)/Documents/動画用/手作り素材/立絵スタジオ/古明地こいし/髪紫、上着黄色、第三の目水色"
+                "\(materialBaseDir)/psdtool/古明地姉妹/古明地こいし/帽子目なし目閉じ小口開け頬照り.png",
+                "\(materialBaseDir)/psdtool/古明地姉妹/古明地こいし/帽子目なしニヤつき頬照り.png",
+                "\(repoRoot)/Documents/動画用/手作り素材/psdtool/古明地姉妹/古明地こいし/帽子目なし目閉じ小口開け頬照り.png"
             ]
-            for ep in eyePaths where FileManager.default.fileExists(atPath: ep) {
-                parts.append(CharacterPart(
-                    name: "閉じた第3の目 (差分)",
-                    assetPath: ep,
-                    offsetX: 120.0,
-                    offsetY: 80.0,
-                    scale: 0.45,
-                    isVisible: true
-                ))
-                break
+            for ep in eyePaths {
+                let norm = ep.precomposedStringWithCanonicalMapping
+                let decomp = ep.decomposedStringWithCanonicalMapping
+                let finalPath = FileManager.default.fileExists(atPath: ep) ? ep : (FileManager.default.fileExists(atPath: norm) ? norm : (FileManager.default.fileExists(atPath: decomp) ? decomp : nil))
+                if let validPath = finalPath {
+                    parts.append(CharacterPart(
+                        name: "閉じた第3の目 (差分)",
+                        assetPath: validPath,
+                        offsetX: 120.0,
+                        offsetY: 80.0,
+                        scale: 0.45,
+                        isVisible: true
+                    ))
+                    break
+                }
             }
         }
 

@@ -992,7 +992,8 @@ public final class SoundMakerExporter {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: ffmpeg)
-        process.arguments = ["-y", "-i", inputURL.path] + codecArgs + [outputURL.path]
+        process.arguments = ["-y", "-nostdin", "-i", inputURL.path] + codecArgs + [outputURL.path]
+        process.standardInput = FileHandle.nullDevice
         currentProcess = process
 
         let pipe = Pipe()
@@ -1000,6 +1001,7 @@ public final class SoundMakerExporter {
         process.standardError = pipe
 
         try process.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
 
         if isCancelled {
@@ -1007,7 +1009,6 @@ public final class SoundMakerExporter {
         }
 
         if process.terminationStatus != 0 {
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
             let errStr = String(data: data, encoding: .utf8) ?? "FFmpeg execution failed"
             throw ExportError.fileWriteFailed(errStr)
         }

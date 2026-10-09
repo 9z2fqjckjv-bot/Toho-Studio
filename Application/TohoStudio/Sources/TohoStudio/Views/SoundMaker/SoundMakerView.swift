@@ -59,6 +59,8 @@ public struct SoundMakerView: View {
 
     // Batch Voice Generation Sheet
     @State private var showBatchVoiceGenerationSheet: Bool = false
+    @State private var showScoreViewerSheet: Bool = false
+    @State private var scoreViewerInitialURL: URL? = nil
 
     @State private var showHomeScreen: Bool = false
     @State private var showExportAudioSheet: Bool = false
@@ -184,6 +186,9 @@ public struct SoundMakerView: View {
         }
         .sheet(isPresented: $showSpanAudioInsertSheet) {
             SpanAudioInsertSheet(initialStartScene: selectedSceneIndex)
+        }
+        .sheet(isPresented: $showScoreViewerSheet) {
+            ScoreViewerSheetView(initialAudioURL: scoreViewerInitialURL)
         }
         .alert(isPresented: $showExportAudioErrorAlert) {
             Alert(
@@ -386,6 +391,22 @@ public struct SoundMakerView: View {
                 }
                 .buttonStyle(.bordered)
                 .help("指定した複数のシーン区間にまたがって流れるBGMやSEをタイムラインに一括配置")
+
+                // 🎵 五線譜自動採譜 (Score Viewer)
+                Button(action: {
+                    if let selId = selectedClipId, let clip = appState.soundClips.first(where: { $0.id == selId }), let path = clip.audioFilePath {
+                        scoreViewerInitialURL = URL(fileURLWithPath: path)
+                    } else {
+                        scoreViewerInitialURL = nil
+                    }
+                    showScoreViewerSheet = true
+                }) {
+                    Label("五線譜自動採譜", systemImage: "music.quarternote.3")
+                        .font(.caption)
+                        .foregroundColor(.cyan)
+                }
+                .buttonStyle(.bordered)
+                .help("選択中クリップや音声ファイルをSpotify Basic Pitchで自動解析し五線譜PDF楽譜を生成")
 
                 // Export Audio
                 Button(action: { showExportAudioSheet = true }) {
@@ -2857,10 +2878,12 @@ public struct SoundMakerView: View {
                     if clip.fadeInDuration > 0 || clip.fadeOutDuration > 0 {
                         HStack(spacing: 2) {
                             if clip.fadeInDuration > 0 {
-                                Text("FI:\(clip.fadeInDuration, specifier: "%.1f")s")
+                                let fiStr = String(format: "%.1f", clip.fadeInDuration)
+                                Text("FI:" + fiStr + "s")
                             }
                             if clip.fadeOutDuration > 0 {
-                                Text("FO:\(clip.fadeOutDuration, specifier: "%.1f")s")
+                                let foStr = String(format: "%.1f", clip.fadeOutDuration)
+                                Text("FO:" + foStr + "s")
                             }
                         }
                         .font(.system(size: 6.5, weight: .bold))
@@ -3007,6 +3030,19 @@ public struct SoundMakerView: View {
                         }
                     }
                 }
+            }
+
+            Divider()
+
+            Button(action: {
+                if let path = clip.audioFilePath {
+                    scoreViewerInitialURL = URL(fileURLWithPath: path)
+                } else {
+                    scoreViewerInitialURL = nil
+                }
+                showScoreViewerSheet = true
+            }) {
+                Label("この音声を五線譜PDF楽譜化 (自動採譜)...", systemImage: "music.quarternote.3")
             }
 
             Divider()

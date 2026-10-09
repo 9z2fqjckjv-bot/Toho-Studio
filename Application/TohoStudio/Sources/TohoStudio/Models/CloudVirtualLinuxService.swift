@@ -58,6 +58,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
     @Published public var lastNotificationSentThreshold: Int? = nil
     @Published public var latestNotificationMessage: String? = nil
     @Published public var lastGeneratedMediaUrl: String? = nil
+    @Published public var isMusicTranscriptionSupported: Bool = false
 
     private var heartbeatTimer: Timer? = nil
 
@@ -98,13 +99,22 @@ public final class CloudVirtualLinuxService: ObservableObject {
                     self.latencyMs = max(1, min(elapsed, 99))
                     self.lastHeartbeatAt = Date()
 
-                    // Parse Colab Bridge status if present
-                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let colab = json["colab_gpu_bridge"] as? [String: Any] {
-                        self.colabBridge.isOnline = colab["online"] as? Bool ?? false
-                        self.colabBridge.gpuName = colab["gpu"] as? String ?? "NVIDIA L4"
-                        if let endpoint = colab["endpoint"] as? String, !endpoint.isEmpty {
-                            self.colabBridge.endpoint = endpoint
+                    // Parse Colab Bridge & Music Transcription status if present
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        if let transcription = json["music_transcription"] as? [String: Any] {
+                            let supported = transcription["supported"] as? Bool ?? false
+                            if !self.isMusicTranscriptionSupported && supported {
+                                AppState.shared.addSystemLog(level: "INFO", message: "【自動採譜エンジン確認】Spotify Basic Pitch + LilyPond 採譜エンドポイント(/v1/audio/transcribe-to-sheet)が利用可能です。")
+                            }
+                            self.isMusicTranscriptionSupported = supported
+                        }
+
+                        if let colab = json["colab_gpu_bridge"] as? [String: Any] {
+                            self.colabBridge.isOnline = colab["online"] as? Bool ?? false
+                            self.colabBridge.gpuName = colab["gpu"] as? String ?? "NVIDIA L4"
+                            if let endpoint = colab["endpoint"] as? String, !endpoint.isEmpty {
+                                self.colabBridge.endpoint = endpoint
+                            }
                         }
                     }
                 } else {
@@ -314,7 +324,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
         var systemPrompt: String {
             switch self {
             case .image:
-                return "You are a professional prompt engineer for text-to-image AI (Stable Diffusion XL). Translate the user's Japanese prompt into concise, highly accurate English descriptive tags separated by commas. Accurately translate key facilities: '校庭' or 'グラウンド' or '運動場' -> 'outdoor schoolyard, athletic sports ground, running track, high school building exterior', '教室' -> 'Japanese classroom interior, desks, chalkboard', '廊下' -> 'school hallway corridor', '屋上' -> 'school rooftop, blue sky', '中庭' -> 'school courtyard garden', '体育館' -> 'school gymnasium', '保健室' -> 'school infirmary, clinic bed, medicine cabinet'. STRICT RULE: If the scene is outdoor (校庭, グラウンド, 屋外, 空, 海, 公園, 神社), you MUST specify 'outdoor' and NEVER include 'interior', 'room', or 'classroom'. If no characters are requested, add 'no humans, empty scenery'. Output ONLY the English tags."
+                return "You are a professional prompt engineer for text-to-image AI (Stable Diffusion XL). Translate the user's Japanese prompt into concise, highly accurate English descriptive tags separated by commas. ALWAYS begin the output with: 'anime style, cel shaded anime illustration, 2D anime art, clean lineart, Japanese animation aesthetic'. NEVER generate photorealistic, photograph, 3D, or real-life humans! Accurately identify Touhou characters and their iconic visual traits: '古明地こいし' or 'こいし' -> 'Komeiji Koishi, touhou project, 1girl, short green wavy hair, green eyes, black hat with yellow ribbon, yellow collared shirt with blue diamonds, green frilled skirt, closed third eye with blue cord looping around torso, Mary Jane shoes', '古明地さとり' or 'さとり' -> 'Komeiji Satori, touhou project, 1girl, short lavender hair, open red third eye on chest', '博麗霊夢' or '霊夢' -> 'Hakurei Reimu, touhou project, 1girl, red hair ribbon, miko shrine maiden dress', '霧雨魔理沙' or '魔理沙' -> 'Kirisame Marisa, touhou project, 1girl, witch hat, blonde braid, apron dress', '十六夜咲夜' -> 'Izayoi Sakuya, touhou project, maid outfit, pocket watch', 'レミリア' -> 'Remilia Scarlet, touhou project, bat wings, mob cap', 'フランドール' or 'フラン' -> 'Flandre Scarlet, touhou project, rainbow crystal wings', '魂魄妖夢' or '妖夢' -> 'Konpaku Youmu, touhou project, phantom myon, dual swords'. Accurately translate emotions and states: '汗がたらたら' or '汗' or '流す' -> 'heavy sweat, sweating profusely, sweatdrops, sweat dripping down face, nervous expression, anxious, flustered', '笑顔' -> 'smiling, cheerful smile', '泣き' -> 'crying, sobbing, tears in eyes'. Only add 'no humans, empty scenery' when the user explicitly requests scenery or background without any character or person. Output ONLY the English tags."
             case .video:
                 return "You are an expert prompt engineer for video generation. Translate the user's Japanese animation or video prompt into a descriptive English motion prompt. Specify the subject, action, motion dynamics, camera movement, and aesthetic style. Do NOT assume anime unless requested. Output ONLY the English prompt."
             case .music:
@@ -476,12 +486,13 @@ public final class CloudVirtualLinuxService: ObservableObject {
         str = str.replacingOccurrences(of: "English:", with: "")
 
         let origLower = originalPrompt.lowercased()
-        let isOutdoor = origLower.contains("校庭") || origLower.contains("グラウンド") || origLower.contains("運動場") ||
+        let hasChar = AIImageGeneratorService.hasExplicitCharacterOrPerson(originalPrompt)
+        let isOutdoor = !hasChar && (origLower.contains("校庭") || origLower.contains("グラウンド") || origLower.contains("運動場") ||
                         origLower.contains("屋外") || origLower.contains("空") || origLower.contains("海") ||
-                        origLower.contains("公園") || origLower.contains("屋上") || origLower.contains("中庭")
+                        origLower.contains("公園") || origLower.contains("屋上") || origLower.contains("中庭"))
 
         if isOutdoor {
-            // 屋外指定なのにLLMが誤って付与した室内・教室キーワードを安全に除去
+            // 屋外風景指定なのにLLMが誤って付与した室内・教室キーワードを安全に除去
             let forbidden = ["architectural interior", "interior architecture", "classroom interior", "classroom", "interior", "indoor"]
             for term in forbidden {
                 str = str.replacingOccurrences(of: term, with: "", options: .caseInsensitive)

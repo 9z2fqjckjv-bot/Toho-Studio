@@ -1,26 +1,69 @@
 #!/bin/bash
 # ==============================================================================
 # TohoStudio: Local Linux VM Daemon Upgrade Script
-# Adds Colab GPU Bridge routing (Text -> Gemma 2, Media -> Colab L4 GPU)
+# Adds Colab GPU Bridge routing + Basic Pitch & LilyPond Automatic Music Transcription
 # ==============================================================================
 
 set -euo pipefail
 
-echo ">>> [1/3] Creating media directories..."
+echo "=========================================================="
+echo ">>> [1/5] Installing system packages (LilyPond & FFmpeg)..."
+echo "=========================================================="
+sudo apt-get update -y
+sudo apt-get install -y lilypond ffmpeg
+
+echo "=========================================================="
+echo ">>> [2/5] Creating media directories..."
+echo "=========================================================="
 mkdir -p /opt/tohostudio-server/data/media
 
-echo ">>> [2/3] Updating llm_server_daemon.py with Colab GPU Bridge..."
+echo "=========================================================="
+echo ">>> [3/5] Updating requirements.txt & Installing Python packages..."
+echo "=========================================================="
+cat << "EOF" > /opt/tohostudio-server/requirements.txt
+fastapi>=0.100.0
+uvicorn>=0.23.0
+pydantic>=2.0.0
+requests>=2.31.0
+python-multipart>=0.0.9
+basic-pitch>=0.2.0
+music21>=9.1.0
+pydub>=0.25.1
+EOF
+
+if [ ! -d /opt/tohostudio-server/venv ]; then
+    python3 -m venv /opt/tohostudio-server/venv
+fi
+/opt/tohostudio-server/venv/bin/pip install -r /opt/tohostudio-server/requirements.txt
+
+echo "=========================================================="
+echo ">>> [4/5] Updating llm_server_daemon.py with Music Transcription..."
+echo "=========================================================="
 cat << "EOF" > /opt/tohostudio-server/llm_server_daemon.py
-import os, time, json, re, base64, requests
+import os, time, json, re, base64, shutil, tempfile, requests
 from datetime import datetime
 from typing import Optional, Dict, Any
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
 
-app = FastAPI(title="TohoStudio Hybrid Autonomous Daemon (Gemma 2 + Colab L4 GPU)", version="3.0.0")
+# Basic Pitch & music21 setup
+try:
+    from basic_pitch.inference import predict
+    from basic_pitch import ICASSP_2022_MODEL_PATH
+    import music21
+    for ly_cand in ['/usr/bin/lilypond', '/usr/local/bin/lilypond']:
+        if os.path.exists(ly_cand):
+            music21.environment.set('lilypondPath', ly_cand)
+            break
+    HAS_BASIC_PITCH = True
+except Exception as e:
+    HAS_BASIC_PITCH = False
+    BASIC_PITCH_ERROR = str(e)
+
+app = FastAPI(title="TohoStudio Hybrid Autonomous Daemon (Gemma 2 + Colab L4 GPU + Sheet Transcription)", version="3.1.0")
 
 DATA_DIR = "/opt/tohostudio-server/data"
 MEDIA_DIR = os.path.join(DATA_DIR, "media")
@@ -63,6 +106,34 @@ def check_colab_health(url: str) -> Dict[str, Any]:
         return {"status": "OFFLINE", "online": False, "error": str(e), "endpoint": url}
     return {"status": "OFFLINE", "online": False, "endpoint": url}
 
+# --- MIDI -> PDF 楽譜変換 ---
+def convert_midi_to_pdf(midi_path: str, output_pdf_path: str):
+    import music21
+    score = music21.converter.parse(midi_path)
+    score.quantize(quarterLengthDivisors=(4,), processOffsets=True, processDurations=True)
+    try:
+        key = score.analyze('key')
+        score.insert(0, key)
+    except Exception:
+        pass
+
+    temp_ly_dir = tempfile.mkdtemp()
+    temp_target = os.path.join(temp_ly_dir, "score.pdf")
+    try:
+        written_path = score.write('lily.pdf', fp=temp_target)
+        if os.path.exists(written_path):
+            shutil.copyfile(written_path, output_pdf_path)
+        elif os.path.exists(temp_target):
+            shutil.copyfile(temp_target, output_pdf_path)
+        else:
+            candidates = [f for f in os.listdir(temp_ly_dir) if f.endswith(".pdf")]
+            if candidates:
+                shutil.copyfile(os.path.join(temp_ly_dir, candidates[0]), output_pdf_path)
+            else:
+                raise RuntimeError("LilyPond failed to generate PDF output.")
+    finally:
+        shutil.rmtree(temp_ly_dir, ignore_errors=True)
+
 # --- ヘルスチェック API ---
 @app.get("/health")
 def health_check():
@@ -75,6 +146,11 @@ def health_check():
         "machine_type": "VirtualBuddy VM (Apple A18 Pro, 4GB RAM + 8GB Swap)",
         "zone": "mac-local-virtualization",
         "local_llm": "Google Gemma 2 (2B) via Ollama",
+        "music_transcription": {
+            "supported": HAS_BASIC_PITCH,
+            "engine": "Spotify Basic Pitch + music21 + LilyPond",
+            "endpoint": "/v1/audio/transcribe-to-sheet"
+        },
         "colab_gpu_bridge": {
             "notebook_url": COLAB_NOTEBOOK_URL,
             "endpoint": cfg.get("colab_url", ""),
@@ -101,6 +177,72 @@ def set_colab_endpoint(req: ColabEndpointRequest):
     save_colab_config(cfg)
     return {"success": True, "colab_url": clean_url, "health": status}
 
+# --- 音楽メディア自動採譜・PDF楽譜生成エンドポイント ---
+ALLOWED_AUDIO_EXTS = {".wav", ".mp3", ".m4a", ".flac", ".ogg"}
+
+@app.post("/v1/audio/transcribe-to-sheet")
+async def transcribe_to_sheet(file: UploadFile = File(...)):
+    if not HAS_BASIC_PITCH:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Basic Pitch / music21 がサーバーにインストールされていません: {BASIC_PITCH_ERROR if 'BASIC_PITCH_ERROR' in globals() else 'モジュール初期化エラー'}"
+        )
+
+    filename = file.filename or "audio.wav"
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in ALLOWED_AUDIO_EXTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"非対応の音声フォーマットです: {ext}。対応形式: {', '.join(sorted(ALLOWED_AUDIO_EXTS))}"
+        )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        input_audio_path = os.path.join(tmpdir, f"input{ext}")
+        with open(input_audio_path, "wb") as f_out:
+            shutil.copyfileobj(file.file, f_out)
+
+        # 音声フォーマットを WAV 形式へ変換（Basic Pitch 入力用）
+        target_wav_path = os.path.join(tmpdir, "input.wav")
+        try:
+            from pydub import AudioSegment
+            audio = AudioSegment.from_file(input_audio_path)
+            audio.export(target_wav_path, format="wav")
+        except Exception:
+            target_wav_path = input_audio_path
+
+        # Basic Pitch 推論 (発音開始時刻 onset_threshold=0.5, ピッチ抽出)
+        try:
+            model_output, midi_data, note_events = predict(
+                target_wav_path,
+                onset_threshold=0.5
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Basic Pitch 音声解析に失敗しました: {str(e)}")
+
+        midi_path = os.path.join(tmpdir, "extracted.mid")
+        midi_data.write(midi_path)
+
+        # LilyPond 経由で五線譜 PDF にコンパイル
+        pdf_path = os.path.join(tmpdir, "transcription.pdf")
+        try:
+            convert_midi_to_pdf(midi_path, pdf_path)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"LilyPond 楽譜PDF組版に失敗しました: {str(e)}")
+
+        if not os.path.exists(pdf_path) or os.path.getsize(pdf_path) == 0:
+            raise HTTPException(status_code=500, detail="生成された楽譜PDFファイルが空または存在しません。")
+
+        base_name = os.path.splitext(os.path.basename(filename))[0]
+        out_filename = f"score_{int(time.time())}_{base_name}.pdf"
+        cached_pdf_path = os.path.join(MEDIA_DIR, out_filename)
+        shutil.copyfile(pdf_path, cached_pdf_path)
+
+        return FileResponse(
+            path=cached_pdf_path,
+            media_type="application/pdf",
+            filename=out_filename
+        )
+
 # --- 知的ルーター（プロンプト解析） ---
 class PromptRequest(BaseModel):
     user_id: str
@@ -114,7 +256,6 @@ def handle_chat_completion(req: PromptRequest):
     cfg = load_colab_config()
     colab_url = cfg.get("colab_url", "").rstrip("/")
     
-    # 意図判定（Intent Detection: プロンプト翻訳リクエスト時は除外）
     media_type = None
     if req.user_id != "tohostudio-prompt-translator":
         is_video = any(k in prompt_text for k in ["動画", "アニメ", "動かして", "ループ動画", "video", "movie", "animation"])
@@ -131,7 +272,6 @@ def handle_chat_completion(req: PromptRequest):
         elif is_bgm:
             media_type = "bgm"
         
-    # --- メディア生成リクエストの場合（Colab GPU へ中継） ---
     if media_type is not None:
         colab_health = check_colab_health(colab_url)
         if not colab_health.get("online"):
@@ -181,7 +321,6 @@ def handle_chat_completion(req: PromptRequest):
                 "colab_online": False
             }
 
-    # --- 通常のテキスト会話の場合（ローカル Linux 内の Google Gemma 2 2B で即座に推論） ---
     payload = {
         "model": req.model,
         "prompt": f"{req.system_prompt}\n\nユーザー: {prompt_text}\nAI:",
@@ -206,13 +345,17 @@ if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
 EOF
 
-echo ">>> [3/3] Restarting tohostudio-llm.service..."
-systemctl restart tohostudio-llm.service
-sleep 2
+echo "=========================================================="
+echo ">>> [5/5] Restarting tohostudio-llm.service..."
+echo "=========================================================="
+if systemctl is-active --quiet tohostudio-llm.service 2>/dev/null; then
+    systemctl restart tohostudio-llm.service
+    sleep 2
+    echo ">>> Verifying health check..."
+    curl -s http://localhost:8080/health | jq . || curl -s http://localhost:8080/health
+fi
 
-echo ">>> Verifying health check..."
-curl -s http://localhost:8080/health | jq . || curl -s http://localhost:8080/health
 echo ""
 echo "=========================================================="
-echo "🎉 TohoStudio ハイブリッドデーモンの更新が完了しました！"
+echo "🎉 TohoStudio 自動採譜・PDF楽譜生成対応デーモンの更新が完了しました！"
 echo "=========================================================="

@@ -43,45 +43,63 @@ public class PSDToolService: NSObject, ObservableObject {
         scanPresets()
     }
 
-    // MARK: - リポジトリルート探索
     public static func resolveRepoRoot() -> String {
+        let explicit = "/Volumes/ZSSD/GitHub/repository/TohoStudio"
+        if FileManager.default.fileExists(atPath: explicit) {
+            return explicit
+        }
         var dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         for _ in 0..<8 {
-            let marker = dir.appendingPathComponent("Documents/PSDTool.html")
-            if FileManager.default.fileExists(atPath: marker.path) {
+            let gitMarker = dir.appendingPathComponent(".git")
+            let newMarker = dir.appendingPathComponent("New/Application")
+            if FileManager.default.fileExists(atPath: gitMarker.path) || FileManager.default.fileExists(atPath: newMarker.path) {
                 return dir.path
             }
             dir = dir.deletingLastPathComponent()
         }
-        return "/Volumes/ZSSD/GitHub/repository/TohoStudio"
+        return explicit
     }
 
     // MARK: - リポジトリ内の PSD ファイル探索
     public func scanPresets() {
         let repo = Self.resolveRepoRoot()
-        let predefinedPresets: [(String, String, String, String)] = [
-            ("古明地こいし (通常立ち絵)", "古明地こいし", "表情・サードアイ・服装差分完備", "\(repo)/Documents/動画用/キャラクター/地霊殿/古明地こいし/古明地こいし/こいし.psd"),
-            ("博麗霊夢 (バトルっぽい)", "博麗霊夢", "お札・御幣・表情差分", "\(repo)/Documents/動画用/キャラクター/主人公たち/博麗霊夢/博麗霊夢（バトルっぽい）/霊夢.psd"),
-            ("博麗霊夢 (水着)", "博麗霊夢", "夏仕様・各種差分", "\(repo)/Documents/動画用/キャラクター/主人公たち/博麗霊夢/博麗霊夢(水着)/霊夢水着.psd"),
-            ("霧雨魔理沙 (バトルっぽい)", "霧雨魔理沙", "ミニ八卦炉・表情・箒", "\(repo)/Documents/動画用/キャラクター/主人公たち/霧雨魔理沙/霧雨魔理沙（バトルっぽい）/魔理沙.psd"),
-            ("霧雨魔理沙 (獣王園)", "霧雨魔理沙", "獣王園衣装差分", "\(repo)/Documents/動画用/キャラクター/主人公たち/霧雨魔理沙/霧雨魔理沙(獣王園)/魔理沙獣王園.psd"),
-            ("河城にとり (通常立ち絵)", "河城にとり", "エンジニア服・リュック・表情差分", "\(repo)/Documents/動画用/キャラクター/河童/河城にとり/河城にとり/にとり.psd"),
-            ("河城にとり (バトルっぽい)", "河城にとり", "メカ・工具・戦闘ポーズ", "\(repo)/Documents/動画用/キャラクター/河童/河城にとり/河城にとり(バトルっぽい)/にとり.psd"),
-            ("河城みとり (通常立ち絵)", "河城みとり", "みとり差分", "\(repo)/Documents/動画用/キャラクター/河童/河城みとり/みとり.psd"),
-            ("八意永琳 (通常立ち絵)", "八意永琳", "弓矢・薬瓶・表情差分", "\(repo)/Documents/動画用/キャラクター/永遠亭/八意永琳/八意永琳/永琳.psd"),
-            ("八意永琳 (バトルっぽい)", "八意永琳", "戦闘ポーズ・エフェクト", "\(repo)/Documents/動画用/キャラクター/永遠亭/八意永琳/八意永琳(バトルっぽい)/永琳.psd"),
-            ("上白沢慧音 (通常立ち絵)", "上白沢慧音", "教科書・表情差分", "\(repo)/Documents/動画用/キャラクター/永遠亭/上白沢慧音/上白沢慧音/慧音.psd"),
-            ("上白沢慧音 (ハクタクver)", "上白沢慧音", "白沢化・満月・角差分", "\(repo)/Documents/動画用/キャラクター/永遠亭/上白沢慧音/上白沢慧音(バトルっぽい)/慧音（ワーハクタク） .psd"),
-            ("藤原妹紅 (通常立ち絵)", "藤原妹紅", "炎・ポケット手・表情差分", "\(repo)/Documents/動画用/キャラクター/永遠亭/藤原妹紅/藤原妹紅/妹紅.psd"),
-            ("藤原妹紅 (バトルっぽい)", "藤原妹紅", "不死鳥・戦闘エフェクト", "\(repo)/Documents/動画用/キャラクター/永遠亭/藤原妹紅/藤原妹紅(バトルっぽい)/妹紅.psd"),
-            ("冴月麟 (通常立ち絵)", "冴月麟", "二胡・幻の東方キャラ差分", "\(repo)/Documents/動画用/キャラクター/冴月麟/冴月麟/冴月麟.psd"),
-            ("SinGyoku (女ver)", "SinGyoku", "陰陽玉・神玉", "\(repo)/Documents/動画用/キャラクター/主人公たち/SinGyoku/SinGyoku/シンギョク（女）.psd")
+        let relativePresets: [(String, String, String, String)] = [
+            ("古明地こいし (通常立ち絵)", "古明地こいし", "表情・サードアイ・服装差分完備", "キャラクター/地霊殿/古明地こいし/古明地こいし/こいし.psd"),
+            ("博麗霊夢 (バトルっぽい)", "博麗霊夢", "お札・御幣・表情差分", "キャラクター/主人公たち/博麗霊夢/博麗霊夢（バトルっぽい）/霊夢.psd"),
+            ("博麗霊夢 (水着)", "博麗霊夢", "夏仕様・各種差分", "キャラクター/主人公たち/博麗霊夢/博麗霊夢(水着)/霊夢水着.psd"),
+            ("霧雨魔理沙 (バトルっぽい)", "霧雨魔理沙", "ミニ八卦炉・表情・箒", "キャラクター/主人公たち/霧雨魔理沙/霧雨魔理沙（バトルっぽい）/魔理沙.psd"),
+            ("霧雨魔理沙 (獣王園)", "霧雨魔理沙", "獣王園衣装差分", "キャラクター/主人公たち/霧雨魔理沙/霧雨魔理沙(獣王園)/魔理沙獣王園.psd"),
+            ("河城にとり (通常立ち絵)", "河城にとり", "エンジニア服・リュック・表情差分", "キャラクター/河童/河城にとり/河城にとり/にとり.psd"),
+            ("河城にとり (バトルっぽい)", "河城にとり", "メカ・工具・戦闘ポーズ", "キャラクター/河童/河城にとり/河城にとり(バトルっぽい)/にとり.psd"),
+            ("河城みとり (通常立ち絵)", "河城みとり", "みとり差分", "キャラクター/河童/河城みとり/みとり.psd"),
+            ("八意永琳 (通常立ち絵)", "八意永琳", "弓矢・薬瓶・表情差分", "キャラクター/永遠亭/八意永琳/八意永琳/永琳.psd"),
+            ("八意永琳 (バトルっぽい)", "八意永琳", "戦闘ポーズ・エフェクト", "キャラクター/永遠亭/八意永琳/八意永琳(バトルっぽい)/永琳.psd"),
+            ("上白沢慧音 (通常立ち絵)", "上白沢慧音", "教科書・表情差分", "キャラクター/永遠亭/上白沢慧音/上白沢慧音/慧音.psd"),
+            ("上白沢慧音 (ハクタクver)", "上白沢慧音", "白沢化・満月・角差分", "キャラクター/永遠亭/上白沢慧音/上白沢慧音(バトルっぽい)/慧音（ワーハクタク） .psd"),
+            ("藤原妹紅 (通常立ち絵)", "藤原妹紅", "炎・ポケット手・表情差分", "キャラクター/永遠亭/藤原妹紅/藤原妹紅/妹紅.psd"),
+            ("藤原妹紅 (バトルっぽい)", "藤原妹紅", "不死鳥・戦闘エフェクト", "キャラクター/永遠亭/藤原妹紅/藤原妹紅(バトルっぽい)/妹紅.psd"),
+            ("冴月麟 (通常立ち絵)", "冴月麟", "二胡・幻の東方キャラ差分", "キャラクター/冴月麟/冴月麟/冴月麟.psd"),
+            ("SinGyoku (女ver)", "SinGyoku", "陰陽玉・神玉", "キャラクター/主人公たち/SinGyoku/SinGyoku/シンギョク（女）.psd")
+        ]
+
+        let baseRoots = [
+            "\(repo)/New/Application/Documents/参考資料/動画用",
+            "\(repo)/Documents/動画用",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/New/Application/Documents/参考資料/動画用",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用"
         ]
 
         var found: [PSDToolPreset] = []
-        for p in predefinedPresets {
-            if FileManager.default.fileExists(atPath: p.3) {
-                found.append(PSDToolPreset(name: p.0, characterName: p.1, detail: p.2, path: p.3))
+        for p in relativePresets {
+            for base in baseRoots {
+                let fullPath = "\(base)/\(p.3)"
+                let norm = fullPath.precomposedStringWithCanonicalMapping
+                let decomp = fullPath.decomposedStringWithCanonicalMapping
+                let target = FileManager.default.fileExists(atPath: fullPath) ? fullPath : (FileManager.default.fileExists(atPath: norm) ? norm : (FileManager.default.fileExists(atPath: decomp) ? decomp : nil))
+                if let valid = target {
+                    found.append(PSDToolPreset(name: p.0, characterName: p.1, detail: p.2, path: valid))
+                    break
+                }
             }
         }
         self.availablePresets = found

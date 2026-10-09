@@ -202,6 +202,8 @@ public struct AIImageGeneratorProgramView: View {
                     // クイック入力サジェストタグ
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 6) {
+                            promptTagButton("古明地こいし 笑顔 サードアイ 帽子")
+                            promptTagButton("古明地さとり 読心術 サードアイ")
                             promptTagButton("博麗霊夢 笑顔 巫女服 桜吹雪")
                             promptTagButton("霧雨魔理沙 魔法の森 星空 マスタースパーク")
                             promptTagButton("十六夜咲夜 紅魔館 懐中時計 ナイフ")
@@ -220,6 +222,19 @@ public struct AIImageGeneratorProgramView: View {
                     Picker("", selection: $imageService.selectedAspectRatio) {
                         ForEach(AIImageGeneratorService.ImageAspectRatio.allCases) { aspect in
                             Text(aspect.rawValue).tag(aspect)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
+                // 生成モード選択
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("生成モード:")
+                        .font(.caption)
+                        .bold()
+                    Picker("", selection: $imageService.generationSourceMode) {
+                        ForEach(AIImageGeneratorService.GenerationSourceMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
                         }
                     }
                     .pickerStyle(.menu)
@@ -264,27 +279,71 @@ public struct AIImageGeneratorProgramView: View {
                             .bold()
                     }
 
-                    // ⚡️ GPU経由の統合生成ボタン (Colab SD-Turbo / AnimateDiff)
+                    // 公式参考資料が検出された場合のスマート適用カード
+                    if let refMatch = imageService.detectReferenceAsset(for: imageService.prompt) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "folder.fill")
+                                    .foregroundColor(.blue)
+                                Text("公式参考資料を検出:")
+                                    .font(.caption2)
+                                    .bold()
+                                    .foregroundColor(.secondary)
+                            }
+                            Text(refMatch.description)
+                                .font(.caption)
+                                .bold()
+                                .lineLimit(2)
+
+                            Button(action: {
+                                imageService.applyReferenceAssetDirectly(match: refMatch)
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "checkmark.seal.fill")
+                                    Text("公式原画素材をそのまま適用 (エフェクトなし)")
+                                        .font(.caption2)
+                                        .bold()
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 5)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.blue)
+                        }
+                        .padding(8)
+                        .background(Color.blue.opacity(0.08))
+                        .cornerRadius(6)
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.blue.opacity(0.2), lineWidth: 1))
+                    }
+
+                    // ⚡️ GPU経由の統合生成ボタン (Colab SDXL / AnimateDiff)
                     Button(action: {
-                        if !cloudLinuxService.colabBridge.isOnline || cloudLinuxService.colabBridge.endpoint.isEmpty {
+                        if imageService.generationSourceMode == .referenceAsset {
+                            imageService.generateImage()
+                        } else if !cloudLinuxService.colabBridge.isOnline || cloudLinuxService.colabBridge.endpoint.isEmpty {
                             // 未接続時はアプリ内Colabブラウザを自動起動してGPU接続へ誘導
                             showColabBrowser = true
                         } else {
                             imageService.useColabGPUIfAvailable = true
-                            imageService.generateImage()
+                            imageService.generateImage(forceAI: imageService.generationSourceMode == .aiGeneration)
                         }
                     }) {
                         HStack(spacing: 8) {
                             if imageService.isGenerating {
                                 ProgressView().controlSize(.small)
-                                Text("GPU生成処理中...")
+                                Text("生成処理中...")
+                                    .bold()
+                            } else if imageService.generationSourceMode == .referenceAsset {
+                                Image(systemName: "folder.fill")
+                                    .foregroundColor(.white)
+                                Text("📁 公式参考資料の原画を適用 (エフェクトなし)")
                                     .bold()
                             } else {
                                 Image(systemName: "bolt.fill")
                                     .foregroundColor(.yellow)
                                 Text(imageService.selectedOutputType == .video
                                      ? "⚡️ GPU経由でアニメ動画を生成 (Colab AnimateDiff)"
-                                     : "⚡️ GPU経由で高精細画像を生成 (Colab SDXL 1.0)")
+                                     : "⚡️ GPU経由で自然なイラストを生成 (Colab SDXL 1.0)")
                                     .bold()
                             }
                         }
@@ -295,7 +354,9 @@ public struct AIImageGeneratorProgramView: View {
                             RoundedRectangle(cornerRadius: 8)
                                 .fill(
                                     LinearGradient(
-                                        colors: [Color.indigo, Color.purple],
+                                        colors: imageService.generationSourceMode == .referenceAsset
+                                            ? [Color.blue, Color.teal]
+                                            : [Color.indigo, Color.purple],
                                         startPoint: .leading,
                                         endPoint: .trailing
                                     )

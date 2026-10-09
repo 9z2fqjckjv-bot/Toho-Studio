@@ -27,3 +27,4 @@ PodCast/
 Application/Resource/GeneratedAudio/
 .cache/
 .build/
+Application/TohoStudio/.build
