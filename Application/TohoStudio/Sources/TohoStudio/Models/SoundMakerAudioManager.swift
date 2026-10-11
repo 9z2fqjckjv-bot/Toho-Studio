@@ -266,9 +266,23 @@ public final class SoundMakerAudioManager: NSObject, ObservableObject, AVAudioPl
             }
         }
 
-        // 2. 実ファイルがない、または生成できなかった場合はプリセット音源を生成
+        // 2. 実ファイルがない、または生成できなかった場合はセリフ合成またはプリセット音源を生成
         if player == nil {
-            if let wavData = presetAudioData(for: clip) {
+            if clip.type == "Voice", let text = clip.text, !text.isEmpty {
+                let char = clip.character ?? "博麗霊夢"
+                let vType = clip.voiceType ?? AquesTalkBridge.shared.voiceType(for: char)
+                let effectivePitch = clip.pitch != 100 ? clip.pitch : AquesTalkBridge.shared.characterPreset(for: char).pitch
+                if let wavData = AquesTalkBridge.shared.synthesizeToWavData(
+                    text: text,
+                    speed: clip.speed,
+                    voice: vType,
+                    pitch: effectivePitch,
+                    quality: .enhanced,
+                    effect: .none
+                ) {
+                    player = try? AVAudioPlayer(data: wavData)
+                }
+            } else if let wavData = presetAudioData(for: clip) {
                 player = try? AVAudioPlayer(data: wavData)
             }
         }

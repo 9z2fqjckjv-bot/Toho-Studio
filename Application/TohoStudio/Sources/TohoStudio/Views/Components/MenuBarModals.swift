@@ -2472,21 +2472,29 @@ public struct AquesTalkGeneratorModalView: View {
             // Action Buttons
             HStack(spacing: 10) {
                 Button(action: {
+                    if aquesTalk.isCurrentlyPlaying {
+                        aquesTalk.stopPlayback()
+                        isSynthesizing = false
+                        return
+                    }
                     isSynthesizing = true
                     aquesTalk.setVoiceType(selectedVoice)
                     aquesTalk.synthesizeAndPlay(
                         text: inputText,
                         speed: speechSpeed,
                         voice: selectedVoice,
+                        pitch: speechPitch,
                         quality: selectedQuality,
                         effect: selectedEffect
                     ) {
-                        isSynthesizing = false
+                        DispatchQueue.main.async {
+                            self.isSynthesizing = false
+                        }
                     }
                 }) {
                     HStack {
-                        Image(systemName: isSynthesizing ? "waveform.badge.magnifyingglass" : "play.fill")
-                        Text("試聴する")
+                        Image(systemName: (isSynthesizing || aquesTalk.isCurrentlyPlaying) ? "stop.fill" : "play.fill")
+                        Text((isSynthesizing || aquesTalk.isCurrentlyPlaying) ? "停止" : "試聴する")
                     }
                     .frame(minWidth: 100)
                 }
@@ -2524,6 +2532,9 @@ public struct AquesTalkGeneratorModalView: View {
         .frame(width: 580)
         .onAppear {
             syncFromActiveTemplate()
+        }
+        .onDisappear {
+            aquesTalk.stopPlayback()
         }
     }
 

@@ -2193,6 +2193,11 @@ public struct SoundMakerView: View {
                         // Actions: Preview & Place on Timeline
                         HStack(spacing: 8) {
                             Button(action: {
+                                if aquesTalk.isCurrentlyPlaying {
+                                    aquesTalk.stopPlayback()
+                                    isSynthesizing = false
+                                    return
+                                }
                                 isSynthesizing = true
                                 let preset = aquesTalk.characterPreset(for: targetCharacter)
                                 let vType = preset.voice
@@ -2204,14 +2209,17 @@ public struct SoundMakerView: View {
                                     quality: selectedQuality,
                                     effect: selectedEffect
                                 ) {
-                                    isSynthesizing = false
+                                    DispatchQueue.main.async {
+                                        self.isSynthesizing = false
+                                    }
                                 }
                             }) {
                                 HStack(spacing: 4) {
-                                    Image(systemName: isSynthesizing ? "waveform.badge.magnifyingglass" : "play.circle")
-                                    Text("試聴")
+                                    Image(systemName: (isSynthesizing || aquesTalk.isCurrentlyPlaying) ? "stop.fill" : "play.circle")
+                                    Text((isSynthesizing || aquesTalk.isCurrentlyPlaying) ? "停止" : "試聴")
                                 }
                                 .font(.caption2)
+                                .foregroundColor((isSynthesizing || aquesTalk.isCurrentlyPlaying) ? .orange : .primary)
                                 .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.bordered)
@@ -3206,6 +3214,8 @@ public struct SoundMakerView: View {
     private func stopPlayback() {
         isPlaying = false
         soundManager.stopTimelinePlayback()
+        aquesTalk.stopPlayback()
+        playingClipPreviewId = nil
         playbackTimer?.invalidate()
         playbackTimer = nil
         currentMeterLevel = 0.0
@@ -3422,11 +3432,13 @@ public struct SoundMakerView: View {
 
     // 音声クリップの試聴プレビュー再生
     private func togglePlayVoiceClip(_ clip: SoundClip) {
-        if playingClipPreviewId == clip.id {
+        if playingClipPreviewId == clip.id && aquesTalk.isCurrentlyPlaying {
+            aquesTalk.stopPlayback()
             playingClipPreviewId = nil
             return
         }
 
+        aquesTalk.stopPlayback()
         playingClipPreviewId = clip.id
         let text = clip.text ?? clip.name
         let char = clip.character ?? "博麗霊夢"
@@ -3771,9 +3783,20 @@ public struct SoundMakerView: View {
             effect: selectedEffect
         )
 
+        var audioFilePath: String? = nil
         let duration: Double
         let waveform: [Float]
         if let data = wavData, data.count > 44 {
+            let audioDir = URL(fileURLWithPath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/GeneratedAudio")
+            try? FileManager.default.createDirectory(at: audioDir, withIntermediateDirectories: true)
+            let safeChar = targetCharacter.replacingOccurrences(of: "/", with: "_")
+            let suffix = String(UUID().uuidString.prefix(6))
+            let fileName = String(format: "Slide_%03d_%@_%@.wav", selectedSceneIndex, safeChar, suffix)
+            let fileURL = audioDir.appendingPathComponent(fileName)
+            if (try? data.write(to: fileURL)) != nil {
+                audioFilePath = fileURL.path
+            }
+
             let sampleRate = Double(data.withUnsafeBytes { $0.load(fromByteOffset: 24, as: UInt32.self) })
             let channels = Double(data.withUnsafeBytes { $0.load(fromByteOffset: 22, as: UInt16.self) })
             let bitsPerSample = Double(data.withUnsafeBytes { $0.load(fromByteOffset: 34, as: UInt16.self) })
@@ -3791,6 +3814,11 @@ public struct SoundMakerView: View {
             waveform = generateRandomWaveform(count: 20)
         }
 
+        // 同一トラックかつほぼ同一時刻（0.1秒以内）の重複ボイスがあれば除去して二重発話を防止
+        appState.soundClips.removeAll(where: {
+            $0.trackId == trackId && abs($0.startTime - currentTime) < 0.1
+        })
+
         let newClip = SoundClip(
             name: "\(targetCharacter): \(targetSpeech)",
             type: "Voice",
@@ -3805,6 +3833,7 @@ public struct SoundMakerView: View {
             colorHex: clipColor,
             waveformPoints: waveform,
             sceneIndex: selectedSceneIndex,
+            audioFilePath: audioFilePath,
             voiceType: vType,
             pitch: effectivePitch
         )

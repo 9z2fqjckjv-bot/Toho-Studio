@@ -89,6 +89,9 @@ public struct BatchVoiceGenerationSheet: View {
         .onAppear {
             loadInitialItems()
         }
+        .onDisappear {
+            aquesTalk.stopPlayback()
+        }
         .alert(isPresented: $showCompleteAlert) {
             Alert(
                 title: Text("一括音声生成完了"),
@@ -745,9 +748,9 @@ public struct BatchVoiceGenerationSheet: View {
             Button(action: {
                 previewItem(item)
             }) {
-                Image(systemName: previewPlayingItemId == item.id ? "stop.fill" : "play.circle.fill")
+                Image(systemName: (previewPlayingItemId == item.id && aquesTalk.isCurrentlyPlaying) ? "stop.fill" : "play.circle.fill")
                     .font(.system(size: 16))
-                    .foregroundColor(previewPlayingItemId == item.id ? .green : (item.isSkipped ? .secondary : .cyan))
+                    .foregroundColor((previewPlayingItemId == item.id && aquesTalk.isCurrentlyPlaying) ? .green : (item.isSkipped ? .secondary : .cyan))
             }
             .buttonStyle(.plain)
             .frame(width: 44, alignment: .center)
@@ -1001,11 +1004,14 @@ public struct BatchVoiceGenerationSheet: View {
 
     /// 個別試聴（そのスライドのテンプレート/カスタムパラメータで再生）
     private func previewItem(_ item: BatchVoiceItem) {
-        if previewPlayingItemId == item.id {
+        if previewPlayingItemId == item.id && aquesTalk.isCurrentlyPlaying {
+            aquesTalk.stopPlayback()
             previewPlayingItemId = nil
             return
         }
 
+        // 既存の再生を停止
+        aquesTalk.stopPlayback()
         previewPlayingItemId = item.id
         let effectiveSpeed = (speedMode == "uniform") ? uniformSpeed : item.speed
 

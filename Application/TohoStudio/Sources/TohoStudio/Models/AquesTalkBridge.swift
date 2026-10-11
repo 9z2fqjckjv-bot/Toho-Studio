@@ -2,7 +2,7 @@ import Foundation
 import AVFoundation
 import AppKit
 
-public final class AquesTalkBridge: ObservableObject {
+public final class AquesTalkBridge: NSObject, ObservableObject, AVAudioPlayerDelegate {
     public static let shared = AquesTalkBridge()
 
     @Published public var isAquesTalkAvailable: Bool = false
@@ -15,8 +15,10 @@ public final class AquesTalkBridge: ObservableObject {
     @Published public var isKanjiDevKeyValid: Bool = false
     @Published public var lastLicenseStatus: String = "未認証"
     @Published public var lastLog: String = "AquesTalkBridge initialized"
+    @Published public var isCurrentlyPlaying: Bool = false
 
     private var audioPlayer: AVAudioPlayer?
+    private var onPlaybackCompleted: (() -> Void)? = nil
     private var kanji2koeHandle: UnsafeMutableRawPointer?
 
     // Function pointers for AquesTalk1
@@ -46,7 +48,8 @@ public final class AquesTalkBridge: ObservableObject {
     private var kanjiConvertUtf8Ptr: KanjiConvertUtf8Func?
     private var kanjiSetDevKeyPtr: KanjiSetDevKeyFunc?
 
-    private init() {
+    private override init() {
+        super.init()
         loadLibraries()
         syncFromSavedUserDefaults()
     }
@@ -511,6 +514,32 @@ public final class AquesTalkBridge: ObservableObject {
         return generateFallbackWavData(text: targetText, speed: speed, quality: quality, effect: effect, pitch: pitch)
     }
 
+    /// 音声の再生を即座に停止
+    public func stopPlayback() {
+        if let p = audioPlayer, p.isPlaying {
+            p.stop()
+        }
+        audioPlayer = nil
+        isCurrentlyPlaying = false
+        let cb = onPlaybackCompleted
+        onPlaybackCompleted = nil
+        cb?()
+    }
+
+    // MARK: - AVAudioPlayerDelegate
+    public func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if self.audioPlayer === player {
+                self.isCurrentlyPlaying = false
+                self.audioPlayer = nil
+                let cb = self.onPlaybackCompleted
+                self.onPlaybackCompleted = nil
+                cb?()
+            }
+        }
+    }
+
     /// Synthesize speech and play via AVAudioPlayer, or fallback to NSSpeechSynthesizer
     public func synthesizeAndPlay(
         text: String,
@@ -521,21 +550,29 @@ public final class AquesTalkBridge: ObservableObject {
         effect: AudioEffectType = .none,
         onComplete: (() -> Void)? = nil
     ) {
+        // 直前の音声を確実に停止して二重再生・音の重なりを防止
+        stopPlayback()
+
         let cleanedText = SlideItem.cleanDialogueText(from: text)
         let targetText = cleanedText.isEmpty ? text : cleanedText
         if let wavData = synthesizeToWavData(text: targetText, speed: speed, voice: voice, pitch: pitch, quality: quality, effect: effect) {
             do {
-                audioPlayer = try AVAudioPlayer(data: wavData)
-                audioPlayer?.prepareToPlay()
-                audioPlayer?.play()
+                let player = try AVAudioPlayer(data: wavData)
+                player.delegate = self
+                player.prepareToPlay()
+                self.audioPlayer = player
+                self.onPlaybackCompleted = onComplete
+                self.isCurrentlyPlaying = true
+                player.play()
+
                 let effectDesc = effect == .echo ? " [エコー]" : ""
                 let qualityDesc = quality == .enhanced ? " [高音質改善]" : " [原音]"
                 let pitchDesc = pitch != 100 ? " [音程\(pitch)%]" : ""
                 lastLog = "AquesTalk再生成功: [\(targetText)] (\(wavData.count) bytes)\(pitchDesc)\(qualityDesc)\(effectDesc)"
-                onComplete?()
                 return
             } catch {
                 lastLog = "AVAudioPlayer再生エラー: \(error.localizedDescription)"
+                self.isCurrentlyPlaying = false
             }
         }
 
