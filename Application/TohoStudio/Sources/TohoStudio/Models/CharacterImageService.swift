@@ -328,7 +328,228 @@ public final class CharacterImageService: ObservableObject {
         model.parts = newParts
     }
 
-    // MARK: - 5. CoreImage による色調調整 & エフェクト (Google図形描画 & アプリ拡張)
+    // MARK: - 5. ピンポイント色変え (スポイト特定色置換) & CoreImage 色調調整
+    /// RGB -> HSV 変換ヘルパー
+    private func rgbToHSV(r: Double, g: Double, b: Double) -> (h: Double, s: Double, v: Double) {
+        let maxC = max(r, g, b)
+        let minC = min(r, g, b)
+        let delta = maxC - minC
+        let v = maxC
+        let s = (maxC > 0.0001) ? (delta / maxC) : 0.0
+        var h = 0.0
+        if delta > 0.0001 {
+            if maxC == r {
+                h = 60.0 * (((g - b) / delta).truncatingRemainder(dividingBy: 6.0))
+            } else if maxC == g {
+                h = 60.0 * (((b - r) / delta) + 2.0)
+            } else {
+                h = 60.0 * (((r - g) / delta) + 4.0)
+            }
+            if h < 0.0 { h += 360.0 }
+        }
+        return (h, s, v)
+    }
+
+    /// HSV -> RGB 変換ヘルパー
+    private func hsvToRGB(h: Double, s: Double, v: Double) -> (r: Double, g: Double, b: Double) {
+        if s <= 0.0001 {
+            return (v, v, v)
+        }
+        let hNorm = (h.truncatingRemainder(dividingBy: 360.0) + 360.0).truncatingRemainder(dividingBy: 360.0)
+        let c = v * s
+        let x = c * (1.0 - abs((hNorm / 60.0).truncatingRemainder(dividingBy: 2.0) - 1.0))
+        let m = v - c
+
+        var r1 = 0.0, g1 = 0.0, b1 = 0.0
+        if hNorm < 60.0 {
+            r1 = c; g1 = x; b1 = 0.0
+        } else if hNorm < 120.0 {
+            r1 = x; g1 = c; b1 = 0.0
+        } else if hNorm < 180.0 {
+            r1 = 0.0; g1 = c; b1 = x
+        } else if hNorm < 240.0 {
+            r1 = 0.0; g1 = x; b1 = c
+        } else if hNorm < 300.0 {
+            r1 = x; g1 = 0.0; b1 = c
+        } else {
+            r1 = c; g1 = 0.0; b1 = x
+        }
+        return (r1 + m, g1 + m, b1 + m)
+    }
+
+    /// ピンポイント色変え（特定色を別の色に置換）を適用
+    public func applyColorReplacements(
+        image: NSImage,
+        rules: [ColorReplacementRule]
+    ) -> NSImage {
+        let activeRules = rules.filter { $0.isEnabled }
+        if activeRules.isEmpty { return image }
+
+        guard let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let cgImage = rep.cgImage else {
+            return image
+        }
+
+        let width = cgImage.width
+        let height = cgImage.height
+        guard width > 0, height > 0 else { return image }
+
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bytesPerPixel = 4
+        let bytesPerRow = bytesPerPixel * width
+        let bitsPerComponent = 8
+
+        var rawData = [UInt8](repeating: 0, count: bytesPerRow * height)
+
+        guard let context = CGContext(
+            data: &rawData,
+            width: width,
+            height: height,
+            bitsPerComponent: bitsPerComponent,
+            bytesPerRow: bytesPerRow,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
+        ) else {
+            return image
+        }
+
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        struct PreparedRule {
+            let rule: ColorReplacementRule
+            let srcR: Double; let srcG: Double; let srcB: Double
+            let srcH: Double; let srcS: Double; let srcV: Double
+            let tgtR: Double; let tgtG: Double; let tgtB: Double
+            let tgtH: Double; let tgtS: Double; let tgtV: Double
+            let isLowSatSource: Bool
+        }
+
+        var prepared: [PreparedRule] = []
+        for r in activeRules {
+            let sColor = NSColor(hex: r.sourceColorHex) ?? .red
+            let sR = Double(sColor.redComponent)
+            let sG = Double(sColor.greenComponent)
+            let sB = Double(sColor.blueComponent)
+            let (sH, sS, sV) = rgbToHSV(r: sR, g: sG, b: sB)
+
+            let tColor = NSColor(hex: r.targetColorHex) ?? .purple
+            let tR = Double(tColor.redComponent)
+            let tG = Double(tColor.greenComponent)
+            let tB = Double(tColor.blueComponent)
+            let (tH, tS, tV) = rgbToHSV(r: tR, g: tG, b: tB)
+
+            prepared.append(PreparedRule(
+                rule: r,
+                srcR: sR, srcG: sG, srcB: sB,
+                srcH: sH, srcS: sS, srcV: sV,
+                tgtR: tR, tgtG: tG, tgtB: tB,
+                tgtH: tH, tgtS: tS, tgtV: tV,
+                isLowSatSource: sS < 0.15
+            ))
+        }
+
+        let pixelCount = width * height
+        rawData.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) in
+            guard let ptr = buffer.bindMemory(to: UInt8.self).baseAddress else { return }
+
+            for i in 0..<pixelCount {
+                let offset = i * 4
+                let aByte = ptr[offset + 3]
+                if aByte < 5 { continue }
+
+                let alpha = Double(aByte) / 255.0
+                var r = (Double(ptr[offset]) / 255.0) / alpha
+                var g = (Double(ptr[offset + 1]) / 255.0) / alpha
+                var b = (Double(ptr[offset + 2]) / 255.0) / alpha
+
+                for p in prepared {
+                    let rule = p.rule
+                    let (h, s, v) = rgbToHSV(r: r, g: g, b: b)
+
+                    var matchDistance: Double = 1.0
+                    if rule.matchMode == "RGB距離" {
+                        let dr = r - p.srcR
+                        let dg = g - p.srcG
+                        let db = b - p.srcB
+                        matchDistance = sqrt(dr * dr + dg * dg + db * db) / 1.73205
+                    } else {
+                        // 色相・彩度モード（キャラ立ち絵・東方イラストに最適化）
+                        if p.isLowSatSource {
+                            let dv = abs(v - p.srcV)
+                            let ds = abs(s - p.srcS)
+                            matchDistance = (dv * 0.7) + (ds * 0.3)
+                        } else {
+                            if s < 0.12 {
+                                continue
+                            }
+                            let rawHD = abs(h - p.srcH)
+                            let circHD = min(rawHD, 360.0 - rawHD)
+                            let normHD = circHD / 180.0
+                            let satD = abs(s - p.srcS)
+                            matchDistance = (normHD * 0.70) + (satD * 0.30)
+                        }
+                    }
+
+                    let tolerance = rule.tolerance
+                    let smoothness = max(0.01, rule.smoothness)
+                    let tMin = max(0.0, tolerance - smoothness)
+                    let tMax = tolerance + smoothness
+
+                    if matchDistance >= tMax { continue }
+
+                    var blendFactor: Double = 1.0
+                    if matchDistance > tMin {
+                        blendFactor = 1.0 - ((matchDistance - tMin) / (tMax - tMin))
+                    }
+
+                    var repR: Double
+                    var repG: Double
+                    var repB: Double
+
+                    if rule.preserveLuminosity {
+                        // 陰影・立体感（ハイライト・服のしわ・影の濃淡）を完全に維持
+                        let newH = p.tgtH
+                        let satRatio = (p.srcS > 0.1) ? (s / p.srcS) : 1.0
+                        let valRatio = (p.srcV > 0.1) ? (v / p.srcV) : 1.0
+                        let newS = min(1.0, max(0.0, p.tgtS * satRatio))
+                        let newV = min(1.0, max(0.0, p.tgtV * valRatio))
+                        let (cr, cg, cb) = hsvToRGB(h: newH, s: newS, v: newV)
+                        repR = cr
+                        repG = cg
+                        repB = cb
+                    } else {
+                        repR = p.tgtR
+                        repG = p.tgtG
+                        repB = p.tgtB
+                    }
+
+                    r = r * (1.0 - blendFactor) + repR * blendFactor
+                    g = g * (1.0 - blendFactor) + repG * blendFactor
+                    b = b * (1.0 - blendFactor) + repB * blendFactor
+                }
+
+                ptr[offset] = UInt8(clamping: Int(round(min(1.0, max(0.0, r * alpha)) * 255.0)))
+                ptr[offset + 1] = UInt8(clamping: Int(round(min(1.0, max(0.0, g * alpha)) * 255.0)))
+                ptr[offset + 2] = UInt8(clamping: Int(round(min(1.0, max(0.0, b * alpha)) * 255.0)))
+            }
+        }
+
+        guard let outputCG = context.makeImage() else { return image }
+        return NSImage(cgImage: outputCG, size: image.size)
+    }
+
+    /// 指定画像から正規化座標（0.0...1.0）のピクセルカラーをスポイト採取
+    public func samplePixelColor(from image: NSImage, at normalizedPoint: CGPoint) -> NSColor? {
+        guard let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff) else {
+            return nil
+        }
+        let px = Int(max(0, min(CGFloat(rep.pixelsWide - 1), normalizedPoint.x * CGFloat(rep.pixelsWide))))
+        let py = Int(max(0, min(CGFloat(rep.pixelsHigh - 1), (1.0 - normalizedPoint.y) * CGFloat(rep.pixelsHigh))))
+        return rep.colorAt(x: px, y: py)
+    }
+
     public func applyAdjustments(
         image: NSImage,
         hue: Double,
@@ -337,11 +558,18 @@ public final class CharacterImageService: ObservableObject {
         contrast: Double,
         colorTintHex: String,
         blendMode: String,
-        filterEffects: [String]
+        filterEffects: [String],
+        colorReplacements: [ColorReplacementRule] = []
     ) -> NSImage {
-        guard let tiffData = image.tiffRepresentation,
+        // 0. ピンポイント色変えを先行適用
+        var workingImage = image
+        if !colorReplacements.isEmpty && colorReplacements.contains(where: { $0.isEnabled }) {
+            workingImage = applyColorReplacements(image: workingImage, rules: colorReplacements)
+        }
+
+        guard let tiffData = workingImage.tiffRepresentation,
               let ciImage = CIImage(data: tiffData) else {
-            return image
+            return workingImage
         }
 
         var currentCI = ciImage
@@ -686,7 +914,8 @@ public final class CharacterImageService: ObservableObject {
                 contrast: part.contrast,
                 colorTintHex: part.colorTintHex,
                 blendMode: part.blendMode,
-                filterEffects: part.filterEffects
+                filterEffects: part.filterEffects,
+                colorReplacements: part.colorReplacements
             )
 
             guard let partCG = processedImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
@@ -913,5 +1142,13 @@ extension NSColor {
         }
 
         self.init(red: r, green: g, blue: b, alpha: a)
+    }
+
+    public func toHex() -> String {
+        guard let srgb = self.usingColorSpace(.sRGB) else { return "#FFFFFF" }
+        let r = Int(round(srgb.redComponent * 255.0))
+        let g = Int(round(srgb.greenComponent * 255.0))
+        let b = Int(round(srgb.blueComponent * 255.0))
+        return String(format: "#%02X%02X%02X", max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b)))
     }
 }

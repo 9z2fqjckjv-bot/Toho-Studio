@@ -202,6 +202,41 @@ public struct MovieScene: Identifiable, Codable, Equatable {
 }
 
 // MARK: - Character Maker Models
+/// ピンポイント色変え（スポイト特定色置換）のルール定義
+public struct ColorReplacementRule: Identifiable, Codable, Equatable {
+    public var id: UUID = UUID()
+    public var name: String = "色変え"
+    public var sourceColorHex: String = "#FF0000" // 置換対象色（スポイトで採取した色）
+    public var targetColorHex: String = "#800080" // 置換先の色
+    public var tolerance: Double = 0.35           // 許容誤差 (0.05...0.80)
+    public var smoothness: Double = 0.15          // 境界の滑らかさ (0.0...0.40)
+    public var preserveLuminosity: Bool = true    // 陰影・立体感を維持
+    public var matchMode: String = "色相・彩度"    // "色相・彩度", "RGB距離"
+    public var isEnabled: Bool = true
+
+    public init(
+        id: UUID = UUID(),
+        name: String = "色変え",
+        sourceColorHex: String = "#FF0000",
+        targetColorHex: String = "#800080",
+        tolerance: Double = 0.35,
+        smoothness: Double = 0.15,
+        preserveLuminosity: Bool = true,
+        matchMode: String = "色相・彩度",
+        isEnabled: Bool = true
+    ) {
+        self.id = id
+        self.name = name
+        self.sourceColorHex = sourceColorHex
+        self.targetColorHex = targetColorHex
+        self.tolerance = tolerance
+        self.smoothness = smoothness
+        self.preserveLuminosity = preserveLuminosity
+        self.matchMode = matchMode
+        self.isEnabled = isEnabled
+    }
+}
+
 public struct CharacterPart: Identifiable, Codable, Equatable {
     public var id: UUID = UUID()
     public var name: String // "目", "口", "顔輪郭", "体", "装飾", "髪", "箒", "第3の目", "帽子", "背景", "テロップ"
@@ -225,6 +260,7 @@ public struct CharacterPart: Identifiable, Codable, Equatable {
     public var filterEffects: [String] = [] // Photoshop/Pixelmator: ドロップシャドウ, 境界線, ぼかし, シャープ, セピア, モノクロ
     public var backAssetPath: String = "" // 背中側（後ろ姿）パーツ用画像パス
     public var facingMode: String = "両面" // "両面", "前面のみ", "背面のみ"
+    public var colorReplacements: [ColorReplacementRule] = [] // ピンポイント色変えルール一覧
 
     public init(
         id: UUID = UUID(),
@@ -248,7 +284,8 @@ public struct CharacterPart: Identifiable, Codable, Equatable {
         blendMode: String = "通常",
         filterEffects: [String] = [],
         backAssetPath: String = "",
-        facingMode: String = "両面"
+        facingMode: String = "両面",
+        colorReplacements: [ColorReplacementRule] = []
     ) {
         self.id = id
         self.name = name
@@ -272,6 +309,7 @@ public struct CharacterPart: Identifiable, Codable, Equatable {
         self.filterEffects = filterEffects
         self.backAssetPath = backAssetPath
         self.facingMode = facingMode
+        self.colorReplacements = colorReplacements
     }
 
     public init(from decoder: Decoder) throws {
@@ -298,6 +336,7 @@ public struct CharacterPart: Identifiable, Codable, Equatable {
         self.filterEffects = try container.decodeIfPresent([String].self, forKey: .filterEffects) ?? []
         self.backAssetPath = try container.decodeIfPresent(String.self, forKey: .backAssetPath) ?? ""
         self.facingMode = try container.decodeIfPresent(String.self, forKey: .facingMode) ?? "両面"
+        self.colorReplacements = try container.decodeIfPresent([ColorReplacementRule].self, forKey: .colorReplacements) ?? []
     }
 }
 

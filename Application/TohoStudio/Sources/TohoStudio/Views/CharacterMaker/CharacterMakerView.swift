@@ -42,6 +42,7 @@ public struct CharacterMakerView: View {
     enum CharacterMakerTool: String, CaseIterable {
         case select = "選択"
         case move = "移動"
+        case eyedropper = "スポイト"
         case crop = "トリミング"
         case split = "パーツ分割"
     }
@@ -334,6 +335,25 @@ public struct CharacterMakerView: View {
             HStack(spacing: 2) {
                 toolButton(tool: .select, icon: "arrow.up.left", label: "選択")
                 toolButton(tool: .move, icon: "hand.raised", label: "移動")
+
+                Button(action: {
+                    activeTool = .eyedropper
+                    inspectorTab = .color
+                    startEyedropperSampling()
+                }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "eyedropper.halffull")
+                        Text("スポイト")
+                    }
+                    .font(.caption)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                    .background(activeTool == .eyedropper ? Color.accentColor : Color.clear)
+                    .foregroundColor(activeTool == .eyedropper ? .white : .primary)
+                    .cornerRadius(5)
+                }
+                .buttonStyle(.plain)
+                .help("立ち絵や画面から色をスポイトで読み取り、ピンポイント色変えを行います")
 
                 Button(action: {
                     isTrimmingMode.toggle()
@@ -713,7 +733,8 @@ public struct CharacterMakerView: View {
                     contrast: part.contrast,
                     colorTintHex: part.colorTintHex,
                     blendMode: part.blendMode,
-                    filterEffects: part.filterEffects
+                    filterEffects: part.filterEffects,
+                    colorReplacements: part.colorReplacements
                 )
 
                 Image(nsImage: processed)
@@ -1197,90 +1218,38 @@ public struct CharacterMakerView: View {
         }
     }
 
-    // MARK: - 4-3. 色変え・カラー調整タブ (Google図形描画)
+    // MARK: - 4-3. 色変え・カラー調整タブ (Google図形描画 / ピンポイント色変え)
     private var colorTabContent: some View {
         VStack(alignment: .leading, spacing: 14) {
             if selectedPartIndex < appState.currentCharacter.parts.count {
                 let part = appState.currentCharacter.parts[selectedPartIndex]
-                Text("【\(part.name)】色変え・カラー調整")
-                    .font(.headline)
 
-                GroupBox(label: Text("カラーティント (着色)")) {
-                    VStack(spacing: 8) {
-                        HStack {
-                            Text("ティントカラー:")
-                            Spacer()
-                            ColorPicker("", selection: Binding(
-                                get: { Color(charHex: part.colorTintHex) },
-                                set: { appState.currentCharacter.parts[selectedPartIndex].colorTintHex = $0.toCharHex() }
-                            ))
-                        }
-                        .font(.caption)
-
-                        HStack {
-                            Button("白 (標準)") { appState.currentCharacter.parts[selectedPartIndex].colorTintHex = "#FFFFFF" }
-                            Button("赤") { appState.currentCharacter.parts[selectedPartIndex].colorTintHex = "#FF5555" }
-                            Button("青") { appState.currentCharacter.parts[selectedPartIndex].colorTintHex = "#5555FF" }
-                            Button("黄") { appState.currentCharacter.parts[selectedPartIndex].colorTintHex = "#FFFF55" }
-                            Button("黒 (影)") { appState.currentCharacter.parts[selectedPartIndex].colorTintHex = "#333333" }
-                        }
-                        .font(.caption2)
-                        .buttonStyle(.bordered)
+                HStack {
+                    Text("【\(part.name)】色変え・カラー調整")
+                        .font(.headline)
+                    Spacer()
+                    Button(action: {
+                        startEyedropperSampling()
+                    }) {
+                        Label("スポイト追加", systemImage: "eyedropper.halffull")
+                            .font(.caption)
                     }
-                    .padding(6)
+                    .buttonStyle(.borderedProminent)
+                    .help("立ち絵や画面から色をスポイトで読み取り、ピンポイント色変えルールを新規作成します")
                 }
 
-                GroupBox(label: Text("色調補正 (Color Adjustments)")) {
-                    VStack(spacing: 8) {
-                        HStack {
-                            Text("色相 (Hue):")
-                            Spacer()
-                            Text("\(Int(part.hue))°").monospacedDigit()
-                        }
-                        .font(.caption)
-                        Slider(value: Binding(
-                            get: { part.hue },
-                            set: { appState.currentCharacter.parts[selectedPartIndex].hue = $0 }
-                        ), in: -180...180)
+                // 1. ピンポイント色変えカード (特定色を別の色に変える)
+                pinpointColorReplacementSection(part: part, partIndex: selectedPartIndex)
 
-                        HStack {
-                            Text("彩度 (Saturation):")
-                            Spacer()
-                            Text("\(Int(part.saturation * 100))%").monospacedDigit()
-                        }
-                        .font(.caption)
-                        Slider(value: Binding(
-                            get: { part.saturation },
-                            set: { appState.currentCharacter.parts[selectedPartIndex].saturation = $0 }
-                        ), in: 0.0...2.0)
+                // 2. カラーティント (着色)
+                colorTintSection(part: part, partIndex: selectedPartIndex)
 
-                        HStack {
-                            Text("明度 (Brightness):")
-                            Spacer()
-                            Text("\(Int(part.brightness * 100))%").monospacedDigit()
-                        }
-                        .font(.caption)
-                        Slider(value: Binding(
-                            get: { part.brightness },
-                            set: { appState.currentCharacter.parts[selectedPartIndex].brightness = $0 }
-                        ), in: -0.8...0.8)
+                // 3. 色調補正 (Color Adjustments)
+                colorAdjustmentsSection(part: part, partIndex: selectedPartIndex)
 
-                        HStack {
-                            Text("コントラスト:")
-                            Spacer()
-                            Text("\(Int(part.contrast * 100))%").monospacedDigit()
-                        }
-                        .font(.caption)
-                        Slider(value: Binding(
-                            get: { part.contrast },
-                            set: { appState.currentCharacter.parts[selectedPartIndex].contrast = $0 }
-                        ), in: 0.2...2.0)
-                    }
-                    .padding(6)
-                }
-
-                Button("色調を初期値に戻す") {
+                Button("色調・色変え設定を初期値に戻す") {
                     appState.saveUndoSnapshot()
+                    appState.currentCharacter.parts[selectedPartIndex].colorReplacements.removeAll()
                     appState.currentCharacter.parts[selectedPartIndex].colorTintHex = "#FFFFFF"
                     appState.currentCharacter.parts[selectedPartIndex].hue = 0.0
                     appState.currentCharacter.parts[selectedPartIndex].saturation = 1.0
@@ -1292,6 +1261,483 @@ public struct CharacterMakerView: View {
             } else {
                 Text("パーツを選択してください").foregroundColor(.secondary)
             }
+        }
+    }
+
+    // MARK: - ピンポイント色変え (スポイト特定色置換) セクション
+    private func pinpointColorReplacementSection(part: CharacterPart, partIndex: Int) -> some View {
+        GroupBox(label: HStack(spacing: 5) {
+            Image(systemName: "eyedropper.halffull")
+                .foregroundColor(.accentColor)
+            Text("ピンポイント色変え (特定色置換)")
+                .bold()
+            Spacer()
+            if !part.colorReplacements.isEmpty {
+                Text("\(part.colorReplacements.filter { $0.isEnabled }.count)件有効")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("💡 スポイトで画像から読み取った色（服の赤色や髪の色など）を、陰影やシワを保ったまま別の色（紫や青など）に置き換えます。")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+
+                // クイックおすすめプリセット
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("クイックプリセット:")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            Button("🟣 フラン風 (赤→紫)") {
+                                applyQuickColorPreset(
+                                    name: "フラン風 (赤→紫)",
+                                    sourceHex: "#D52020",
+                                    targetHex: "#8A2BE2",
+                                    partIndex: partIndex
+                                )
+                            }
+                            Button("🌸 髪色チェンジ (金→桃)") {
+                                applyQuickColorPreset(
+                                    name: "髪色チェンジ (金→桃)",
+                                    sourceHex: "#E6B800",
+                                    targetHex: "#FF77A9",
+                                    partIndex: partIndex
+                                )
+                            }
+                            Button("🔵 チルノ風 (赤→水色)") {
+                                applyQuickColorPreset(
+                                    name: "チルノ風 (赤→水色)",
+                                    sourceHex: "#D52020",
+                                    targetHex: "#00BFFF",
+                                    partIndex: partIndex
+                                )
+                            }
+                            Button("🟢 抹茶風 (赤→緑)") {
+                                applyQuickColorPreset(
+                                    name: "抹茶風 (赤→緑)",
+                                    sourceHex: "#D52020",
+                                    targetHex: "#2E8B57",
+                                    partIndex: partIndex
+                                )
+                            }
+                            Button("⚫ ダーク調 (赤→濃紺)") {
+                                applyQuickColorPreset(
+                                    name: "ダーク調 (赤→濃紺)",
+                                    sourceHex: "#D52020",
+                                    targetHex: "#2A2A48",
+                                    partIndex: partIndex
+                                )
+                            }
+                        }
+                        .font(.caption2)
+                        .buttonStyle(.bordered)
+                    }
+                }
+
+                Divider()
+
+                // アクションボタン
+                HStack {
+                    Button(action: {
+                        startEyedropperSampling()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "eyedropper.halffull")
+                            Text("スポイトで色を読み取って追加")
+                        }
+                        .font(.caption)
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button(action: {
+                        appState.saveUndoSnapshot()
+                        let newRule = ColorReplacementRule(
+                            name: "色変え #\(part.colorReplacements.count + 1)",
+                            sourceColorHex: "#D52020",
+                            targetColorHex: "#8A2BE2",
+                            tolerance: 0.35,
+                            smoothness: 0.15,
+                            preserveLuminosity: true
+                        )
+                        appState.currentCharacter.parts[partIndex].colorReplacements.append(newRule)
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus")
+                            Text("ルール手動追加")
+                        }
+                        .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Spacer()
+
+                    if !part.colorReplacements.isEmpty {
+                        Button("全消去") {
+                            appState.saveUndoSnapshot()
+                            appState.currentCharacter.parts[partIndex].colorReplacements.removeAll()
+                        }
+                        .font(.caption2)
+                        .buttonStyle(.plain)
+                        .foregroundColor(.red)
+                    }
+                }
+
+                // ルールリスト
+                if part.colorReplacements.isEmpty {
+                    VStack(spacing: 6) {
+                        Image(systemName: "eyedropper.and.waves.of.air")
+                            .font(.largeTitle)
+                            .foregroundColor(.secondary.opacity(0.6))
+                        Text("ピンポイント色変えルールが登録されていません")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("「スポイトで色を読み取って追加」を押すと、画面上のイラストをクリックして特定色を瞬時に置き換えられます。")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color.secondary.opacity(0.05))
+                    .cornerRadius(8)
+                } else {
+                    VStack(spacing: 10) {
+                        ForEach(Array(part.colorReplacements.enumerated()), id: \.element.id) { ruleIdx, rule in
+                            colorReplacementRuleCard(rule: rule, ruleIndex: ruleIdx, partIndex: partIndex)
+                        }
+                    }
+                }
+            }
+            .padding(6)
+        }
+    }
+
+    // 個別のピンポイント色変えルールカード
+    private func colorReplacementRuleCard(rule: ColorReplacementRule, ruleIndex: Int, partIndex: Int) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // 上段: 有効化トグル、ルール名、削除ボタン
+            HStack(spacing: 6) {
+                Toggle("", isOn: Binding(
+                    get: { rule.isEnabled },
+                    set: { val in
+                        appState.currentCharacter.parts[partIndex].colorReplacements[ruleIndex].isEnabled = val
+                    }
+                ))
+                .toggleStyle(.checkbox)
+
+                TextField("ルール名", text: Binding(
+                    get: { rule.name },
+                    set: { val in
+                        appState.currentCharacter.parts[partIndex].colorReplacements[ruleIndex].name = val
+                    }
+                ))
+                .font(.caption)
+                .textFieldStyle(.roundedBorder)
+
+                Spacer()
+
+                Button(action: {
+                    appState.saveUndoSnapshot()
+                    appState.currentCharacter.parts[partIndex].colorReplacements.remove(at: ruleIndex)
+                }) {
+                    Image(systemName: "trash")
+                        .foregroundColor(.red)
+                }
+                .buttonStyle(.plain)
+                .help("この色変えルールを削除")
+            }
+
+            // 中段: 元カラー (スポイト) ➔ 置換先カラー
+            HStack(spacing: 12) {
+                // 置換元カラー
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("置き換え元色:")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 4) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color(charHex: rule.sourceColorHex))
+                            .frame(width: 24, height: 24)
+                            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary.opacity(0.5), lineWidth: 1))
+
+                        Text(rule.sourceColorHex)
+                            .font(.system(size: 10, design: .monospaced))
+
+                        ColorPicker("", selection: Binding(
+                            get: { Color(charHex: rule.sourceColorHex) },
+                            set: { appState.currentCharacter.parts[partIndex].colorReplacements[ruleIndex].sourceColorHex = $0.toCharHex() }
+                        ))
+                        .labelsHidden()
+
+                        Button(action: {
+                            startEyedropperSampling(for: ruleIndex)
+                        }) {
+                            Image(systemName: "eyedropper.halffull")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                        .help("スポイトツールで画面上の色をクリックして取得")
+                    }
+                }
+
+                Image(systemName: "arrow.right.circle.fill")
+                    .font(.title3)
+                    .foregroundColor(.accentColor)
+
+                // 置換先カラー
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("置き換え先色:")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 4) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color(charHex: rule.targetColorHex))
+                            .frame(width: 24, height: 24)
+                            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.secondary.opacity(0.5), lineWidth: 1))
+
+                        Text(rule.targetColorHex)
+                            .font(.system(size: 10, design: .monospaced))
+
+                        ColorPicker("", selection: Binding(
+                            get: { Color(charHex: rule.targetColorHex) },
+                            set: { appState.currentCharacter.parts[partIndex].colorReplacements[ruleIndex].targetColorHex = $0.toCharHex() }
+                        ))
+                        .labelsHidden()
+                    }
+                }
+            }
+
+            // 代表色パレットチップ
+            HStack(spacing: 5) {
+                Text("代表色:")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+
+                let palette = [
+                    ("#8A2BE2", "紫"),
+                    ("#1E90FF", "青"),
+                    ("#00CED1", "水"),
+                    ("#2E8B57", "緑"),
+                    ("#FFD700", "黄"),
+                    ("#FF8C00", "橙"),
+                    ("#FF69B4", "桃"),
+                    ("#DC143C", "赤"),
+                    ("#2B2B36", "黒"),
+                    ("#F5F5F5", "白")
+                ]
+                ForEach(palette, id: \.0) { hex, tip in
+                    Button(action: {
+                        appState.currentCharacter.parts[partIndex].colorReplacements[ruleIndex].targetColorHex = hex
+                    }) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color(charHex: hex))
+                            .frame(width: 16, height: 16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 2)
+                                    .stroke(rule.targetColorHex.uppercased() == hex ? Color.accentColor : Color.secondary.opacity(0.4), lineWidth: rule.targetColorHex.uppercased() == hex ? 2 : 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .help(tip)
+                }
+            }
+
+            // 詳細設定 (折りたたみ)
+            DisclosureGroup("詳細パラメータ調整 (許容度・陰影保持)") {
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("許容範囲 (Tolerance):")
+                        Spacer()
+                        Text("\(Int(rule.tolerance * 100))%").monospacedDigit()
+                    }
+                    .font(.caption)
+                    Slider(value: Binding(
+                        get: { rule.tolerance },
+                        set: { appState.currentCharacter.parts[partIndex].colorReplacements[ruleIndex].tolerance = $0 }
+                    ), in: 0.05...0.80)
+
+                    HStack {
+                        Text("境界の滑らかさ (Smoothness):")
+                        Spacer()
+                        Text("\(Int(rule.smoothness * 100))%").monospacedDigit()
+                    }
+                    .font(.caption)
+                    Slider(value: Binding(
+                        get: { rule.smoothness },
+                        set: { appState.currentCharacter.parts[partIndex].colorReplacements[ruleIndex].smoothness = $0 }
+                    ), in: 0.01...0.35)
+
+                    Toggle(isOn: Binding(
+                        get: { rule.preserveLuminosity },
+                        set: { appState.currentCharacter.parts[partIndex].colorReplacements[ruleIndex].preserveLuminosity = $0 }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("陰影・立体感を維持 (シワやハイライトを残す)")
+                                .font(.caption)
+                            Text("ONにすると服のシワや立体的な光と影の陰影を保ったまま変色します")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    HStack {
+                        Text("判定方式:")
+                            .font(.caption)
+                        Picker("", selection: Binding(
+                            get: { rule.matchMode },
+                            set: { appState.currentCharacter.parts[partIndex].colorReplacements[ruleIndex].matchMode = $0 }
+                        )) {
+                            Text("色相・彩度 (広域・おすすめ)").tag("色相・彩度")
+                            Text("RGB距離 (厳密)").tag("RGB距離")
+                        }
+                        .pickerStyle(.menu)
+                    }
+                }
+                .padding(.top, 4)
+            }
+            .font(.caption)
+        }
+        .padding(8)
+        .background(Color.secondary.opacity(0.08))
+        .cornerRadius(6)
+    }
+
+    // クイックプリセット適用ヘルパー
+    private func applyQuickColorPreset(name: String, sourceHex: String, targetHex: String, partIndex: Int) {
+        appState.saveUndoSnapshot()
+        let rule = ColorReplacementRule(
+            name: name,
+            sourceColorHex: sourceHex,
+            targetColorHex: targetHex,
+            tolerance: 0.38,
+            smoothness: 0.15,
+            preserveLuminosity: true
+        )
+        appState.currentCharacter.parts[partIndex].colorReplacements.append(rule)
+        appState.log("ピンポイント色変えプリセット『\(name)』を適用しました")
+    }
+
+    // スポイトによる色読み取り開始
+    private func startEyedropperSampling(for ruleIndex: Int? = nil) {
+        let sampler = NSColorSampler()
+        sampler.show { selectedColor in
+            guard let color = selectedColor else {
+                DispatchQueue.main.async {
+                    if activeTool == .eyedropper {
+                        activeTool = .select
+                    }
+                }
+                return
+            }
+            DispatchQueue.main.async {
+                appState.saveUndoSnapshot()
+                let hex = color.toHex()
+                if selectedPartIndex < appState.currentCharacter.parts.count {
+                    if let rIdx = ruleIndex, rIdx < appState.currentCharacter.parts[selectedPartIndex].colorReplacements.count {
+                        appState.currentCharacter.parts[selectedPartIndex].colorReplacements[rIdx].sourceColorHex = hex
+                        appState.log("スポイトで置換元色 \(hex) を再取得しました")
+                    } else {
+                        let newRule = ColorReplacementRule(
+                            name: "色変え (\(hex))",
+                            sourceColorHex: hex,
+                            targetColorHex: "#8A2BE2",
+                            tolerance: 0.35,
+                            smoothness: 0.15,
+                            preserveLuminosity: true
+                        )
+                        appState.currentCharacter.parts[selectedPartIndex].colorReplacements.append(newRule)
+                        appState.log("スポイトで色 \(hex) を読み取り、ピンポイント色変えルールを追加しました")
+                    }
+                }
+                if activeTool == .eyedropper {
+                    activeTool = .select
+                }
+            }
+        }
+    }
+
+    // カラーティント (着色) セクション
+    private func colorTintSection(part: CharacterPart, partIndex: Int) -> some View {
+        GroupBox(label: Text("カラーティント (着色)")) {
+            VStack(spacing: 8) {
+                HStack {
+                    Text("ティントカラー:")
+                    Spacer()
+                    ColorPicker("", selection: Binding(
+                        get: { Color(charHex: part.colorTintHex) },
+                        set: { appState.currentCharacter.parts[partIndex].colorTintHex = $0.toCharHex() }
+                    ))
+                }
+                .font(.caption)
+
+                HStack {
+                    Button("白 (標準)") { appState.currentCharacter.parts[partIndex].colorTintHex = "#FFFFFF" }
+                    Button("赤") { appState.currentCharacter.parts[partIndex].colorTintHex = "#FF5555" }
+                    Button("青") { appState.currentCharacter.parts[partIndex].colorTintHex = "#5555FF" }
+                    Button("黄") { appState.currentCharacter.parts[partIndex].colorTintHex = "#FFFF55" }
+                    Button("黒 (影)") { appState.currentCharacter.parts[partIndex].colorTintHex = "#333333" }
+                }
+                .font(.caption2)
+                .buttonStyle(.bordered)
+            }
+            .padding(6)
+        }
+    }
+
+    // 色調補正セクション
+    private func colorAdjustmentsSection(part: CharacterPart, partIndex: Int) -> some View {
+        GroupBox(label: Text("色調補正 (Color Adjustments)")) {
+            VStack(spacing: 8) {
+                HStack {
+                    Text("色相 (Hue):")
+                    Spacer()
+                    Text("\(Int(part.hue))°").monospacedDigit()
+                }
+                .font(.caption)
+                Slider(value: Binding(
+                    get: { part.hue },
+                    set: { appState.currentCharacter.parts[partIndex].hue = $0 }
+                ), in: -180...180)
+
+                HStack {
+                    Text("彩度 (Saturation):")
+                    Spacer()
+                    Text("\(Int(part.saturation * 100))%").monospacedDigit()
+                }
+                .font(.caption)
+                Slider(value: Binding(
+                    get: { part.saturation },
+                    set: { appState.currentCharacter.parts[partIndex].saturation = $0 }
+                ), in: 0.0...2.0)
+
+                HStack {
+                    Text("明度 (Brightness):")
+                    Spacer()
+                    Text("\(Int(part.brightness * 100))%").monospacedDigit()
+                }
+                .font(.caption)
+                Slider(value: Binding(
+                    get: { part.brightness },
+                    set: { appState.currentCharacter.parts[partIndex].brightness = $0 }
+                ), in: -0.8...0.8)
+
+                HStack {
+                    Text("コントラスト:")
+                    Spacer()
+                    Text("\(Int(part.contrast * 100))%").monospacedDigit()
+                }
+                .font(.caption)
+                Slider(value: Binding(
+                    get: { part.contrast },
+                    set: { appState.currentCharacter.parts[partIndex].contrast = $0 }
+                ), in: 0.2...2.0)
+            }
+            .padding(6)
         }
     }
 

@@ -161,6 +161,8 @@ public final class AppState: ObservableObject {
     )
     @Published public var soundClips: [SoundClip] = []
     @Published public var audioTracks: [AudioTrack] = []
+    @Published public var soundMakerSelectedSceneIndex: Int = 1
+    @Published public var soundMakerCurrentTime: Double = 0.0
     @Published public var voiceTemplates: [VoiceTemplate] = []
     @Published public var activeVoiceTemplate: VoiceTemplate? = nil
     @Published public var slides: [SlideItem] = []
@@ -1715,6 +1717,93 @@ public final class AppState: ObservableObject {
 
             movieScenes[idx] = scene
         }
+    }
+
+    /// サウンドメーカーおよびムービーメーカー間で、シーン表示時間と実際の音声再生時間を完全に連動同期
+    /// 音声再生成・追加・削除時に画面上部のシーン時間と実際の音声再生時間がずれ込む現象を完全に解消
+    public func syncSceneAndClipTimings(autoFitDuration: Bool = true) {
+        if movieScenes.isEmpty && !slides.isEmpty {
+            movieScenes = slides.map { s in
+                MovieScene(
+                    title: s.title.isEmpty ? "シーン \(s.slideIndex)" : s.title,
+                    duration: max(2.5, s.duration),
+                    slideTitle: "スライド #\(s.slideIndex)",
+                    backgroundName: s.backgroundName,
+                    characterName: s.characterName,
+                    telop: SlideItem.cleanDialogueText(from: s.telop)
+                )
+            }
+        }
+        guard !movieScenes.isEmpty else { return }
+
+        var accumulatedTime: Double = 0.0
+
+        for idx in 0..<movieScenes.count {
+            let sceneNum = idx + 1
+            var scene = movieScenes[idx]
+
+            // このシーンに属する音声クリップ (Voice)
+            let voiceClip = soundClips.first(where: { $0.type == "Voice" && $0.sceneIndex == sceneNum })
+
+            if autoFitDuration {
+                if let voice = voiceClip {
+                    let animDur = scene.animationDuration ?? 0.0
+                    // 音声が余白をもって綺麗に鳴りきるための所要時間（最低2.5秒）
+                    let voiceRequired = voice.duration + 0.6
+                    let newDur = max(2.5, max(animDur, voiceRequired))
+                    scene.duration = newDur
+                    scene.voiceDuration = voice.duration
+                    scene.voiceAudioPath = voice.audioFilePath
+                    scene.voiceCharacter = voice.character ?? scene.characterName
+                    scene.audioTrack = voice.trackId ?? "track_voice"
+                } else if let animDur = scene.animationDuration, animDur > 0 {
+                    scene.duration = max(2.5, animDur)
+                } else {
+                    scene.duration = max(2.5, scene.duration)
+                }
+            }
+
+            // スライド側にも同期
+            if idx < slides.count {
+                slides[idx].duration = scene.duration
+            }
+
+            movieScenes[idx] = scene
+
+            // このシーンの開始時間に合わせて所属クリップの startTime を再同期
+            let sceneStart = accumulatedTime
+            for cIdx in 0..<soundClips.count {
+                if soundClips[cIdx].sceneIndex == sceneNum {
+                    if soundClips[cIdx].type == "Voice" {
+                        soundClips[cIdx].startTime = sceneStart + 0.2
+                    } else if soundClips[cIdx].type == "SE" {
+                        // SEの開始時間はシーン開始から0.3秒後、または既存の相対オフセットを安全範囲で維持
+                        let currentRel = soundClips[cIdx].startTime - sceneStart
+                        let safeRel = (currentRel >= 0 && currentRel < scene.duration) ? currentRel : 0.3
+                        soundClips[cIdx].startTime = sceneStart + safeRel
+                    }
+                }
+            }
+
+            accumulatedTime += scene.duration
+        }
+
+        // 複数シーン跨ぎの BGM の長さ・開始時間も更新
+        for cIdx in 0..<soundClips.count {
+            if soundClips[cIdx].type == "BGM",
+               let s = soundClips[cIdx].spanStartSceneIndex,
+               let e = soundClips[cIdx].spanEndSceneIndex {
+                let startSceneIdx = max(1, min(movieScenes.count, s))
+                let endSceneIdx = max(startSceneIdx, min(movieScenes.count, e))
+                let sStart = movieScenes.prefix(startSceneIdx - 1).reduce(0.0) { $0 + $1.duration }
+                let sDur = movieScenes[(startSceneIdx - 1)..<endSceneIdx].reduce(0.0) { $0 + $1.duration }
+                soundClips[cIdx].startTime = sStart
+                soundClips[cIdx].duration = sDur
+            }
+        }
+
+        totalDuration = max(120.0, accumulatedTime + 15.0)
+        syncClipsToMovieScenes(soundClips)
     }
 
     /// スライドから背景画像・立ち絵・動画等のアセット情報のみを MovieScene に安全補完（音声割り当ては保護）

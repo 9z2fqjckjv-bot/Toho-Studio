@@ -69,14 +69,19 @@ public final class AudioEffectProcessor {
         let pitchRatio = (pitch > 0 && pitch != 100) ? (Double(pitch) / 100.0) : 1.0
         let targetSampleRate = quality.isEnabled ? 44100 : 8000
 
-        // 1. ピッチシフト & 音質改善（純粋なリサンプリングによる音程変更）
-        // フェーズボコーダー（FFT位相変換）を使わず、ゆっくりボイス標準のリサンプリング方式を採用。
-        // これにより金属音・コーラス・フランジャー・位相干渉などの不自然なエフェクトが完全にゼロになり、
-        // ゆっくり実況本来のクリアで澄んだキャラクター音声になります。
+        // 1. ピッチシフト & 音質改善（リサンプリング ＋ WSOLAタイムストレッチ）
+        // フェーズボコーダーを使わず、リサンプリングとWSOLA（波形類似度オーバーラップ加算）を組み合わせることで、
+        // 金属音や位相干渉を完全に防ぎつつ、ピッチ（音程）のみをシフトし、指定された発話速度を正確に維持します。
         if pitchRatio != 1.0 || (quality.isEnabled && sampleRate != targetSampleRate) {
             let effectiveSrcRate = Int(Double(sampleRate) * pitchRatio)
             samples = resample(samples: samples, from: effectiveSrcRate, to: targetSampleRate)
             sampleRate = targetSampleRate
+
+            // ピッチ変更に伴いリサンプリングで変化した時間長（速度）を、WSOLAタイムストレッチで完全に元の長さに復元
+            // これにより、ピッチを変更しても指定されたキャラクター音声の速度よりも早く（または遅く）聞こえる現象を解消します。
+            if pitchRatio != 1.0 {
+                samples = timeStretchWSOLA(samples: samples, sampleRate: sampleRate, stretchFactor: pitchRatio)
+            }
 
             // 高音質化時のプレゼンスエンハンサー (マイルドに適用)
             if quality.isEnabled {
@@ -188,6 +193,102 @@ public final class AudioEffectProcessor {
             let a3 = p1
 
             output[i] = a0 * frac * frac * frac + a1 * frac * frac + a2 * frac + a3
+        }
+
+        return output
+    }
+
+    // MARK: - WSOLA Time Stretch (Waveform Similarity Overlap-Add)
+    /// リサンプリングで変化した時間長（速度）を、音程を保持したまま指定の倍率に滑らかに伸縮復元
+    /// フェーズボコーダーを使わず時間領域で波形の類似周期を検出して重ね合わせるため、
+    /// 金属音・位相の濁り・フランジャー等のノイズが一切生じず、極めてクリアに音程と速度を独立制御できます。
+    private func timeStretchWSOLA(samples: [Float], sampleRate: Int, stretchFactor: Double) -> [Float] {
+        guard !samples.isEmpty && stretchFactor > 0.0 && abs(stretchFactor - 1.0) > 0.005 else {
+            return samples
+        }
+
+        let targetCount = max(1, Int(round(Double(samples.count) * stretchFactor)))
+        guard samples.count >= 64 else {
+            return samples
+        }
+
+        // 窓サイズ: 音声の基本周波数周期（80〜400Hz）を十分含む長さ（約20〜25ms）
+        let windowSize = min(samples.count, max(64, (sampleRate * 22) / 1000))
+        let halfWin = max(32, windowSize / 2)
+        // 合成ホップサイズ
+        let hopSyn = halfWin
+        // 分析ホップサイズ（時間伸縮比率に反比例）
+        let hopAna = max(1.0, Double(hopSyn) / stretchFactor)
+        // 探索幅（前後）
+        let maxDelta = min(halfWin / 2, 96)
+
+        var output = [Float](repeating: 0, count: targetCount)
+        var weights = [Float](repeating: 0, count: targetCount)
+
+        // Hanning Window
+        var win = [Float](repeating: 0, count: windowSize)
+        for i in 0..<windowSize {
+            win[i] = Float(0.5 * (1.0 - cos(2.0 * Double.pi * Double(i) / Double(windowSize - 1))))
+        }
+
+        var synPos = 0
+        var anaPos: Double = 0.0
+
+        while synPos < targetCount && Int(anaPos) < samples.count {
+            let nominalAna = Int(round(anaPos))
+            var bestOffset = 0
+
+            // 直前の合成済み波形と最も波形類似度（自己相関）が高いオフセットを探索
+            if synPos > 0 && nominalAna + windowSize <= samples.count {
+                var maxCorr: Float = -Float.greatestFiniteMagnitude
+                let searchStart = max(-nominalAna, -maxDelta)
+                let searchEnd = min(samples.count - (nominalAna + windowSize), maxDelta)
+
+                if searchEnd >= searchStart {
+                    for delta in searchStart...searchEnd {
+                        let candidateAna = nominalAna + delta
+                        var corr: Float = 0
+                        var normSyn: Float = 0
+                        var normAna: Float = 0
+
+                        let compareLen = min(halfWin, min(targetCount - synPos, samples.count - candidateAna))
+                        for j in 0..<compareLen {
+                            let sVal = output[synPos + j]
+                            let aVal = samples[candidateAna + j]
+                            corr += sVal * aVal
+                            normSyn += sVal * sVal
+                            normAna += aVal * aVal
+                        }
+                        let norm = sqrt(normSyn * normAna)
+                        let normalizedCorr = norm > 1e-6 ? (corr / norm) : corr
+                        if normalizedCorr > maxCorr {
+                            maxCorr = normalizedCorr
+                            bestOffset = delta
+                        }
+                    }
+                }
+            }
+
+            let actualAna = max(0, min(samples.count - windowSize, nominalAna + bestOffset))
+            let writeCount = min(windowSize, targetCount - synPos)
+
+            for j in 0..<writeCount {
+                if actualAna + j < samples.count {
+                    let w = win[j]
+                    output[synPos + j] += samples[actualAna + j] * w
+                    weights[synPos + j] += w
+                }
+            }
+
+            synPos += hopSyn
+            anaPos += hopAna
+        }
+
+        // 窓重みの正規化除算
+        for i in 0..<targetCount {
+            if weights[i] > 1e-4 {
+                output[i] /= weights[i]
+            }
         }
 
         return output
