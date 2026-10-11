@@ -324,39 +324,102 @@ public final class AudioEffectProcessor {
         }
     }
 
-    // MARK: - Vocal Clarity EQ (マイルドなボーカル明瞭化・高域ノイズ抑制)
+    // MARK: - Vocal Clarity EQ & Harmonic Air Enhancer (こもり解消・明瞭度向上)
+    /// 1. 90Hz以下の不要な濁り・超低域をカット (High-Pass)
+    /// 2. 280Hz付近のこもり成分（モワつき）を -3.0dB カット (Peaking EQ)
+    /// 3. 3.2kHz付近の子音・アタック・芯を +4.5dB ブースト (Peaking EQ)
+    /// 4. AquesTalk1の4kHzの壁を超える上品な倍音エキサイター (Harmonic Air Exciter) で抜け感を付加
     private func applyVocalClarityEQ(samples: [Float], sampleRate: Int) -> [Float] {
         guard samples.count > 4 else { return samples }
+        let sr = Double(sampleRate)
+
+        // Biquad フィルタ構築
+        var hpFilter = BiquadFilter.highPass(sampleRate: sr, f0: 90.0, q: 0.707)
+        var mudCutFilter = BiquadFilter.peakingEQ(sampleRate: sr, f0: 280.0, gainDB: -3.0, q: 1.2)
+        var presenceFilter = BiquadFilter.peakingEQ(sampleRate: sr, f0: 3200.0, gainDB: 4.5, q: 1.1)
+        var exciterHP = BiquadFilter.highPass(sampleRate: sr, f0: 2600.0, q: 0.707)
+
         var output = [Float](repeating: 0, count: samples.count)
 
-        // 1. 低域不要成分 (DCオフセット・50Hz以下の不要な濁り) をカットする1次ハイパス
-        let hpAlpha: Float = 0.992
-        var hpPrev: Float = 0
-        var xPrev: Float = 0
-
-        // 2. 人の声の通りを良くするプレゼンス (2.5kHz〜3.5kHz) のマイルドな強調 (+1.5dB程度)
-        // かつ 8kHz 以上の不要な高周波ノイズ（アップサンプリング時の折り返し帯域）を自然に滑らかにする
-        let dt = 1.0 / Float(sampleRate)
-        let rc = 1.0 / (2.0 * Float.pi * 7500.0) // 7.5kHz ローパスで超高域のシャリシャリノイズを抑制
-        let lpAlpha = dt / (rc + dt)
-        var lpPrev: Float = 0
-
         for i in 0..<samples.count {
-            let x = samples[i]
-            // DC/低周波カット
-            let hp = hpAlpha * (hpPrev + x - xPrev)
-            hpPrev = hp
-            xPrev = x
+            var s = samples[i]
 
-            // 超高周波ノイズの滑らかな抑制
-            let lp = lpPrev + lpAlpha * (hp - lpPrev)
-            lpPrev = lp
+            // 1. 低域不要振動カット
+            s = hpFilter.process(s)
+            // 2. 280Hz周辺のこもり濁りを低減
+            s = mudCutFilter.process(s)
+            // 3. 3.2kHz周辺の滑舌・子音成分をブースト
+            s = presenceFilter.process(s)
 
-            // ボーカル帯域の明瞭化 (原音 94% + 明瞭化成分 6%)
-            output[i] = lp * 0.95 + hp * 0.05
+            // 4. ハーモニック・エキサイター (4kHz以上の高域抜け・空気感を上品に合成)
+            let highPart = exciterHP.process(samples[i])
+            let harmonic = (highPart * abs(highPart)) * 0.16
+            s += harmonic
+
+            output[i] = s
         }
 
         return output
+    }
+
+    // MARK: - Audio Biquad Filter (RBJ Audio EQ Cookbook準拠)
+    private struct BiquadFilter {
+        var b0: Float, b1: Float, b2: Float
+        var a1: Float, a2: Float
+        var x1: Float = 0, x2: Float = 0
+        var y1: Float = 0, y2: Float = 0
+
+        mutating func process(_ x: Float) -> Float {
+            let y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
+            x2 = x1
+            x1 = x
+            y2 = y1
+            y1 = y
+            return y
+        }
+
+        static func peakingEQ(sampleRate: Double, f0: Double, gainDB: Double, q: Double = 1.0) -> BiquadFilter {
+            let A = pow(10.0, gainDB / 40.0)
+            let w0 = 2.0 * .pi * f0 / sampleRate
+            let alpha = sin(w0) / (2.0 * q)
+            let cosw0 = cos(w0)
+
+            let b0 = 1.0 + alpha * A
+            let b1 = -2.0 * cosw0
+            let b2 = 1.0 - alpha * A
+            let a0 = 1.0 + alpha / A
+            let a1 = -2.0 * cosw0
+            let a2 = 1.0 - alpha / A
+
+            return BiquadFilter(
+                b0: Float(b0 / a0),
+                b1: Float(b1 / a0),
+                b2: Float(b2 / a0),
+                a1: Float(a1 / a0),
+                a2: Float(a2 / a0)
+            )
+        }
+
+        static func highPass(sampleRate: Double, f0: Double, q: Double = 0.707) -> BiquadFilter {
+            let w0 = 2.0 * .pi * f0 / sampleRate
+            let alpha = sin(w0) / (2.0 * q)
+            let cosw0 = cos(w0)
+
+            let b0 = (1.0 + cosw0) / 2.0
+            let b1 = -(1.0 + cosw0)
+            let b2 = (1.0 + cosw0) / 2.0
+            let a0 = 1.0 + alpha
+            let a1 = -2.0 * cosw0
+            let a2 = 1.0 - alpha
+
+            return BiquadFilter(
+                b0: Float(b0 / a0),
+                b1: Float(b1 / a0),
+                b2: Float(b2 / a0),
+                a1: Float(a1 / a0),
+                a2: Float(a2 / a0)
+            )
+        }
     }
 
     // MARK: - Echo / Delay Effect (明示指定時のみ適用)
