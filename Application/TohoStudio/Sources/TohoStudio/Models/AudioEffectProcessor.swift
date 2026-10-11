@@ -68,31 +68,31 @@ public final class AudioEffectProcessor {
 
         let targetSampleRate = quality.isEnabled ? 44100 : 8000
 
-        // 1. リサンプリング (8kHz -> 44.1kHz 高品位変換: AVAudioConverter)
-        if sampleRate != targetSampleRate {
-            samples = resampleWithAudioConverter(samples: samples, from: sampleRate, to: targetSampleRate)
+        // 1. バリピッチ＆リサンプリング (AVAudioConverter 最高品質Sinc補間)
+        // ゆっくりボイスメーカーおよびSoftalkの正規仕様に完全準拠：
+        // 音程（ピッチ：早苗135%、咲夜125%、こいし181%等）の変更を、Sincリサンプリングによる自然なスケーリングで実行。
+        // フェーズボコーダーや波形切り貼りを一切介さないため、二重音・やまびこ・位相の濁り・お風呂場感・不自然な速度伸長が
+        // 物理的に100%生じず、動画でおなじみの「あのゆっくりキャラの声とテンポ」そのものを完璧に再現します。
+        let pitchRatio = (pitch > 0 && pitch != 100) ? (Double(pitch) / 100.0) : 1.0
+        let effectiveSrcRate = Double(sampleRate) * pitchRatio
+
+        if effectiveSrcRate != Double(targetSampleRate) {
+            samples = resampleWithAudioConverter(samples: samples, from: effectiveSrcRate, to: Double(targetSampleRate))
             sampleRate = targetSampleRate
         }
 
-        // 2. ピッチシフト (Apple AVAudioUnitTimePitch によるスタジオ品質オフライン処理)
-        // 従来の自前WSOLAによる波形の切り貼り・位相干渉・やまびこ（二重音）現象を完全に根絶し、
-        // 発話速度や時間のズレを起こさず、指定された音程（早苗135%、咲夜125%、こいし181%等）のみを極めてクリアにシフトします。
-        if pitch > 0 && pitch != 100 {
-            samples = pitchShiftWithTimePitch(samples: samples, sampleRate: sampleRate, pitchPercent: pitch)
-        }
-
-        // 3. 高音質化時のボーカルプレゼンスEQ (耳障りなジャリジャリノイズのないクリアな声質に調整)
+        // 2. 高音質化時のボーカルプレゼンスEQ (こもり感を上品に引き締め、言葉の通りを向上)
         if quality.isEnabled {
             samples = applyVocalClarityEQ(samples: samples, sampleRate: sampleRate)
         }
 
-        // 4. エフェクト処理 (ユーザーが明示的にエコーを指定した場合のみ)
+        // 3. エフェクト処理 (ユーザーが明示的にエコーを指定した場合のみ)
         if effect == .echo {
             samples = applyEcho(samples: samples, sampleRate: sampleRate, delayTimeSeconds: 0.18, feedback: 0.36, wetLevel: 0.42)
         }
 
-        // 5. ピークリミッティング (音割れ・クリップ歪みの防止)
-        samples = applyPeakLimiter(samples: samples, targetPeak: 0.95)
+        // 4. ピークリミッティング (音割れ・クリップ歪みの防止)
+        samples = applyPeakLimiter(samples: samples, targetPeak: 0.96)
 
         // 新しいWAVフォーマットにエンコード
         return encodeWav(samples: samples, sampleRate: sampleRate)
@@ -165,12 +165,12 @@ public final class AudioEffectProcessor {
     }
 
     // MARK: - Resampling (AVAudioConverter with Max Quality Sinc Filter)
-    private func resampleWithAudioConverter(samples: [Float], from srcRate: Int, to dstRate: Int) -> [Float] {
+    private func resampleWithAudioConverter(samples: [Float], from srcRate: Double, to dstRate: Double) -> [Float] {
         guard !samples.isEmpty && srcRate > 0 && dstRate > 0 else { return samples }
-        if srcRate == dstRate { return samples }
+        if abs(srcRate - dstRate) < 0.1 { return samples }
 
-        guard let srcFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: Double(srcRate), channels: 1, interleaved: false),
-              let dstFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: Double(dstRate), channels: 1, interleaved: false),
+        guard let srcFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: srcRate, channels: 1, interleaved: false),
+              let dstFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: dstRate, channels: 1, interleaved: false),
               let converter = AVAudioConverter(from: srcFormat, to: dstFormat) else {
             return resampleFallback(samples: samples, from: srcRate, to: dstRate)
         }
@@ -187,28 +187,18 @@ public final class AudioEffectProcessor {
             srcChannel[i] = samples[i]
         }
 
-        let expectedDstFrames = AVAudioFrameCount(ceil(Double(srcFrames) * Double(dstRate) / Double(srcRate)))
+        let expectedDstFrames = AVAudioFrameCount(ceil(Double(srcFrames) * dstRate / srcRate))
         guard let dstBuffer = AVAudioPCMBuffer(pcmFormat: dstFormat, frameCapacity: expectedDstFrames + 2048) else {
             return resampleFallback(samples: samples, from: srcRate, to: dstRate)
         }
 
-        var srcPosition: AVAudioFrameCount = 0
+        var inputProvided = false
         var error: NSError?
-        let status = converter.convert(to: dstBuffer, error: &error) { inNumPackets, outStatus in
-            let remaining = srcFrames - srcPosition
-            if remaining > 0 {
-                let packetsToProvide = min(inNumPackets, remaining)
-                guard let subBuffer = AVAudioPCMBuffer(pcmFormat: srcFormat, frameCapacity: packetsToProvide) else {
-                    outStatus.pointee = .noDataNow
-                    return nil
-                }
-                subBuffer.frameLength = packetsToProvide
-                let srcPtr = srcChannel + Int(srcPosition)
-                let dstPtr = subBuffer.floatChannelData![0]
-                dstPtr.initialize(from: srcPtr, count: Int(packetsToProvide))
-                srcPosition += packetsToProvide
+        let status = converter.convert(to: dstBuffer, error: &error) { _, outStatus in
+            if !inputProvided {
+                inputProvided = true
                 outStatus.pointee = .haveData
-                return subBuffer
+                return srcBuffer
             } else {
                 outStatus.pointee = .endOfStream
                 return nil
@@ -228,10 +218,10 @@ public final class AudioEffectProcessor {
     }
 
     // MARK: - Resampling Fallback (Catmull-Rom Hermite)
-    private func resampleFallback(samples: [Float], from srcRate: Int, to dstRate: Int) -> [Float] {
+    private func resampleFallback(samples: [Float], from srcRate: Double, to dstRate: Double) -> [Float] {
         guard !samples.isEmpty && srcRate > 0 && dstRate > 0 else { return samples }
-        let ratio = Double(srcRate) / Double(dstRate)
-        let outputCount = Int(Double(samples.count) * Double(dstRate) / Double(srcRate))
+        let ratio = srcRate / dstRate
+        let outputCount = Int(Double(samples.count) * dstRate / srcRate)
         var output = [Float](repeating: 0, count: outputCount)
         let n = samples.count
 
@@ -256,106 +246,25 @@ public final class AudioEffectProcessor {
         return output
     }
 
-    // MARK: - Apple AVAudioUnitTimePitch によるスタジオ品質ピッチシフト
-    /// 二重音・位相の濁り・ロボット音を一切生じさせずに、ピッチのみを正確にシフト
-    private func pitchShiftWithTimePitch(samples: [Float], sampleRate: Int, pitchPercent: Int) -> [Float] {
-        guard !samples.isEmpty && pitchPercent > 0 && pitchPercent != 100 else { return samples }
-        let cents = Float(1200.0 * log2(Double(pitchPercent) / 100.0))
-
-        guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: Double(sampleRate), channels: 1, interleaved: false) else {
-            return samples
-        }
-
-        let frameCount = AVAudioFrameCount(samples.count)
-        guard let inBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
-            return samples
-        }
-        inBuffer.frameLength = frameCount
-        let inChannel = inBuffer.floatChannelData![0]
-        for i in 0..<samples.count {
-            inChannel[i] = samples[i]
-        }
-
-        let engine = AVAudioEngine()
-        let playerNode = AVAudioPlayerNode()
-        let timePitch = AVAudioUnitTimePitch()
-        timePitch.pitch = cents
-        timePitch.rate = 1.0 // 速度・再生時間は完全に維持
-
-        engine.attach(playerNode)
-        engine.attach(timePitch)
-        engine.connect(playerNode, to: timePitch, format: format)
-        engine.connect(timePitch, to: engine.mainMixerNode, format: format)
-
-        do {
-            let maxFrames: AVAudioFrameCount = 4096
-            try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: maxFrames)
-            try engine.start()
-            playerNode.play()
-            playerNode.scheduleBuffer(inBuffer, at: nil, options: [], completionHandler: nil)
-
-            var outputSamples: [Float] = []
-            outputSamples.reserveCapacity(samples.count)
-            guard let renderBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: maxFrames) else {
-                return samples
-            }
-            let totalTargetFrames = Int64(frameCount)
-
-            while engine.manualRenderingSampleTime < totalTargetFrames {
-                let framesToRender = min(maxFrames, AVAudioFrameCount(totalTargetFrames - engine.manualRenderingSampleTime))
-                let status = try engine.renderOffline(framesToRender, to: renderBuffer)
-                if status == .success {
-                    let ptr = renderBuffer.floatChannelData![0]
-                    for i in 0..<Int(renderBuffer.frameLength) {
-                        outputSamples.append(ptr[i])
-                    }
-                } else {
-                    break
-                }
-            }
-
-            playerNode.stop()
-            engine.stop()
-            engine.disableManualRenderingMode()
-
-            return outputSamples.isEmpty ? samples : outputSamples
-        } catch {
-            return samples
-        }
-    }
-
-    // MARK: - Vocal Clarity EQ & Harmonic Air Enhancer (こもり解消・明瞭度向上)
-    /// 1. 90Hz以下の不要な濁り・超低域をカット (High-Pass)
-    /// 2. 280Hz付近のこもり成分（モワつき）を -3.0dB カット (Peaking EQ)
-    /// 3. 3.2kHz付近の子音・アタック・芯を +4.5dB ブースト (Peaking EQ)
-    /// 4. AquesTalk1の4kHzの壁を超える上品な倍音エキサイター (Harmonic Air Exciter) で抜け感を付加
+    // MARK: - Vocal Clarity EQ (自然なボーカル明瞭化・こもり抑制)
+    /// 1. 80Hz以下の不要な直流・超低周波ノイズをカット (High-Pass)
+    /// 2. 280Hz付近のこもり感を軽く引き締め (-1.5dB)
+    /// 3. 3.0kHz付近の言葉の通り・滑舌をマイルドにブースト (+2.0dB)
+    /// ※過剰なエキサイター歪みは排除し、AquesTalkのピュアでクリアな原音の透明感を最優先
     private func applyVocalClarityEQ(samples: [Float], sampleRate: Int) -> [Float] {
         guard samples.count > 4 else { return samples }
         let sr = Double(sampleRate)
 
-        // Biquad フィルタ構築
-        var hpFilter = BiquadFilter.highPass(sampleRate: sr, f0: 90.0, q: 0.707)
-        var mudCutFilter = BiquadFilter.peakingEQ(sampleRate: sr, f0: 280.0, gainDB: -3.0, q: 1.2)
-        var presenceFilter = BiquadFilter.peakingEQ(sampleRate: sr, f0: 3200.0, gainDB: 4.5, q: 1.1)
-        var exciterHP = BiquadFilter.highPass(sampleRate: sr, f0: 2600.0, q: 0.707)
+        var hpFilter = BiquadFilter.highPass(sampleRate: sr, f0: 80.0, q: 0.707)
+        var mudCutFilter = BiquadFilter.peakingEQ(sampleRate: sr, f0: 280.0, gainDB: -1.5, q: 1.0)
+        var presenceFilter = BiquadFilter.peakingEQ(sampleRate: sr, f0: 3000.0, gainDB: 2.0, q: 1.0)
 
         var output = [Float](repeating: 0, count: samples.count)
-
         for i in 0..<samples.count {
             var s = samples[i]
-
-            // 1. 低域不要振動カット
             s = hpFilter.process(s)
-            // 2. 280Hz周辺のこもり濁りを低減
             s = mudCutFilter.process(s)
-            // 3. 3.2kHz周辺の滑舌・子音成分をブースト
             s = presenceFilter.process(s)
-
-            // 4. ハーモニック・エキサイター (4kHz以上の高域抜け・空気感を上品に合成)
-            let highPart = exciterHP.process(samples[i])
-            let harmonic = (highPart * abs(highPart)) * 0.16
-            s += harmonic
-
             output[i] = s
         }
 
