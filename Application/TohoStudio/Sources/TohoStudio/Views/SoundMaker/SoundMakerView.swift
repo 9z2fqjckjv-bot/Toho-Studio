@@ -61,6 +61,8 @@ public struct SoundMakerView: View {
     @State private var showBatchVoiceGenerationSheet: Bool = false
     @State private var showScoreViewerSheet: Bool = false
     @State private var scoreViewerInitialURL: URL? = nil
+    @State private var showColabGPUInAppBrowser: Bool = false
+    @ObservedObject var cloudLinuxService = CloudVirtualLinuxService.shared
 
     @State private var showHomeScreen: Bool = false
     @State private var showExportAudioSheet: Bool = false
@@ -189,6 +191,9 @@ public struct SoundMakerView: View {
         }
         .sheet(isPresented: $showScoreViewerSheet) {
             ScoreViewerSheetView(initialAudioURL: scoreViewerInitialURL)
+        }
+        .sheet(isPresented: $showColabGPUInAppBrowser) {
+            ColabGPUInAppBrowserView(isPresented: $showColabGPUInAppBrowser)
         }
         .alert(isPresented: $showExportAudioErrorAlert) {
             Alert(
@@ -427,6 +432,20 @@ public struct SoundMakerView: View {
                 }
                 .buttonStyle(.bordered)
                 .help("選択中クリップや音声ファイルをSpotify Basic Pitchで自動解析し五線譜PDF楽譜を生成")
+
+                // 🌸 Colab L4 GPU ブラウザ接続
+                Button(action: { showColabGPUInAppBrowser = true }) {
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(cloudLinuxService.colabBridge.isOnline ? Color.green : Color.blue)
+                            .frame(width: 7, height: 7)
+                        Label(cloudLinuxService.colabBridge.isOnline ? "Colab GPU (接続中)" : "Colab GPU 起動...", systemImage: "bolt.fill")
+                            .font(.caption)
+                            .foregroundColor(cloudLinuxService.colabBridge.isOnline ? .green : .cyan)
+                    }
+                }
+                .buttonStyle(.bordered)
+                .help("アプリ内ブラウザでGoogle Colabを開き、L4 GPUの起動や接続を確認します")
 
                 // Export Audio
                 Button(action: { showExportAudioSheet = true }) {
@@ -1960,10 +1979,16 @@ public struct SoundMakerView: View {
                             Circle()
                                 .fill(aiSoundService.isColabBridgeAvailable ? Color.green : Color.blue)
                                 .frame(width: 6, height: 6)
-                            Text(aiSoundService.isColabBridgeAvailable ? "⚡️ Colab L4/T4 GPU (MusicGen/SE)" : "東方・日常プロシージャル合成")
+                            Text(aiSoundService.isColabBridgeAvailable ? "⚡️ Colab L4/T4 GPU" : "東方・日常プロシージャル合成")
                                 .font(.system(size: 10))
                                 .foregroundColor(Color(white: 0.8))
                             Spacer()
+                            Button(action: { showColabGPUInAppBrowser = true }) {
+                                Text(aiSoundService.isColabBridgeAvailable ? "設定" : "🌸 Colab起動")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.cyan)
+                            }
+                            .buttonStyle(.plain)
                         }
 
                         // モードセレクター

@@ -313,6 +313,7 @@ public struct ColabGPUInAppBrowserView: View {
                 if success {
                     self.detectionStatus = .connected
                     self.statusMessage = message
+                    self.stopDetectionLoop() // 接続完了後は無駄な再テストループを停止して安定化
                     // サウンドを鳴らして通知
                     NSSound.beep()
                 } else {

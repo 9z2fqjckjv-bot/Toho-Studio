@@ -27,7 +27,7 @@ public struct VirtualLinuxMachineStatus: Codable {
 }
 
 public struct ColabGPUBridgeInfo: Codable {
-    public var notebookUrl: String = "https://colab.research.google.com/drive/1lnh3dQi3ZRyF1Oq8qvzsSrGiHi72_hQP?usp=sharing"
+    public var notebookUrl: String = "https://colab.research.google.com/drive/1OCq2X8eLWBe6asIWuaC5RR_TFsUhFKiY?usp=sharing"
     public var endpoint: String = ""
     public var isOnline: Bool = false
     public var gpuName: String = "NVIDIA L4 (24GB VRAM)"
@@ -61,6 +61,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
     @Published public var isMusicTranscriptionSupported: Bool = false
 
     private var heartbeatTimer: Timer? = nil
+    private var colabCheckCounter: Int = 0
 
     private init() {
         startContinuousHeartbeat()
@@ -74,7 +75,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
         }
     }
 
-    /// Performs periodic heartbeat query to local Linux VM
+    /// Performs periodic heartbeat query to local Linux VM and direct Colab GPU
     public func performHeartbeat() {
         guard remainingPrompts > 0 else {
             if connectionStatus != .suspendedPromptZero {
@@ -82,6 +83,12 @@ public final class CloudVirtualLinuxService: ObservableObject {
                 AppState.shared.addSystemLog(level: "WARN", message: "【通信遮断】AIプロンプト残数が0になったため、仮想LinuxPCとの通信が強制遮断されました。")
             }
             return
+        }
+
+        // Colab 直接ハートビート（15秒毎）
+        colabCheckCounter += 1
+        if colabCheckCounter % 3 == 0 && !colabBridge.endpoint.isEmpty && colabBridge.isOnline {
+            performDirectColabHeartbeat()
         }
 
         let start = Date()
@@ -110,10 +117,19 @@ public final class CloudVirtualLinuxService: ObservableObject {
                         }
 
                         if let colab = json["colab_gpu_bridge"] as? [String: Any] {
-                            self.colabBridge.isOnline = colab["online"] as? Bool ?? false
-                            self.colabBridge.gpuName = colab["gpu"] as? String ?? "NVIDIA L4"
-                            if let endpoint = colab["endpoint"] as? String, !endpoint.isEmpty {
-                                self.colabBridge.endpoint = endpoint
+                            let vmColabOnline = colab["online"] as? Bool ?? false
+                            if vmColabOnline {
+                                self.colabBridge.isOnline = true
+                                self.colabBridge.gpuName = colab["gpu"] as? String ?? "NVIDIA L4"
+                                if let endpoint = colab["endpoint"] as? String, !endpoint.isEmpty {
+                                    self.colabBridge.endpoint = endpoint
+                                }
+                            } else {
+                                // ローカルVM側がColab未設定/未同期でも、アプリが直接接続済みであれば切断しない
+                                if !self.colabBridge.endpoint.isEmpty && self.colabBridge.isOnline {
+                                    // ローカルVMへColab URLを自動同期
+                                    self.syncColabEndpointToLocalVM(endpoint: self.colabBridge.endpoint)
+                                }
                             }
                         }
                     }
@@ -165,17 +181,26 @@ public final class CloudVirtualLinuxService: ObservableObject {
         return str
     }
 
-    /// Tests direct health of Google Colab GPU Bridge endpoint
-    public func testColabBridgeConnection(completion: @escaping (Bool, String) -> Void) {
+    /// ローカル VM（192.168.64.3:8080）に対して、検知した Colab エンドポイントを同期登録する
+    public func syncColabEndpointToLocalVM(endpoint: String) {
+        guard !endpoint.isEmpty, let url = URL(string: "http://\(machineStatus.hostIP):8080/v1/colab/endpoint") else { return }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.timeoutInterval = 3.0
+        let body = ["colab_url": endpoint]
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        URLSession.shared.dataTask(with: req).resume()
+    }
+
+    /// Colab GPU エンドポイントへの直接軽量ハートビート（ローカルVMのステータスに左右されず接続を維持）
+    public func performDirectColabHeartbeat() {
+        guard !colabBridge.endpoint.isEmpty else { return }
         let cleanEndpoint = Self.sanitizeColabEndpoint(colabBridge.endpoint)
-        self.colabBridge.endpoint = cleanEndpoint
-        guard let url = URL(string: "\(cleanEndpoint)/health") else {
-            completion(false, "無効なURL形式です")
-            return
-        }
+        guard let url = URL(string: "\(cleanEndpoint)/health") else { return }
 
         var req = URLRequest(url: url)
-        req.timeoutInterval = 6.0
+        req.timeoutInterval = 8.0
 
         URLSession.shared.dataTask(with: req) { [weak self] data, response, error in
             DispatchQueue.main.async {
@@ -187,6 +212,36 @@ public final class CloudVirtualLinuxService: ObservableObject {
                             self.colabBridge.gpuName = gpu
                         }
                     }
+                }
+                // 一時的なパケット損失で即座にオフラインには落とさない
+            }
+        }.resume()
+    }
+
+    /// Tests direct health of Google Colab GPU Bridge endpoint
+    public func testColabBridgeConnection(completion: @escaping (Bool, String) -> Void) {
+        let cleanEndpoint = Self.sanitizeColabEndpoint(colabBridge.endpoint)
+        self.colabBridge.endpoint = cleanEndpoint
+        guard let url = URL(string: "\(cleanEndpoint)/health") else {
+            completion(false, "無効なURL形式です")
+            return
+        }
+
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 10.0 // Cloudflare Tunnelの初期ハンドシェイクを考慮して10秒
+
+        URLSession.shared.dataTask(with: req) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if let http = response as? HTTPURLResponse, http.statusCode == 200, let data = data {
+                    self.colabBridge.isOnline = true
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        if let gpu = json["gpu"] as? String {
+                            self.colabBridge.gpuName = gpu
+                        }
+                    }
+                    // ローカル VM にも即時同期して VM 側のオフライン上書きを遮断
+                    self.syncColabEndpointToLocalVM(endpoint: cleanEndpoint)
                     completion(true, "Colab GPUオンライン (\(self.colabBridge.gpuName))")
                 } else {
                     self.colabBridge.isOnline = false
