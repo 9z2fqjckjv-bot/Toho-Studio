@@ -161,125 +161,114 @@ public final class SlideRecognitionService: ObservableObject {
 
     /// Returns all available Keynote presentation files located in the repository
     public func getAvailableKeynoteProjects() -> [KeynoteProjectItem] {
-        var projects = [
-            KeynoteProjectItem(
-                title: "交換夫婦（27話目）",
-                category: "交換夫婦",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/交換夫婦/交換夫婦（27話目）.key",
-                description: "最新エピソード。93スライド構成。スライド＆シナリオメーカーでの最新編集内容完全連動"
-            ),
-            KeynoteProjectItem(
-                title: "交換夫婦（26話目）",
-                category: "交換夫婦",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/交換夫婦/交換夫婦（26話目）.key",
-                description: "91スライド構成。スライドトランジション（カラーでフェード等）および演出・アニメーション完備"
-            ),
-            KeynoteProjectItem(
-                title: "交換夫婦（21.22話目）",
-                category: "交換夫婦",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/交換夫婦/交換夫婦（21.22話目）.key",
-                description: "319スライド構成。タイトル/中扉/通常スライド、ポケベル、バウンス/回転アニメーション完備"
-            ),
-            KeynoteProjectItem(
-                title: "元女子校の日常　第3話",
-                category: "元女子校の日常",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/元女子校の日常/元女子校の日常　第3話.key",
-                description: "68スライド構成。スライド＆シナリオメーカー最新編集版"
-            ),
-            KeynoteProjectItem(
-                title: "元女子校の日常　第2話",
-                category: "元女子校の日常",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/元女子校の日常/元女子校の日常　第2話.key",
-                description: "69スライド構成。保健室シーン・シナリオ編集反映版"
-            ),
-            KeynoteProjectItem(
-                title: "元女子校の日常　第1話",
-                category: "元女子校の日常",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/元女子校の日常/元女子校の日常　第1話.key",
-                description: "51スライド構成。学校の日常シリーズ第1話"
-            ),
-            KeynoteProjectItem(
-                title: "交換夫婦（1話目）",
-                category: "交換夫婦",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/交換夫婦/交換夫婦（1話目）.key",
-                description: "日常と非日常の交錯ドラマシナリオ第1話"
-            ),
-            KeynoteProjectItem(
-                title: "東方惑情録　第1話",
-                category: "東方惑情録",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/東方惑情録/東方惑情録　第1話.key",
-                description: "62スライド構成。異変調査の幕開けと紅魔館・神社の静寂"
-            ),
-            KeynoteProjectItem(
-                title: "東方惑情録　第2話",
-                category: "東方惑情録",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/東方惑情録/東方惑情録　第2話.key",
-                description: "魔法の森探索とパチュリー・魔理沙の心理戦"
-            ),
-            KeynoteProjectItem(
-                title: "東方惑情録　第3話",
-                category: "東方惑情録",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/東方惑情録/東方惑情録　第3話.key",
-                description: "白玉楼と冥界の波紋。幽々子と妖夢の掛け合い"
-            ),
-            KeynoteProjectItem(
-                title: "東方惑情録　第４話",
-                category: "東方惑情録",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/東方惑情録/東方惑情録　第４話.key",
-                description: "地霊殿急襲、さとりとこいしの姉妹遭遇"
-            ),
-            KeynoteProjectItem(
-                title: "東方惑情録　第5話",
-                category: "東方惑情録",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/東方惑情録/東方惑情録　第5話.key",
-                description: "永遠亭・竹林での激戦と境界の綻び"
-            ),
-            KeynoteProjectItem(
-                title: "東方惑情録　第6話",
-                category: "東方惑情録",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/東方惑情録/東方惑情録　第6話.key",
-                description: "八雲紫との対峙と異変解決のクライマックス"
-            ),
-            KeynoteProjectItem(
-                title: "東方操夢録　第1話",
-                category: "東方操夢録",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/東方操夢録/東方操夢録　第2話.key",
-                description: "夢の世界と幻想郷が交錯する心理サスペンス"
-            ),
-            KeynoteProjectItem(
-                title: "彷徨う二人　(1)",
-                category: "短編シリーズ",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/彷徨う二人/(1).key",
-                description: "幻想郷の境界に迷い込んだ二人の物語"
-            ),
-            KeynoteProjectItem(
-                title: "幼き日の夢　第1話",
-                category: "短編シリーズ",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/幼き日の夢/第1話.key",
-                description: "幼少期の博麗神社と過ぎ去りし日々の回想"
-            ),
-            KeynoteProjectItem(
-                title: "ゲームシナリオ",
-                category: "ゲーム",
-                filePath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides/ゲームシナリオ.key",
-                description: "横長ワイドRPG/ノベル制作用分岐シナリオスライド"
-            )
-        ]
+        let slidesBase = "/Volumes/ZSSD/GitHub/repository/TohoStudio/New/Application/Documents/参考資料/Slides"
+        var projects: [KeynoteProjectItem] = []
+        var addedPaths = Set<String>()
 
-        // Documents/Slides フォルダから他の Keynote ファイルも動的に補完追加
-        let slidesDir = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides"
-        if let enumerator = FileManager.default.enumerator(atPath: slidesDir) {
-            for case let file as String in enumerator where file.hasSuffix(".key") {
-                let fullPath = (slidesDir as NSString).appendingPathComponent(file)
-                if !projects.contains(where: { $0.filePath == fullPath }) {
-                    let title = URL(fileURLWithPath: file).deletingPathExtension().lastPathComponent
-                    let category = (file as NSString).pathComponents.first ?? "スライド"
-                    projects.append(KeynoteProjectItem(
-                        title: title,
-                        category: category,
-                        filePath: fullPath,
-                        description: "\(title) スライドプロジェクト"
-                    ))
+        func addProject(title: String, category: String, filePath: String, description: String) {
+            let resolved = resolveKeynotePath(filePath)
+            if !addedPaths.contains(resolved) && FileManager.default.fileExists(atPath: resolved) {
+                addedPaths.insert(resolved)
+                projects.append(KeynoteProjectItem(
+                    title: title,
+                    category: category,
+                    filePath: resolved,
+                    description: description
+                ))
+            }
+        }
+
+        // 主要エピソードのクイック選択
+        addProject(
+            title: "交換夫婦（21.22話目）",
+            category: "交換夫婦",
+            filePath: "\(slidesBase)/交換夫婦/交換夫婦（21.22話目）.key",
+            description: "319スライド構成。タイトル/中扉/通常スライド、ポケベル、バウンス/回転アニメーション完備"
+        )
+        addProject(
+            title: "元女子校の日常　第5話",
+            category: "元女子校の日常",
+            filePath: "\(slidesBase)/元女子校の日常/元女子校の日常　第5話.key",
+            description: "最新エピソード。スライド＆シナリオメーカー最新編集版"
+        )
+        addProject(
+            title: "交換夫婦（27話目）",
+            category: "交換夫婦",
+            filePath: "\(slidesBase)/交換夫婦/交換夫婦（27話目）.key",
+            description: "93スライド構成。スライド＆シナリオメーカーでの最新編集内容完全連動"
+        )
+        addProject(
+            title: "交換夫婦（26話目）",
+            category: "交換夫婦",
+            filePath: "\(slidesBase)/交換夫婦/交換夫婦（26話目）.key",
+            description: "91スライド構成。スライドトランジション（カラーでフェード等）および演出・アニメーション完備"
+        )
+        addProject(
+            title: "元女子校の日常　第1話",
+            category: "元女子校の日常",
+            filePath: "\(slidesBase)/元女子校の日常/元女子校の日常　第1話.key",
+            description: "51スライド構成。学校の日常シリーズ第1話"
+        )
+        addProject(
+            title: "交換夫婦（1話目）",
+            category: "交換夫婦",
+            filePath: "\(slidesBase)/交換夫婦/交換夫婦（1話目）.key",
+            description: "日常と非日常の交錯ドラマシナリオ第1話"
+        )
+        addProject(
+            title: "東方惑情録　第1話",
+            category: "東方惑情録",
+            filePath: "\(slidesBase)/東方惑情録/東方惑情録　第1話.key",
+            description: "62スライド構成。異変調査の幕開けと紅魔館・神社の静寂"
+        )
+        addProject(
+            title: "東方操夢録　第1話",
+            category: "東方操夢録",
+            filePath: "\(slidesBase)/東方操夢録/東方操夢録　第1話.key",
+            description: "夢の世界と幻想郷が交錯する心理サスペンス"
+        )
+        addProject(
+            title: "彷徨う二人　(1)",
+            category: "短編シリーズ",
+            filePath: "\(slidesBase)/彷徨う二人/(1).key",
+            description: "幻想郷の境界に迷い込んだ二人の物語"
+        )
+        addProject(
+            title: "幼き日の夢　第1話",
+            category: "短編シリーズ",
+            filePath: "\(slidesBase)/幼き日の夢/第1話.key",
+            description: "幼少期の博麗神社と過ぎ去りし日々の回想"
+        )
+        addProject(
+            title: "ゲームシナリオ",
+            category: "ゲーム",
+            filePath: "\(slidesBase)/ゲームシナリオ.key",
+            description: "横長ワイドRPG/ノベル制作用分岐シナリオスライド"
+        )
+
+        // Slides ディレクトリ配下の全 Keynote ファイルを動的にスキャンして追加
+        let searchRoots = [
+            slidesBase,
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides"
+        ]
+        let fm = FileManager.default
+        for root in searchRoots where fm.fileExists(atPath: root) {
+            if let enumerator = fm.enumerator(atPath: root) {
+                for case let file as String in enumerator where file.hasSuffix(".key") && !file.contains(".cache") {
+                    let fullPath = (root as NSString).appendingPathComponent(file)
+                    let resolved = resolveKeynotePath(fullPath)
+                    if !addedPaths.contains(resolved) && fm.fileExists(atPath: resolved) {
+                        addedPaths.insert(resolved)
+                        let title = URL(fileURLWithPath: file).deletingPathExtension().lastPathComponent
+                        let comps = (file as NSString).pathComponents
+                        let category = comps.count > 1 ? comps.first! : "スライド"
+                        projects.append(KeynoteProjectItem(
+                            title: title,
+                            category: category,
+                            filePath: resolved,
+                            description: "\(title) スライドプロジェクト"
+                        ))
+                    }
                 }
             }
         }
@@ -869,12 +858,35 @@ public final class SlideRecognitionService: ObservableObject {
     public func resolveKeynotePath(_ path: String) -> String {
         let fm = FileManager.default
         if fm.fileExists(atPath: path) { return path }
+
+        let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: path)
         let fileName = URL(fileURLWithPath: path).lastPathComponent
-        let slidesDir = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides"
-        if let enumerator = fm.enumerator(atPath: slidesDir) {
-            for case let file as String in enumerator where file.hasSuffix(fileName) {
-                let candidate = (slidesDir as NSString).appendingPathComponent(file)
-                if fm.fileExists(atPath: candidate) { return candidate }
+
+        let searchDirs = [
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/New/Application/Documents/参考資料/Slides",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/Slides",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Slide&ScenarioMarker",
+            "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/仕様書関連"
+        ]
+
+        let normName = fileName.precomposedStringWithCanonicalMapping
+        let normBase = cleanBase.precomposedStringWithCanonicalMapping
+
+        for sDir in searchDirs where fm.fileExists(atPath: sDir) {
+            if let enumerator = fm.enumerator(atPath: sDir) {
+                for case let file as String in enumerator where file.hasSuffix(".key") || file.hasSuffix(".keynote") {
+                    let candFull = (sDir as NSString).appendingPathComponent(file)
+                    let candFile = URL(fileURLWithPath: file).lastPathComponent.precomposedStringWithCanonicalMapping
+                    let candBase = SlideRecognitionService.cleanProjectBaseName(from: file).precomposedStringWithCanonicalMapping
+
+                    if candFile == normName || candBase == normBase ||
+                       candBase.replacingOccurrences(of: "話目", with: "話") == normBase.replacingOccurrences(of: "話目", with: "話") ||
+                       candBase.contains(normBase) || normBase.contains(candBase) {
+                        if fm.fileExists(atPath: candFull) {
+                            return candFull
+                        }
+                    }
+                }
             }
         }
         return path
@@ -927,8 +939,9 @@ public final class SlideRecognitionService: ObservableObject {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
             process.arguments = [scriptPath, actualKeynotePath, tempOutputURL.path]
+            let errPipe = Pipe()
             process.standardOutput = FileHandle.nullDevice
-            process.standardError = FileHandle.nullDevice
+            process.standardError = errPipe
 
             do {
                 try process.run()

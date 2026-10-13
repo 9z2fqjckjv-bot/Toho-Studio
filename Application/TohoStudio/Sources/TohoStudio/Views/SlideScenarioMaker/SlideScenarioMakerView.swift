@@ -55,7 +55,7 @@ public struct SlideScenarioMakerView: View {
                             .plainText
                         ]
                         panel.allowsOtherFileTypes = true
-                        panel.directoryURL = URL(fileURLWithPath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Slide&ScenarioMarker")
+                        panel.directoryURL = defaultSlidesDirectoryURL
                         panel.message = "スライド編集ファイル（.tspm）またはKeynoteファイルを選択してください"
                         if panel.runModal() == .OK, let url = panel.url {
                             selectedFilePath = url.path
@@ -1367,6 +1367,14 @@ public struct SlideScenarioMakerView: View {
         .frame(width: 700, height: 600)
     }
 
+    private var defaultSlidesDirectoryURL: URL {
+        let slidesDir = "/Volumes/ZSSD/GitHub/repository/TohoStudio/New/Application/Documents/参考資料/Slides"
+        if FileManager.default.fileExists(atPath: slidesDir) {
+            return URL(fileURLWithPath: slidesDir)
+        }
+        return URL(fileURLWithPath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Slide&ScenarioMarker")
+    }
+
     private func selectFileViaOpenPanel() {
         let openPanel = NSOpenPanel()
         openPanel.allowedContentTypes = [
@@ -1379,7 +1387,7 @@ public struct SlideScenarioMakerView: View {
         openPanel.allowsOtherFileTypes = true
         openPanel.canChooseFiles = true
         openPanel.canChooseDirectories = false
-        openPanel.directoryURL = URL(fileURLWithPath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/Slide&ScenarioMarker")
+        openPanel.directoryURL = defaultSlidesDirectoryURL
 
         if openPanel.runModal() == .OK, let url = openPanel.url {
             selectedFilePath = url.path
