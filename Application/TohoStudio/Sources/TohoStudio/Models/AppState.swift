@@ -148,6 +148,66 @@ public final class AppState: ObservableObject {
     @Published public var currentProjectPath: String = "/Volumes/ZSSD/GitHub/repository/TohoStudio/東方惑情録/東方惑情録　第1話.key"
     @Published public var movieScenes: [MovieScene] = []
     @Published public var selectedSceneIndex: Int = 0
+    /// スライド・アセットの更新バージョン（全画面プレビュー強制リフレッシュ用）
+    @Published public var slideAssetsVersion: UUID = UUID()
+
+    public func notifySlideAssetsUpdated() {
+        slideAssetsVersion = UUID()
+        objectWillChange.send()
+    }
+
+    /// システム画像キャッシュを回避して常に最新の画像バイナリをロード
+    public static func loadFreshImage(from path: String) -> NSImage? {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: path),
+              let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: .alwaysMapped) else {
+            return nil
+        }
+        return NSImage(data: data)
+    }
+
+    /// 指定プロジェクト名およびスライド番号に対応する最新キャッシュ画像パスを更新日時降順で探索
+    public static func findLatestSlideImagePath(forProject project: String, slideIndex: Int) -> String? {
+        let fm = FileManager.default
+        let slidesCacheBase = "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/keynote_slides"
+        guard fm.fileExists(atPath: slidesCacheBase) else { return nil }
+
+        let clean = SlideRecognitionService.cleanProjectBaseName(from: project)
+        let idx3 = String(format: "%03d", slideIndex)
+        let idxPatterns = [".\(idx3).jpeg", ".\(idx3).jpg", ".\(slideIndex).jpeg", ".\(slideIndex).jpg", "_\(idx3).jpeg"]
+
+        guard let subdirs = try? fm.contentsOfDirectory(atPath: slidesCacheBase) else { return nil }
+
+        let matchedDirs = subdirs.filter { dir in
+            if clean.isEmpty { return true }
+            let dirClean = SlideRecognitionService.cleanProjectBaseName(from: dir)
+            let normDir = dir.replacingOccurrences(of: "_", with: "").replacingOccurrences(of: " ", with: "")
+            let normClean = clean.replacingOccurrences(of: "_", with: "").replacingOccurrences(of: " ", with: "")
+            return dir.contains(clean) || clean.contains(dirClean) || normDir.contains(normClean) || normClean.contains(normDir)
+        }
+
+        let sortedDirs = matchedDirs.sorted { d1, d2 in
+            let p1 = (slidesCacheBase as NSString).appendingPathComponent(d1)
+            let p2 = (slidesCacheBase as NSString).appendingPathComponent(d2)
+            let m1 = (try? fm.attributesOfItem(atPath: p1)[.modificationDate] as? Date) ?? Date.distantPast
+            let m2 = (try? fm.attributesOfItem(atPath: p2)[.modificationDate] as? Date) ?? Date.distantPast
+            return m1 > m2
+        }
+
+        for dir in sortedDirs {
+            let fullDir = (slidesCacheBase as NSString).appendingPathComponent(dir)
+            guard let files = try? fm.contentsOfDirectory(atPath: fullDir) else { continue }
+            for pattern in idxPatterns {
+                if let matchedFile = files.first(where: { $0.contains(pattern) }) {
+                    let fullPath = (fullDir as NSString).appendingPathComponent(matchedFile)
+                    if fm.fileExists(atPath: fullPath) {
+                        return fullPath
+                    }
+                }
+            }
+        }
+        return nil
+    }
     @Published public var currentCharacter: CharacterModel = CharacterModel(
         name: "博麗霊夢",
         parts: [
@@ -1691,9 +1751,23 @@ public final class AppState: ObservableObject {
             if let se = clips.first(where: { $0.type == "SE" && ($0.sceneIndex == sceneNum || ($0.spanStartSceneIndex != nil && $0.spanEndSceneIndex != nil && sceneNum >= $0.spanStartSceneIndex! && sceneNum <= $0.spanEndSceneIndex!)) }) {
                 scene.seAudioPath = se.audioFilePath
                 scene.seName = se.name
+                let targetChar = se.startCharIndex ?? se.fadeInCharIndex
+                let seRel: Double
+                if let charIdx = targetChar,
+                   let ctx = VoiceTextTimingService.resolveDialogueContext(clip: se, sceneIndex: sceneNum, clips: clips, scenes: movieScenes),
+                   let timing = ctx.timings.first(where: { $0.index == charIdx }) {
+                    seRel = max(0.0, timing.startSeconds + se.voiceTriggerOffset)
+                } else if let savedRel = se.sceneRelativeStartTime {
+                    seRel = savedRel
+                } else {
+                    seRel = 0.0
+                }
+                scene.seStartTimeOffset = seRel
+                scene.seVolume = se.volume
             } else {
                 scene.seAudioPath = nil
                 scene.seName = nil
+                scene.seStartTimeOffset = 0.0
             }
 
             // 3. BGM (BGMが削除されている場合は確実にnilへクリア)
@@ -1770,34 +1844,70 @@ public final class AppState: ObservableObject {
 
             movieScenes[idx] = scene
 
-            // このシーンの開始時間に合わせて所属クリップの startTime を再同期
+            // このシーンの開始時間に合わせて所属クリップの startTime を再同期 (単一シーン所属のみ)
             let sceneStart = accumulatedTime
             for cIdx in 0..<soundClips.count {
-                if soundClips[cIdx].sceneIndex == sceneNum {
+                let isSpanning = soundClips[cIdx].isSpanningScenes || (soundClips[cIdx].spanStartSceneIndex != nil && soundClips[cIdx].spanEndSceneIndex != nil)
+                if !isSpanning && soundClips[cIdx].sceneIndex == sceneNum {
                     if soundClips[cIdx].type == "Voice" {
-                        soundClips[cIdx].startTime = sceneStart + 0.2
-                    } else if soundClips[cIdx].type == "SE" {
-                        // SEの開始時間はシーン開始から0.3秒後、または既存の相対オフセットを安全範囲で維持
-                        let currentRel = soundClips[cIdx].startTime - sceneStart
-                        let safeRel = (currentRel >= 0 && currentRel < scene.duration) ? currentRel : 0.3
-                        soundClips[cIdx].startTime = sceneStart + safeRel
+                        soundClips[cIdx].startTime = sceneStart // シーン先頭に完全一致 (0.0s)
+                        soundClips[cIdx].sceneRelativeStartTime = 0.0
+                        scene.voiceStartTimeOffset = 0.0
+                    } else if soundClips[cIdx].type == "SE" || soundClips[cIdx].type == "BGM" {
+                        // 1. 文字連動が設定されている場合は、その文字の発話推定時刻に正確にアライメント
+                        let targetChar = soundClips[cIdx].startCharIndex ?? soundClips[cIdx].fadeInCharIndex
+                        if let charIdx = targetChar,
+                           let ctx = VoiceTextTimingService.resolveDialogueContext(clip: soundClips[cIdx], sceneIndex: sceneNum, clips: soundClips, scenes: movieScenes),
+                           let timing = ctx.timings.first(where: { $0.index == charIdx }) {
+                            let rel = max(0.0, timing.startSeconds + soundClips[cIdx].voiceTriggerOffset)
+                            soundClips[cIdx].sceneRelativeStartTime = rel
+                            soundClips[cIdx].startTime = sceneStart + rel
+                            if soundClips[cIdx].type == "SE" {
+                                scene.seStartTimeOffset = rel
+                                scene.seVolume = soundClips[cIdx].volume
+                            }
+                        } else {
+                            // 2. 文字連動なしの場合は、保持済みのシーン内相対オフセットを安全範囲で維持
+                            let rel: Double
+                            if let savedRel = soundClips[cIdx].sceneRelativeStartTime {
+                                rel = savedRel
+                            } else {
+                                let prevRel = soundClips[cIdx].startTime - sceneStart
+                                rel = (prevRel >= 0 && prevRel < scene.duration) ? prevRel : 0.3
+                            }
+                            let safeRel = min(max(0.0, rel), max(0.1, scene.duration - 0.1))
+                            soundClips[cIdx].sceneRelativeStartTime = safeRel
+                            soundClips[cIdx].startTime = sceneStart + safeRel
+                            if soundClips[cIdx].type == "SE" {
+                                scene.seStartTimeOffset = safeRel
+                                scene.seVolume = soundClips[cIdx].volume
+                            }
+                        }
                     }
                 }
             }
+            movieScenes[idx] = scene
 
             accumulatedTime += scene.duration
         }
 
-        // 複数シーン跨ぎの BGM の長さ・開始時間も更新
+        // 複数シーン跨ぎの BGM / SE の長さ・開始時間も更新
         for cIdx in 0..<soundClips.count {
-            if soundClips[cIdx].type == "BGM",
-               let s = soundClips[cIdx].spanStartSceneIndex,
+            if let s = soundClips[cIdx].spanStartSceneIndex,
                let e = soundClips[cIdx].spanEndSceneIndex {
                 let startSceneIdx = max(1, min(movieScenes.count, s))
                 let endSceneIdx = max(startSceneIdx, min(movieScenes.count, e))
                 let sStart = movieScenes.prefix(startSceneIdx - 1).reduce(0.0) { $0 + $1.duration }
                 let sDur = movieScenes[(startSceneIdx - 1)..<endSceneIdx].reduce(0.0) { $0 + $1.duration }
-                soundClips[cIdx].startTime = sStart
+
+                var finalStart = sStart
+                let targetChar = soundClips[cIdx].startCharIndex ?? soundClips[cIdx].fadeInCharIndex
+                if let charIdx = targetChar,
+                   let ctx = VoiceTextTimingService.resolveDialogueContext(clip: soundClips[cIdx], sceneIndex: startSceneIdx, clips: soundClips, scenes: movieScenes),
+                   let timing = ctx.timings.first(where: { $0.index == charIdx }) {
+                    finalStart = max(0.0, sStart + timing.startSeconds + soundClips[cIdx].voiceTriggerOffset)
+                }
+                soundClips[cIdx].startTime = finalStart
                 soundClips[cIdx].duration = sDur
             }
         }
@@ -1811,21 +1921,22 @@ public final class AppState: ObservableObject {
         for slide in slides {
             if let idx = movieScenes.firstIndex(where: { $0.title == slide.title || $0.slideTitle == "スライド #\(slide.slideIndex)" || $0.slideTitle == "第\(slide.slideIndex)スライド" }) {
                 var sc = movieScenes[idx]
-                if sc.slideImagePath == nil || sc.slideImagePath?.isEmpty == true {
-                    sc.slideImagePath = slide.slideImagePath
+                if let newSlideImg = slide.slideImagePath, !newSlideImg.isEmpty {
+                    sc.slideImagePath = newSlideImg
                 }
-                if sc.videoPath == nil || sc.videoPath?.isEmpty == true {
-                    sc.videoPath = slide.animationVideoPath
+                if let newVideo = slide.animationVideoPath, !newVideo.isEmpty {
+                    sc.videoPath = newVideo
                 }
-                if sc.backgroundImagePath == nil || sc.backgroundImagePath?.isEmpty == true {
-                    sc.backgroundImagePath = slide.backgroundImagePath
+                if let newBg = slide.backgroundImagePath, !newBg.isEmpty {
+                    sc.backgroundImagePath = newBg
                 }
-                if sc.characterImagePath == nil || sc.characterImagePath?.isEmpty == true {
-                    sc.characterImagePath = slide.characterImagePath
+                if let newChar = slide.characterImagePath, !newChar.isEmpty {
+                    sc.characterImagePath = newChar
                 }
                 movieScenes[idx] = sc
             }
         }
+        notifySlideAssetsUpdated()
     }
 
     /// SE, BGM, Voice のオーディオファイルパスを検索・自動修復
@@ -2174,19 +2285,19 @@ public final class AppState: ObservableObject {
             let sceneNum = idx + 1
             let sceneCleanTelop = scene.displayTelop.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            // スライド画像・アニメーション動画の補完
+            // スライド画像・アニメーション動画の補完（最新スライドの情報を優先適用）
             if let matchedSlide = slideMap[sceneNum] {
-                if scene.slideImagePath == nil || scene.slideImagePath?.isEmpty == true {
-                    scene.slideImagePath = matchedSlide.slideImagePath
+                if let newSlideImg = matchedSlide.slideImagePath, !newSlideImg.isEmpty {
+                    scene.slideImagePath = newSlideImg
                 }
-                if scene.videoPath == nil || scene.videoPath?.isEmpty == true {
-                    scene.videoPath = matchedSlide.animationVideoPath
+                if let newVideo = matchedSlide.animationVideoPath, !newVideo.isEmpty {
+                    scene.videoPath = newVideo
                 }
-                if scene.backgroundImagePath == nil || scene.backgroundImagePath?.isEmpty == true {
-                    scene.backgroundImagePath = matchedSlide.backgroundImagePath
+                if let newBg = matchedSlide.backgroundImagePath, !newBg.isEmpty {
+                    scene.backgroundImagePath = newBg
                 }
-                if scene.characterImagePath == nil || scene.characterImagePath?.isEmpty == true {
-                    scene.characterImagePath = matchedSlide.characterImagePath
+                if let newChar = matchedSlide.characterImagePath, !newChar.isEmpty {
+                    scene.characterImagePath = newChar
                 }
             }
 
@@ -2206,12 +2317,14 @@ public final class AppState: ObservableObject {
             if let vIdx = matchedVoiceIndex {
                 var voiceClip = remainingClips.remove(at: vIdx)
                 voiceClip.sceneIndex = sceneNum
-                voiceClip.startTime = accumulatedTime + 0.2 // シーン開始0.2秒後に発音
+                voiceClip.startTime = accumulatedTime // シーン先頭に完全一致 (0.0s)
+                voiceClip.sceneRelativeStartTime = 0.0
                 
                 scene.voiceAudioPath = voiceClip.audioFilePath
                 scene.voiceCharacter = voiceClip.character ?? scene.characterName
                 scene.voiceDuration = voiceClip.duration
                 scene.audioTrack = voiceClip.trackId ?? "track_voice"
+                scene.voiceStartTimeOffset = 0.0
 
                 if autoFitDuration {
                     let requiredDuration = max(2.5, voiceClip.duration + 0.6)
@@ -2224,20 +2337,45 @@ public final class AppState: ObservableObject {
             }
 
             // 2. SE（効果音）マッチング
-            let matchedSEIndex = remainingClips.firstIndex(where: {
+            let matchedSE = repairedClips.first(where: {
                 $0.type == "SE" && ($0.sceneIndex == sceneNum || ($0.spanStartSceneIndex != nil && $0.spanEndSceneIndex != nil && sceneNum >= $0.spanStartSceneIndex! && sceneNum <= $0.spanEndSceneIndex!))
             })
-            if let sIdx = matchedSEIndex {
-                var seClip = remainingClips.remove(at: sIdx)
-                seClip.sceneIndex = sceneNum
-                seClip.startTime = accumulatedTime + 0.3
+            if let seClip = matchedSE {
                 scene.seAudioPath = seClip.audioFilePath
                 scene.seName = seClip.name
                 seCount += 1
-                updatedClips.append(seClip)
+                let isSpanning = seClip.isSpanningScenes || (seClip.spanStartSceneIndex != nil && seClip.spanEndSceneIndex != nil)
+                if !isSpanning {
+                    if let rIdx = remainingClips.firstIndex(where: { $0.id == seClip.id }) {
+                        var singleSe = remainingClips.remove(at: rIdx)
+                        singleSe.sceneIndex = sceneNum
+
+                        // 1. 文字連動が設定されている場合は、その文字の発話推定時刻に正確にアライメント
+                        let targetChar = singleSe.startCharIndex ?? singleSe.fadeInCharIndex
+                        let seRelOffset: Double
+                        if let charIdx = targetChar,
+                           let ctx = VoiceTextTimingService.resolveDialogueContext(clip: singleSe, sceneIndex: sceneNum, clips: repairedClips, scenes: self.movieScenes),
+                           let timing = ctx.timings.first(where: { $0.index == charIdx }) {
+                            seRelOffset = max(0.0, timing.startSeconds + singleSe.voiceTriggerOffset)
+                        } else if let savedRel = singleSe.sceneRelativeStartTime {
+                            seRelOffset = savedRel
+                        } else {
+                            // 2. 文字連動なしの場合は、元々設定されていたシーン相対オフセットを安全範囲で維持
+                            let prevRel = singleSe.startTime - (self.movieScenes.prefix(max(0, sceneNum - 1)).reduce(0.0) { $0 + $1.duration })
+                            seRelOffset = (prevRel >= 0 && prevRel < scene.duration) ? prevRel : 0.3
+                        }
+                        let safeRel = min(max(0.0, seRelOffset), max(0.1, scene.duration - 0.1))
+                        singleSe.sceneRelativeStartTime = safeRel
+                        singleSe.startTime = accumulatedTime + safeRel
+                        scene.seStartTimeOffset = safeRel
+                        scene.seVolume = singleSe.volume
+                        updatedClips.append(singleSe)
+                    }
+                }
             } else {
                 scene.seAudioPath = nil
                 scene.seName = nil
+                scene.seStartTimeOffset = 0.0
             }
 
             // 3. BGM（背景音楽）マッチング (BGMが削除されている場合は確実にnilへクリア)
@@ -2264,10 +2402,21 @@ public final class AppState: ObservableObject {
             accumulatedTime += scene.duration
         }
 
-        // BGM クリップなどのシーン跨ぎクリップも追加
-        for bgm in repairedClips.filter({ $0.type == "BGM" }) {
-            if !updatedClips.contains(where: { $0.id == bgm.id }) {
-                updatedClips.append(bgm)
+        // BGM クリップおよび複数シーン跨ぎSEクリップなどのシーン跨ぎクリップも追加
+        for var spanClip in repairedClips.filter({ $0.type == "BGM" || ($0.spanStartSceneIndex != nil && $0.spanEndSceneIndex != nil) }) {
+            if !updatedClips.contains(where: { $0.id == spanClip.id }) {
+                let startSceneIdx = spanClip.spanStartSceneIndex ?? spanClip.sceneIndex ?? 1
+                let sStart = self.movieScenes.prefix(max(0, startSceneIdx - 1)).reduce(0.0) { $0 + $1.duration }
+
+                let targetChar = spanClip.startCharIndex ?? spanClip.fadeInCharIndex
+                if let charIdx = targetChar,
+                   let ctx = VoiceTextTimingService.resolveDialogueContext(clip: spanClip, sceneIndex: startSceneIdx, clips: repairedClips, scenes: self.movieScenes),
+                   let timing = ctx.timings.first(where: { $0.index == charIdx }) {
+                    spanClip.startTime = max(0.0, sStart + timing.startSeconds + spanClip.voiceTriggerOffset)
+                } else if spanClip.spanStartSceneIndex != nil {
+                    spanClip.startTime = sStart
+                }
+                updatedClips.append(spanClip)
             }
         }
         // 未割り当ての残余クリップも保持
@@ -2304,47 +2453,29 @@ public final class AppState: ObservableObject {
         for idx in 0..<movieScenes.count {
             let sceneNum = idx + 1
             if let slide = slideMap[sceneNum] {
-                if movieScenes[idx].slideImagePath == nil || movieScenes[idx].slideImagePath?.isEmpty == true {
-                    movieScenes[idx].slideImagePath = slide.slideImagePath
+                if let newSlideImg = slide.slideImagePath, !newSlideImg.isEmpty {
+                    movieScenes[idx].slideImagePath = newSlideImg
                 }
-                if movieScenes[idx].videoPath == nil || movieScenes[idx].videoPath?.isEmpty == true {
-                    movieScenes[idx].videoPath = slide.animationVideoPath
+                if let newVideo = slide.animationVideoPath, !newVideo.isEmpty {
+                    movieScenes[idx].videoPath = newVideo
                 }
-                if movieScenes[idx].backgroundImagePath == nil || movieScenes[idx].backgroundImagePath?.isEmpty == true {
-                    movieScenes[idx].backgroundImagePath = slide.backgroundImagePath
+                if let newBg = slide.backgroundImagePath, !newBg.isEmpty {
+                    movieScenes[idx].backgroundImagePath = newBg
                 }
-                if movieScenes[idx].characterImagePath == nil || movieScenes[idx].characterImagePath?.isEmpty == true {
-                    movieScenes[idx].characterImagePath = slide.characterImagePath
+                if let newChar = slide.characterImagePath, !newChar.isEmpty {
+                    movieScenes[idx].characterImagePath = newChar
                 }
             }
 
-            // スライド画像が未解決またはファイルが存在しない場合の自動キャッシュ探索
+            // スライド画像が未解決またはファイルが存在しない場合の自動キャッシュ探索（最新の更新日時順）
             let currentPath = movieScenes[idx].slideImagePath
             if currentPath == nil || currentPath?.isEmpty == true || !fm.fileExists(atPath: currentPath!) {
-                let idx3 = String(format: "%03d", sceneNum)
-                let idxPatterns = [".\(idx3).jpeg", ".\(idx3).jpg", ".\(sceneNum).jpeg", ".\(sceneNum).jpg", "_\(idx3).jpeg"]
-
-                if fm.fileExists(atPath: slidesCacheBase), let enumerator = fm.enumerator(atPath: slidesCacheBase) {
-                    for case let file as String in enumerator {
-                        if !cleanProject.isEmpty && !file.contains(cleanProject) {
-                            continue
-                        }
-                        for pattern in idxPatterns {
-                            if file.contains(pattern) {
-                                let fullPath = (slidesCacheBase as NSString).appendingPathComponent(file)
-                                if fm.fileExists(atPath: fullPath) {
-                                    movieScenes[idx].slideImagePath = fullPath
-                                    break
-                                }
-                            }
-                        }
-                        if movieScenes[idx].slideImagePath != nil && fm.fileExists(atPath: movieScenes[idx].slideImagePath!) {
-                            break
-                        }
-                    }
+                if let found = AppState.findLatestSlideImagePath(forProject: cleanProject, slideIndex: sceneNum) {
+                    movieScenes[idx].slideImagePath = found
                 }
             }
         }
+        notifySlideAssetsUpdated()
     }
 
     // MARK: - ムービーメーカー再生管理 (Play/Pause/Seek/Timer)

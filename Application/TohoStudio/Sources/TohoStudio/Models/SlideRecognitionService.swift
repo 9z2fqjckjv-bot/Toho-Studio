@@ -309,8 +309,8 @@ public final class SlideRecognitionService: ObservableObject {
             self.appendLog(&logEntries, slide: 0, step: "スライド読み込み", status: "SUCCESS", details: "Keynote解析パイプライン開始: \(fileName)")
             self.updateProgress(0.15)
 
-            // Extract slides via ultra-fast Python native IWA parser
-            let recognizedSlides = self.extractSlidesFromPath(filePath: filePath)
+            // Extract slides via ultra-fast Python native IWA parser (forceReloadFromSource to ensure fresh slides and images)
+            let recognizedSlides = self.extractSlidesFromPath(filePath: filePath, forceReloadFromSource: true)
             let slideCount = recognizedSlides.count
 
             let renderedImageCount = recognizedSlides.filter { $0.slideImagePath != nil }.count
@@ -426,6 +426,7 @@ public final class SlideRecognitionService: ObservableObject {
 
                 self.updateProgress(1.0)
                 self.isRunning = false
+                app.notifySlideAssetsUpdated()
 
                 let animVideoCount = recognizedSlides.filter { $0.animationVideoPath != nil }.count
                 if animVideoCount > 0 {
@@ -513,6 +514,7 @@ public final class SlideRecognitionService: ObservableObject {
         AppState.shared.totalDuration = scenes.reduce(0.0) { $0 + $1.duration }
         AppState.shared.selectedSceneIndex = 0
         AppState.shared.saveUndoSnapshot()
+        AppState.shared.notifySlideAssetsUpdated()
     }
 
     public func syncToGameMaker(slides: [SlideItem]) {
@@ -894,31 +896,45 @@ public final class SlideRecognitionService: ObservableObject {
 
     // MARK: - Core Extraction Logic
 
-    public func extractSlidesFromPath(filePath: String) -> [SlideItem] {
+    public func extractSlidesFromPath(filePath: String, forceReloadFromSource: Bool = false) -> [SlideItem] {
         let fileManager = FileManager.default
+        let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: filePath)
 
         // 1. 指定ファイル自体が .tspm または .json の場合は直接読み込み
         let ext = URL(fileURLWithPath: filePath).pathExtension.lowercased()
         if ext == "tspm" || ext == "json" {
-            if let directSlides = loadSlidesFromTspmOrJson(path: filePath), !directSlides.isEmpty {
+            if var directSlides = loadSlidesFromTspmOrJson(path: filePath), !directSlides.isEmpty {
+                for i in 0..<directSlides.count {
+                    let s = directSlides[i]
+                    if s.slideImagePath == nil || !fileManager.fileExists(atPath: s.slideImagePath!) {
+                        if let fresh = AppState.findLatestSlideImagePath(forProject: cleanBase, slideIndex: s.slideIndex) {
+                            directSlides[i].slideImagePath = fresh
+                        }
+                    }
+                }
                 return directSlides
             }
         }
 
         // 2. 指示書仕様: 編集元ファイル(.key)とスライド＆シナリオ保存ファイル(.tspm)の更新日時を比較
-        if let latestTspm = SlideRecognitionService.findLatestTspmPath(for: filePath) {
+        // ※forceReloadFromSource が false で、かつ Keynote ファイル直接指定でない場合のみ、新しい .tspm を優先
+        if !forceReloadFromSource, !filePath.hasSuffix(".key"), let latestTspm = SlideRecognitionService.findLatestTspmPath(for: filePath) {
             let actualKeyPath = resolveKeynotePath(filePath)
             let isKeyFile = actualKeyPath.hasSuffix(".key") && fileManager.fileExists(atPath: actualKeyPath)
 
             let keyModDate = isKeyFile ? ((try? fileManager.attributesOfItem(atPath: actualKeyPath)[.modificationDate] as? Date) ?? Date.distantPast) : Date.distantPast
             let tspmModDate = (try? fileManager.attributesOfItem(atPath: latestTspm)[.modificationDate] as? Date) ?? Date.distantPast
 
-            // .key ファイルが .tspm よりも新しく更新されている場合（Keynoteで編集された場合）は、
-            // Keynoteファイルから最新スライドを再抽出する。
-            // 逆に .tspm の方が新しいか同等（スライド＆シナリオメーカーで編集・保存された場合）は、
-            // 編集済み .tspm を最優先で読み込む。
             if (!isKeyFile || tspmModDate >= keyModDate),
-               let savedSlides = loadSlidesFromTspmOrJson(path: latestTspm), !savedSlides.isEmpty {
+               var savedSlides = loadSlidesFromTspmOrJson(path: latestTspm), !savedSlides.isEmpty {
+                for i in 0..<savedSlides.count {
+                    let s = savedSlides[i]
+                    if s.slideImagePath == nil || !fileManager.fileExists(atPath: s.slideImagePath!) {
+                        if let fresh = AppState.findLatestSlideImagePath(forProject: cleanBase, slideIndex: s.slideIndex) {
+                            savedSlides[i].slideImagePath = fresh
+                        }
+                    }
+                }
                 return savedSlides
             }
         }
@@ -1103,6 +1119,13 @@ public final class SlideRecognitionService: ObservableObject {
                         ))
                     }
                     if !items.isEmpty {
+                        for i in 0..<items.count {
+                            if items[i].slideImagePath == nil || !fileManager.fileExists(atPath: items[i].slideImagePath!) {
+                                if let fresh = AppState.findLatestSlideImagePath(forProject: cleanBase, slideIndex: items[i].slideIndex) {
+                                    items[i].slideImagePath = fresh
+                                }
+                            }
+                        }
                         return items
                     }
                 }

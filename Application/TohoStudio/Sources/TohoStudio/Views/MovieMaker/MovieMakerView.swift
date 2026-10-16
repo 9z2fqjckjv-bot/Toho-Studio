@@ -473,6 +473,7 @@ public struct MovieMakerView: View {
                 .padding(8)
             }
         }
+        .id(appState.slideAssetsVersion)
         .aspectRatio(canvasAspectRatio, contentMode: .fit)
         .cornerRadius(8)
         .clipped()
@@ -891,12 +892,20 @@ public struct MovieMakerView: View {
             }
         }
 
-        // 2. スライド画像の解決
-        let sPath = scene.slideImagePath ?? matchedSlide?.slideImagePath
-        if let sp = sPath, fm.fileExists(atPath: sp) {
-            slideImg = NSImage(contentsOfFile: sp)
+        // 2. スライド画像の解決（最新スライドの画像パスを最優先で適用）
+        let sPath: String?
+        if let msPath = matchedSlide?.slideImagePath, fm.fileExists(atPath: msPath) {
+            sPath = msPath
+        } else if let scPath = scene.slideImagePath, fm.fileExists(atPath: scPath) {
+            sPath = scPath
         } else {
-            // スライド画像フォールバック探索: .cache/keynote_slides からプロジェクト名とスライド番号で自動探索
+            sPath = nil
+        }
+
+        if let sp = sPath {
+            slideImg = AppState.loadFreshImage(from: sp)
+        } else {
+            // スライド画像フォールバック探索: 最新のキャッシュディレクトリから自動探索
             slideImg = resolveSlideFallbackImage(slideIndex: slideIndex)
         }
 
@@ -914,33 +923,8 @@ public struct MovieMakerView: View {
     }
 
     private func resolveSlideFallbackImage(slideIndex: Int) -> NSImage? {
-        let fm = FileManager.default
-        let slidesCacheBase = "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/keynote_slides"
-        guard fm.fileExists(atPath: slidesCacheBase) else { return nil }
-
-        let cleanProject = appState.currentProjectName
-            .replacingOccurrences(of: ".key", with: "")
-            .replacingOccurrences(of: ".tspm", with: "")
-            .replacingOccurrences(of: ".tssm", with: "")
-            .replacingOccurrences(of: ".tsvm", with: "")
-
-        let idx3 = String(format: "%03d", slideIndex)
-        let idxPatterns = [".\(idx3).jpeg", ".\(idx3).jpg", ".\(slideIndex).jpeg", ".\(slideIndex).jpg", "_\(idx3).jpeg"]
-
-        if let enumerator = fm.enumerator(atPath: slidesCacheBase) {
-            for case let file as String in enumerator {
-                if !cleanProject.isEmpty && !file.contains(cleanProject) {
-                    continue
-                }
-                for pattern in idxPatterns {
-                    if file.contains(pattern) {
-                        let fullPath = (slidesCacheBase as NSString).appendingPathComponent(file)
-                        if let img = NSImage(contentsOfFile: fullPath) {
-                            return img
-                        }
-                    }
-                }
-            }
+        if let freshPath = AppState.findLatestSlideImagePath(forProject: appState.currentProjectName, slideIndex: slideIndex) {
+            return AppState.loadFreshImage(from: freshPath)
         }
         return nil
     }
@@ -949,7 +933,7 @@ public struct MovieMakerView: View {
         let fm = FileManager.default
 
         if let directPath = path, !directPath.isEmpty, fm.fileExists(atPath: directPath) {
-            return NSImage(contentsOfFile: directPath)
+            return AppState.loadFreshImage(from: directPath)
         }
 
         guard let targetName = name, !targetName.isEmpty else { return nil }

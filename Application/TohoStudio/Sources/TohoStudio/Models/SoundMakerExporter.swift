@@ -419,7 +419,8 @@ public final class SoundMakerExporter {
             sesx += "    <audioTrack id=\"\(tIdx + 1)\" name=\"\(track.name)\" volume=\"\(track.volume)\" pan=\"\(track.pan)\" muted=\"\(track.isMuted ? "true" : "false")\" solo=\"\(track.isSolo ? "true" : "false")\">\n"
             for ref in tClips {
                 let startSample = Int64(ref.clip.startTime * Double(options.sampleRate))
-                let durationSample = Int64(ref.clip.effectiveDuration * Double(options.sampleRate))
+                let effectiveDur = ref.clip.duration > 0 ? (ref.clip.isLooping ? ref.clip.duration : min(ref.clip.duration, ref.clip.effectiveDuration)) : ref.clip.effectiveDuration
+                let durationSample = Int64(effectiveDur * Double(options.sampleRate))
                 sesx += "      <audioClip name=\"\(ref.clip.name)\" fileID=\"\(ref.id)\" startPoint=\"\(startSample)\" duration=\"\(durationSample)\" fadeIn=\"\(ref.clip.fadeInDuration)\" fadeOut=\"\(ref.clip.fadeOutDuration)\" />\n"
             }
             sesx += "    </audioTrack>\n"
@@ -613,7 +614,7 @@ public final class SoundMakerExporter {
         scenes: [MovieScene],
         options: ExportOptions
     ) async throws -> (left: [Float], right: [Float]) {
-        let maxClipEnd = clips.map { $0.startTime + $0.effectiveDuration }.max() ?? 0.0
+        let maxClipEnd = clips.map { $0.startTime + max($0.duration, $0.effectiveDuration) }.max() ?? 0.0
         let scenesTotal = scenes.reduce(0.0) { $0 + $1.duration }
         let totalDuration = max(1.0, max(scenesTotal, maxClipEnd))
         let totalFrames = Int(ceil(totalDuration * Double(options.sampleRate)))
@@ -635,7 +636,15 @@ public final class SoundMakerExporter {
                 targetSampleRate: options.sampleRate
             )
 
-            let startFrame = max(0, Int(clip.startTime * Double(options.sampleRate)))
+            var effectiveStartTime = clip.startTime
+            let targetChar = clip.startCharIndex ?? clip.fadeInCharIndex
+            if let ctx = VoiceTextTimingService.resolveDialogueContext(clip: clip, clips: clips, scenes: scenes),
+               let charIdx = targetChar,
+               let timing = ctx.timings.first(where: { $0.index == charIdx }) {
+                effectiveStartTime = ctx.sceneStartTime + timing.startSeconds + clip.voiceTriggerOffset
+            }
+
+            let startFrame = max(0, Int(effectiveStartTime * Double(options.sampleRate)))
             let framesToCopy = min(clipL.count, totalFrames - startFrame)
 
             guard framesToCopy > 0 else { continue }
@@ -709,33 +718,69 @@ public final class SoundMakerExporter {
             baseMono = applyPlaybackRate(samples: baseMono, rate: clip.playbackRate)
         }
 
-        // 5. SE のシーン終了時即切り (isCutOffOnSceneEnd)
-        if clip.type == "SE" && clip.isCutOffOnSceneEnd {
-            let maxLimitSeconds = resolveSceneCutoffDuration(clip: clip, scenes: scenes)
-            if let limit = maxLimitSeconds, limit > 0 {
-                let maxFrames = Int(limit * Double(targetSampleRate))
-                if baseMono.count > maxFrames {
-                    baseMono = Array(baseMono.prefix(maxFrames))
-                }
+        // 4.5 クリップの有効長 (targetDuration) の算出とループ/トリミング
+        let isSpanning = clip.isSpanningScenes || (clip.spanStartSceneIndex != nil && clip.spanEndSceneIndex != nil)
+        var targetDuration: Double
+        if clip.isLooping {
+            targetDuration = clip.duration > 0 ? clip.duration : clip.effectiveDuration
+            if isSpanning, let cutoff = resolveSceneCutoffDuration(clip: clip, scenes: scenes) {
+                targetDuration = max(targetDuration, cutoff)
+            }
+        } else {
+            // ループなしの場合、clip.duration が指定されていればその長さを尊重
+            if clip.duration > 0 {
+                targetDuration = min(clip.duration, clip.effectiveDuration)
+            } else {
+                targetDuration = clip.effectiveDuration
             }
         }
 
-        // 6. フェードイン・フェードアウト エンベロープ適用
+        // 5. シーン終了時即切り (isCutOffOnSceneEnd) の上限を反映
+        if clip.isCutOffOnSceneEnd {
+            if let limit = resolveSceneCutoffDuration(clip: clip, scenes: scenes), limit > 0 {
+                targetDuration = min(targetDuration, limit)
+            }
+        }
+
+        // 5.5 ループ伸張 または 実効長へのトリミング
+        if !baseMono.isEmpty && targetDuration > 0 {
+            let targetFrames = max(1, Int(targetDuration * Double(targetSampleRate)))
+            if clip.isLooping && targetFrames > baseMono.count {
+                let singleCycle = baseMono
+                let cycleLen = singleCycle.count
+                var looped: [Float] = []
+                looped.reserveCapacity(targetFrames)
+                while looped.count < targetFrames {
+                    let needed = targetFrames - looped.count
+                    if needed >= cycleLen {
+                        looped.append(contentsOf: singleCycle)
+                    } else {
+                        looped.append(contentsOf: singleCycle.prefix(needed))
+                    }
+                }
+                baseMono = looped
+            } else if baseMono.count > targetFrames {
+                // クリップの指定長または即切り上限を超えている場合は、その位置でトリミング
+                baseMono = Array(baseMono.prefix(targetFrames))
+            }
+        }
+
+        // 6. フェードイン・フェードアウト エンベロープ適用 (S字等パワー曲線)
         let totalFrames = baseMono.count
         let totalSeconds = Double(totalFrames) / Double(targetSampleRate)
 
         for i in 0..<totalFrames {
             let t = Double(i) / Double(targetSampleRate)
-            let remaining = totalSeconds - t
+            let remaining = max(0.0, totalSeconds - t)
 
             var inFactor: Double = 1.0
-            if clip.fadeInDuration > 0.05 {
-                inFactor = min(1.0, max(0.0, t / clip.fadeInDuration))
+            if clip.fadeInDuration > 0.001 {
+                inFactor = SoundMakerAudioManager.fadeCurveGain(progress: t / clip.fadeInDuration)
             }
 
             var outFactor: Double = 1.0
-            if clip.fadeOutDuration > 0.05 {
-                outFactor = min(1.0, max(0.0, remaining / clip.fadeOutDuration))
+            if clip.fadeOutDuration > 0.001 {
+                outFactor = SoundMakerAudioManager.fadeCurveGain(progress: remaining / clip.fadeOutDuration)
             }
 
             let env = Float(min(inFactor, outFactor))

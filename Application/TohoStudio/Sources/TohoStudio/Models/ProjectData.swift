@@ -96,6 +96,9 @@ public struct MovieScene: Identifiable, Codable, Equatable {
     public var bgmName: String? = nil
     public var seAudioPath: String? = nil
     public var seName: String? = nil
+    public var seStartTimeOffset: Double? = 0.0 // シーン先頭からのSE再生遅延秒数 (ミリ秒単位でアライメント)
+    public var seVolume: Double? = 1.0          // SEの音量 (0.0〜1.0)
+    public var voiceStartTimeOffset: Double? = 0.0 // シーン先頭からのボイス再生遅延秒数
 
     public init(
         id: UUID = UUID(),
@@ -120,7 +123,10 @@ public struct MovieScene: Identifiable, Codable, Equatable {
         bgmAudioPath: String? = nil,
         bgmName: String? = nil,
         seAudioPath: String? = nil,
-        seName: String? = nil
+        seName: String? = nil,
+        seStartTimeOffset: Double? = 0.0,
+        seVolume: Double? = 1.0,
+        voiceStartTimeOffset: Double? = 0.0
     ) {
         self.id = id
         self.title = title
@@ -145,6 +151,9 @@ public struct MovieScene: Identifiable, Codable, Equatable {
         self.bgmName = bgmName
         self.seAudioPath = seAudioPath
         self.seName = seName
+        self.seStartTimeOffset = seStartTimeOffset
+        self.seVolume = seVolume
+        self.voiceStartTimeOffset = voiceStartTimeOffset
     }
 
     public init(from decoder: Decoder) throws {
@@ -172,6 +181,9 @@ public struct MovieScene: Identifiable, Codable, Equatable {
         self.bgmName = try container.decodeIfPresent(String.self, forKey: .bgmName)
         self.seAudioPath = try container.decodeIfPresent(String.self, forKey: .seAudioPath)
         self.seName = try container.decodeIfPresent(String.self, forKey: .seName)
+        self.seStartTimeOffset = try container.decodeIfPresent(Double.self, forKey: .seStartTimeOffset) ?? 0.0
+        self.seVolume = try container.decodeIfPresent(Double.self, forKey: .seVolume) ?? 1.0
+        self.voiceStartTimeOffset = try container.decodeIfPresent(Double.self, forKey: .voiceStartTimeOffset) ?? 0.0
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -179,6 +191,7 @@ public struct MovieScene: Identifiable, Codable, Equatable {
         case audioTrack, animationName, transitionName, animationDuration, animationNote
         case slideImagePath, videoPath, backgroundImagePath, characterImagePath
         case voiceAudioPath, voiceCharacter, voiceDuration, bgmAudioPath, bgmName, seAudioPath, seName
+        case seStartTimeOffset, seVolume, voiceStartTimeOffset
     }
 
     /// クリーンなテロップ/セリフ（()書き表記（アニメーション）や話者タグを除外したテキスト）
@@ -577,6 +590,7 @@ public struct SoundClip: Identifiable, Codable, Equatable {
     public var waveformPoints: [Float]? = nil
     // シーン連携 & 複数シーン跨ぎ再生プロパティ
     public var sceneIndex: Int? = nil // 所属シーン番号 (1-based)
+    public var sceneRelativeStartTime: Double? = nil // 所属シーン先頭からの相対開始秒数 (手動配置・文字連動共通でズレ防止)
     public var spanStartSceneIndex: Int? = nil // 複数シーン跨ぎ開始シーン (1-based)
     public var spanEndSceneIndex: Int? = nil // 複数シーン跨ぎ終了シーン (1-based)
     public var fadeInDuration: Double = 0.0 // フェードイン秒数
@@ -588,6 +602,13 @@ public struct SoundClip: Identifiable, Codable, Equatable {
     public var playbackRate: Double = 1.0 // 倍速再生レート (0.5x〜2.0x、デフォルト1.0)
     public var isReversed: Bool = false // 逆再生モード (デフォルトfalse)
     public var isCutOffOnSceneEnd: Bool = true // シーンの長さより効果音が長い場合にシーン切り替えと同時に即切り (デフォルトtrue)
+    // ボイス文字基準トリガー連携プロパティ (キャラクターのボイスを基準に1文字単位で再生開始/フェードイン/フェードアウト位置を指定)
+    public var voiceTriggerEnabled: Bool = false // ボイス文字連動有効化
+    public var voiceTriggerClipId: UUID? = nil   // 基準ボイスクリップID (nil時は所属シーンの代表ボイス)
+    public var startCharIndex: Int? = nil        // セリフに含まれる任意の再生開始文字インデックス (0-based)
+    public var fadeInCharIndex: Int? = nil       // フェードイン開始文字インデックス (0-based)
+    public var fadeOutCharIndex: Int? = nil      // フェードアウト開始文字インデックス (0-based)
+    public var voiceTriggerOffset: Double = 0.0  // 文字タイミングからの微調整オフセット秒 (-2.0s〜+2.0s)
 
     public var isSpanningScenes: Bool {
         if let s = spanStartSceneIndex, let e = spanEndSceneIndex, e > s {
@@ -600,6 +621,83 @@ public struct SoundClip: Identifiable, Codable, Equatable {
     public var effectiveDuration: Double {
         let rate = max(0.25, playbackRate)
         return max(0.1, duration / rate)
+    }
+
+    /// 基準ボイスクリップに基づき、指定文字インデックスのタイムライン上の秒数を算出
+    public func voiceCharTimelineTime(forCharIndex charIndex: Int?, voiceClip: SoundClip) -> Double? {
+        guard let idx = charIndex, let text = voiceClip.text ?? voiceClip.name.components(separatedBy: "] ").last else { return nil }
+        let voiceDur = voiceClip.duration > 0 ? voiceClip.duration : 3.0
+        if let charOffset = VoiceTextTimingService.timingForCharacter(index: idx, text: text, totalDuration: voiceDur) {
+            return voiceClip.startTime + charOffset
+        }
+        return nil
+    }
+
+    /// ボイス文字連動を考慮した実効再生開始時刻（タイムライン上の秒数）
+    public func resolvedStartTime(with voiceClip: SoundClip?) -> Double {
+        guard voiceTriggerEnabled, let voice = voiceClip else { return startTime }
+        let targetCharIdx = startCharIndex ?? fadeInCharIndex
+        guard let charIdx = targetCharIdx else { return startTime }
+        let vText = voice.text ?? voice.name.components(separatedBy: "] ").last ?? ""
+        let vDur = voice.duration > 0 ? voice.duration : 3.0
+        if let charTime = VoiceTextTimingService.timingForCharacter(index: charIdx, text: vText, totalDuration: vDur) {
+            return voice.startTime + charTime + voiceTriggerOffset
+        }
+        return startTime
+    }
+
+    /// ボイス文字連動を考慮したフェードアウト開始時刻（タイムライン上の秒数）
+    public func resolvedFadeOutStartTime(with voiceClip: SoundClip?, clipEnd: Double) -> Double {
+        guard voiceTriggerEnabled, let voice = voiceClip, let outIdx = fadeOutCharIndex else {
+            return clipEnd - max(0.001, fadeOutDuration)
+        }
+        let vText = voice.text ?? voice.name.components(separatedBy: "] ").last ?? ""
+        let vDur = voice.duration > 0 ? voice.duration : 3.0
+        if let charTime = VoiceTextTimingService.timingForCharacter(index: outIdx, text: vText, totalDuration: vDur) {
+            return voice.startTime + charTime + voiceTriggerOffset
+        }
+        return clipEnd - max(0.001, fadeOutDuration)
+    }
+
+    /// 台詞の指定文字から再生開始するように設定し、タイムライン上の開始時刻もその文字の瞬間にアライメント
+    public mutating func applyCharacterStart(charIndex: Int, context: VoiceTextTimingService.SceneDialogueContext) {
+        self.startCharIndex = charIndex
+        self.fadeInCharIndex = charIndex
+        self.voiceTriggerEnabled = true
+        if let vId = context.voiceClipId {
+            self.voiceTriggerClipId = vId
+        }
+        if let timing = context.timings.first(where: { $0.index == charIndex }) {
+            let relTime = max(0.0, timing.startSeconds + self.voiceTriggerOffset)
+            self.sceneRelativeStartTime = relTime
+            self.startTime = max(0.0, context.sceneStartTime + relTime)
+        }
+    }
+
+    /// 台詞の指定文字でフェードアウトするように設定
+    public mutating func applyCharacterFadeOut(charIndex: Int, context: VoiceTextTimingService.SceneDialogueContext) {
+        self.fadeOutCharIndex = charIndex
+        self.voiceTriggerEnabled = true
+        if let vId = context.voiceClipId {
+            self.voiceTriggerClipId = vId
+        }
+    }
+
+    /// 文字連動の開始指定を解除
+    public mutating func clearCharacterStart() {
+        self.startCharIndex = nil
+        self.fadeInCharIndex = nil
+        if self.fadeOutCharIndex == nil {
+            self.voiceTriggerEnabled = false
+        }
+    }
+
+    /// 文字連動のフェードアウト指定を解除
+    public mutating func clearCharacterFadeOut() {
+        self.fadeOutCharIndex = nil
+        if self.startCharIndex == nil && self.fadeInCharIndex == nil {
+            self.voiceTriggerEnabled = false
+        }
     }
 
     public init(
@@ -618,6 +716,7 @@ public struct SoundClip: Identifiable, Codable, Equatable {
         colorHex: String? = nil,
         waveformPoints: [Float]? = nil,
         sceneIndex: Int? = nil,
+        sceneRelativeStartTime: Double? = nil,
         spanStartSceneIndex: Int? = nil,
         spanEndSceneIndex: Int? = nil,
         fadeInDuration: Double = 0.0,
@@ -628,7 +727,13 @@ public struct SoundClip: Identifiable, Codable, Equatable {
         pitch: Int = 100,
         playbackRate: Double = 1.0,
         isReversed: Bool = false,
-        isCutOffOnSceneEnd: Bool = true
+        isCutOffOnSceneEnd: Bool = true,
+        voiceTriggerEnabled: Bool = false,
+        voiceTriggerClipId: UUID? = nil,
+        startCharIndex: Int? = nil,
+        fadeInCharIndex: Int? = nil,
+        fadeOutCharIndex: Int? = nil,
+        voiceTriggerOffset: Double = 0.0
     ) {
         self.id = id
         self.name = name
@@ -645,6 +750,7 @@ public struct SoundClip: Identifiable, Codable, Equatable {
         self.colorHex = colorHex
         self.waveformPoints = waveformPoints
         self.sceneIndex = sceneIndex
+        self.sceneRelativeStartTime = sceneRelativeStartTime
         self.spanStartSceneIndex = spanStartSceneIndex
         self.spanEndSceneIndex = spanEndSceneIndex
         self.fadeInDuration = fadeInDuration
@@ -656,6 +762,12 @@ public struct SoundClip: Identifiable, Codable, Equatable {
         self.playbackRate = playbackRate
         self.isReversed = isReversed
         self.isCutOffOnSceneEnd = isCutOffOnSceneEnd
+        self.voiceTriggerEnabled = voiceTriggerEnabled
+        self.voiceTriggerClipId = voiceTriggerClipId
+        self.startCharIndex = startCharIndex
+        self.fadeInCharIndex = fadeInCharIndex
+        self.fadeOutCharIndex = fadeOutCharIndex
+        self.voiceTriggerOffset = voiceTriggerOffset
     }
 
     // 後方互換性デコーダー
@@ -676,6 +788,7 @@ public struct SoundClip: Identifiable, Codable, Equatable {
         self.colorHex = try container.decodeIfPresent(String.self, forKey: .colorHex)
         self.waveformPoints = try container.decodeIfPresent([Float].self, forKey: .waveformPoints)
         self.sceneIndex = try container.decodeIfPresent(Int.self, forKey: .sceneIndex)
+        self.sceneRelativeStartTime = try container.decodeIfPresent(Double.self, forKey: .sceneRelativeStartTime)
         self.spanStartSceneIndex = try container.decodeIfPresent(Int.self, forKey: .spanStartSceneIndex)
         self.spanEndSceneIndex = try container.decodeIfPresent(Int.self, forKey: .spanEndSceneIndex)
         self.fadeInDuration = try container.decodeIfPresent(Double.self, forKey: .fadeInDuration) ?? 0.0
@@ -687,14 +800,21 @@ public struct SoundClip: Identifiable, Codable, Equatable {
         self.playbackRate = try container.decodeIfPresent(Double.self, forKey: .playbackRate) ?? 1.0
         self.isReversed = try container.decodeIfPresent(Bool.self, forKey: .isReversed) ?? false
         self.isCutOffOnSceneEnd = try container.decodeIfPresent(Bool.self, forKey: .isCutOffOnSceneEnd) ?? (self.type == "SE")
+        self.voiceTriggerEnabled = try container.decodeIfPresent(Bool.self, forKey: .voiceTriggerEnabled) ?? false
+        self.voiceTriggerClipId = try container.decodeIfPresent(UUID.self, forKey: .voiceTriggerClipId)
+        self.startCharIndex = try container.decodeIfPresent(Int.self, forKey: .startCharIndex)
+        self.fadeInCharIndex = try container.decodeIfPresent(Int.self, forKey: .fadeInCharIndex)
+        self.fadeOutCharIndex = try container.decodeIfPresent(Int.self, forKey: .fadeOutCharIndex)
+        self.voiceTriggerOffset = try container.decodeIfPresent(Double.self, forKey: .voiceTriggerOffset) ?? 0.0
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, name, type, character, text, voiceSymbol, duration, volume, speed
-        case startTime, trackId, pan, colorHex, waveformPoints, sceneIndex
+        case startTime, trackId, pan, colorHex, waveformPoints, sceneIndex, sceneRelativeStartTime
         case spanStartSceneIndex, spanEndSceneIndex, fadeInDuration, fadeOutDuration
         case isLooping, audioFilePath, voiceType, pitch, playbackRate, isReversed
         case isCutOffOnSceneEnd
+        case voiceTriggerEnabled, voiceTriggerClipId, startCharIndex, fadeInCharIndex, fadeOutCharIndex, voiceTriggerOffset
     }
 }
 

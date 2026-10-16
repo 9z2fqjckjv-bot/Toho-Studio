@@ -23,8 +23,11 @@ public struct SpanAudioInsertSheet: View {
     @State private var fadeInDuration: Double = 1.5
     @State private var fadeOutDuration: Double = 2.0
     @State private var isLooping: Bool = true
+    @State private var isCutOffOnSceneEnd: Bool = true
     @State private var playbackRate: Double = 1.0
     @State private var isReversed: Bool = false
+    @State private var voiceTriggerEnabled: Bool = false
+    @State private var fadeInCharIndex: Int? = 0
 
     // Preview
     @State private var isPreviewPlaying: Bool = false
@@ -604,6 +607,45 @@ public struct SpanAudioInsertSheet: View {
                 }
             }
             .toggleStyle(.checkbox)
+
+            // Cutoff Toggle
+            Toggle(isOn: $isCutOffOnSceneEnd) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("跨ぎ区間終了時に即切り (超過カット)")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                    Text("S\(startSceneIndex)〜S\(endSceneIndex) の区間終了時刻で確実に音を停止し、次シーンへ超過しないようカットします。")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .toggleStyle(.checkbox)
+
+            Divider().background(Color(white: 0.25))
+
+            // Voice Trigger Toggle (ボイス文字連動)
+            let startVoice = appState.soundClips.first(where: { $0.type == "Voice" && $0.sceneIndex == startSceneIndex })
+            Toggle(isOn: $voiceTriggerEnabled) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "text.cursor")
+                            .foregroundColor(.cyan)
+                        Text("開始シーンのボイス文字に連動して再生・フェード")
+                            .font(.caption)
+                            .foregroundColor(.white)
+                    }
+                    if let sv = startVoice, let text = sv.text ?? sv.name.components(separatedBy: "] ").last {
+                        Text("S\(startSceneIndex)のセリフ「\(text)」の発話開始に合わせて自然にフェードインします。")
+                            .font(.caption2)
+                            .foregroundColor(.cyan)
+                    } else {
+                        Text("S\(startSceneIndex)のボイスの発話に合わせて自然にフェードインします。")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .toggleStyle(.checkbox)
         }
         .padding(12)
         .background(Color(red: 0.16, green: 0.17, blue: 0.20))
@@ -680,7 +722,8 @@ public struct SpanAudioInsertSheet: View {
             isLooping: isLooping,
             audioFilePath: customAudioFilePath,
             playbackRate: playbackRate,
-            isReversed: isReversed
+            isReversed: isReversed,
+            isCutOffOnSceneEnd: isCutOffOnSceneEnd
         )
 
         if let player = SoundMakerAudioManager.shared.createConfiguredPlayer(for: dummyClip) {
@@ -743,7 +786,10 @@ public struct SpanAudioInsertSheet: View {
             isLooping: isLooping,
             audioFilePath: customAudioFilePath,
             playbackRate: playbackRate,
-            isReversed: isReversed
+            isReversed: isReversed,
+            isCutOffOnSceneEnd: isCutOffOnSceneEnd,
+            voiceTriggerEnabled: voiceTriggerEnabled,
+            fadeInCharIndex: voiceTriggerEnabled ? fadeInCharIndex : nil
         )
 
         appState.soundClips.append(newClip)

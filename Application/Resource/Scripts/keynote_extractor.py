@@ -155,7 +155,7 @@ def export_slide_images_if_needed(filepath, expected_count=0):
         hash_str = hashlib.md5(f"{filepath}:{mtime}:{size}".encode("utf-8")).hexdigest()[:10]
         cache_dir = os.path.join(CACHE_SLIDES_ROOT, f"{safe_slug}_{hash_str}")
 
-        # 1. 完全一致ハッシュディレクトリの検証
+        # 1. 完全一致ハッシュディレクトリの検証（現在のファイル更新日時・サイズと一致する場合のみキャッシュ再利用）
         if os.path.isdir(cache_dir):
             existing = sorted(
                 glob.glob(os.path.join(cache_dir, "*.jpeg")) + glob.glob(os.path.join(cache_dir, "*.jpg")),
@@ -164,35 +164,9 @@ def export_slide_images_if_needed(filepath, expected_count=0):
             if existing and (expected_count <= 0 or len(existing) >= expected_count):
                 return existing
 
-        # 2. 同一プレフィックスの既存キャッシュディレクトリ探索（NFC/NFD正規化）
-        best_candidate_dir = None
-        best_count = 0
-        norm_slug = unicodedata.normalize("NFC", safe_slug).lower()
-        if os.path.exists(CACHE_SLIDES_ROOT):
-            for candidate in os.listdir(CACHE_SLIDES_ROOT):
-                cand_norm = unicodedata.normalize("NFC", candidate).lower()
-                if cand_norm.startswith(f"{norm_slug}_") or cand_norm == norm_slug:
-                    cand_dir = os.path.join(CACHE_SLIDES_ROOT, candidate)
-                    if os.path.isdir(cand_dir):
-                        existing = sorted(
-                            glob.glob(os.path.join(cand_dir, "*.jpeg")) + glob.glob(os.path.join(cand_dir, "*.jpg")),
-                            key=natural_sort_key
-                        )
-                        if len(existing) > best_count:
-                            best_count = len(existing)
-                            best_candidate_dir = cand_dir
-
-        # 既存キャッシュに画像があれば即座に返却（Keynote起動をスキップして高速応答＆安定化）
-        if best_candidate_dir and best_count > 0:
-            if expected_count <= 0 or best_count >= int(expected_count * 0.7):
-                return sorted(
-                    glob.glob(os.path.join(best_candidate_dir, "*.jpeg")) + glob.glob(os.path.join(best_candidate_dir, "*.jpg")),
-                    key=natural_sort_key
-                )
-
+        # 2. Keynoteエクスポートの実行（ファイルが更新された、または新規のため最新スライド画像をエクスポート）
         os.makedirs(cache_dir, exist_ok=True)
 
-        # キャッシュが一切ない新規ファイルの場合のみKeynoteエクスポートを試みる
         keynote_app = "/Applications/Keynote Creator Studio.app" if os.path.exists("/Applications/Keynote Creator Studio.app") else "/Applications/Keynote.app"
         subprocess.run(["open", "-g", "-a", keynote_app], capture_output=True)
         time.sleep(0.5)
@@ -215,7 +189,8 @@ end tell
         subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=30)
         
         # エクスポート完了を少し待機（非同期ファイルフラッシュ対策）
-        for _ in range(6):
+        exported_images = []
+        for _ in range(8):
             exported_images = sorted(
                 glob.glob(os.path.join(cache_dir, "*.jpeg")) + glob.glob(os.path.join(cache_dir, "*.jpg")),
                 key=natural_sort_key
@@ -227,7 +202,22 @@ end tell
         if exported_images:
             return exported_images
 
-        # エクスポートが空だった場合、best_candidate_dirがあればフォールバック
+        # 3. エクスポートが空または失敗した場合の最終フォールバック（最新の過去キャッシュディレクトリを探索）
+        best_candidate_dir = None
+        best_mtime = 0
+        norm_slug = unicodedata.normalize("NFC", safe_slug).lower()
+        if os.path.exists(CACHE_SLIDES_ROOT):
+            for candidate in os.listdir(CACHE_SLIDES_ROOT):
+                cand_norm = unicodedata.normalize("NFC", candidate).lower()
+                if cand_norm.startswith(f"{norm_slug}_") or cand_norm == norm_slug:
+                    cand_dir = os.path.join(CACHE_SLIDES_ROOT, candidate)
+                    if os.path.isdir(cand_dir):
+                        c_mtime = os.path.getmtime(cand_dir)
+                        existing = glob.glob(os.path.join(cand_dir, "*.jpeg")) + glob.glob(os.path.join(cand_dir, "*.jpg"))
+                        if existing and c_mtime > best_mtime:
+                            best_mtime = c_mtime
+                            best_candidate_dir = cand_dir
+
         if best_candidate_dir:
             fallback_images = sorted(
                 glob.glob(os.path.join(best_candidate_dir, "*.jpeg")) + glob.glob(os.path.join(best_candidate_dir, "*.jpg")),
@@ -260,7 +250,7 @@ def export_slide_animation_videos_if_needed(filepath, slides):
         safe_slug = re.sub(r'[^a-zA-Z0-9_\-\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uffef\u4e00-\u9faf]', '_', base_name)
         norm_slug = safe_slug.lower()
 
-        # 1. 既存の全キャッシュディレクトリ（同名プレフィックス）から該当スライドの動画を積極探索
+        # 1. 既存の全キャッシュディレクトリ（同名プレフィックス）から該当スライドの動画を積極探索（最新順）
         candidate_dirs = []
         if os.path.exists(CACHE_ANIMATIONS_ROOT):
             for candidate in os.listdir(CACHE_ANIMATIONS_ROOT):
@@ -269,6 +259,7 @@ def export_slide_animation_videos_if_needed(filepath, slides):
                     cand_path = os.path.join(CACHE_ANIMATIONS_ROOT, candidate)
                     if os.path.isdir(cand_path):
                         candidate_dirs.append(cand_path)
+            candidate_dirs.sort(key=lambda d: os.path.getmtime(d), reverse=True)
 
         for s in target_slides:
             s_idx = s["slideIndex"]

@@ -29,7 +29,11 @@ REPO_ROOT = "/Volumes/ZSSD/GitHub/repository/TohoStudio"
 CACHE_ROOT = os.path.join(REPO_ROOT, ".cache/keynote_extracted")
 CACHE_SLIDES_ROOT = os.path.join(REPO_ROOT, ".cache/keynote_slides")
 CACHE_ANIMATIONS_ROOT = os.path.join(REPO_ROOT, ".cache/keynote_animations")
-VIDEO_DIR = os.path.join(REPO_ROOT, "動画用")
+VIDEO_DIR = os.path.join(REPO_ROOT, "Documents/動画用") if os.path.exists(os.path.join(REPO_ROOT, "Documents/動画用")) else os.path.join(REPO_ROOT, "動画用")
+VIDEO_DIRS = [
+    os.path.join(REPO_ROOT, "Documents/動画用"),
+    os.path.join(REPO_ROOT, "動画用")
+]
 
 CHAR_MAP = {
     "霊夢": "博麗霊夢",
@@ -132,11 +136,11 @@ def get_keynote_app_name():
 def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s)]
 
-def export_slide_images_if_needed(filepath):
+def export_slide_images_if_needed(filepath, expected_count=0):
     """
     Keynoteファイルからスライド画面そのもの(高解像度1920x1080 JPEG)を一括エクスポートし、
     スライド順の画像ファイルパスのリストを返す。
-    すでにキャッシュが存在し、mtimeが一致していれば瞬時にキャッシュを再利用する。
+    すでにキャッシュが存在し、枚数がexpected_countを満たしていればキャッシュを再利用する。
     """
     if not filepath or not os.path.exists(filepath):
         return []
@@ -151,49 +155,86 @@ def export_slide_images_if_needed(filepath):
         hash_str = hashlib.md5(f"{filepath}:{mtime}:{size}".encode("utf-8")).hexdigest()[:10]
         cache_dir = os.path.join(CACHE_SLIDES_ROOT, f"{safe_slug}_{hash_str}")
 
-        # 既存キャッシュディレクトリの探索（NFC/NFD揺れ対策）
-        for candidate in os.listdir(CACHE_SLIDES_ROOT):
-            cand_norm = unicodedata.normalize("NFC", candidate)
-            if cand_norm.startswith(f"{safe_slug}_"):
-                cand_dir = os.path.join(CACHE_SLIDES_ROOT, candidate)
-                existing = sorted(
-                    glob.glob(os.path.join(cand_dir, "*.jpeg")) + glob.glob(os.path.join(cand_dir, "*.jpg")),
-                    key=natural_sort_key
-                )
-                if existing:
-                    return existing
+        # 1. 完全一致ハッシュディレクトリの検証（現在のファイル更新日時・サイズと一致する場合のみキャッシュ再利用）
+        if os.path.isdir(cache_dir):
+            existing = sorted(
+                glob.glob(os.path.join(cache_dir, "*.jpeg")) + glob.glob(os.path.join(cache_dir, "*.jpg")),
+                key=natural_sort_key
+            )
+            if existing and (expected_count <= 0 or len(existing) >= expected_count):
+                return existing
 
+        # 2. Keynoteエクスポートの実行（ファイルが更新された、または新規のため最新スライド画像をエクスポート）
         os.makedirs(cache_dir, exist_ok=True)
+
+        keynote_app = "/Applications/Keynote Creator Studio.app" if os.path.exists("/Applications/Keynote Creator Studio.app") else "/Applications/Keynote.app"
+        subprocess.run(["open", "-g", "-a", keynote_app], capture_output=True)
+        time.sleep(0.5)
 
         script = f'''
 tell application id "com.apple.Keynote"
-    activate
-    delay 0.5
     set theFile to POSIX file "{filepath}"
-    set theDoc to open theFile
-    set outDir to POSIX file "{cache_dir}"
-    export theDoc to file outDir as slide images with properties {{image format:JPEG}}
-    close theDoc saving no
+    try
+        set theDoc to open theFile
+        set outDir to POSIX file "{cache_dir}"
+        export theDoc to file outDir as slide images with properties {{image format:JPEG}}
+        close theDoc saving no
+    on error
+        try
+            close theDoc saving no
+        end try
+    end try
 end tell
 '''
-        res = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=90)
-        if res.returncode == 0:
+        subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=30)
+        
+        # エクスポート完了を少し待機（非同期ファイルフラッシュ対策）
+        exported_images = []
+        for _ in range(8):
             exported_images = sorted(
                 glob.glob(os.path.join(cache_dir, "*.jpeg")) + glob.glob(os.path.join(cache_dir, "*.jpg")),
                 key=natural_sort_key
             )
-            if exported_images:
+            if exported_images and (expected_count <= 0 or len(exported_images) >= expected_count):
                 return exported_images
-    except Exception:
-        pass
+            time.sleep(0.4)
+
+        if exported_images:
+            return exported_images
+
+        # 3. エクスポートが空または失敗した場合の最終フォールバック（最新の過去キャッシュディレクトリを探索）
+        best_candidate_dir = None
+        best_mtime = 0
+        norm_slug = unicodedata.normalize("NFC", safe_slug).lower()
+        if os.path.exists(CACHE_SLIDES_ROOT):
+            for candidate in os.listdir(CACHE_SLIDES_ROOT):
+                cand_norm = unicodedata.normalize("NFC", candidate).lower()
+                if cand_norm.startswith(f"{norm_slug}_") or cand_norm == norm_slug:
+                    cand_dir = os.path.join(CACHE_SLIDES_ROOT, candidate)
+                    if os.path.isdir(cand_dir):
+                        c_mtime = os.path.getmtime(cand_dir)
+                        existing = glob.glob(os.path.join(cand_dir, "*.jpeg")) + glob.glob(os.path.join(cand_dir, "*.jpg"))
+                        if existing and c_mtime > best_mtime:
+                            best_mtime = c_mtime
+                            best_candidate_dir = cand_dir
+
+        if best_candidate_dir:
+            fallback_images = sorted(
+                glob.glob(os.path.join(best_candidate_dir, "*.jpeg")) + glob.glob(os.path.join(best_candidate_dir, "*.jpg")),
+                key=natural_sort_key
+            )
+            if fallback_images:
+                return fallback_images
+    except Exception as e:
+        sys.stderr.write(f"Slide images export warning: {e}\n")
 
     return []
 
 def export_slide_animation_videos_if_needed(filepath, slides):
     """
     Keynoteファイル内でアニメーションがあるスライドを検出し、
-    各スライドのアニメーション動画(.m4v)をキャッシュにエクスポートして記録する。
-    すでにキャッシュが存在すれば再利用し、slide['animationVideoPath'] に格納する。
+    各スライドのアニメーション動画(.m4v)をキャッシュからマッピング（または必要時のみ軽量エクスポート）する。
+    ※重要: スライド読み込み・シナリオ抽出処理全体を絶対にブロッキング・遅延させない設計。
     """
     if not filepath or not os.path.exists(filepath) or not slides:
         return 0
@@ -205,41 +246,54 @@ def export_slide_animation_videos_if_needed(filepath, slides):
 
     try:
         os.makedirs(CACHE_ANIMATIONS_ROOT, exist_ok=True)
-        mtime = os.path.getmtime(filepath)
-        size = os.path.getsize(filepath)
         base_name = unicodedata.normalize("NFC", os.path.splitext(os.path.basename(filepath))[0])
         safe_slug = re.sub(r'[^a-zA-Z0-9_\-\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uffef\u4e00-\u9faf]', '_', base_name)
-        hash_str = hashlib.md5(f"{filepath}:{mtime}:{size}".encode("utf-8")).hexdigest()[:10]
-        cache_dir = os.path.join(CACHE_ANIMATIONS_ROOT, f"{safe_slug}_{hash_str}")
+        norm_slug = safe_slug.lower()
 
-        # 既存キャッシュディレクトリの探索（NFC/NFD揺れ対策）
-        for candidate in os.listdir(CACHE_ANIMATIONS_ROOT):
-            cand_norm = unicodedata.normalize("NFC", candidate)
-            if cand_norm.startswith(f"{safe_slug}_"):
-                cand_dir = os.path.join(CACHE_ANIMATIONS_ROOT, candidate)
-                cand_vids = glob.glob(os.path.join(cand_dir, "*.m4v")) + glob.glob(os.path.join(cand_dir, "*.mp4"))
-                if cand_vids:
-                    cache_dir = cand_dir
-                    break
+        # 1. 既存の全キャッシュディレクトリ（同名プレフィックス）から該当スライドの動画を積極探索（最新順）
+        candidate_dirs = []
+        if os.path.exists(CACHE_ANIMATIONS_ROOT):
+            for candidate in os.listdir(CACHE_ANIMATIONS_ROOT):
+                cand_norm = unicodedata.normalize("NFC", candidate).lower()
+                if cand_norm.startswith(f"{norm_slug}_") or cand_norm == norm_slug:
+                    cand_path = os.path.join(CACHE_ANIMATIONS_ROOT, candidate)
+                    if os.path.isdir(cand_path):
+                        candidate_dirs.append(cand_path)
+            candidate_dirs.sort(key=lambda d: os.path.getmtime(d), reverse=True)
 
-        os.makedirs(cache_dir, exist_ok=True)
-
-        needed_slides = []
         for s in target_slides:
             s_idx = s["slideIndex"]
-            expected_video = os.path.join(cache_dir, f"slide_{s_idx:03d}_anim.m4v")
-            if os.path.exists(expected_video) and os.path.getsize(expected_video) > 1000:
-                s["animationVideoPath"] = expected_video
-            else:
-                needed_slides.append(s)
+            for c_dir in candidate_dirs:
+                expected_v1 = os.path.join(c_dir, f"slide_{s_idx:03d}_anim.m4v")
+                expected_v2 = os.path.join(c_dir, f"slide_{s_idx}_anim.m4v")
+                expected_v3 = os.path.join(c_dir, f"slide_{s_idx:03d}_anim.mp4")
+                if os.path.exists(expected_v1) and os.path.getsize(expected_v1) > 1000:
+                    s["animationVideoPath"] = expected_v1
+                    break
+                elif os.path.exists(expected_v2) and os.path.getsize(expected_v2) > 1000:
+                    s["animationVideoPath"] = expected_v2
+                    break
+                elif os.path.exists(expected_v3) and os.path.getsize(expected_v3) > 1000:
+                    s["animationVideoPath"] = expected_v3
+                    break
 
-        if not needed_slides:
-            return len(target_slides)
+        matched_count = sum(1 for s in target_slides if s.get("animationVideoPath"))
+        needed_slides = [s for s in target_slides if not s.get("animationVideoPath")]
+
+        if not needed_slides or len(target_slides) > 20:
+            # アニメーションスライドが大量にある場合や、主要なものがマッピングできた場合は
+            # スライド読み込み処理の高速性を優先してKeynoteでの長大動画レンダリングはスキップ
+            return matched_count
+
+        # 少数の未生成スライド（最大3件まで）についてのみ、短いタイムアウト（15秒）で安全にエクスポート試行
+        export_targets = needed_slides[:3]
+        target_dir = candidate_dirs[0] if candidate_dirs else os.path.join(CACHE_ANIMATIONS_ROOT, f"{safe_slug}_default")
+        os.makedirs(target_dir, exist_ok=True)
 
         export_blocks = []
-        for s in needed_slides:
+        for s in export_targets:
             s_idx = s["slideIndex"]
-            out_path = os.path.join(cache_dir, f"slide_{s_idx:03d}_anim.m4v")
+            out_path = os.path.join(target_dir, f"slide_{s_idx:03d}_anim.m4v")
             block = f'''
         -- Slide {s_idx}
         repeat with i from 1 to totalSlides
@@ -255,27 +309,31 @@ def export_slide_animation_videos_if_needed(filepath, slides):
 
         script = f'''
 tell application id "com.apple.Keynote"
-    activate
-    delay 0.5
     set theFile to POSIX file "{filepath}"
-    set theDoc to open theFile
-    set totalSlides to count of slides of theDoc
-    {"".join(export_blocks)}
-    close theDoc saving no
+    try
+        set theDoc to open theFile
+        set totalSlides to count of slides of theDoc
+        {"".join(export_blocks)}
+        close theDoc saving no
+    on error
+        try
+            close theDoc saving no
+        end try
+    end try
 end tell
 '''
-        res = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=180)
+        res = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=15)
         if res.returncode == 0:
-            for s in needed_slides:
+            for s in export_targets:
                 s_idx = s["slideIndex"]
-                out_path = os.path.join(cache_dir, f"slide_{s_idx:03d}_anim.m4v")
+                out_path = os.path.join(target_dir, f"slide_{s_idx:03d}_anim.m4v")
                 if os.path.exists(out_path) and os.path.getsize(out_path) > 1000:
                     s["animationVideoPath"] = out_path
 
         return sum(1 for s in target_slides if s.get("animationVideoPath"))
     except Exception as e:
-        sys.stderr.write(f"Animation export error: {e}\n")
-        return 0
+        sys.stderr.write(f"Animation export warning: {e}\n")
+        return sum(1 for s in target_slides if s.get("animationVideoPath"))
 
 _ASSET_INDEX = {}
 _ASSET_INFO = {}
@@ -341,7 +399,8 @@ def build_asset_index():
 
     index = {}
     info_map = {}
-    for base_dir in [CACHE_ROOT, VIDEO_DIR]:
+    scan_dirs = [CACHE_ROOT] + VIDEO_DIRS
+    for base_dir in scan_dirs:
         if os.path.exists(base_dir):
             for root, _, files in os.walk(base_dir):
                 for f in files:
@@ -2169,19 +2228,31 @@ def extract_keynote_slides(filepath):
             }
 
     # スライド画面そのものの高解像度レンダリング画像(1920x1080 JPEG)を一括エクスポート＆キャッシュからマッピング
-    slide_images = export_slide_images_if_needed(filepath)
-    if res and "slides" in res:
-        for idx, slide in enumerate(res["slides"]):
-            if idx < len(slide_images):
-                slide["slideImagePath"] = slide_images[idx]
-            else:
-                slide["slideImagePath"] = None
-        if slide_images:
-            res["exportedSlideImagesCount"] = len(slide_images)
+    try:
+        slide_count = len(res["slides"]) if res and "slides" in res else 0
+        slide_images = export_slide_images_if_needed(filepath, expected_count=slide_count)
+        if res and "slides" in res:
+            for idx, slide in enumerate(res["slides"]):
+                s_idx = slide.get("slideIndex", idx + 1)
+                if idx < len(slide_images):
+                    slide["slideImagePath"] = slide_images[idx]
+                else:
+                    slide["slideImagePath"] = None
 
-        # アニメーションがあるスライドの動画(.m4v)をエクスポート＆キャッシュからマッピング
-        exported_anim_count = export_slide_animation_videos_if_needed(filepath, res["slides"])
-        res["exportedAnimationVideosCount"] = exported_anim_count
+                # スライド番号（例: .068.jpeg または _068.jpeg）による確実なマッチングフォールバック
+                if not slide.get("slideImagePath") or not os.path.exists(slide["slideImagePath"]):
+                    for cand in slide_images:
+                        if f".{s_idx:03d}." in cand or f".{s_idx}." in cand or f"_{s_idx:03d}." in cand:
+                            slide["slideImagePath"] = cand
+                            break
+            if slide_images:
+                res["exportedSlideImagesCount"] = len(slide_images)
+
+            # アニメーションがあるスライドの動画(.m4v)をエクスポート＆キャッシュからマッピング
+            exported_anim_count = export_slide_animation_videos_if_needed(filepath, res["slides"])
+            res["exportedAnimationVideosCount"] = exported_anim_count
+    except Exception as e:
+        sys.stderr.write(f"Slide images / videos mapping error (non-fatal): {e}\n")
 
     return res
 

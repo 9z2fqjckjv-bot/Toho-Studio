@@ -40,6 +40,13 @@ public final class SoundMakerAudioManager: NSObject, ObservableObject, AVAudioPl
         }
     }
 
+    /// フェード進行度 (0.0...1.0) を自然な聴感カーブ（S字スムースステップ / イコールパワー）に変換
+    public static func fadeCurveGain(progress: Double) -> Double {
+        let clamped = max(0.0, min(1.0, progress))
+        // S-curve (0.5 * (1 - cos(π * x))) により、急激な立ち上がりや落ち込みを防ぎ滑らかに減衰
+        return 0.5 * (1.0 - cos(.pi * clamped))
+    }
+
     /// クリップの試聴再生を開始 (倍速再生・逆再生・音量・フェードイン・フェードアウト・即切りを適用)
     public func playPreview(clip: SoundClip, sceneDuration: Double? = nil, onFinished: (() -> Void)? = nil) {
         stopPreview()
@@ -62,28 +69,44 @@ public final class SoundMakerAudioManager: NSObject, ObservableObject, AVAudioPl
                 self.isPreviewPlaying = true
 
                 // 実効再生時間と即切り上限
-                var playLimit = clip.effectiveDuration
-                if clip.type == "SE" && clip.isCutOffOnSceneEnd, let sDur = sceneDuration, sDur > 0 {
+                // ループ再生（繰り返し）の場合は、クリップの指定 duration やシーン跨ぎ区間までループ再生を継続
+                var playLimit: Double
+                if clip.isLooping {
+                    playLimit = max(clip.duration > 0 ? clip.duration : 60.0, clip.effectiveDuration * 4.0)
+                } else {
+                    // ループなしの場合、clip.duration が指定されていればその長さを上限とする
+                    if clip.duration > 0 {
+                        playLimit = min(clip.duration, clip.effectiveDuration)
+                    } else {
+                        playLimit = clip.effectiveDuration
+                    }
+                }
+
+                // シーン終了時即切りが有効な場合の上限カット
+                if clip.isCutOffOnSceneEnd, let sDur = sceneDuration, sDur > 0 {
                     playLimit = min(playLimit, sDur)
                 }
 
                 // フェードインの初期音量設定
-                if clip.fadeInDuration > 0.05 {
+                if clip.fadeInDuration > 0.001 {
                     p.volume = 0.0
+                } else {
+                    p.volume = Float(max(0.0, min(1.0, clip.volume)))
                 }
 
                 p.play()
                 let rateStr = String(format: "%.2fx", clip.playbackRate)
                 let revStr = clip.isReversed ? " [逆再生]" : ""
-                let cutStr = (clip.type == "SE" && clip.isCutOffOnSceneEnd) ? " [即切り有効]" : ""
+                let loopStr = clip.isLooping ? " [ループ有効]" : ""
+                let cutStr = clip.isCutOffOnSceneEnd ? " [即切り有効]" : ""
                 let fiStr = clip.fadeInDuration > 0 ? " [FI:\(String(format: "%.1f", clip.fadeInDuration))s]" : ""
                 let foStr = clip.fadeOutDuration > 0 ? " [FO:\(String(format: "%.1f", clip.fadeOutDuration))s]" : ""
-                AppState.shared.log("▶️ \(clip.type)『\(clip.name)』を再生中 (速度: \(rateStr)\(revStr), 音量: \(Int(clip.volume * 100))%\(cutStr)\(fiStr)\(foStr))")
+                AppState.shared.log("▶️ \(clip.type)『\(clip.name)』を再生中 (速度: \(rateStr)\(revStr), 音量: \(Int(clip.volume * 100))%\(loopStr)\(cutStr)\(fiStr)\(foStr))")
 
                 // フェードおよび即切り監視タイマー
                 let startTime = Date()
                 self.previewTimer?.invalidate()
-                self.previewTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] timer in
+                let timer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { [weak self] timer in
                     guard let self = self, let p = self.previewPlayer, p.isPlaying else {
                         timer.invalidate()
                         return
@@ -101,19 +124,21 @@ public final class SoundMakerAudioManager: NSObject, ObservableObject, AVAudioPl
 
                     // フェードイン計算
                     var inFactor = 1.0
-                    if clip.fadeInDuration > 0.05 {
-                        inFactor = min(1.0, max(0.0, elapsed / clip.fadeInDuration))
+                    if clip.fadeInDuration > 0.001 {
+                        inFactor = SoundMakerAudioManager.fadeCurveGain(progress: elapsed / clip.fadeInDuration)
                     }
 
                     // フェードアウト計算
                     var outFactor = 1.0
-                    if clip.fadeOutDuration > 0.05 {
-                        outFactor = min(1.0, max(0.0, remaining / clip.fadeOutDuration))
+                    if clip.fadeOutDuration > 0.001 {
+                        outFactor = SoundMakerAudioManager.fadeCurveGain(progress: remaining / clip.fadeOutDuration)
                     }
 
                     let mult = min(inFactor, outFactor)
                     p.volume = Float(max(0.0, min(1.0, clip.volume * mult)))
                 }
+                self.previewTimer = timer
+                RunLoop.main.add(timer, forMode: .common)
             }
         }
     }
@@ -163,67 +188,111 @@ public final class SoundMakerAudioManager: NSObject, ObservableObject, AVAudioPl
 
         for clip in clips {
             let clipStart = clip.startTime
-            var clipEnd = clipStart + clip.effectiveDuration
 
-            // シーンの長さより効果音が長い場合、シーン終了で即切り (isCutOffOnSceneEnd)
-            if clip.type == "SE" && clip.isCutOffOnSceneEnd {
-                if let endIdx = clip.spanEndSceneIndex, let range = sceneRanges[endIdx] {
-                    // 複数シーン跨ぎSEの場合、跨ぎ終了シーンの末尾でカット
-                    clipEnd = min(clipEnd, range.end)
-                } else if let sIdx = clip.sceneIndex, let range = sceneRanges[sIdx] {
-                    // 単一シーン所属の場合、そのシーン終了時刻でカット
-                    clipEnd = min(clipEnd, range.end)
+            // クリップ本来の再生有効長
+            // 繰り返し再生 (isLooping) の場合は、クリップの duration (または跨ぎ区間末尾) まで鳴り続ける
+            // ループなしの場合は、音源自体の実効長 (effectiveDuration)
+            let baseDuration = clip.isLooping ? max(clip.duration, clip.effectiveDuration) : (clip.duration > 0 ? min(clip.duration, clip.effectiveDuration) : clip.effectiveDuration)
+            var clipEnd = clipStart + baseDuration
+
+            // シーン跨ぎおよび単一シーンの即切り (isCutOffOnSceneEnd) 制御
+            let isSpanning = clip.isSpanningScenes || (clip.spanStartSceneIndex != nil && clip.spanEndSceneIndex != nil)
+            let targetCutSceneIndex = clip.spanEndSceneIndex ?? clip.sceneIndex
+
+            // 台詞コンテキストの解決 (Voice クリップ または MovieScene の台詞)
+            let dialogueCtx = VoiceTextTimingService.resolveDialogueContext(
+                clip: clip,
+                clips: clips,
+                scenes: targetScenes
+            )
+
+            // 実効再生開始時刻の算出: セリフの任意の文字から再生開始
+            var effectiveStart = clipStart
+            var hasVoiceTrigger = false
+
+            let targetChar = clip.startCharIndex ?? clip.fadeInCharIndex
+            if let ctx = dialogueCtx, let charIdx = targetChar {
+                if let timing = ctx.timings.first(where: { $0.index == charIdx }) {
+                    effectiveStart = ctx.sceneStartTime + timing.startSeconds + clip.voiceTriggerOffset
+                    hasVoiceTrigger = true
                 }
             }
 
-            let isActive = (currentTime >= clipStart && currentTime < clipEnd)
+            // 実効再生終了時刻の算出
+            clipEnd = effectiveStart + baseDuration
+
+            if let targetIdx = targetCutSceneIndex, let targetRange = sceneRanges[targetIdx] {
+                if isSpanning {
+                    // シーン跨ぎSE・BGM: 跨ぎ終了シーンの末尾境界
+                    let spanEndBoundary = targetRange.end
+                    if clip.isLooping {
+                        clipEnd = max(clipEnd, spanEndBoundary)
+                    }
+                    if clip.isCutOffOnSceneEnd {
+                        clipEnd = min(clipEnd, spanEndBoundary)
+                    }
+                } else {
+                    // 単一シーン所属:
+                    if clip.isCutOffOnSceneEnd {
+                        clipEnd = min(clipEnd, targetRange.end)
+                    }
+                }
+            }
+
+            // フェードアウト開始時刻の算出: セリフの任意の文字からフェードアウト開始
+            var effectiveFadeOutStart = clipEnd - max(0.001, clip.fadeOutDuration)
+            if let ctx = dialogueCtx, let outIdx = clip.fadeOutCharIndex {
+                if let timing = ctx.timings.first(where: { $0.index == outIdx }) {
+                    effectiveFadeOutStart = ctx.sceneStartTime + timing.startSeconds + clip.voiceTriggerOffset
+                }
+            }
+
+            // 指定文字または開始時刻に達するまでは絶対に鳴らさない（発話開始時の強制音声開始を完全防止）
+            let isActive = (currentTime >= effectiveStart && currentTime < clipEnd)
 
             if isActive {
                 shouldBePlayingIds.insert(clip.id)
 
-                let offsetInClip = (currentTime - clipStart) * max(0.25, clip.playbackRate)
+                // 指定文字の瞬間から音源の0秒目を流すため、effectiveStart からオフセットを計算
+                let offsetInClip = (currentTime - effectiveStart) * max(0.25, clip.playbackRate)
+
+                // フェードイン計算
+                var inFactor = 1.0
+                if clip.fadeInDuration > 0.001 {
+                    let elapsedIn = currentTime - effectiveStart
+                    inFactor = SoundMakerAudioManager.fadeCurveGain(progress: elapsedIn / clip.fadeInDuration)
+                }
+
+                // フェードアウト計算
+                var outFactor = 1.0
+                if clip.fadeOutDuration > 0.001 {
+                    if currentTime >= effectiveFadeOutStart {
+                        let elapsedOut = currentTime - effectiveFadeOutStart
+                        let progress = min(1.0, max(0.0, elapsedOut / clip.fadeOutDuration))
+                        outFactor = SoundMakerAudioManager.fadeCurveGain(progress: 1.0 - progress)
+                    }
+                } else if currentTime >= effectiveFadeOutStart {
+                    outFactor = 0.0
+                }
+
+                let fadeMultiplier = min(inFactor, outFactor)
+                let currentVol = Float(max(0.0, min(1.0, clip.volume * fadeMultiplier)))
 
                 if let existingPlayer = timelinePlayers[clip.id] {
                     // 既に再生中の場合、フェードイン・フェードアウト音量を動的計算して適用
-                    let elapsed = currentTime - clipStart
-                    let remaining = clipEnd - currentTime
-
-                    var inFactor = 1.0
-                    if clip.fadeInDuration > 0.05 {
-                        inFactor = min(1.0, max(0.0, elapsed / clip.fadeInDuration))
-                    }
-
-                    var outFactor = 1.0
-                    if clip.fadeOutDuration > 0.05 {
-                        outFactor = min(1.0, max(0.0, remaining / clip.fadeOutDuration))
-                    }
-
-                    let fadeMultiplier = min(inFactor, outFactor)
-                    let currentVol = Float(max(0.0, min(1.0, clip.volume * fadeMultiplier)))
                     existingPlayer.volume = currentVol
                 } else {
-                    // 新たに再生開始
-                    if let player = createConfiguredPlayer(for: clip) {
-                        if offsetInClip < player.duration {
-                            // 初期音量をフェード率で調整
-                            let elapsed = currentTime - clipStart
-                            let remaining = clipEnd - currentTime
-
-                            var inFactor = 1.0
-                            if clip.fadeInDuration > 0.05 {
-                                inFactor = min(1.0, max(0.0, elapsed / clip.fadeInDuration))
+                    // 新たに再生開始 (初期音量をフェード係数に合わせて設定し音漏れを防止)
+                    if let player = createConfiguredPlayer(for: clip, initialVolume: currentVol) {
+                        let playerDur = player.duration
+                        if playerDur > 0 {
+                            let targetPlayerTime = clip.isLooping ? offsetInClip.truncatingRemainder(dividingBy: playerDur) : offsetInClip
+                            if targetPlayerTime < playerDur {
+                                player.volume = currentVol
+                                player.currentTime = targetPlayerTime
+                                player.play()
+                                timelinePlayers[clip.id] = player
                             }
-
-                            var outFactor = 1.0
-                            if clip.fadeOutDuration > 0.05 {
-                                outFactor = min(1.0, max(0.0, remaining / clip.fadeOutDuration))
-                            }
-
-                            let fadeMultiplier = min(inFactor, outFactor)
-                            player.volume = Float(max(0.0, min(1.0, clip.volume * fadeMultiplier)))
-                            player.currentTime = offsetInClip
-                            player.play()
-                            timelinePlayers[clip.id] = player
                         }
                     }
                 }
@@ -250,7 +319,7 @@ public final class SoundMakerAudioManager: NSObject, ObservableObject, AVAudioPl
     // MARK: - 設定済み AVAudioPlayer の生成
 
     /// クリップの設定（ファイル/プリセット、倍速再生、逆再生、音量、ループ）を適用した AVAudioPlayer を作成
-    public func createConfiguredPlayer(for clip: SoundClip) -> AVAudioPlayer? {
+    public func createConfiguredPlayer(for clip: SoundClip, initialVolume: Float? = nil) -> AVAudioPlayer? {
         var player: AVAudioPlayer? = nil
 
         // 1. 実ファイルが存在する場合
@@ -294,9 +363,17 @@ public final class SoundMakerAudioManager: NSObject, ObservableObject, AVAudioPl
         let safeRate = Float(max(0.25, min(3.0, clip.playbackRate)))
         p.rate = safeRate
 
-        // 音量とループ設定
-        p.volume = Float(max(0.0, min(1.0, clip.volume)))
-        p.numberOfLoops = (clip.type == "BGM" && clip.isLooping) ? -1 : 0
+        // 音量とループ設定 (初期音量指定またはフェードイン時の0音量考慮)
+        let resolvedVol: Float
+        if let iv = initialVolume {
+            resolvedVol = iv
+        } else if clip.fadeInDuration > 0.001 {
+            resolvedVol = 0.0
+        } else {
+            resolvedVol = Float(max(0.0, min(1.0, clip.volume)))
+        }
+        p.volume = resolvedVol
+        p.numberOfLoops = clip.isLooping ? -1 : 0
         p.prepareToPlay()
 
         return p

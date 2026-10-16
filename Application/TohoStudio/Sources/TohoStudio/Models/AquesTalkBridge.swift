@@ -452,7 +452,9 @@ public final class AquesTalkBridge: NSObject, ObservableObject, AVAudioPlayerDel
     /// Convert text (kanji/kana) to phonetic symbol string
     public func convertToVoiceSymbol(text: String) -> String {
         let cleaned = SlideItem.cleanDialogueText(from: text)
-        let effectiveText = cleaned.isEmpty ? text : cleaned
+        let baseText = cleaned.isEmpty ? text : cleaned
+        // 辞書機能の適用 (東方キャラクター名や文章・ユーザー辞書置換)
+        let effectiveText = SoundMakerDictionaryManager.shared.applyDictionary(to: baseText)
 
         guard let handle = kanji2koeHandle, let convertFunc = kanjiConvertUtf8Ptr else {
             // Simple fallback pseudo-phonetic conversion

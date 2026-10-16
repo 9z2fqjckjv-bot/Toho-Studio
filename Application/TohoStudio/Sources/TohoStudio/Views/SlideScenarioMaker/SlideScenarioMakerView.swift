@@ -161,6 +161,7 @@ public struct SlideScenarioMakerView: View {
                     .frame(minWidth: 260, idealWidth: 300, maxWidth: 400)
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
             }
+            .id(appState.slideAssetsVersion)
         }
         .sheet(isPresented: $showUnifiedModal) {
             unifiedSlideModalView
@@ -224,7 +225,8 @@ public struct SlideScenarioMakerView: View {
                 let slide = appState.slides[idx]
                 HStack(alignment: .top, spacing: 8) {
                     // スライド画面サムネイル (16:9)
-                    if let imgPath = slide.slideImagePath, let thumbImg = resolveImage(path: imgPath, name: nil, subfolder: nil) {
+                    let resolvedPath = (slide.slideImagePath.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }) ?? AppState.findLatestSlideImagePath(forProject: appState.currentProjectName, slideIndex: slide.slideIndex)
+                    if let imgPath = resolvedPath, let thumbImg = resolveImage(path: imgPath, name: nil, subfolder: nil) {
                         Image(nsImage: thumbImg)
                             .resizable()
                             .aspectRatio(16/9, contentMode: .fit)
@@ -522,7 +524,7 @@ public struct SlideScenarioMakerView: View {
                                     .background(Color.black.opacity(0.85))
                                 }
                             } else if canvasViewMode == .slideOriginal,
-                               let slidePath = slide.slideImagePath,
+                               let slidePath = (slide.slideImagePath.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }) ?? AppState.findLatestSlideImagePath(forProject: appState.currentProjectName, slideIndex: slide.slideIndex),
                                let slideOriginalImg = resolveImage(path: slidePath, name: nil, subfolder: nil) {
                                 // 🌟 スライド画面そのものの完全レンダリング画像 (Keynote Native) 🌟
                                 ZStack {
@@ -940,7 +942,7 @@ public struct SlideScenarioMakerView: View {
         let fm = FileManager.default
 
         if let directPath = path, !directPath.isEmpty, fm.fileExists(atPath: directPath) {
-            return NSImage(contentsOfFile: directPath)
+            return AppState.loadFreshImage(from: directPath)
         }
 
         guard let targetName = name, !targetName.isEmpty else { return nil }

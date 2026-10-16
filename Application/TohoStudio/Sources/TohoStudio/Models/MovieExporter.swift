@@ -348,10 +348,20 @@ public enum MovieExporter {
             inputIndex += 1
             filterComplex += ";[\(anullStream):a]atrim=0:\(String(format: "%.3f", duration)),apad[\(audioOutLabel)]"
         } else if audioInputs.count == 1 {
-            args += ["-i", audioInputs[0]]
+            let aPath = audioInputs[0]
+            args += ["-i", aPath]
             let aStream = inputIndex
             inputIndex += 1
-            filterComplex += ";[\(aStream):a]atrim=0:\(String(format: "%.3f", duration)),apad[\(audioOutLabel)]"
+            var filter = "[\(aStream):a]"
+            if aPath == scene.seAudioPath, let offset = scene.seStartTimeOffset, offset > 0.001 {
+                let delayMs = Int(offset * 1000)
+                filter += "adelay=\(delayMs)|\(delayMs),"
+            }
+            if aPath == scene.seAudioPath, let vol = scene.seVolume, abs(vol - 1.0) > 0.01 {
+                filter += "volume=\(String(format: "%.2f", max(0.0, min(1.0, vol)))),"
+            }
+            filter += "atrim=0:\(String(format: "%.3f", duration)),apad[\(audioOutLabel)]"
+            filterComplex += ";\(filter)"
         } else {
             // 複数音声を amix で合成
             var amixLabels = ""
@@ -359,7 +369,16 @@ public enum MovieExporter {
                 args += ["-i", aPath]
                 let sIdx = inputIndex
                 inputIndex += 1
-                filterComplex += ";[\(sIdx):a]atrim=0:\(String(format: "%.3f", duration)),apad[a\(sIdx)]"
+                var filter = "[\(sIdx):a]"
+                if aPath == scene.seAudioPath, let offset = scene.seStartTimeOffset, offset > 0.001 {
+                    let delayMs = Int(offset * 1000)
+                    filter += "adelay=\(delayMs)|\(delayMs),"
+                }
+                if aPath == scene.seAudioPath, let vol = scene.seVolume, abs(vol - 1.0) > 0.01 {
+                    filter += "volume=\(String(format: "%.2f", max(0.0, min(1.0, vol)))),"
+                }
+                filter += "atrim=0:\(String(format: "%.3f", duration)),apad[a\(sIdx)]"
+                filterComplex += ";\(filter)"
                 amixLabels += "[a\(sIdx)]"
             }
             filterComplex += ";\(amixLabels)amix=inputs=\(audioInputs.count):duration=longest:dropout_transition=0[\(audioOutLabel)]"
