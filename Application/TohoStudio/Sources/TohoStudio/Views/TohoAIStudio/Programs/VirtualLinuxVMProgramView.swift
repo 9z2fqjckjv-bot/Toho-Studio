@@ -42,7 +42,7 @@ public struct VirtualLinuxVMProgramView: View {
                         .font(.title2)
                         .bold()
                 }
-                Text("MacローカルのVirtualBuddy Linux環境（Gemma 2）およびGoogle Colab（NVIDIA L4 GPU）と連携し、テキスト対話・動画・画像・音楽・効果音の高速生成を実施します。")
+                Text("MacローカルのVirtualBuddy Linux環境（Qwen 2.5）およびGoogle Colab（NVIDIA L4 GPU）と連携し、テキスト対話・動画・画像・音楽・効果音の高速生成を実施します。")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

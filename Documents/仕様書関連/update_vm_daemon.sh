@@ -52,7 +52,7 @@ except Exception as e:
     HAS_BASIC_PITCH = False
     BASIC_PITCH_ERROR = str(e)
 
-app = FastAPI(title="TohoStudio Hybrid Autonomous Daemon (Gemma 2 + Colab L4 GPU + Sheet Transcription)", version="3.1.0")
+app = FastAPI(title="TohoStudio Hybrid Autonomous Daemon (Qwen 2.5 + Colab L4 GPU + Sheet Transcription)", version="3.1.0")
 
 DATA_DIR = "/opt/tohostudio-server/data"
 MEDIA_DIR = os.path.join(DATA_DIR, "media")
@@ -230,7 +230,7 @@ def health_check():
         "server_time": datetime.utcnow().isoformat() + "Z",
         "machine_type": "VirtualBuddy VM (Apple A18 Pro, 4GB RAM + 8GB Swap)",
         "zone": "mac-local-virtualization",
-        "local_llm": "Google Gemma 2 (2B) via Ollama",
+        "local_llm": "Qwen 2.5 (3B) via Ollama",
         "music_transcription": {
             "supported": HAS_BASIC_PITCH,
             "engine": "Spotify Basic Pitch + music21 + LilyPond",
@@ -383,7 +383,7 @@ class PromptRequest(BaseModel):
     user_id: str
     user_prompt: str
     system_prompt: Optional[str] = "あなたは東方Projectの二次創作支援AIです。"
-    model: Optional[str] = "gemma2:2b"
+    model: Optional[str] = "qwen2.5:3b"
 
 @app.post("/v1/chat/completions")
 def handle_chat_completion(req: PromptRequest):

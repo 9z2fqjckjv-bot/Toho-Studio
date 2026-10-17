@@ -413,7 +413,7 @@ public struct AISoundGeneratorProgramView: View {
                     Image(systemName: "brain.head.profile")
                         .font(.system(size: 10))
                         .foregroundColor(.blue)
-                    Text("日本語入力時はローカルLLM (Gemma 2) が英語化してからGPUへ送信")
+                    Text("日本語入力時はローカルLLM (Qwen 2.5) が英語化してからGPUへ送信")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                 }

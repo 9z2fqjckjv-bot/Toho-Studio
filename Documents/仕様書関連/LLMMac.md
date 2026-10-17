@@ -2,7 +2,7 @@
 
 本書は、GCP（Google Cloud Platform）のクラウド VM（月額約40ドル）を利用する代わりに、**仮想 Mac 作成時に使用した仮想化ソフト「VirtualBuddy」を活用し、この Mac（MacBook Neo / Apple A18 Pro / メモリ 8GB）上に完全無料・超低遅延で動作する LLM 搭載 Linux 環境を構築する手順書** です。
 
-モデルには、中国系（DeepSeekやQwenなど）を排除し、**米国 Google の「Gemma 2」および Meta の「Llama 3.2」** を採用。Toho-Studio 専用 FastAPI デーモンや systemd 自動起動を含め、Apple Silicon（ARM64）ネイティブのローカル仮想環境へ完全移行します。
+モデルには、高い日本語処理能力と推論速度・指示追従性を兼ね備えた **「Qwen 2.5」シリーズ（Qwen 2.5 3B / 7B）** を採用。Toho-Studio 専用 FastAPI デーモンや systemd 自動起動を含め、Apple Silicon（ARM64）ネイティブのローカル仮想環境へ完全移行します。
 
 ---
 
@@ -13,7 +13,7 @@
 | **仮想化基盤** | Google Compute Engine (E2) | **VirtualBuddy**（Apple Virtualization.framework） |
 | **月額費用** | **約 $40 〜 $50 / 月**（CUD適用時） | **完全 0 円（無料・維持費なし）** |
 | **通信遅延 (Latency)** | 35ms 〜 140ms（リージョン依存） | **< 1ms（超低遅延・ローカル通信）** |
-| **採用 LLM** | 各種クラウドモデル | **Gemma 2 (Google) / Llama 3.2 (Meta)** ※非中国系 |
+| **採用 LLM** | 各種クラウドモデル | **Qwen 2.5 (3B / 7B)** |
 | **オフライン動作** | 不可（インターネット常時必須） | **完全オフライン動作可能** |
 | **アーキテクチャ** | x86_64 (Intel/AMD) | **ARM64 (Apple Silicon ネイティブ)** |
 | **CPU 割り当て** | 2 vCPU | **2 〜 3 コア** |
@@ -28,15 +28,15 @@
 
 ---
 
-## 2. 採用する非中国系・軽量 LLM
+## 2. 採用する軽量・高性能 LLM「Qwen 2.5」
 
 MacBook Neo（メモリ 8GB / ゲスト VM 4GB）の限られたリソースで、発熱やもたつきを起こさず、高品質な日本語を出力できるモデルを厳選しています。
 
-| モデル名 | 開発元 / 国 | パラメータ / メモリ消費 | 特徴と用途 |
-| :--- | :--- | :--- | :--- |
-| **Gemma 2 (2B)**<br>【メイン・日常創作】 | **Google (米国)** | **2.6B / 約 1.6 GB** | **最推奨・標準モデル。** メモリ2GB未満で動作し、物理RAM内で完結するため**秒間30〜40トークンの爆速**で動作。Googleの最新技術により日本語の文章が非常に自然です。 |
-| **Llama 3.2 (3B)**<br>【指示追従・対話】 | **Meta (米国)** | **3.2B / 約 2.0 GB** | **サブ推奨。** 指示追従性が極めて高く、東方キャラの口調指定や複雑なフォーマット制約を遵守させるのに最適です。 |
-| **Gemma 2 (9B)**<br>【品質重視枠】 | **Google (米国)** | **9.2B / 約 5.4 GB** | **高品質枠。** 表現力や語彙力に優れた大型モデル。4GB VMではスワップを併用して動作します（重厚なストーリープロット作成向き）。 |
+| モデル名 | パラメータ / メモリ消費 | 特徴と用途 |
+| :--- | :--- | :--- |
+| **Qwen 2.5 (3B)**<br>【メイン・日常創作】 | **3.1B / 約 1.9 GB** | **最推奨・標準モデル。** メモリ2GB未満で動作し、物理RAM内で完結するため**秒間30〜40トークンの爆速**で動作。日本語の語彙・敬語・東方二次創作への応答性が極めて優秀です。 |
+| **Qwen 2.5 (7B)**<br>【品質重視枠】 | **7.6B / 約 4.7 GB** | **高品質枠。** 表現力や論理的推論力に優れた大型モデル。4GB VMではスワップを併用して動作します（重厚なストーリープロットや複雑な世界観設定向き）。 |
+| **Qwen 2.5 (1.5B)**<br>【超軽量枠】 | **1.5B / 約 1.0 GB** | **超軽量枠。** 1GB程度で動作し、極限までメモリ消費を抑えたい場合の高速翻訳やタグ整形に最適です。 |
 
 ---
 
@@ -50,8 +50,8 @@ MacBook Neo（A18 Pro / 6コアCPU / メモリ8GB固定）では、**macOS ホ�
  └── [ゲスト Linux (VirtualBuddy)] : 4 GB RAM / 2〜3 コア （Ubuntu ARM64）
        ├── 物理RAM (4GB) ──┐
        └── スワップ (8GB) ──┴──> 合計 12GB 相当の仮想メモリ空間
-             ・Gemma 2 (2B) は物理RAM内で常時爆速動作（スワップ不使用）
-             ・Gemma 2 (9B) はスワップ併用でOOMクラッシュを防止
+             ・Qwen 2.5 (3B) は物理RAM内で常時爆速動作（スワップ不使用）
+             ・Qwen 2.5 (7B) はスワップ併用でOOMクラッシュを防止
 ```
 
 ### 推奨スペック設定表
@@ -124,7 +124,7 @@ MacBook Neo（A18 Pro / 6コアCPU / メモリ8GB固定）では、**macOS ホ�
 ### Step 4: 一括セットアップスクリプトの実行
 
 VM が起動したらログインし、以下のスクリプトを実行します。
-このスクリプトは、**8GBスワップ作成、Ollama、Google Gemma 2 & Meta Llama 3.2 の取得、TohoStudio API デーモン、systemd サービス登録** を全自動で行います。
+このスクリプトは、**8GBスワップ作成、Ollama、Qwen 2.5 の取得、TohoStudio API デーモン、systemd サービス登録** を全自動で行います。
 
 VirtualBuddy 内のターミナル（または Mac から `ssh zuyasi@<VMのIP>`）で以下を実行してください：
 
@@ -170,18 +170,14 @@ systemctl daemon-reload
 systemctl restart ollama
 
 echo "=========================================================="
-echo ">>> [4/6] 米国大手 LLM モデルのダウンロード (Google / Meta)..."
+echo ">>> [4/6] Qwen 2.5 LLM モデルのダウンロード..."
 echo "=========================================================="
-# メイン: Google Gemma 2 (2B) - メモリ1.6GBで超高速・日本語対応
-echo "Pulling Google Gemma 2 (2B)..."
-ollama pull gemma2:2b
+# メイン: Qwen 2.5 (3B) - メモリ1.9GBで超高速・日本語対応
+echo "Pulling Qwen 2.5 (3B)..."
+ollama pull qwen2.5:3b
 
-# サブ: Meta Llama 3.2 (3B) - メモリ2.0GBで指示追従性に優れる
-echo "Pulling Meta Llama 3.2 (3B)..."
-ollama pull llama3.2:3b
-
-# （任意）長文・プロット用 Google Gemma 2 (9B)
-# ollama pull gemma2:9b
+# （任意）品質重視・長文プロット用 Qwen 2.5 (7B)
+# ollama pull qwen2.5:7b
 
 echo "=========================================================="
 echo ">>> [5/6] Toho-Studio 専用 API デーモンの配置..."
@@ -283,7 +279,7 @@ def health_check():
         "server_time": datetime.utcnow().isoformat() + "Z",
         "machine_type": "VirtualBuddy VM (Apple A18 Pro / 4GB RAM + 8GB Swap)",
         "zone": "mac-local-virtualization",
-        "llm_engine": "Ollama (Google Gemma 2 / Meta Llama 3.2)",
+        "llm_engine": "Ollama (Qwen 2.5)",
         "music_transcription": {
             "supported": HAS_BASIC_PITCH,
             "engine": "Spotify Basic Pitch + music21 + LilyPond",
@@ -300,7 +296,7 @@ class PromptRequest(BaseModel):
     user_id: str
     system_prompt: Optional[str] = "あなたは東方Projectの二次創作支援AIです。"
     user_prompt: str
-    model: Optional[str] = "gemma2:2b" # デフォルトはGoogle Gemma 2
+    model: Optional[str] = "qwen2.5:3b" # デフォルトはQwen 2.5 (3B)
 
 @app.post("/v1/chat/completions")
 def generate_completion(req: PromptRequest):
@@ -441,7 +437,7 @@ echo "=========================================================="
    {
      "status": "OPERATIONAL",
      "machine_type": "VirtualBuddy VM (Apple A18 Pro / 4GB RAM + 8GB Swap)",
-     "llm_engine": "Ollama (Google Gemma 2 / Meta Llama 3.2)",
+     "llm_engine": "Ollama (Qwen 2.5)",
      "credit_budget_usd": 0.0,
      ...
    }
@@ -464,10 +460,10 @@ Mac 側の Swift ソースコード [CloudVirtualLinuxService.swift](file:///Vol
 // CloudVirtualLinuxService.swift
 public struct VirtualLinuxMachineStatus: Codable {
     // GCPの固定IP（34.134.96.84）からローカル Linux VM の IP に変更
-    public var hostIP: String = "192.168.64.3" // ← Step 5 で確認したIPアドレス
+    public var hostIP: String = "" // ← Step 5 で確認したIPアドレス192.168.64.3
     public var gcpZone: String = "local-virtualbuddy"
     public var machineType: String = "VirtualBuddy (A18 Pro, 4GB RAM + 8GB Swap)"
-    public var llmModel: String = "Google Gemma 2 (2B) / Meta Llama 3.2 (3B)"
+    public var llmModel: String = "Qwen 2.5 (3B / 7B)"
     public var uptimeHours: Double = 999.0
     public var cpuUsagePercent: Double = 15.0
     public var memoryUsagePercent: Double = 40.0
@@ -500,16 +496,16 @@ public struct VirtualLinuxMachineStatus: Codable {
    ```
    http://192.168.64.3:3000
    ```
-   初回アクセス時にローカル管理者アカウントを作成すれば、Google Gemma 2 や Meta Llama 3.2 と日本語で自由にチャットや創作プロンプトのテストが可能です。
+   初回アクセス時にローカル管理者アカウントを作成すれば、Qwen 2.5 と日本語で自由にチャットや創作プロンプトのテストが可能です。
 
 ---
 
 ## 7. メモリ 8GB Mac での運用上の注意点と Tips
 
-1. **Gemma 2 (2B) の圧倒的な軽快さ**:
-   - Google の `gemma2:2b` はモデルサイズが約 1.6GB のため、4GB RAM の仮想マシン内でも物理メモリ内に完全に収まります。
+1. **Qwen 2.5 (3B) の圧倒的な軽快さ**:
+   - Qwen 2.5 (3B) はモデルサイズが約 1.9GB のため、4GB RAM の仮想マシン内でも物理メモリ内に完全に収まります。
    - スワップの読み書きが一切発生しないため、A18 Pro チップの性能をフルに発揮し、**質問した瞬間に文字が高速で出力**されます。
-2. **Meta Llama 3.2 (3B) との使い分け**:
-   - キャラクターの口調指定や箇条書きフォーマットを厳密に守らせたい場合は、`llama3.2:3b` を指定すると高い精度を発揮します。
+2. **Qwen 2.5 (7B) との使い分け**:
+   - より深みのあるストーリー構成や長文のシナリオ推敲を行いたい場合は、7B モデルを指定すると高い表現力を発揮します（4GB VMではスワップを併用）。
 3. **VM を終了・停止したいとき**:
    - VirtualBuddy のウィンドウを閉じるか、VM 内で `sudo poweroff` を実行すれば、即座に Mac のメモリ 4GB がホストへ返却されます。

@@ -22,7 +22,7 @@ public enum AIProviderType: String, CaseIterable, Identifiable, Codable {
 
     public var defaultModel: String {
         switch self {
-        case .virtualLinuxVM: return "Google Gemma 2 (2B)"
+        case .virtualLinuxVM: return "Qwen 2.5 (3B)"
         case .gemini: return "Gemini 2.5 Flash"
         case .chatGPT: return "GPT-4o"
         case .claude: return "Claude 3.5 Sonnet"
@@ -32,11 +32,11 @@ public enum AIProviderType: String, CaseIterable, Identifiable, Codable {
     public var availableModels: [String] {
         switch self {
         case .virtualLinuxVM:
-            // LLMMac.md 準拠: 中国系を排除し、Google Gemma 2 / Meta Llama 3.2 のApple Silicon最適化構成
+            // Qwen 2.5 Apple Silicon最適化構成
             return [
-                "Google Gemma 2 (2B)",   // 最推奨・日常創作 (1.6GB / 爆速30〜40tok/s)
-                "Meta Llama 3.2 (3B)",   // サブ推奨・指示追従・口調指定 (2.0GB)
-                "Google Gemma 2 (9B)"    // 品質重視・重厚プロット・スワップ併用 (5.4GB)
+                "Qwen 2.5 (3B)",   // 最推奨・日常創作 (1.9GB / 爆速動作・物理RAM完結)
+                "Qwen 2.5 (7B)",   // 品質重視・重厚プロット・スワップ併用 (4.7GB)
+                "Qwen 2.5 (1.5B)"  // 超軽量・高速レスポンス (1.0GB)
             ]
         case .gemini:
             return ["Gemini 2.5 Flash", "Gemini 2.0 Flash", "Gemini 1.5 Pro"]
@@ -166,7 +166,7 @@ public final class TohoAIService: ObservableObject {
     // MARK: - Selected Configuration
     @Published public var activeProgramTab: TohoAIProgramTab = .aiChat
     @Published public var activeProvider: AIProviderType = .virtualLinuxVM
-    @Published public var selectedModel: String = "Google Gemma 2 (2B)"
+    @Published public var selectedModel: String = "Qwen 2.5 (3B)"
     @Published public var temperature: Double = 0.7
     @Published public var isGenerating: Bool = false
 
@@ -245,10 +245,10 @@ public final class TohoAIService: ObservableObject {
             ),
             AIChatMessage(
                 role: "assistant",
-                content: "こんにちは！東方Project制作総合AIアシスタントです。\nローカル仮想LinuxVM (Google Gemma 2 / Meta Llama 3.2) や外部LLMと常時接続しており、以下の制作をワンストップでサポートします：\n\n1. 【AIチャット】東方世界観・キャラクター相談・プロット作成\n2. 【AI編集・推敲】台本のブラッシュアップ・口調変換・絵コンテ自動生成\n3. 【AI画像生成】博麗神社・魔法の森・紅魔館などの背景や立ち絵イラスト・動画生成\n4. 【AI音楽・SE生成】ZUNペット風BGMやスペルカード・弾幕SEの波形合成\n\n画面上部のタブから各種プログラムにアクセスできます。どのような作品を制作しますか？",
-                thinkingContent: "【仮想LinuxVM システム起動ログ】\n- VirtualBuddy (Apple A18 Pro / 4GB RAM + 8GB Swap) 疎通OK (Heartbeat 2ms)\n- Google Gemma 2 (2B) / Meta Llama 3.2 (3B) ネイティブ推論エンジンスタンバイ完了\n- 東方Project公式二次創作ガイドライン・キャラクター口調辞書ロード完了\n- AI画像生成・AI音響合成エンジンスタンバイOK",
+                content: "こんにちは！東方Project制作総合AIアシスタントです。\nローカル仮想LinuxVM (Qwen 2.5) や外部LLMと常時接続しており、以下の制作をワンストップでサポートします：\n\n1. 【AIチャット】東方世界観・キャラクター相談・プロット作成\n2. 【AI編集・推敲】台本のブラッシュアップ・口調変換・絵コンテ自動生成\n3. 【AI画像生成】博麗神社・魔法の森・紅魔館などの背景や立ち絵イラスト・動画生成\n4. 【AI音楽・SE生成】ZUNペット風BGMやスペルカード・弾幕SEの波形合成\n\n画面上部のタブから各種プログラムにアクセスできます。どのような作品を制作しますか？",
+                thinkingContent: "【仮想LinuxVM システム起動ログ】\n- VirtualBuddy (Apple A18 Pro / 4GB RAM + 8GB Swap) 疎通OK (Heartbeat 2ms)\n- Qwen 2.5 ネイティブ推論エンジンスタンバイ完了\n- 東方Project公式二次創作ガイドライン・キャラクター口調辞書ロード完了\n- AI画像生成・AI音響合成エンジンスタンバイOK",
                 provider: .virtualLinuxVM,
-                modelName: "Google Gemma 2 (2B)",
+                modelName: "Qwen 2.5 (3B)",
                 timestamp: Date().addingTimeInterval(-3500)
             )
         ]
@@ -550,15 +550,15 @@ public final class TohoAIService: ObservableObject {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        // LLMMac.md 準拠: モデル名の解決 (Ollamaタグ)
+        // モデル名の解決 (Ollamaタグ)
         let resolvedModelTag: String
         let lower = model.lowercased()
-        if lower.contains("llama") {
-            resolvedModelTag = "llama3.2:3b"
-        } else if lower.contains("9b") {
-            resolvedModelTag = "gemma2:9b"
+        if lower.contains("7b") {
+            resolvedModelTag = "qwen2.5:7b"
+        } else if lower.contains("1.5b") {
+            resolvedModelTag = "qwen2.5:1.5b"
         } else {
-            resolvedModelTag = "gemma2:2b"
+            resolvedModelTag = "qwen2.5:3b"
         }
 
         let bodyDict: [String: Any]
@@ -940,7 +940,7 @@ public final class TohoAIService: ObservableObject {
 
             【回答】
             日常会話や学校・職場でのマナー、一般的な疑問に関する対話について承知いたしました。
-            ローカル仮想Linux（Ollama / Gemma 2）がオンラインの場合は、リアルタイムの自然言語推論により文脈に即した最適な返答・解説を生成いたします。
+            ローカル仮想Linux（Ollama / Qwen 2.5）がオンラインの場合は、リアルタイムの自然言語推論により文脈に即した最適な返答・解説を生成いたします。
 
             ※東方Projectの台本作成やキャラクターセリフの推敲を行う場合は、キャラクター名（霊夢、魔理沙など）や「台本」「画像」「BGM」などの制作キーワードをご入力ください。
             """

@@ -8,7 +8,7 @@ import Combine
 public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioPlayerDelegate {
     public static let shared = AISoundGeneratorService()
 
-    // MARK: - AI生成エンジン選択 (仮想LinuxVM: Google Gemma 2 / Meta Llama 3.2 ＆ 外部API: Gemini/ChatGPT/Claude)
+    // MARK: - AI生成エンジン選択 (仮想LinuxVM: Qwen 2.5 ＆ 外部API: Gemini/ChatGPT/Claude)
     @Published public var selectedProvider: AIProviderType = .virtualLinuxVM {
         didSet {
             if !selectedProvider.availableModels.contains(selectedModel) {
@@ -16,7 +16,7 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             }
         }
     }
-    @Published public var selectedModel: String = "Google Gemma 2 (2B)"
+    @Published public var selectedModel: String = "Qwen 2.5 (3B)"
 
     // MARK: - プロンプト駆動パラメータ
     @Published public var useColabGPUIfAvailable: Bool = true

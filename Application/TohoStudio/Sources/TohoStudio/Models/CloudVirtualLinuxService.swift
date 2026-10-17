@@ -13,7 +13,7 @@ public struct VirtualLinuxMachineStatus: Codable {
     public var hostIP: String = "192.168.64.3"
     public var gcpZone: String = "local-virtualbuddy"
     public var machineType: String = "VirtualBuddy VM (Apple A18 Pro, 4GB RAM + 8GB Swap)"
-    public var llmModel: String = "Google Gemma 2 (2B) / Meta Llama 3.2 (3B)"
+    public var llmModel: String = "Qwen 2.5 (3B / 7B)"
     public var uptimeHours: Double = 999.0
     public var cpuUsagePercent: Double = 15.0
     public var memoryUsagePercent: Double = 40.0
@@ -264,7 +264,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
         return true
     }
 
-    /// Sends a prompt request to the Local Linux VM (which automatically dispatches text to Gemma 2 and media to Colab GPU)
+    /// Sends a prompt request to the Local Linux VM (which automatically dispatches text to Qwen 2.5 and media to Colab GPU)
     public func sendPromptToLLM(prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
         guard consumePrompt(count: 1, purpose: "LLM推論/メディア生成リクエスト") else {
             completion(.failure(NSError(domain: "CloudLLM", code: 403, userInfo: [NSLocalizedDescriptionKey: "プロンプト残数が不足しています。"])))
@@ -333,7 +333,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
         req.timeoutInterval = 90.0
 
         let payload: [String: Any] = [
-            "model": "gemma2:2b",
+            "model": "qwen2.5:3b",
             "messages": [
                 [
                     "role": "system",
@@ -369,7 +369,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
         }.resume()
     }
 
-    // MARK: - ローカルLLM (LLMMac.md: Google Gemma 2 / Meta Llama 3.2) によるプロンプト英文化エンジン
+    // MARK: - ローカルLLM (LLMMac.md: Qwen 2.5) によるプロンプト英文化エンジン
     public enum LocalLLMMediaType: String {
         case image = "画像生成 (SDXL 1.0)"
         case video = "動画生成 (AnimateDiff / Video)"
@@ -399,7 +399,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
         }
     }
 
-    /// 日本語プロンプトをローカルLinux VMのLLM (Gemma 2 / Llama 3.2) で英語プロンプトに変換
+    /// 日本語プロンプトをローカルLinux VMのLLM (Qwen 2.5) で英語プロンプトに変換
     public func translateAndOptimizePromptWithLocalLLM(
         prompt: String,
         mediaType: LocalLLMMediaType,
@@ -429,7 +429,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
                 "user_id": "tohostudio-prompt-translator",
                 "system_prompt": mediaType.systemPrompt,
                 "user_prompt": "Request: \(trimmed)\nEnglish Prompt:",
-                "model": "gemma2:2b"
+                "model": "qwen2.5:3b"
             ]
 
             if let bodyData = try? JSONSerialization.data(withJSONObject: body) {
@@ -442,7 +442,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
                        !responseText.isEmpty,
                        !responseText.contains("【ローカル生成フォールバック】") {
                         let cleaned = Self.cleanLLMPromptOutput(responseText, originalPrompt: trimmed)
-                        AppState.shared.addSystemLog(level: "INFO", message: "ローカルLLM (Gemma 2) が英語プロンプトを生成: \(cleaned.prefix(60))...")
+                        AppState.shared.addSystemLog(level: "INFO", message: "ローカルLLM (Qwen 2.5) が英語プロンプトを生成: \(cleaned.prefix(60))...")
                         DispatchQueue.main.async {
                             completion(cleaned)
                         }
@@ -491,7 +491,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
         req.timeoutInterval = 45.0
 
         let payload: [String: Any] = [
-            "model": "gemma2:2b",
+            "model": "qwen2.5:3b",
             "prompt": "\(mediaType.systemPrompt)\n\nUser Request: \(prompt)\nEnglish Prompt:",
             "stream": false
         ]
@@ -508,7 +508,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
                let resText = json["response"] as? String,
                !resText.isEmpty {
                 let cleaned = cleanLLMPromptOutput(resText, originalPrompt: prompt)
-                AppState.shared.addSystemLog(level: "INFO", message: "Ollama (Gemma 2) が英語プロンプトを生成: \(cleaned.prefix(60))...")
+                AppState.shared.addSystemLog(level: "INFO", message: "Ollama (Qwen 2.5) が英語プロンプトを生成: \(cleaned.prefix(60))...")
                 DispatchQueue.main.async {
                     completion(cleaned)
                 }

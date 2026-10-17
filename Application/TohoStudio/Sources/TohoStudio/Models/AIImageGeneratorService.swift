@@ -8,7 +8,7 @@ import AVFoundation
 public final class AIImageGeneratorService: ObservableObject {
     public static let shared = AIImageGeneratorService()
 
-    // MARK: - AI生成エンジン選択 (仮想LinuxVM: Google Gemma 2 / Meta Llama 3.2 ＆ 外部API: Gemini/ChatGPT/Claude)
+    // MARK: - AI生成エンジン選択 (仮想LinuxVM: Qwen 2.5 ＆ 外部API: Gemini/ChatGPT/Claude)
     @Published public var selectedProvider: AIProviderType = .virtualLinuxVM {
         didSet {
             if !selectedProvider.availableModels.contains(selectedModel) {
@@ -16,7 +16,7 @@ public final class AIImageGeneratorService: ObservableObject {
             }
         }
     }
-    @Published public var selectedModel: String = "Google Gemma 2 (2B)"
+    @Published public var selectedModel: String = "Qwen 2.5 (3B)"
 
     // MARK: - メディア出力種別 (静止画イラスト / アニメーション動画)
     public enum MediaOutputType: String, CaseIterable, Identifiable {

@@ -111,7 +111,7 @@ public struct AIImageGeneratorProgramView: View {
                 labelText = "⚡️ Colab GPU ブリッジ接続中 (\(cloudLinuxService.colabBridge.gpuName))"
             } else {
                 isConfigured = (cloudLinuxService.connectionStatus == .connected || cloudLinuxService.connectionStatus == .lowLatency)
-                labelText = isConfigured ? "仮想LinuxVM接続中 (Google Gemma 2 / Meta Llama 3.2)" : "スタンドアロン推論"
+                labelText = isConfigured ? "仮想LinuxVM接続中 (Qwen 2.5)" : "スタンドアロン推論"
             }
         }
 
@@ -371,7 +371,7 @@ public struct AIImageGeneratorProgramView: View {
                         Image(systemName: "brain.head.profile")
                             .font(.system(size: 10))
                             .foregroundColor(.blue)
-                        Text("日本語入力時はローカルLLM (Gemma 2) が英語化してからGPUへ送信")
+                        Text("日本語入力時はローカルLLM (Qwen 2.5) が英語化してからGPUへ送信")
                             .font(.system(size: 10))
                             .foregroundColor(.secondary)
                     }
