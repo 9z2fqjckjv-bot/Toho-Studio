@@ -12,6 +12,7 @@ client_secret*.json
 *.env
 *.pem
 *.keychain
+*.key
 
 # Large media & project resources (exceeding GitHub limits or managed separately)
 動画用/
@@ -21,6 +22,8 @@ client_secret*.json
 彷徨う二人/
 交換夫婦/
 PodCast/
+元女子校の日常/
+*.key
 *.mp4
 *.mov
 *.wav
