@@ -45,7 +45,12 @@ public struct BatchVoiceGenerationSheet: View {
                 result.append(item.characterName)
             }
         }
-        return result
+        // 操夢をメイン話者として最優先で先頭に配置
+        return result.sorted { a, b in
+            if a == "操夢" { return true }
+            if b == "操夢" { return false }
+            return false
+        }
     }
 
     private var activeItemCount: Int {

@@ -140,12 +140,13 @@ public final class SlideVoiceBatchService: ObservableObject {
         let appState = AppState.shared
 
         let charDictionary: [String: String] = [
+            "操夢": "操夢", "サブ": "サブ", "ナレ1": "ナレ1", "ナレ2": "ナレ2", "みとり": "みとり",
             "霊夢": "博麗霊夢", "魔理沙": "霧雨魔理沙", "咲夜": "十六夜咲夜", "妖夢": "魂魄妖夢",
             "幽々子": "西行寺幽々子", "紫": "八雲紫", "パチュリー": "パチュリー・ノーレッジ",
             "フラン": "フランドール・スカーレット", "レミリア": "レミリア・スカーレット",
             "早苗": "東風谷早苗", "さとり": "古明地さとり", "こいし": "古明地こいし",
             "アリス": "アリス・マーガトロイド", "チルノ": "チルノ", "文": "射命丸文",
-            "操夢": "操夢", "ナレーション": "ナレーション"
+            "ナレーション": "ナレーション"
         ]
 
         for slide in slides {
@@ -158,7 +159,7 @@ public final class SlideVoiceBatchService: ObservableObject {
             }
 
             if speaker.isEmpty || speaker == "なし" {
-                speaker = "博麗霊夢"
+                speaker = "操夢" // メイン話者
             }
             if let mapped = charDictionary[speaker] {
                 speaker = mapped

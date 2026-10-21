@@ -959,7 +959,54 @@ public final class AppState: ObservableObject {
 
     public func initializeVoiceTemplates() {
         voiceTemplates = [
-            // 1. コゲの日記準拠（東風谷早苗 特別指定）
+            // 0. メイン話者タグ（操夢）
+            VoiceTemplate(
+                name: "操夢 (メイン話者)",
+                characterName: "操夢",
+                voiceType: .imd1,
+                speed: 100,
+                pitch: 115,
+                source: "メイン話者タグ",
+                description: "メイン話者・中性(imd1)・速度100%・音程115"
+            ),
+            // 1. 追加話者タグ
+            VoiceTemplate(
+                name: "サブ (f1,100,115)",
+                characterName: "サブ",
+                voiceType: .f1,
+                speed: 100,
+                pitch: 115,
+                source: "独自話者タグ",
+                description: "サブ・女声1(f1)・速度100%・音程115"
+            ),
+            VoiceTemplate(
+                name: "ナレ1 (男声1,100,115)",
+                characterName: "ナレ1",
+                voiceType: .m1,
+                speed: 100,
+                pitch: 115,
+                source: "独自話者タグ",
+                description: "ナレ1・男声1(m1)・速度100%・音程115"
+            ),
+            VoiceTemplate(
+                name: "ナレ2 (男声2,100,115)",
+                characterName: "ナレ2",
+                voiceType: .m2,
+                speed: 100,
+                pitch: 115,
+                source: "独自話者タグ",
+                description: "ナレ2・男声2(m2)・速度100%・音程115"
+            ),
+            VoiceTemplate(
+                name: "みとり (f1,105,105)",
+                characterName: "みとり",
+                voiceType: .f1,
+                speed: 105,
+                pitch: 105,
+                source: "独自話者タグ",
+                description: "みとり・女声1(f1)・速度105%・音程105"
+            ),
+            // 2. コゲの日記準拠（東風谷早苗 特別指定）
             VoiceTemplate(
                 name: "東風谷早苗 (コゲの日記)",
                 characterName: "東風谷早苗",
@@ -969,7 +1016,7 @@ public final class AppState: ObservableObject {
                 source: "コゲの日記",
                 description: "コゲの日記準拠・女性2・速度90%・音程135"
             ),
-            // 2. 独自テンプレート（ユーザー指定）
+            // 3. 独自テンプレート（ユーザー指定）
             VoiceTemplate(
                 name: "imd1,100,115 (独自)",
                 characterName: "独自: imd1",
@@ -1014,16 +1061,6 @@ public final class AppState: ObservableObject {
                 pitch: 115,
                 source: "独自テンプレート",
                 description: "男声2(m2)・速度100%・音程115"
-            ),
-            // 交換夫婦・主人公
-            VoiceTemplate(
-                name: "操夢 (交換夫婦)",
-                characterName: "操夢",
-                voiceType: .imd1,
-                speed: 100,
-                pitch: 115,
-                source: "交換夫婦",
-                description: "交換夫婦主人公・中性(imd1)・速度100%・音程115"
             ),
             // 3. ゆっくりボイスメーカー準拠 テンプレート（第1優先）
             VoiceTemplate(
@@ -1472,6 +1509,9 @@ public final class AppState: ObservableObject {
                 description: "女性1・速度80%・音程180"
             )
         ]
+        if activeVoiceTemplate == nil {
+            activeVoiceTemplate = voiceTemplates.first
+        }
     }
 
     private func initializeSampleData() {
@@ -1485,6 +1525,7 @@ public final class AppState: ObservableObject {
         // Initialize Audio Tracks (Logic Pro style)
         audioTracks = [
             AudioTrack(id: "track_movie", name: "video", type: "movie", icon: "film.fill", colorHex: "#3897F0", volume: 0.85, pan: 0.0),
+            AudioTrack(id: "track_voice_soumu", name: "操夢 (メイン話者)", type: "voice", icon: "waveform", colorHex: "#3498DB", volume: 1.0, pan: 0.0, characterName: "操夢"),
             AudioTrack(id: "track_voice_reimu", name: "博麗霊夢 (Voice)", type: "voice", icon: "waveform", colorHex: "#E74C3C", volume: 1.0, pan: -0.2, characterName: "博麗霊夢"),
             AudioTrack(id: "track_voice_marisa", name: "霧雨魔理沙 (Voice)", type: "voice", icon: "waveform", colorHex: "#F1C40F", volume: 0.95, pan: 0.2, characterName: "霧雨魔理沙"),
             AudioTrack(id: "track_se", name: "SE (効果音)", type: "se", icon: "bolt.fill", colorHex: "#2ECC71", volume: 0.8, pan: 0.0),

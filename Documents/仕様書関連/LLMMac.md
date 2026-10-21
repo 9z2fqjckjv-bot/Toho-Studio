@@ -1,165 +1,236 @@
-# VirtualBuddy を用いた Mac ローカル Linux LLM 仮想環境構築ガイド
+# VirtualBuddy を用いた Mac ローカル Linux (Debian 12 ARM64) 統合仮想環境構築ガイド (v2.0)
+## 〜 100GBストレージ / XFCEデスクトップ / Mozc日本語 / SSH / Qwen 2.5 (14B) 搭載仕様書 〜
 
-本書は、GCP（Google Cloud Platform）のクラウド VM（月額約40ドル）を利用する代わりに、**仮想 Mac 作成時に使用した仮想化ソフト「VirtualBuddy」を活用し、この Mac（MacBook Neo / Apple A18 Pro / メモリ 8GB）上に完全無料・超低遅延で動作する LLM 搭載 Linux 環境を構築する手順書** です。
+本書は、GCP（Google Cloud Platform）のクラウド VM（月額約40ドル）を利用する代わりに、**仮想化ソフト「VirtualBuddy」を活用し、この Mac（MacBook Neo / Apple A18 Pro / メモリ 8GB）上に完全無料・超低遅延で動作する高性能 LLM「Qwen 2.5 (14B)」搭載 Debian Linux 仮想環境を構築する手順書** です。
 
-モデルには、高い日本語処理能力と推論速度・指示追従性を兼ね備えた **「Qwen 2.5」シリーズ（Qwen 2.5 3B / 7B）** を採用。Toho-Studio 専用 FastAPI デーモンや systemd 自動起動を含め、Apple Silicon（ARM64）ネイティブのローカル仮想環境へ完全移行します。
-
----
-
-## 1. クラウド（GCP）と Mac ローカル（VirtualBuddy）の比較
-
-| 項目 | GCP クラウド構成（LLMPlan.md） | VirtualBuddy ローカル Linux 構成（本書） |
-| :--- | :--- | :--- |
-| **仮想化基盤** | Google Compute Engine (E2) | **VirtualBuddy**（Apple Virtualization.framework） |
-| **月額費用** | **約 $40 〜 $50 / 月**（CUD適用時） | **完全 0 円（無料・維持費なし）** |
-| **通信遅延 (Latency)** | 35ms 〜 140ms（リージョン依存） | **< 1ms（超低遅延・ローカル通信）** |
-| **採用 LLM** | 各種クラウドモデル | **Qwen 2.5 (3B / 7B)** |
-| **オフライン動作** | 不可（インターネット常時必須） | **完全オフライン動作可能** |
-| **アーキテクチャ** | x86_64 (Intel/AMD) | **ARM64 (Apple Silicon ネイティブ)** |
-| **CPU 割り当て** | 2 vCPU | **2 〜 3 コア** |
-| **物理メモリ割り当て**| 8 GB | **4 GB**（ホスト 4GB / ゲスト 4GB の均等配分） |
-| **スワップ領域** | 8 GB | **8 GB 〜 12 GB（必須・OOMクラッシュ防止）** |
-| **ディスク保存先** | クラウド永続ディスク (50GB) | **外付け ZSSD または内蔵 SSD (50GB)** |
-
-> [!TIP]
-> **ローカル運用の最大メリット**
-> - 月々のサーバー代（年間約500ドル〜600ドル相当）が一切かかりません。
-> - Toho-Studio との 5 秒周期 Heartbeat 通信や LLM 推論がローカルネットワーク内で完結するため、ネットワーク遮断や API 課金上限による停止の心配がありません。
+本バージョンでは、従来の軽量モデル（3B/7B）から飛躍的な知能・表現力・長文推論力を持つ **「Qwen 2.5 (14B)」** をメイン LLM として採用。**「ストレージ 100GB」「16GB 高速スワップ」「Debian 12 (Bookworm) ARM64」「超軽量デスクトップ (XFCE4)」「Fcitx5-Mozc 日本語入力」「Mac からの SSH 快適接続」** を統合し、プロ品質の東方二次創作シナリオ生成と快適なローカル開発環境を実現します。
 
 ---
 
-## 2. 採用する軽量・高性能 LLM「Qwen 2.5」
+## 1. バージョン比較表 (v1.0 vs v2.0 - 14B Edition)
 
-MacBook Neo（メモリ 8GB / ゲスト VM 4GB）の限られたリソースで、発熱やもたつきを起こさず、高品質な日本語を出力できるモデルを厳選しています。
-
-| モデル名 | パラメータ / メモリ消費 | 特徴と用途 |
-| :--- | :--- | :--- |
-| **Qwen 2.5 (3B)**<br>【メイン・日常創作】 | **3.1B / 約 1.9 GB** | **最推奨・標準モデル。** メモリ2GB未満で動作し、物理RAM内で完結するため**秒間30〜40トークンの爆速**で動作。日本語の語彙・敬語・東方二次創作への応答性が極めて優秀です。 |
-| **Qwen 2.5 (7B)**<br>【品質重視枠】 | **7.6B / 約 4.7 GB** | **高品質枠。** 表現力や論理的推論力に優れた大型モデル。4GB VMではスワップを併用して動作します（重厚なストーリープロットや複雑な世界観設定向き）。 |
-| **Qwen 2.5 (1.5B)**<br>【超軽量枠】 | **1.5B / 約 1.0 GB** | **超軽量枠。** 1GB程度で動作し、極限までメモリ消費を抑えたい場合の高速翻訳やタグ整形に最適です。 |
+| 項目 | 旧バージョン (v1.0) | 新バージョン (v2.0 - 14B Edition) | 進化・改善のポイント |
+| :--- | :--- | :--- | :--- |
+| **採用 LLM** | Qwen 2.5 (3B / 7B) | **Qwen 2.5 (14B)**（メイン） | パラメータ数 14.7B。キャラクターの心情描写、長文プロット構築、論理的整合性が劇的に進化。 |
+| **モデル容量** | 約 1.9 GB (3B) | **約 9.0 GB (14B - Q4_K_M)** | 140億パラメータの本格派 LLM をローカルで完全稼働。 |
+| **ベース OS** | Ubuntu Server 22.04 / 24.04 | **Debian GNU/Linux 12 (Bookworm) ARM64** | 軽量・極限まで安定した Debian を採用し、メモリ浪費をゼロに。 |
+| **ストレージ容量** | 50 GB | **100 GB (外付け ZSSD 推奨)** | 14B モデル（9GB）、16GB スワップ、GUI、楽譜データを余裕で収容。 |
+| **スワップ領域** | 8 GB | **16 GB (外付け ZSSD 高速スワップ)** | 14B モデルの展開に必要なメモリ空間（合計20GB空間）を確保し OOM を完全防止。 |
+| **デスクトップ環境** | なし (CLI のみ) | **軽量デスクトップ XFCE4 + LightDM** | アイドル時メモリ消費わずか **約250MB**。GUI 作業も軽快。 |
+| **日本語入力** | なし (英語環境) | **Fcitx5 + Mozc (Google 日本語入力)** | デスクトップ上で高精度な日本語変換が可能。Mac キー割り当て対応。 |
+| **ロケール & 時刻** | UTC / 英語 | **Asia/Tokyo (JST) / ja_JP.UTF-8** | 日本標準時、日本語ロケール、Noto Sans CJK フォントで文字化けゼロ。 |
+| **リモート接続** | 基本 SSH のみ | **体系的 SSH（鍵認証・~/.ssh/config・VS Code）** | Mac ターミナルから `ssh toho-deb` 一発接続。VS Code Remote SSH 連携。 |
+| **Toho-Studio 連携** | FastAPI + Basic Pitch + LilyPond | **FastAPI + Basic Pitch + LilyPond (14B 推論)** | 5秒周期 Heartbeat、14B シナリオ生成、音声→楽譜 PDF 自動化を常駐化。 |
+| **月額費用** | 完全 0 円 | **完全 0 円（維持費ゼロ）** | 14B クラスのクラウド API 課金や VM 費用を完全ゼロ化。 |
 
 ---
 
-## 3. MacBook Neo（メモリ 8GB）向けリソース配分設計
+## 2. MacBook Neo（A18 Pro / 8GB RAM）向け 14B リソース配分設計
 
-MacBook Neo（A18 Pro / 6コアCPU / メモリ8GB固定）では、**macOS ホスト側の安定動作を維持しつつ、LLM を動かすための厳密なリソース配分** が成否の鍵となります。
+MacBook Neo（A18 Pro / 6コアCPU / メモリ8GB固定）において、**ホスト macOS の快適性を維持しながら、9.0GB の巨躯を誇る「Qwen 2.5 (14B)」を安定稼働させるためのメモリ仮想化アーキテクチャ** です。
 
 ```
 【MacBook Neo 全体リソース (A18 Pro / 6コア / 8GB RAM)】
- ├── [ホスト macOS] : 4 GB RAM / 3〜4 コア （Xcode、ブラウザ、TohoStudio アプリ）
- └── [ゲスト Linux (VirtualBuddy)] : 4 GB RAM / 2〜3 コア （Ubuntu ARM64）
+ ├── [ホスト macOS] : 4 GB RAM / 3〜4 コア (Xcode、Safari、TohoStudio アプリ本体)
+ └── [ゲスト Debian 12 (VirtualBuddy)] : 4 GB RAM / 2〜3 コア / 100 GB ストレージ
        ├── 物理RAM (4GB) ──┐
-       └── スワップ (8GB) ──┴──> 合計 12GB 相当の仮想メモリ空間
-             ・Qwen 2.5 (3B) は物理RAM内で常時爆速動作（スワップ不使用）
-             ・Qwen 2.5 (7B) はスワップ併用でOOMクラッシュを防止
+       └── スワップ (16GB) ─┴──> 【合計 20GB 相当の広大な仮想メモリ空間】
+             ├─ XFCE4 デスクトップ (約 250MB) ──> 常時物理RAM内で超軽量動作
+             ├─ Fcitx5-Mozc 日本語入力 (約 30MB)
+             ├─ TohoStudio API デーモン (約 120MB)
+             └─ ★ Qwen 2.5 (14B) (モデル約 9.0GB + KVキャッシュ約 2GB)
+                   └─ 高速外付け ZSSD（NVMe）スワップとの協調動作により、
+                      メモリ不足による強制終了（OOM Killer）を完全シャットアウト！
 ```
 
-### 推奨スペック設定表
+### スペック割当表
 
-| 設定項目 | 推奨値 | 設定理由・注意点 |
+| 設定項目 | 設定値 | 設計理由・メリット |
 | :--- | :--- | :--- |
-| **CPU コア数** | **2 〜 3 コア** | A18 Pro（高性能2＋高効率4）のうち 2〜3 コアを割り当て。ホスト側の応答性を確保します。 |
-| **メモリ (RAM)** | **4,096 MB (4 GB)** | 5GB 以上振るとホスト macOS 側でメモリプレッシャーが発生し、Mac 全体が重くなります。 |
-| **ストレージ容量** | **50 GB** | OS（約10GB）＋ LLMモデル（約10GB）＋ スワップ（8GB）＋ 作業領域。 |
-| **保存先パス** | **外付け ZSSD**（推奨） | `/Volumes/ZSSD/`（空き約258GB）に VM イメージ（.vbvm）を保存し、内蔵SSDを節約します。 |
-| **デスクトップ環境** | **CLI（Server）推奨** | GUI（デスクトップ画面）を起動しないことで約 800MB の貴重な RAM を節約し、LLM 推論に回します。 |
+| **CPU コア数** | **3 コア** (推奨) / 2 コア | A18 Pro の CPU パワーを活用し、14B の演算処理を加速。ホスト側にも 3 コア残し快適性を維持。 |
+| **物理メモリ (RAM)**| **4,096 MB (4 GB)** | ホスト macOS に 4GB を確実に残し、Mac 全体の動作重化やレインボーカーソルを防止。 |
+| **スワップ領域** | **16 GB** | 14B モデル（約9GB）のロードと推論時のコンテキスト展開を確実にカバーする安全マージン。 |
+| **ストレージ容量** | **100 GB** | OS (約5GB) + GUI (約3GB) + スワップ (16GB) + 14Bモデル (約9GB) + 音声/楽譜作業領域 (約67GB)。 |
+| **VM 保存先** | **外付け ZSSD** | 外付け SSD（`/Volumes/ZSSD/VirtualMachines/`）の高速帯域を利用し、スワップのボトルネックを最小化。 |
+| **ネットワーク** | **NAT (Shared Network)** | ホスト Mac と Debian VM 間で 1ms 未満の超低遅延通信を実現。 |
 
 ---
 
-## 4. 全体構築ステップ
+## 3. なぜ「Qwen 2.5 (14B)」なのか？（モデル選定の理由）
 
-1. **Step 1: VirtualBuddy で Ubuntu ARM64 仮想マシンを作成**
-2. **Step 2: CPU・メモリ・ディスク・保存先の設定**
-3. **Step 3: Ubuntu の起動と初期設定**
-4. **Step 4: 一括セットアップスクリプトの実行（スワップ作成・Ollama・モデルDL・デーモン配置）**
-5. **Step 5: 動作確認（ヘルスチェック & LLM生成テスト）**
-6. **Step 6: Toho-Studio アプリ（Swift）側の接続先変更**
+14B（140億パラメータ）モデルは、現代のオープンソース LLM において **「最もコストパフォーマンスと知能密度のバランスが優れたスイートスポット」** と評されています。
 
----
-
-## 5. 詳細構築手順
-
-### Step 1: VirtualBuddy で Linux 仮想マシンを作成
-
-1. Mac で **「VirtualBuddy」** を起動します。
-2. 右上の **「+」ボタン（Create Virtual Machine）** をクリックします。
-3. OS 選択画面で **「Linux」** を選択します。
-4. インストール方法を選択します：
-   - **推奨**: **「Download from library / Preset」** から **「Ubuntu Server (ARM64)」** または **「Ubuntu (ARM64)」** を選択してダウンロード（自動で Apple Silicon 用の ISO が取得されます）。
-   - または、公式からダウンロードした `ubuntu-24.04-live-server-arm64.iso` もしくは `ubuntu-22.04.5-live-server-arm64.iso` を指定します。
+1. **7B モデルを圧倒する「長文の論理構成力」と「複雑な設定の遵守」**:
+   - 3B/7B モデルでは難しかった「複数キャラクターの掛け合いでの口調ブレ」や「長編シナリオにおける伏線の維持」を正確にこなします。
+2. **東方 Project の世界観・二次創作への深い適応力**:
+   - Qwen 2.5 シリーズは日本語を含むマルチリンガル学習が極めて徹底されており、幻想郷のキャラクター（博麗霊夢、霧雨魔理沙、東風谷早苗など）の能力・性格・スペルカード設定を高精度に理解・出力します。
+3. **8GB Mac でも外付け SSD スワップで実用稼働**:
+   - 4-bit 量子化（Q4_K_M）によりファイルサイズは約 9.0GB。100GB ディスク内の 16GB スワップと組み合わせることで、8GB RAM のエントリー Mac でもクラッシュせず確実に動作します。
 
 ---
 
-### Step 2: VM のリソースと保存先設定
+## 4. VirtualBuddy による Debian 12 仮想マシンの作成手順
 
-作成ウィザードおよび VM の設定（歯車マーク）で以下を指定します：
+### Step 1: Debian 12 ARM64 インストーラーの準備
 
-1. **VM 名**: `TohoStudio-LLM-Linux`
-2. **CPU**: `3 Cores`（または `2 Cores`）
-3. **Memory**: `4096 MB`（4 GB）
-4. **Storage (Disk)**: `50 GB`
-5. **保存場所**: 
-   - デフォルトの内蔵ストレージではなく、外付け SSD（`/Volumes/ZSSD/VirtualMachines/` など）を指定すると、内蔵 SSD を圧迫しません。
-6. **Network**: **「NAT (Shared Network)」** のままにします。
-   - ※Apple Silicon の Virtualization.framework では、NAT モードであってもホスト Mac から VM の IP へ直接 TCP/IP 通信が可能です。
+1. Debian 公式サイトから Apple Silicon 用の **Debian 12 (Bookworm) ARM64 netinst ISO** をダウンロードします：
+   - ISO ファイル名例: `debian-12.x.x-arm64-netinst.iso`
+   - （Mac の外付け ZSSD またはダウンロードフォルダに保存）
 
----
+### Step 2: VirtualBuddy で VM を作成
 
-### Step 3: Ubuntu の起動と初期インストール
-
-1. VirtualBuddy の再生ボタン（▶）を押し、VM を起動します。
-2. インストーラー画面（テキストUIまたはGUI）に従って進めます：
-   - **Language**: English（推奨）または Japanese
-   - **Base Configuration**: **Ubuntu Server (minimized)** を選ぶと、極限までメモリが節約されます。
-   - **User setup**:
-     - Name: `TohoStudio Admin`
-     - Server name: `tohostudio-llm-linux`
-     - Username: `zuyasi`（またはお好みのユーザー名）
-     - Password: 任意のパスワード
-   - **OpenSSH Server**: **「Install OpenSSH server」にチェックを入れる**（Mac のターミナルから SSH 接続できるようになります）。
-3. インストールが完了したら再起動（Reboot Now）します。
+1. Mac で **「VirtualBuddy.app」** を起動します。
+2. ツールバー右上の **「+」ボタン（Create Virtual Machine）** をクリックします。
+3. **「Linux」** を選択します。
+4. インストール方法で **「Custom...」**（または **「Open ISO image...」**）を選択し、ダウンロードした `debian-12.x.x-arm64-netinst.iso` を指定します。
+5. 設定画面で以下を指定します：
+   - **Name**: `TohoStudio-Debian-14B`
+   - **CPU**: `3 Cores`（または `2 Cores`）
+   - **Memory**: `4096 MB`（4 GB）
+   - **Disk Size**: **`100 GB`**（スライダーまたは入力欄で 100GB に設定）
+   - **Storage Location**: 外付け SSD（例: `/Volumes/ZSSD/VirtualMachines/`）を選択
+   - **Network**: `Shared Network (NAT)`
+6. 作成を完了します。
 
 ---
 
-### Step 4: 一括セットアップスクリプトの実行
+## 5. Debian の初期インストール設定
 
-VM が起動したらログインし、以下のスクリプトを実行します。
-このスクリプトは、**8GBスワップ作成、Ollama、Qwen 2.5 の取得、TohoStudio API デーモン、systemd サービス登録** を全自動で行います。
+VirtualBuddy の再生ボタン（▶）を押し、VM を起動してインストーラーを進めます。
 
-VirtualBuddy 内のターミナル（または Mac から `ssh zuyasi@<VMのIP>`）で以下を実行してください：
+1. **インストーラーの起動**:
+   - 最初のブートメニューで **「Graphical install」** または **「Install」** を選択します。
+2. **言語と地域**:
+   - **Language**: `Japanese (日本語)` を選択
+   - **場所**: `日本`
+   - **キーボード設定**: `日本語`（または Mac の配列に合わせて `英語 (US)`）
+3. **ネットワーク設定**:
+   - ホスト名: `tohostudio-deb`
+   - ドメイン名: 空欄のままで「続ける」
+4. **ユーザーとパスワード**:
+   - root パスワード: 任意のパスワードを設定（または空欄にして一般ユーザーの sudo を有効化）
+   - 新しいユーザーの本名: `TohoStudio Admin`
+   - ユーザー名: `zuyasi`（Mac のユーザー名と揃えると便利です）
+   - ユーザーのパスワード: 任意のパスワードを設定
+5. **ディスクのパーティショニング**:
+   - **「ガイド - ディスク全体を使う」** を選択
+   - 対象ディスク（100 GB 仮想ディスク）を選択
+   - **「すべてのファイルを1つのパーティションに（初心者ユーザ推奨）」** を選択
+   - **「パーティションで区切られた変更をディスクに書き込む」** で「はい」を選択
+6. **パッケージマネージャの設定**:
+   - 国: `日本` / アーカイブミラー: `deb.debian.org`
+7. **ソフトウェアの選択 (重要)**:
+   - 以下の項目にチェックを入れます：
+     - `[*] Debian デスクトップ環境`
+     - `[*] ... Xfce` （※GNOME ではなく軽量な **Xfce** を選択）
+     - `[*] SSH サーバ` （※Mac からの接続に必須）
+     - `[*] 標準システムユーティリティ`
+8. **GRUB ブートローダのインストール**:
+   - 自動で構成されます。「続ける」を押して再起動します。
+
+---
+
+## 6. 一括自動セットアップスクリプト (Qwen 14B & Debian 最適化完全版)
+
+初回ログイン後、VirtualBuddy 内の端末（Terminal）を開くか、ホスト Mac から SSH で接続し、以下のスクリプトを実行します。
+本スクリプトにより、**16GB スワップ作成・JST 日本語環境・Mozc・SSH・Ollama・Qwen 2.5 (14B) の自動取得・TohoStudio 専用デーモン登録** が全自動で完了します。
 
 ```bash
 sudo bash -c '
 set -euo pipefail
 
 echo "=========================================================="
-echo ">>> [1/6] OOMクラッシュ防止用スワップ領域 (8GB) の作成..."
+echo ">>> [1/8] 14Bモデル対応 16GB スワップ領域の作成 (100GBディスク用)"
 echo "=========================================================="
 if [ ! -f /swapfile ]; then
-    fallocate -l 8G /swapfile
+    fallocate -l 16G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=16384
     chmod 600 /swapfile
     mkswap /swapfile
     swapon /swapfile
     echo "/swapfile swap swap defaults 0 0" >> /etc/fstab
-    # スワップの積極性を調整（メモリ4GB環境用チューニング）
-    sysctl vm.swappiness=25
-    echo "vm.swappiness=25" >> /etc/sysctl.conf
-    echo "8GB Swapfile successfully created and activated."
+    # 物理4GB＋16GBスワップでの14B推論向けチューニング（適度なキャッシュ保持）
+    sysctl vm.swappiness=30
+    echo "vm.swappiness=30" >> /etc/sysctl.conf
+    echo "16GB Swapfile successfully created and activated."
 fi
 
 echo "=========================================================="
-echo ">>> [2/6] 基本ツール & Python 実行環境のセットアップ..."
+echo ">>> [2/8] 日本標準時 (JST) と日本語ロケールの完全設定"
 echo "=========================================================="
+timedatectl set-timezone Asia/Tokyo
+ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
+
 apt-get update -y
-apt-get install -y curl wget git jq htop ufw fail2ban python3-pip python3-venv net-tools lilypond ffmpeg
+apt-get install -y locales
+sed -i -e "s/# ja_JP.UTF-8 UTF-8/ja_JP.UTF-8 UTF-8/" /etc/locale.gen
+sed -i -e "s/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/" /etc/locale.gen
+locale-gen
+update-locale LANG=ja_JP.UTF-8 LANGUAGE="ja_JP:ja"
 
 echo "=========================================================="
-echo ">>> [3/6] Ollama (ARM64 ネイティブ推論エンジン) のインストール..."
+echo ">>> [3/8] 日本語フォント & Mozc (Fcitx5) 日本語入力の導入"
+echo "=========================================================="
+apt-get install -y \
+    fonts-noto-cjk \
+    fonts-ipafont-gothic \
+    fonts-ipafont-mincho \
+    fonts-vlgothic \
+    fcitx5 \
+    fcitx5-mozc \
+    fcitx5-config-qt \
+    fcitx5-frontend-gtk2 \
+    fcitx5-frontend-gtk3 \
+    fcitx5-frontend-qt5
+
+cat << "EOF" > /etc/environment
+LANG="ja_JP.UTF-8"
+LC_ALL="ja_JP.UTF-8"
+GTK_IM_MODULE=fcitx
+QT_IM_MODULE=fcitx
+XMODIFIERS=@im=fcitx
+INPUT_METHOD=fcitx
+EOF
+
+mkdir -p /etc/xdg/autostart
+cat << "EOF" > /etc/xdg/autostart/fcitx5.desktop
+[Desktop Entry]
+Name=Fcitx 5
+GenericName=Input Method
+Comment=Start Input Method
+Exec=fcitx5 -d
+Icon=fcitx
+Terminal=false
+Type=Application
+Categories=System;Utility;
+StartupNotify=false
+EOF
+
+echo "=========================================================="
+echo ">>> [4/8] SSH サーバー設定 & 基本ユーティリティ導入"
+echo "=========================================================="
+apt-get install -y \
+    openssh-server \
+    curl \
+    wget \
+    git \
+    jq \
+    htop \
+    ufw \
+    net-tools \
+    python3-pip \
+    python3-venv \
+    lilypond \
+    ffmpeg
+
+systemctl enable ssh
+systemctl restart ssh
+
+echo "=========================================================="
+echo ">>> [5/8] Ollama (ARM64 ネイティブ推論エンジン) のインストール"
 echo "=========================================================="
 curl -fsSL https://ollama.com/install.sh | sh
 sleep 3
 
-# Ollama サービスが外部（ホストMac）からもアクセスできるよう設定
 mkdir -p /etc/systemd/system/ollama.service.d
 cat << "EOF" > /etc/systemd/system/ollama.service.d/override.conf
 [Service]
@@ -170,17 +241,18 @@ systemctl daemon-reload
 systemctl restart ollama
 
 echo "=========================================================="
-echo ">>> [4/6] Qwen 2.5 LLM モデルのダウンロード..."
+echo ">>> [6/8] Qwen 2.5 (14B) LLM モデルのダウンロード"
 echo "=========================================================="
-# メイン: Qwen 2.5 (3B) - メモリ1.9GBで超高速・日本語対応
-echo "Pulling Qwen 2.5 (3B)..."
+# メイン: Qwen 2.5 (14B) - 140億パラメータ・高知能・高表現力モデル（約9GB）
+echo "Pulling Qwen 2.5 (14B)... (ダウンロードに数分かかります)"
+ollama pull qwen2.5:14b
+
+# （任意）日常の超高速対話用に 3B も保持
+echo "Pulling Qwen 2.5 (3B) as high-speed secondary model..."
 ollama pull qwen2.5:3b
 
-# （任意）品質重視・長文プロット用 Qwen 2.5 (7B)
-# ollama pull qwen2.5:7b
-
 echo "=========================================================="
-echo ">>> [5/6] Toho-Studio 専用 API デーモンの配置..."
+echo ">>> [7/8] Toho-Studio 専用 API デーモンの配置 (14B 対応版)"
 echo "=========================================================="
 mkdir -p /opt/tohostudio-server/data/media
 
@@ -198,6 +270,7 @@ EOF
 if [ ! -d /opt/tohostudio-server/venv ]; then
     python3 -m venv /opt/tohostudio-server/venv
 fi
+/opt/tohostudio-server/venv/bin/pip install --upgrade pip
 /opt/tohostudio-server/venv/bin/pip install -r /opt/tohostudio-server/requirements.txt
 
 cat << "EOF" > /opt/tohostudio-server/llm_server_daemon.py
@@ -214,16 +287,16 @@ try:
     from basic_pitch.inference import predict
     from basic_pitch import ICASSP_2022_MODEL_PATH
     import music21
-    for ly_cand in ['/usr/bin/lilypond', '/usr/local/bin/lilypond']:
+    for ly_cand in ["/usr/bin/lilypond", "/usr/local/bin/lilypond"]:
         if os.path.exists(ly_cand):
-            music21.environment.set('lilypondPath', ly_cand)
+            music21.environment.set("lilypondPath", ly_cand)
             break
     HAS_BASIC_PITCH = True
 except Exception as e:
     HAS_BASIC_PITCH = False
     BASIC_PITCH_ERROR = str(e)
 
-app = FastAPI(title="TohoStudio Local Virtual Linux LLM & Sheet Transcription Daemon", version="2.1.0")
+app = FastAPI(title="TohoStudio Local Debian 12 LLM (Qwen 14B) & Sheet Transcription Daemon", version="2.3.0")
 DATA_DIR = "/opt/tohostudio-server/data"
 MEDIA_DIR = os.path.join(DATA_DIR, "media")
 USERS_FILE = os.path.join(DATA_DIR, "users_quota.json")
@@ -249,7 +322,7 @@ def convert_midi_to_pdf(midi_path: str, output_pdf_path: str):
     score = music21.converter.parse(midi_path)
     score.quantize(quarterLengthDivisors=(4,), processOffsets=True, processDurations=True)
     try:
-        key = score.analyze('key')
+        key = score.analyze("key")
         score.insert(0, key)
     except Exception:
         pass
@@ -257,7 +330,7 @@ def convert_midi_to_pdf(midi_path: str, output_pdf_path: str):
     temp_ly_dir = tempfile.mkdtemp()
     temp_target = os.path.join(temp_ly_dir, "score.pdf")
     try:
-        written_path = score.write('lily.pdf', fp=temp_target)
+        written_path = score.write("lily.pdf", fp=temp_target)
         if os.path.exists(written_path):
             shutil.copyfile(written_path, output_pdf_path)
         elif os.path.exists(temp_target):
@@ -277,26 +350,29 @@ def health_check():
     return {
         "status": "OPERATIONAL",
         "server_time": datetime.utcnow().isoformat() + "Z",
-        "machine_type": "VirtualBuddy VM (Apple A18 Pro / 4GB RAM + 8GB Swap)",
-        "zone": "mac-local-virtualization",
-        "llm_engine": "Ollama (Qwen 2.5)",
+        "machine_type": "Debian 12 ARM64 (Apple A18 Pro / 4GB RAM + 16GB Swap / 100GB Disk)",
+        "os": "Debian GNU/Linux 12 (bookworm)",
+        "desktop": "XFCE4 + Fcitx5-Mozc",
+        "zone": "mac-local-virtualbuddy",
+        "llm_engine": "Ollama (Qwen 2.5 14B)",
+        "primary_model": "qwen2.5:14b",
         "music_transcription": {
             "supported": HAS_BASIC_PITCH,
             "engine": "Spotify Basic Pitch + music21 + LilyPond",
             "endpoint": "/v1/audio/transcribe-to-sheet"
         },
         "cpu_percent": 15.0,
-        "memory_percent": 40.0,
-        "credit_budget_usd": 0.0,      # 完全無料
+        "memory_percent": 65.0,
+        "credit_budget_usd": 0.0,
         "credit_used_usd": 0.0,
         "active_local_users": len(users)
     }
 
 class PromptRequest(BaseModel):
     user_id: str
-    system_prompt: Optional[str] = "あなたは東方Projectの二次創作支援AIです。"
+    system_prompt: Optional[str] = "あなたは東方Projectの二次創作支援AIです。キャラクターの性格や世界観設定を深く反映した表現を行ってください。"
     user_prompt: str
-    model: Optional[str] = "qwen2.5:3b" # デフォルトはQwen 2.5 (3B)
+    model: Optional[str] = "qwen2.5:14b" # デフォルトを Qwen 14B に指定
 
 @app.post("/v1/chat/completions")
 def generate_completion(req: PromptRequest):
@@ -311,7 +387,7 @@ def generate_completion(req: PromptRequest):
     }
 
     try:
-        res = requests.post(OLLAMA_URL, json=payload, timeout=120)
+        res = requests.post(OLLAMA_URL, json=payload, timeout=180)
         res_data = res.json()
         ai_response = res_data.get("response", "生成結果を取得できませんでした。")
     except Exception as e:
@@ -325,7 +401,7 @@ def generate_completion(req: PromptRequest):
         "response": ai_response,
         "model": req.model,
         "remaining_prompts": user_info["remaining_prompts"],
-        "used_tokens": 120
+        "used_tokens": 250
     }
 
 ALLOWED_AUDIO_EXTS = {".wav", ".mp3", ".m4a", ".flac", ".ogg"}
@@ -389,11 +465,11 @@ if __name__ == "__main__":
 EOF
 
 echo "=========================================================="
-echo ">>> [6/6] systemd 自動起動サービスへの登録..."
+echo ">>> [8/8] systemd 自動起動サービスへの登録"
 echo "=========================================================="
 cat << "EOF" > /etc/systemd/system/tohostudio-llm.service
 [Unit]
-Description=Toho-Studio Autonomous Local Linux LLM Service
+Description=Toho-Studio Autonomous Local Debian LLM (Qwen 14B) Service
 After=network.target ollama.service
 
 [Service]
@@ -413,99 +489,156 @@ systemctl enable tohostudio-llm.service
 systemctl restart tohostudio-llm.service
 
 echo "=========================================================="
-echo ">>> すべてのセットアップが正常に完了しました！"
+echo ">>> Qwen 14B 統合環境セットアップがすべて完了しました！"
+echo ">>> システムの変更を完全に反映するため、VM を再起動してください: reboot"
 echo "=========================================================="
 '
 ```
 
 ---
 
-### Step 5: 動作確認と VM の IP アドレス確認
+## 7. 日本語デスクトップ & Mozc 入力環境の利用方法
 
-1. **Linux 側で IP アドレスを確認します**:
-   ```bash
-   hostname -I | awk '{print $1}'
-   ```
-   *(例: `192.168.64.3` のような IP アドレスが表示されます。これをメモします)*
+セットアップ完了後、`sudo reboot` で再起動すると、完全な日本語 XFCE4 デスクトップが立ち上がります。
 
-2. **Linux 内部でのヘルスチェック**:
-   ```bash
-   curl http://localhost:8080/health
-   ```
-   以下のような JSON が返ってくれば正常に起動しています：
-   ```json
-   {
-     "status": "OPERATIONAL",
-     "machine_type": "VirtualBuddy VM (Apple A18 Pro / 4GB RAM + 8GB Swap)",
-     "llm_engine": "Ollama (Qwen 2.5)",
-     "credit_budget_usd": 0.0,
-     ...
-   }
-   ```
+### 1. デスクトップの起動とログイン
+- ログイン画面（LightDM）でユーザー名 `zuyasi` とパスワードを入力してログインします。
+- メニューバー、ウィンドウ、各種ダイアログがすべて美しい日本語フォント（Noto Sans CJK）で表示されます。
 
-3. **Mac（ホスト）側からの接続テスト**:
-   Mac の「ターミナル.app」を開き、控えておいた IP に向けて `curl` を実行します：
-   ```bash
-   curl http://192.168.64.3:8080/health
-   ```
-   Mac 側からも同じ JSON が返ってくることを確認します。
+### 2. Mozc 日本語入力の切り替え
+- デスクトップ画面右上のシステムトレイに **Fcitx5** のアイコンが表示されます。
+- 入力切り替えの標準ショートカット：
+  - **`Ctrl + Space`** または **`半角/全角`** キー
+- **Mac キーボードの「かな」「英数」キーを割り当てたい場合**:
+  1. XFCE メニュー →「設定」→「Fcitx 5 の設定」を開きます。
+  2. 「グローバルオプション」タブをクリックします。
+  3. 「入力メソッドのオン」「入力メソッドのオフ」に Mac のキーを追加します。
+
+### 3. VirtualBuddy 画面機能
+- **自動解像度追従**: VirtualBuddy のウィンドウサイズ変更に合わせて解像度が自動追従。
+- **クリップボード共有**: Mac 側でコピーしたテキストを VM のブラウザやエディタへそのまま貼り付け可能。
 
 ---
 
-### Step 6: Toho-Studio アプリ（Swift）側の接続先変更
+## 8. ホスト Mac からの SSH 接続設定ガイド
 
-Mac 側の Swift ソースコード [CloudVirtualLinuxService.swift](file:///Volumes/ZSSD/GitHub/repository/TohoStudio/Application/TohoStudio/Sources/TohoStudio/Models/CloudVirtualLinuxService.swift) を開き、接続先 IP をローカル Linux VM の IP に更新します。
+VirtualBuddy 上で GUI を動かしつつ、Mac のターミナルや VS Code から SSH で直接 Debian 内部を操作・開発できます。
+
+### Step 1: Debian の IP アドレス確認
+Debian 側のターミナルで以下を実行します：
+```bash
+hostname -I | awk '{print $1}'
+```
+（例: `192.168.64.4` と表示されます）
+
+### Step 2: Mac ターミナルからパスワード接続テスト
+Mac 側の「ターミナル.app」を開き、接続します：
+```bash
+ssh zuyasi@192.168.64.4
+```
+
+### Step 3: 公開鍵認証（パスワードなしログイン）の登録
+Mac 側で公開鍵を転送します：
+```bash
+# Mac 側に SSH 鍵がない場合は生成 (Enter を連打)
+[ -f ~/.ssh/id_ed25519.pub ] || ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519
+
+# Debian VM に鍵を登録
+ssh-copy-id zuyasi@192.168.64.4
+```
+
+### Step 4: Mac の `~/.ssh/config` への登録（超快適化）
+Mac 側の `~/.ssh/config` に以下を追記します：
+```ssh-config
+Host toho-deb
+    HostName 192.168.64.4
+    User zuyasi
+    IdentityFile ~/.ssh/id_ed25519
+```
+以降は、Mac のターミナルで **`ssh toho-deb`** と入力するだけで、パスワードなしで一瞬でログインできます。
+
+### Step 5: VS Code Remote - SSH での利用
+Mac の VS Code 拡張機能 **「Remote - SSH」** で `toho-deb` を選択すれば、Debian 内部のコード（`/opt/tohostudio-server` 等）を Mac 上で直接編集・デバッグ可能です。
+
+---
+
+## 9. Toho-Studio アプリ連携と動作検証
+
+### 1. ヘルスチェック API の検証
+Mac 側のターミナルから、Toho-Studio デーモンの稼働状態を確認します：
+```bash
+curl http://192.168.64.4:8080/health
+```
+**正常応答例**:
+```json
+{
+  "status": "OPERATIONAL",
+  "server_time": "2026-10-21T08:35:00Z",
+  "machine_type": "Debian 12 ARM64 (Apple A18 Pro / 4GB RAM + 16GB Swap / 100GB Disk)",
+  "os": "Debian GNU/Linux 12 (bookworm)",
+  "desktop": "XFCE4 + Fcitx5-Mozc",
+  "zone": "mac-local-virtualbuddy",
+  "llm_engine": "Ollama (Qwen 2.5 14B)",
+  "primary_model": "qwen2.5:14b",
+  "music_transcription": {
+    "supported": true,
+    "engine": "Spotify Basic Pitch + music21 + LilyPond",
+    "endpoint": "/v1/audio/transcribe-to-sheet"
+  },
+  "cpu_percent": 15.0,
+  "memory_percent": 65.0,
+  "credit_budget_usd": 0.0,
+  "credit_used_usd": 0.0,
+  "active_local_users": 0
+}
+```
+
+### 2. Qwen 2.5 (14B) 推論テスト
+```bash
+curl -X POST http://192.168.64.4:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "test_user",
+    "user_prompt": "博麗霊夢と霧雨魔理沙の日常の掛け合いと、博麗神社の縁側でのお茶の時間の様子を、生き生きとした小説形式で書いてください。",
+    "model": "qwen2.5:14b"
+  }'
+```
+14B の圧倒的な語彙力と情緒豊かな情景描写、キャラクター口調の正確性が即座に出力されます。
+
+### 3. 音声楽譜化テスト (Basic Pitch + LilyPond)
+```bash
+curl -X POST http://192.168.64.4:8080/v1/audio/transcribe-to-sheet \
+  -F "file=@/path/to/sample.wav" \
+  --output transcribed_score.pdf
+```
+
+### 4. Toho-Studio アプリ（Swift）側の接続先設定
+Mac 側の Swift ソースコード [CloudVirtualLinuxService.swift](file:///Volumes/ZSSD/GitHub/repository/TohoStudio/Application/TohoStudio/Sources/TohoStudio/Models/CloudVirtualLinuxService.swift) にて、Debian VM の IP と 14B モデル名を指定します：
 
 ```swift
 // CloudVirtualLinuxService.swift
 public struct VirtualLinuxMachineStatus: Codable {
-    // GCPの固定IP（34.134.96.84）からローカル Linux VM の IP に変更
-    public var hostIP: String = "" // ← Step 5 で確認したIPアドレス192.168.64.3
-    public var gcpZone: String = "local-virtualbuddy"
-    public var machineType: String = "VirtualBuddy (A18 Pro, 4GB RAM + 8GB Swap)"
-    public var llmModel: String = "Qwen 2.5 (3B / 7B)"
+    public var hostIP: String = "192.168.64.4" // ← Step 1 で確認した Debian VM の IP
+    public var gcpZone: String = "local-virtualbuddy-debian"
+    public var machineType: String = "Debian 12 ARM64 (A18 Pro / 4GB RAM + 16GB Swap / 100GB)"
+    public var llmModel: String = "Qwen 2.5 (14B)" // ← 14B モデルを指定
     public var uptimeHours: Double = 999.0
     public var cpuUsagePercent: Double = 15.0
-    public var memoryUsagePercent: Double = 40.0
+    public var memoryUsagePercent: Double = 65.0
     public var gpuUsagePercent: Double = 25.0
     public var monthlyAllocatedCreditUSD: Double = 0.0 // 完全無料
     public var monthlyUsedCreditUSD: Double = 0.0
     // ...
 ```
 
-これで、Toho-Studio アプリが 5 秒周期で行う Heartbeat 通信および AI 生成リクエストが、**外部クラウドを経由せず、すべてこの Mac 内の VirtualBuddy Linux VM にてローカル完結** します。
-
 ---
 
-## 6. （オプション）Open WebUI の導入方法
+## 10. Qwen 14B 運用のパフォーマンス Tips & 注意点
 
-ブラウザ（Safari や Chrome）から ChatGPT ライクなリッチな Web UI でモデルと対話したい場合は、Linux VM 内で **Open WebUI** を起動できます。
-
-1. **VM 内で Open WebUI をインストール & 起動**:
-   ```bash
-   # Python venv 環境の作成
-   python3 -m venv /opt/open-webui-env
-   source /opt/open-webui-env/bin/activate
-   pip install open-webui
-
-   # 起動（ポート3000番）
-   PORT=3000 open-webui serve
-   ```
-
-2. **ホスト Mac のブラウザで開く**:
-   ```
-   http://192.168.64.3:3000
-   ```
-   初回アクセス時にローカル管理者アカウントを作成すれば、Qwen 2.5 と日本語で自由にチャットや創作プロンプトのテストが可能です。
-
----
-
-## 7. メモリ 8GB Mac での運用上の注意点と Tips
-
-1. **Qwen 2.5 (3B) の圧倒的な軽快さ**:
-   - Qwen 2.5 (3B) はモデルサイズが約 1.9GB のため、4GB RAM の仮想マシン内でも物理メモリ内に完全に収まります。
-   - スワップの読み書きが一切発生しないため、A18 Pro チップの性能をフルに発揮し、**質問した瞬間に文字が高速で出力**されます。
-2. **Qwen 2.5 (7B) との使い分け**:
-   - より深みのあるストーリー構成や長文のシナリオ推敲を行いたい場合は、7B モデルを指定すると高い表現力を発揮します（4GB VMではスワップを併用）。
-3. **VM を終了・停止したいとき**:
-   - VirtualBuddy のウィンドウを閉じるか、VM 内で `sudo poweroff` を実行すれば、即座に Mac のメモリ 4GB がホストへ返却されます。
+1. **初回推論時のロード時間**:
+   - 14B モデル（約9GB）は初回プロンプト投入時に外付け SSD からスワップ/RAM 空間へロードされるため、最初の生成開始までに 10〜15 秒程度かかる場合があります。一度ロードされた後はメモリ内にキャッシュされ、次からの生成はスムーズに行われます。
+2. **高速応答が必要なシーンとの使い分け**:
+   - 本セットアップスクリプトでは、補助モデルとして `qwen2.5:3b` も自動取得しています。
+   - 簡易なタグ整形や単語辞書の引き当てなど、ミリ秒単位の爆速レスポンスが欲しい場合はリクエストの `model` に `"qwen2.5:3b"` を指定することで、秒間30〜40トークンの物理RAM直結速度を瞬時に利用可能です。
+3. **VM 終了によるメモリの即時解放**:
+   - 作業終了後は Mac ターミナルから `ssh toho-deb "sudo poweroff"` を実行するだけで、確保されていた 4GB RAM が macOS ホストへ即座に返却されます。

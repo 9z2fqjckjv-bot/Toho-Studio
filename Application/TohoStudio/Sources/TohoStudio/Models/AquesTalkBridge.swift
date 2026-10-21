@@ -247,6 +247,13 @@ public final class AquesTalkBridge: NSObject, ObservableObject, AVAudioPlayerDel
     /// 東方キャラクター名から推奨されるVoiceTypeを解決（早苗はコゲ日記、それ以外はゆっくりボイスメーカー＞コゲ日記＞Gスカ）
     public func voiceType(for characterName: String) -> VoiceType {
         let name = characterName.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 0. メイン話者タグ（操夢）＆ 独自追加話者タグ
+        if name.contains("操夢") { return .imd1 }
+        if name.contains("サブ") { return .f1 }
+        if name.contains("ナレ1") { return .m1 }
+        if name.contains("ナレ2") { return .m2 }
+        if name.contains("みとり") { return .f1 }
+
         // 1. 東風谷早苗: コゲの日記準拠（女性2）
         if name.contains("早苗") { return .f2 }
 
@@ -350,8 +357,12 @@ public final class AquesTalkBridge: NSObject, ObservableObject, AVAudioPlayerDel
         let v = voiceType(for: characterName)
         let name = characterName.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // 0. 交換夫婦・二次創作登場人物
+        // 0. メイン話者タグ（操夢）＆ 独自追加話者タグ
         if name.contains("操夢") { return (.imd1, 100, 115) }
+        if name.contains("サブ") { return (.f1, 100, 115) }
+        if name.contains("ナレ1") { return (.m1, 100, 115) }
+        if name.contains("ナレ2") { return (.m2, 100, 115) }
+        if name.contains("みとり") { return (.f1, 105, 105) }
         if name == "ナレーション" || name.contains("ナレーション") { return (.f1, 100, 100) }
 
         // 1. 東風谷早苗: コゲの日記準拠（女性2, 速度90, 音程135）

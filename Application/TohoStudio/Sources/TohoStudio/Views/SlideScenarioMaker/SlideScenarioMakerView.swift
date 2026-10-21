@@ -1068,6 +1068,42 @@ public struct SlideScenarioMakerView: View {
                                 .foregroundColor(.secondary)
                         }
                     }
+
+                    // 話者タグ クイックパレット (操夢メイン & 追加話者タグ)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 4) {
+                            Text("話者タグ:").font(.system(size: 9)).foregroundColor(.secondary)
+                            Button("[操夢] (メイン)") {
+                                applySpeakerTagToCurrentSlide(speaker: "操夢")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.mini)
+
+                            Button("[サブ]") {
+                                applySpeakerTagToCurrentSlide(speaker: "サブ")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.mini)
+
+                            Button("[ナレ1]") {
+                                applySpeakerTagToCurrentSlide(speaker: "ナレ1")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.mini)
+
+                            Button("[ナレ2]") {
+                                applySpeakerTagToCurrentSlide(speaker: "ナレ2")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.mini)
+
+                            Button("[みとり]") {
+                                applySpeakerTagToCurrentSlide(speaker: "みとり")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.mini)
+                        }
+                    }
                     TextEditor(text: Binding(
                         get: { slide.displayPresenterNote },
                         set: {
@@ -1419,15 +1455,28 @@ public struct SlideScenarioMakerView: View {
         }
     }
 
+    private func applySpeakerTagToCurrentSlide(speaker: String) {
+        guard selectedSlideIdx >= 0 && selectedSlideIdx < appState.slides.count else { return }
+        appState.slides[selectedSlideIdx].characterName = speaker
+        let cleanNote = appState.slides[selectedSlideIdx].displayPresenterNote
+        appState.slides[selectedSlideIdx].rawPresenterNote = "[\(speaker)] \(cleanNote)"
+        appState.slides[selectedSlideIdx].presenterNote = "[\(speaker)] \(cleanNote)"
+        if selectedSlideIdx < appState.movieScenes.count {
+            appState.movieScenes[selectedSlideIdx].characterName = speaker
+        }
+        handleSlideModified(at: selectedSlideIdx)
+        appState.log("スライド #\(selectedSlideIdx + 1) の話者タグを [\(speaker)] に設定しました")
+    }
+
     private func addNewSlide() {
         let newIndex = appState.slides.count + 1
         let newSlide = SlideItem(
             slideIndex: newIndex,
-            title: "シーン \(newIndex): 博麗霊夢",
-            telop: "霊夢「新しいシーンの台本セリフを入力してください」",
-            presenterNote: "演出ノート: キャラクター登場0.5秒後、BGM再生",
+            title: "シーン \(newIndex): 操夢",
+            telop: "操夢「新しいシーンの台本セリフを入力してください」",
+            presenterNote: "[操夢] 演出ノート: キャラクター登場0.5秒後、BGM再生",
             backgroundName: "nc73538_【背景素材】博麗神社.jpg",
-            characterName: "博麗霊夢"
+            characterName: "操夢"
         )
         appState.slides.append(newSlide)
         let newScene = MovieScene(

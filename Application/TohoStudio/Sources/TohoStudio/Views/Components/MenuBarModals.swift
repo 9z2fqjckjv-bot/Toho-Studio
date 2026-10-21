@@ -2331,48 +2331,78 @@ public struct AquesTalkGeneratorModalView: View {
                     }
 
                     // Direct Quick Buttons for User Specified Templates
-                    HStack(spacing: 6) {
-                        Button("東風谷早苗(コゲの日記)") {
-                            appState.applyVoiceTemplateByName("東風谷早苗 (コゲの日記)")
-                            syncFromActiveTemplate()
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            Button("★ 操夢(メイン: imd1,100,115)") {
+                                appState.applyVoiceTemplateByName("操夢")
+                                syncFromActiveTemplate()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
 
-                        Button("操夢(imd1,100,115)") {
-                            appState.applyVoiceTemplateByName("操夢 (交換夫婦)")
-                            syncFromActiveTemplate()
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                            Button("サブ(f1,100,115)") {
+                                appState.applyVoiceTemplateByName("サブ")
+                                syncFromActiveTemplate()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
 
-                        Button("imd1,100,115") {
-                            appState.applyVoiceTemplateByName("imd1,100,115 (独自)")
-                            syncFromActiveTemplate()
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                            Button("ナレ1(男声1,100,115)") {
+                                appState.applyVoiceTemplateByName("ナレ1")
+                                syncFromActiveTemplate()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
 
-                        Button("l1,100,115") {
-                            appState.applyVoiceTemplateByName("l1,100,115 (独自)")
-                            syncFromActiveTemplate()
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                            Button("ナレ2(男声2,100,115)") {
+                                appState.applyVoiceTemplateByName("ナレ2")
+                                syncFromActiveTemplate()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
 
-                        Button("m1,100,115") {
-                            appState.applyVoiceTemplateByName("m1,100,115 (独自)")
-                            syncFromActiveTemplate()
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                            Button("みとり(f1,105,105)") {
+                                appState.applyVoiceTemplateByName("みとり")
+                                syncFromActiveTemplate()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
 
-                        Button("m2,100,115") {
-                            appState.applyVoiceTemplateByName("m2,100,115 (独自)")
-                            syncFromActiveTemplate()
+                            Button("東風谷早苗(コゲの日記)") {
+                                appState.applyVoiceTemplateByName("東風谷早苗 (コゲの日記)")
+                                syncFromActiveTemplate()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+
+                            Button("imd1,100,115") {
+                                appState.applyVoiceTemplateByName("imd1,100,115 (独自)")
+                                syncFromActiveTemplate()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+
+                            Button("l1,100,115") {
+                                appState.applyVoiceTemplateByName("l1,100,115 (独自)")
+                                syncFromActiveTemplate()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+
+                            Button("m1,100,115") {
+                                appState.applyVoiceTemplateByName("m1,100,115 (独自)")
+                                syncFromActiveTemplate()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+
+                            Button("m2,100,115") {
+                                appState.applyVoiceTemplateByName("m2,100,115 (独自)")
+                                syncFromActiveTemplate()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
                     }
                 }
                 .padding(6)

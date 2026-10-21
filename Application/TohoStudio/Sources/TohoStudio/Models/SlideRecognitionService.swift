@@ -589,12 +589,12 @@ public final class SlideRecognitionService: ObservableObject {
 
             // キャラクター辞書にあれば正式名に補正
             let charDictionary = [
+                "操夢": "操夢", "サブ": "サブ", "ナレ1": "ナレ1", "ナレ2": "ナレ2", "みとり": "みとり",
                 "霊夢": "博麗霊夢", "魔理沙": "霧雨魔理沙", "咲夜": "十六夜咲夜", "妖夢": "魂魄妖夢",
                 "幽々子": "西行寺幽々子", "紫": "八雲紫", "パチュリー": "パチュリー・ノーレッジ",
                 "フラン": "フランドール・スカーレット", "レミリア": "レミリア・スカーレット",
                 "早苗": "東風谷早苗", "さとり": "古明地さとり", "こいし": "古明地こいし",
-                "アリス": "アリス・マーガトロイド", "チルノ": "チルノ", "文": "射命丸文",
-                "操夢": "操夢"
+                "アリス": "アリス・マーガトロイド", "チルノ": "チルノ", "文": "射命丸文"
             ]
             if let mapped = charDictionary[speaker] {
                 speaker = mapped
@@ -623,18 +623,30 @@ public final class SlideRecognitionService: ObservableObject {
                 let voiceSym = AquesTalkBridge.shared.convertToVoiceSymbol(text: speechText)
                 let preset = AquesTalkBridge.shared.characterPreset(for: speaker)
 
-                // Track assignment based on speaker
+                // Track assignment based on speaker (操夢メイン)
                 let trackId: String
                 let colorHex: String
-                if speaker.contains("霊夢") {
+                if speaker.contains("操夢") {
+                    trackId = "track_voice_soumu"
+                    colorHex = "#3498DB"
+                } else if speaker.contains("サブ") {
+                    trackId = "track_voice_sub"
+                    colorHex = "#9B59B6"
+                } else if speaker.contains("ナレ1") {
+                    trackId = "track_voice_nare1"
+                    colorHex = "#34495E"
+                } else if speaker.contains("ナレ2") {
+                    trackId = "track_voice_nare2"
+                    colorHex = "#2C3E50"
+                } else if speaker.contains("みとり") {
+                    trackId = "track_voice_mitori"
+                    colorHex = "#1ABC9C"
+                } else if speaker.contains("霊夢") {
                     trackId = "track_voice_reimu"
                     colorHex = "#E74C3C"
                 } else if speaker.contains("魔理沙") {
                     trackId = "track_voice_marisa"
                     colorHex = "#F1C40F"
-                } else if speaker.contains("操夢") {
-                    trackId = "track_voice_soumu"
-                    colorHex = "#3498DB"
                 } else {
                     let sanitized = speaker.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? UUID().uuidString.prefix(6).description
                     trackId = "track_voice_\(sanitized)"
