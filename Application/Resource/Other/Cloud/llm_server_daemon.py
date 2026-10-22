@@ -21,7 +21,7 @@ try:
 except ImportError:
     print("FastAPI / Uvicorn not installed. Please install requirements first.")
 
-app = FastAPI(title="TohoStudio Cloud LLM Dedicated Daemon", version="2.0.0")
+app = FastAPI(title="TohoStudio Cloud LLM Dedicated Daemon", version="2.5.0")
 
 DATA_DIR = "/opt/tohostudio-server/data"
 os.makedirs(DATA_DIR, exist_ok=True)

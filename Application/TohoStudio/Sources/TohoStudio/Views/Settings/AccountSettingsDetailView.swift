@@ -30,45 +30,9 @@ public struct AccountSettingsDetailView: View {
     }
 
     public var body: some View {
-        HStack(spacing: 0) {
-            // Column 3: Account Sub Tabs (NanndemoyaCloud, Google, Local)
-            VStack(spacing: 12) {
-                ReturnArrowButton {
-                    // Return action if needed
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-
-                ForEach(AccountTab.allCases) { tab in
-                    KeynoteColumnButton(
-                        title: tab.rawValue,
-                        isSelected: selectedAccountTab == tab
-                    ) {
-                        selectedAccountTab = tab
-                    }
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, 16)
-            .frame(width: 170)
-            .background(Color(red: 0.85, green: 0.91, blue: 0.96))
-            .overlay(
-                Rectangle()
-                    .fill(Color(red: 0.22, green: 0.58, blue: 0.88))
-                    .frame(width: 2),
-                alignment: .trailing
-            )
-
-            // Column 4 & 5: Content based on selected account tab
-            switch selectedAccountTab {
-            case .nanndemoyaCloud:
-                nanndemoyaCloudDetailView
-            case .google:
-                googleAccountDetailView
-            case .local:
-                localAccountDetailView
-            }
-        }
+        UnavailableFeatureView(onBack: {
+            appState.activeModal = nil
+        })
     }
 
     // MARK: - NanndemoyaCloud (Slide 40 & 仕様書補足事項)

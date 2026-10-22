@@ -116,7 +116,9 @@ public struct SettingsView: View {
     private var categoryDetailArea: some View {
         switch selectedCategory {
         case .account:
-            AccountSettingsDetailView(activeCategory: $selectedCategory)
+            UnavailableFeatureView(onBack: {
+                appState.activeModal = nil
+            })
         case .policy:
             PolicySettingsDetailView()
         case .billingAndUsage:
@@ -124,9 +126,13 @@ public struct SettingsView: View {
         case .storageAndPerf:
             StoragePerfDetailView()
         case .cloud:
-            CloudSettingsDetailView()
+            UnavailableFeatureView(onBack: {
+                appState.activeModal = nil
+            })
         case .paidFeatures:
-            PaidFeaturesDetailView()
+            UnavailableFeatureView(onBack: {
+                appState.activeModal = nil
+            })
         case .languageAndArea:
             LanguageRegionDetailView()
         case .legalAndCompliance:

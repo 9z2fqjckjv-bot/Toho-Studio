@@ -11,13 +11,11 @@ public struct TohoAIStudioView: View {
     public init() {}
 
     public var body: some View {
-        Group {
-            if isShowingHomeWithAds {
-                tohoAIStudioHomeWithAdsView
-            } else {
-                tohoAIStudioWorkspaceView
+        UnavailableFeatureView(onBack: {
+            withAnimation {
+                appState.isShowingAppTop = true
             }
-        }
+        })
     }
 
     // MARK: - ホーム画面 (仕様書準拠 左右Google広告枠あり)

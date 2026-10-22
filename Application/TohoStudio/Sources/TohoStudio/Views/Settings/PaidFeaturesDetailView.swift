@@ -45,37 +45,9 @@ public struct PaidFeaturesDetailView: View {
     public init() {}
 
     public var body: some View {
-        HStack(spacing: 0) {
-            // Column 3: Subcategory Selector (広告 / クラウド機能 / AI機能 / アプリ拡張)
-            VStack(spacing: 8) {
-                ForEach(SubCategory.allCases, id: \.self) { cat in
-                    KeynoteColumnButton(
-                        title: cat.rawValue,
-                        isSelected: selectedSubCategory == cat
-                    ) {
-                        selectedSubCategory = cat
-                    }
-                }
-                Spacer()
-            }
-            .frame(width: 140)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 16)
-            .background(Color(red: 0.88, green: 0.92, blue: 0.96))
-
-            Divider()
-
-            switch selectedSubCategory {
-            case .ad:
-                adSection
-            case .cloud:
-                cloudSection
-            case .ai:
-                aiSection
-            case .appExtension:
-                appExtensionSection
-            }
-        }
+        UnavailableFeatureView(onBack: {
+            AppState.shared.activeModal = nil
+        })
     }
 
     // MARK: - Ad Section (Slide 64, 80)

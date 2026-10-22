@@ -26,42 +26,9 @@ public struct CloudSettingsDetailView: View {
     public init() {}
 
     public var body: some View {
-        HStack(spacing: 0) {
-            // Column 3: Subcategory Selector (NanndemoyaCloud / Googleアカウント)
-            VStack(spacing: 8) {
-                ForEach(SubCategory.allCases, id: \.self) { cat in
-                    KeynoteColumnButton(
-                        title: cat.rawValue,
-                        isSelected: selectedSubCategory == cat
-                    ) {
-                        selectedSubCategory = cat
-                    }
-                }
-                Spacer()
-            }
-            .frame(width: 150)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 16)
-            .background(Color(red: 0.88, green: 0.92, blue: 0.96))
-
-            Divider()
-
-            if selectedSubCategory == .nanndemoya {
-                nanndemoyaSection
-            } else {
-                googleSection
-            }
-        }
-        .alert(isPresented: $showingDisconnectAlert) {
-            Alert(
-                title: Text("Googleアカウント連携の解除"),
-                message: Text("Googleアカウントとの連携を解除し、クラウド保存などのサービスの利用を中止します。\n連携解除後はデータロスに注意してください。また、解除後は自動で再起動がかかります。実行しますか？"),
-                primaryButton: .destructive(Text("解除して再起動"), action: {
-                    // Disconnect action
-                }),
-                secondaryButton: .cancel(Text("キャンセル"))
-            )
-        }
+        UnavailableFeatureView(onBack: {
+            AppState.shared.activeModal = nil
+        })
     }
 
     // MARK: - NanndemoyaCloud Section

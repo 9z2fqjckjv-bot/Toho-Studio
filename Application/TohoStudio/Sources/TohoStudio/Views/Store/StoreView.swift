@@ -5,56 +5,10 @@ public struct StoreView: View {
     @State private var selectedTab: Int = 0
 
     public var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack(spacing: 14) {
-                Label("Toho-Studio ストア", systemImage: "bag.fill")
-                    .font(.title2)
-                    .bold()
-                Spacer()
-                Text("利用可能残高: ¥ 24,500 (ベースパック)")
-                    .font(.caption)
-                    .padding(6)
-                    .background(Color.accentColor.opacity(0.15))
-                    .cornerRadius(6)
-            }
-            .padding()
-            .background(Color(NSColor.windowBackgroundColor))
-
-            Divider()
-
-            // Store Tabs
-            Picker("", selection: $selectedTab) {
-                Text("新作＆おすすめ").tag(0)
-                Text("アプリ拡張＆バンドル").tag(1)
-                Text("東方素材＆テンプレート").tag(2)
-                Text("販売・出品管理").tag(3)
-                Text("ストア用語定義・審査規約").tag(4)
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-
-            Divider()
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    if selectedTab == 0 {
-                        storeFeaturedTab
-                    } else if selectedTab == 1 {
-                        storeExtensionsTab
-                    } else if selectedTab == 2 {
-                        storeMaterialsTab
-                    } else if selectedTab == 3 {
-                        storeSellerManagementTab
-                    } else {
-                        storeTermsDefinitionTab
-                    }
-                }
-                .padding(20)
-            }
-        }
-        .frame(width: 820, height: 580)
+        UnavailableFeatureView(onBack: {
+            appState.activeModal = nil
+        })
+        .frame(minWidth: 820, idealWidth: 900, minHeight: 580, idealHeight: 640)
     }
 
     // MARK: - 1. 新作＆おすすめ

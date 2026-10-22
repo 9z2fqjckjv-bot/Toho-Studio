@@ -1105,7 +1105,7 @@ public struct BugReportModalView: View {
             GroupBox(label: Text("実行環境自動取得")) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("OS: macOS (Darwin \(ProcessInfo.processInfo.operatingSystemVersionString)) | Apple Silicon arm64")
-                    Text("アプリバージョン: Toho-Studio v2.0.0 | アクティブソフト: \(appState.currentModule.rawValue)")
+                    Text("アプリバージョン: Toho-Studio v2.5.0 | アクティブソフト: \(appState.currentModule.rawValue)")
                     Text("直近ログ: \(appState.logs.first?.message ?? "正常稼働中")")
                 }
                 .font(.system(.caption2, design: .monospaced))
@@ -1142,7 +1142,7 @@ public struct BugReportModalView: View {
                     generatedPrompt = """
                     【Toho-Studio バグ修正指示書】
                     ■ 不具合概要: \(bugTitle.isEmpty ? "動作不具合の修正" : bugTitle)
-                    ■ 発生環境: macOS / Toho-Studio v2.0.0 / モジュール: \(appState.currentModule.rawValue)
+                    ■ 発生環境: macOS / Toho-Studio v2.5.0 / モジュール: \(appState.currentModule.rawValue)
                     ■ 詳細・再現手順:
                     \(bugDescription.isEmpty ? "操作中に予期せぬ動作が発生しました。" : bugDescription)
                     ■ システムログ:
@@ -1493,67 +1493,9 @@ public struct FeatureListModalView: View {
 
     // MARK: - Tab 0: 有料機能マネージャー (Paid Features CSV Managed)
     private var paidFeaturesCSVManagedView: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Category Filter
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    if selectedCategoryFilter == "すべて" {
-                        Button("すべて (\(paidService.featureItems.count))") {
-                            selectedCategoryFilter = "すべて"
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                    } else {
-                        Button("すべて (\(paidService.featureItems.count))") {
-                            selectedCategoryFilter = "すべて"
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
-
-                    ForEach(paidService.categories, id: \.self) { cat in
-                        if selectedCategoryFilter == cat {
-                            Button(cat) {
-                                selectedCategoryFilter = cat
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.small)
-                        } else {
-                            Button(cat) {
-                                selectedCategoryFilter = cat
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
-                    }
-                }
-            }
-
-            ScrollView {
-                VStack(spacing: 8) {
-                    let filtered = paidService.featureItems.filter {
-                        selectedCategoryFilter == "すべて" || $0.category == selectedCategoryFilter
-                    }
-
-                    ForEach(filtered) { item in
-                        paidCSVFeatureCard(item: item)
-                    }
-
-                    if filtered.isEmpty {
-                        VStack(spacing: 8) {
-                            Image(systemName: "tray")
-                                .font(.largeTitle)
-                                .foregroundColor(.secondary)
-                            Text("該当する有料機能はありません。")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(40)
-                    }
-                }
-            }
-        }
+        UnavailableFeatureView(onBack: {
+            appState.activeModal = nil
+        })
     }
 
     private func paidCSVFeatureCard(item: PaidFeatureItem) -> some View {

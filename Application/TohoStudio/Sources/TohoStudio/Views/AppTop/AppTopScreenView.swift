@@ -53,7 +53,7 @@ public struct AppTopScreenView: View {
                 Spacer()
 
                 // 4. フッターコピーライト (スライド26最下部)
-                Text("Toho-Studio V1.0.0 Powerd By zuyasi & Nanndemoya")
+                Text("Toho-Studio V2.5.0 Powerd By zuyasi & Nanndemoya")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(.black)
                     .padding(.bottom, 36)

@@ -358,7 +358,7 @@ public struct RootView: View {
                 .font(.caption2)
                 .foregroundColor(.secondary)
 
-            Text("バージョン: v2.0.0")
+            Text("バージョン: v2.5.0")
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }
@@ -390,9 +390,9 @@ public struct RootView: View {
                 SettingsView()
 
             case .store:
-                CommonModalContainer(title: "ストア", icon: "bag", isPresented: modalBinding) {
-                    StoreView()
-                }
+                UnavailableFeatureView(onBack: {
+                    appState.activeModal = nil
+                })
 
             case .developer:
                 CommonModalContainer(title: "開発者コンソール", icon: "chevron.left.forwardslash.chevron.right", isPresented: modalBinding) {

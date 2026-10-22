@@ -142,8 +142,13 @@ public enum MovieExporter {
         let fm = FileManager.default
         let tempDir = fm.temporaryDirectory.appendingPathComponent("TohoStudio_Export_\(UUID().uuidString)", isDirectory: true)
         try fm.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        var exportSucceeded = false
         defer {
-            try? fm.removeItem(at: tempDir)
+            if exportSucceeded {
+                try? fm.removeItem(at: tempDir)
+            } else {
+                print("TohoStudio: エクスポートが未完了または中断されたため、一時フォルダを保持します: \(tempDir.path)")
+            }
         }
 
         var segmentURLs: [URL] = []
@@ -197,6 +202,7 @@ public enum MovieExporter {
         var concatArgs: [String] = [
             "-nostdin",
             "-y",
+            "-loglevel", "warning",
             "-f", "concat",
             "-safe", "0",
             "-i", concatListURL.path,
@@ -218,6 +224,7 @@ public enum MovieExporter {
             try? exportSrt(scenes: scenes, outputURL: srtURL)
         }
 
+        exportSucceeded = true
         await MainActor.run {
             progress(1.0, "書き出し完了！")
         }
@@ -238,7 +245,7 @@ public enum MovieExporter {
         let h = options.height
         let fps = options.fps
 
-        var args: [String] = ["-nostdin", "-y"]
+        var args: [String] = ["-nostdin", "-y", "-loglevel", "warning"]
         var inputIndex = 0
 
         // 1. 映像ソースの決定 (Keynote動画 > スライド画像 > 背景+立ち絵 > 背景のみ > 単色黒)
@@ -437,13 +444,17 @@ public enum MovieExporter {
         do {
             try process.run()
         } catch {
+            currentProcess = nil
             throw ExportError.ffmpegFailed("プロセス起動エラー: \(error.localizedDescription)")
         }
 
+        // デッドロック防止:
+        // 子プロセスの標準出力/標準エラーがパイプバッファ上限（macOSでは64KB）を超えた場合、
+        // waitUntilExit() を先に呼ぶとプロセスが書き込み待ちでブロックし、親プロセスとデッドロックします。
+        // 必ず waitUntilExit() の前に pipe から EOF までデータを吸い上げます。
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
         currentProcess = nil
-
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         let output = String(data: data, encoding: .utf8) ?? ""
 
         if process.terminationStatus != 0 && !isCancelled {
@@ -537,7 +548,7 @@ public enum MovieExporter {
 
         let ymmpPayload: [String: Any] = [
             "AppName": "Toho-Studio",
-            "Version": "2.0.0",
+            "Version": "2.5.0",
             "ExportDate": ISO8601DateFormatter().string(from: Date()),
             "FPS": fps,
             "TotalFrames": currentFrame,
@@ -567,7 +578,7 @@ public enum MovieExporter {
 
         let container = ProjectExportContainer(
             appName: "TohoStudio",
-            version: "2.0.0",
+            version: "2.5.0",
             format: formatName,
             exportTimestamp: Date(),
             totalScenes: scenes.count,

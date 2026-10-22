@@ -47,7 +47,9 @@ public struct BillingUsageDetailView: View {
 
             // Column 4 & Main Content Area
             if selectedSubCategory == .billing {
-                billingView
+                UnavailableFeatureView(onBack: {
+                    selectedSubCategory = .usage
+                })
             } else {
                 usageView
             }
