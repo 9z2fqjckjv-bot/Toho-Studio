@@ -67,6 +67,10 @@ public struct AppTopScreenView: View {
 
         return Button(action: {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                appState.wasInAppTopBeforeUnavailable = true
+                if module != .tohoAIStudio {
+                    appState.previousModule = module
+                }
                 appState.currentModule = module
                 appState.isShowingAppTop = false
                 appState.addHistory("アプリトップからソフト起動: \(module.rawValue)")

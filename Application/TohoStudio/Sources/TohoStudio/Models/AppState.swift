@@ -68,11 +68,37 @@ public final class AppState: ObservableObject {
 
     // Active software
     @Published public var currentModule: SoftwareModule = .movieMaker
+    @Published public var previousModule: SoftwareModule = .movieMaker
+    @Published public var wasInAppTopBeforeUnavailable: Bool = true
     @Published public var isShowingAppTop: Bool = true // 仕様書スライド26: アプリトップ画面表示フラグ
     @Published public var isControlBarVisible: Bool = false // コントロールバーの表示/非表示（消してメニューバーを表示）
     @Published public var activeModal: ActiveModal? = nil
     @Published public var appInfoInitialTab: Int = 0
     @Published public var isFullScreen: Bool = false
+
+    /// "前の画面に戻る" 共通復帰処理
+    public func navigateBackFromUnavailable() {
+        if activeModal != nil {
+            activeModal = nil
+            return
+        }
+
+        if currentModule == .tohoAIStudio {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                if wasInAppTopBeforeUnavailable {
+                    isShowingAppTop = true
+                } else {
+                    currentModule = previousModule
+                    isShowingAppTop = false
+                }
+            }
+            return
+        }
+
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+            isShowingAppTop = true
+        }
+    }
 
     // In-App Browser State
     @Published public var activeInAppBrowserURL: URL? = nil
