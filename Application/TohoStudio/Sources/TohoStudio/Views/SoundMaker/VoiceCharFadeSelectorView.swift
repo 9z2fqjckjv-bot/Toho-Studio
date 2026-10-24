@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import AVFoundation
 
 /// キャラクターボイスのセリフテキストを基準に、1文字単位で再生開始位置（どの言葉を発言したら流れるか）およびフェードアウト開始位置を設定する専用セレクターView
 public struct VoiceCharFadeSelectorView: View {
@@ -14,6 +15,7 @@ public struct VoiceCharFadeSelectorView: View {
     @State private var selectionMode: SelectionMode = .startChar
     @State private var isLinkedPreviewing: Bool = false
     @State private var linkedPreviewTimer: Timer? = nil
+    @State private var linkedVoicePlayer: AVAudioPlayer? = nil
 
     private enum SelectionMode {
         case startChar
@@ -38,13 +40,22 @@ public struct VoiceCharFadeSelectorView: View {
     }
 
     private var voiceDuration: Double {
-        guard let v = voiceClip, v.duration > 0.05 else { return 3.0 }
-        return v.duration
+        guard let v = voiceClip else { return 3.0 }
+        // 実際に再生される実音声ファイルの正確な秒数を最優先（実ファイルとクリップの乖離によるズレを防止）
+        if let path = v.audioFilePath, FileManager.default.fileExists(atPath: path),
+           let player = try? AVAudioPlayer(contentsOf: URL(fileURLWithPath: path)), player.duration > 0.1 {
+            return player.duration
+        }
+        return v.duration > 0.05 ? v.duration : 3.0
     }
 
     private var characterTimings: [CharacterTimingInfo] {
         guard !dialogueText.isEmpty else { return [] }
-        return VoiceTextTimingService.calculateCharacterTimings(text: dialogueText, totalDuration: voiceDuration)
+        return VoiceTextTimingService.calculateCharacterTimings(
+            text: dialogueText,
+            totalDuration: voiceDuration,
+            audioFilePath: voiceClip?.audioFilePath
+        )
     }
 
     // 有効な再生開始文字インデックス (startCharIndex または fadeInCharIndex)
@@ -76,15 +87,19 @@ public struct VoiceCharFadeSelectorView: View {
                     set: { val in
                         clip.voiceTriggerEnabled = val
                         if val {
-                            if clip.startCharIndex == nil && clip.fadeInCharIndex == nil {
+                            if clip.startCharIndex == nil {
                                 clip.startCharIndex = 0
-                                clip.fadeInCharIndex = 0
                             }
                             if let v = voiceClip {
                                 clip.voiceTriggerClipId = v.id
-                                // 開始時刻を文字タイミングに自動アライメント
                                 updateStartTimeFromVoice(voice: v, charIdx: clip.startCharIndex ?? 0)
                             }
+                        } else {
+                            // 無効化時は現在の所属シーン先頭からの相対開始時間を保持
+                            if let idx = AppState.shared.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                AppState.shared.soundClips[idx] = clip
+                            }
+                            AppState.shared.syncClipsToMovieScenes(AppState.shared.soundClips)
                         }
                         onUpdated?()
                     }
@@ -103,8 +118,7 @@ public struct VoiceCharFadeSelectorView: View {
                                 .foregroundColor(.secondary)
                             Text(vClip.character ?? "キャラクター")
                                 .font(.caption2.bold())
-                                .foregroundColor(Color(hex: vClip.colorHex ?? "#E74C3C"))
-                            Text("(\(String(format: "%.2f秒", voiceDuration)), \(characterTimings.count)文字)")
+                            Text("(\(String(format: "%.2fs", voiceDuration)), \(characterTimings.count)文字)")
                                 .font(.system(size: 9))
                                 .foregroundColor(.secondary)
 
@@ -169,6 +183,10 @@ public struct VoiceCharFadeSelectorView: View {
                                 } else {
                                     clip.fadeOutCharIndex = nil
                                 }
+                                if let idx = AppState.shared.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                    AppState.shared.soundClips[idx] = clip
+                                }
+                                AppState.shared.syncClipsToMovieScenes(AppState.shared.soundClips)
                                 onUpdated?()
                             }) {
                                 Image(systemName: "xmark.circle")
@@ -310,6 +328,10 @@ public struct VoiceCharFadeSelectorView: View {
                             if effectiveStartCharIdx == item.index {
                                 clip.startCharIndex = nil
                                 clip.fadeInCharIndex = nil
+                                if let idx = AppState.shared.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                    AppState.shared.soundClips[idx] = clip
+                                }
+                                AppState.shared.syncClipsToMovieScenes(AppState.shared.soundClips)
                             } else {
                                 clip.startCharIndex = item.index
                                 clip.fadeInCharIndex = item.index
@@ -441,6 +463,11 @@ public struct VoiceCharFadeSelectorView: View {
             let relTime = max(0.0, timing.startSeconds + clip.voiceTriggerOffset)
             clip.sceneRelativeStartTime = relTime
             clip.startTime = voice.startTime + relTime
+            if let idx = AppState.shared.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                AppState.shared.soundClips[idx] = clip
+            }
+            AppState.shared.updateClipSceneTiming(clipId: clip.id)
+            AppState.shared.syncClipsToMovieScenes(AppState.shared.soundClips)
         }
     }
 
@@ -471,7 +498,7 @@ public struct VoiceCharFadeSelectorView: View {
             return
         }
 
-        guard let _ = voiceClip else { return }
+        guard let v = voiceClip else { return }
         isLinkedPreviewing = true
 
         let effectiveDialogue = dialogueText
@@ -479,24 +506,59 @@ public struct VoiceCharFadeSelectorView: View {
 
         var inDelay: Double = 0.0
         if let inIdx = effectiveStartCharIdx,
-           let t = VoiceTextTimingService.timingForCharacter(index: inIdx, text: effectiveDialogue, totalDuration: voiceDur) {
+           let t = VoiceTextTimingService.timingForCharacter(
+            index: inIdx,
+            text: effectiveDialogue,
+            totalDuration: voiceDur,
+            audioFilePath: v.audioFilePath
+           ) {
             inDelay = max(0.0, t + clip.voiceTriggerOffset)
         }
 
         AppState.shared.log("🎙️ ボイス連動試聴: セリフ再生開始 (指定文字まで \(String(format: "%.2fs", inDelay)) 待機後、音声を再生)")
 
-        // 1. ボイス再生
-        aquesTalk.synthesizeAndPlay(text: effectiveDialogue) {
-            DispatchQueue.main.async {
-                self.isLinkedPreviewing = false
-            }
-        }
+        // 1. ボイス再生の実行（既存音声ファイル優先で合成遅延をゼロ化）
+        if let path = v.audioFilePath, FileManager.default.fileExists(atPath: path),
+           let player = try? AVAudioPlayer(contentsOf: URL(fileURLWithPath: path)) {
+            player.volume = 1.0
+            player.play()
+            linkedVoicePlayer = player
 
-        // 2. 指定文字のタイミングまで待機してからBGM/SEを開始
-        linkedPreviewTimer?.invalidate()
-        linkedPreviewTimer = Timer.scheduledTimer(withTimeInterval: max(0.01, inDelay), repeats: false) { [weak soundManager] _ in
-            if self.isLinkedPreviewing {
-                soundManager?.playPreview(clip: self.clip)
+            // ボイス終了監視
+            let endDelay = max(voiceDur, player.duration) + 0.3
+            DispatchQueue.main.asyncAfter(deadline: .now() + endDelay) {
+                if self.isLinkedPreviewing {
+                    self.stopLinkedPreview()
+                }
+            }
+
+            // 2. 指定文字到達タイミングで効果音を発音
+            if inDelay <= 0.02 {
+                soundManager.playPreview(clip: self.clip)
+            } else {
+                linkedPreviewTimer?.invalidate()
+                linkedPreviewTimer = Timer.scheduledTimer(withTimeInterval: inDelay, repeats: false) { [weak soundManager] _ in
+                    if self.isLinkedPreviewing {
+                        soundManager?.playPreview(clip: self.clip)
+                    }
+                }
+            }
+        } else {
+            // ファイルがまだない場合は AquesTalk で再生
+            aquesTalk.synthesizeAndPlay(text: effectiveDialogue) {
+                DispatchQueue.main.async {
+                    self.isLinkedPreviewing = false
+                }
+            }
+            if inDelay <= 0.02 {
+                soundManager.playPreview(clip: self.clip)
+            } else {
+                linkedPreviewTimer?.invalidate()
+                linkedPreviewTimer = Timer.scheduledTimer(withTimeInterval: inDelay, repeats: false) { [weak soundManager] _ in
+                    if self.isLinkedPreviewing {
+                        soundManager?.playPreview(clip: self.clip)
+                    }
+                }
             }
         }
     }
@@ -504,6 +566,8 @@ public struct VoiceCharFadeSelectorView: View {
     private func stopLinkedPreview() {
         linkedPreviewTimer?.invalidate()
         linkedPreviewTimer = nil
+        linkedVoicePlayer?.stop()
+        linkedVoicePlayer = nil
         soundManager.stopPreview()
         aquesTalk.stopPlayback()
         isLinkedPreviewing = false

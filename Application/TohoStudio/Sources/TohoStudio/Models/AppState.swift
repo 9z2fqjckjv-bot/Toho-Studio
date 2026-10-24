@@ -280,7 +280,7 @@ public final class AppState: ObservableObject {
         initializeSampleData()
         initializeVoiceTemplates()
         initializeAchievements()
-        addHistory("アプリケーション起動: Toho-Studio v2.5.0 正常起動")
+        addHistory("アプリケーション起動: Toho-Studio v2.6.0 正常起動")
         saveUndoSnapshot()
     }
 
@@ -1802,39 +1802,88 @@ public final class AppState: ObservableObject {
     /// soundClips の各音声クリップ（Voice, SE, BGM）の割り当てを movieScenes の各シーンに安全同期
     public func syncClipsToMovieScenes(_ clips: [SoundClip]) {
         guard !movieScenes.isEmpty else { return }
+        var accSceneTime: Double = 0.0
+
         for idx in 0..<movieScenes.count {
             let sceneNum = idx + 1
             var scene = movieScenes[idx]
+            let sceneStart = accSceneTime
 
-            // 1. Voice
-            if let voice = clips.first(where: { $0.type == "Voice" && $0.sceneIndex == sceneNum }) {
+            // 1. Voice (1人目および2人目のボイスを同期)
+            let sceneVoices = clips.filter { $0.type == "Voice" && $0.sceneIndex == sceneNum }
+            if let voice = sceneVoices.first {
                 scene.voiceAudioPath = voice.audioFilePath
                 scene.voiceCharacter = voice.character ?? scene.characterName
                 scene.voiceDuration = voice.duration
                 scene.audioTrack = voice.trackId ?? "track_voice"
+                scene.voiceStartTimeOffset = voice.sceneRelativeStartTime ?? 0.0
+            } else {
+                scene.voiceAudioPath = nil
+                scene.voiceCharacter = nil
+                scene.voiceDuration = nil
+                scene.voiceStartTimeOffset = 0.0
             }
 
-            // 2. SE
-            if let se = clips.first(where: { $0.type == "SE" && ($0.sceneIndex == sceneNum || ($0.spanStartSceneIndex != nil && $0.spanEndSceneIndex != nil && sceneNum >= $0.spanStartSceneIndex! && sceneNum <= $0.spanEndSceneIndex!)) }) {
+            if sceneVoices.count >= 2 {
+                let voice2 = sceneVoices[1]
+                scene.voice2AudioPath = voice2.audioFilePath
+                scene.voice2Character = voice2.character
+                scene.voice2Duration = voice2.duration
+                scene.voice2StartTimeOffset = voice2.sceneRelativeStartTime ?? 0.0
+            } else {
+                scene.voice2AudioPath = nil
+                scene.voice2Character = nil
+                scene.voice2Duration = nil
+                scene.voice2StartTimeOffset = 0.0
+            }
+
+            // 2. SE (所属シーン番号またはタイムライン時刻範囲から正確にマッチング)
+            let matchingSE = clips.first(where: { clip in
+                guard clip.type == "SE" else { return false }
+                if let s = clip.spanStartSceneIndex, let e = clip.spanEndSceneIndex {
+                    return sceneNum >= s && sceneNum <= e
+                }
+                if let sIdx = clip.sceneIndex {
+                    return sIdx == sceneNum
+                }
+                let nextSceneTime = sceneStart + scene.duration
+                return clip.startTime >= sceneStart && (clip.startTime < nextSceneTime || idx == movieScenes.count - 1)
+            })
+
+            if let se = matchingSE {
                 scene.seAudioPath = se.audioFilePath
                 scene.seName = se.name
-                let targetChar = se.startCharIndex ?? se.fadeInCharIndex
-                let seRel: Double
-                if let charIdx = targetChar,
-                   let ctx = VoiceTextTimingService.resolveDialogueContext(clip: se, sceneIndex: sceneNum, clips: clips, scenes: movieScenes),
-                   let timing = ctx.timings.first(where: { $0.index == charIdx }) {
-                    seRel = max(0.0, timing.startSeconds + se.voiceTriggerOffset)
-                } else if let savedRel = se.sceneRelativeStartTime {
-                    seRel = savedRel
-                } else {
-                    seRel = 0.0
-                }
-                scene.seStartTimeOffset = seRel
                 scene.seVolume = se.volume
+
+                let isSpan = (se.spanStartSceneIndex != nil && se.spanEndSceneIndex != nil)
+                let startSceneNum = se.spanStartSceneIndex ?? se.sceneIndex ?? sceneNum
+
+                if sceneNum == startSceneNum || !isSpan {
+                    let seRel: Double
+                    if se.voiceTriggerEnabled, let charIdx = se.startCharIndex,
+                       let ctx = VoiceTextTimingService.resolveDialogueContext(clip: se, sceneIndex: sceneNum, clips: clips, scenes: movieScenes),
+                       let timing = ctx.timings.first(where: { $0.index == charIdx }) {
+                        seRel = max(0.0, timing.startSeconds + se.voiceTriggerOffset)
+                    } else if let savedRel = se.sceneRelativeStartTime {
+                        seRel = savedRel
+                    } else {
+                        // 手動配置SE: タイムライン上の実開始時刻とシーン開始時刻の差分から正確に算出
+                        seRel = max(0.0, se.startTime - sceneStart)
+                    }
+                    let safeRel = min(max(0.0, seRel), max(0.0, scene.duration - 0.05))
+                    scene.seStartTimeOffset = safeRel
+                } else {
+                    // 跨ぎSEの後続シーン
+                    let startSceneTime = movieScenes.prefix(startSceneNum - 1).reduce(0.0) { $0 + $1.duration }
+                    let initialOffset = se.sceneRelativeStartTime ?? max(0.0, se.startTime - startSceneTime)
+                    let elapsed = max(0.0, (sceneStart - startSceneTime) - initialOffset)
+                    scene.seStartTimeOffset = -elapsed
+                }
             } else {
                 scene.seAudioPath = nil
                 scene.seName = nil
                 scene.seStartTimeOffset = 0.0
+                scene.seVolume = 1.0
             }
 
             // 3. BGM (BGMが削除されている場合は確実にnilへクリア)
@@ -1848,16 +1897,95 @@ public final class AppState: ObservableObject {
                 }
                 return clip.isLooping || (clip.sceneIndex == nil && clip.spanStartSceneIndex == nil)
             })
+
             if let bgm = matchingBGM {
                 scene.bgmAudioPath = bgm.audioFilePath
                 scene.bgmName = bgm.name
+                scene.bgmVolume = bgm.volume
+
+                let isSpan = (bgm.spanStartSceneIndex != nil && bgm.spanEndSceneIndex != nil)
+                let startSceneNum = bgm.spanStartSceneIndex ?? bgm.sceneIndex ?? 1
+
+                if sceneNum == startSceneNum || (!isSpan && bgm.sceneIndex == sceneNum) {
+                    let bgmRel: Double
+                    if bgm.voiceTriggerEnabled, let charIdx = bgm.startCharIndex,
+                       let ctx = VoiceTextTimingService.resolveDialogueContext(clip: bgm, sceneIndex: sceneNum, clips: clips, scenes: movieScenes),
+                       let timing = ctx.timings.first(where: { $0.index == charIdx }) {
+                        bgmRel = max(0.0, timing.startSeconds + bgm.voiceTriggerOffset)
+                    } else if let savedRel = bgm.sceneRelativeStartTime {
+                        bgmRel = savedRel
+                    } else {
+                        bgmRel = max(0.0, bgm.startTime - sceneStart)
+                    }
+                    let safeRel = min(max(0.0, bgmRel), max(0.0, scene.duration - 0.05))
+                    scene.bgmStartTimeOffset = safeRel
+                } else if isSpan {
+                    // 跨ぎBGMの後続シーン: シーン先頭時点ですでに経過しているBGM再生時間（負のオフセット）
+                    let startSceneTime = movieScenes.prefix(startSceneNum - 1).reduce(0.0) { $0 + $1.duration }
+                    let initialOffset = bgm.sceneRelativeStartTime ?? max(0.0, bgm.startTime - startSceneTime)
+                    let elapsed = max(0.0, (sceneStart - startSceneTime) - initialOffset)
+                    scene.bgmStartTimeOffset = -elapsed
+                } else {
+                    scene.bgmStartTimeOffset = 0.0
+                }
             } else {
                 scene.bgmAudioPath = nil
                 scene.bgmName = nil
+                scene.bgmStartTimeOffset = 0.0
+                scene.bgmVolume = 0.7
             }
 
             movieScenes[idx] = scene
+            accSceneTime += scene.duration
         }
+    }
+
+    /// クリップの startTime 移動時に、該当する所属シーン番号およびシーン内相対時間を自動再計算して同期
+    public func updateClipSceneTiming(clipId: UUID) {
+        guard let idx = soundClips.firstIndex(where: { $0.id == clipId }) else { return }
+        var clip = soundClips[idx]
+        if movieScenes.isEmpty && !slides.isEmpty {
+            movieScenes = slides.map { s in
+                MovieScene(
+                    title: s.title.isEmpty ? "シーン \(s.slideIndex)" : s.title,
+                    duration: max(2.5, s.duration),
+                    slideTitle: "スライド #\(s.slideIndex)",
+                    backgroundName: s.backgroundName,
+                    characterName: s.characterName,
+                    telop: SlideItem.cleanDialogueText(from: s.telop)
+                )
+            }
+        }
+        guard !movieScenes.isEmpty else { return }
+
+        // 単一シーン所属クリップまたは跨ぎ開始シーンの再検出
+        var acc: Double = 0.0
+        var matchedSceneIndex: Int = 1
+        var matchedRelTime: Double = clip.startTime
+
+        for (sIdx, sc) in movieScenes.enumerated() {
+            let nextAcc = acc + sc.duration
+            if clip.startTime >= acc && (clip.startTime < nextAcc || sIdx == movieScenes.count - 1) {
+                matchedSceneIndex = sIdx + 1
+                matchedRelTime = max(0.0, clip.startTime - acc)
+                break
+            }
+            acc = nextAcc
+        }
+
+        if let s = clip.spanStartSceneIndex, let e = clip.spanEndSceneIndex, e > s {
+            let spanLen = e - s
+            clip.spanStartSceneIndex = matchedSceneIndex
+            clip.spanEndSceneIndex = min(movieScenes.count, matchedSceneIndex + spanLen)
+            clip.sceneIndex = matchedSceneIndex
+            clip.sceneRelativeStartTime = matchedRelTime
+        } else {
+            clip.sceneIndex = matchedSceneIndex
+            clip.sceneRelativeStartTime = matchedRelTime
+        }
+
+        soundClips[idx] = clip
+        syncClipsToMovieScenes(soundClips)
     }
 
     /// サウンドメーカーおよびムービーメーカー間で、シーン表示時間と実際の音声再生時間を完全に連動同期
@@ -1883,20 +2011,29 @@ public final class AppState: ObservableObject {
             let sceneNum = idx + 1
             var scene = movieScenes[idx]
 
-            // このシーンに属する音声クリップ (Voice)
-            let voiceClip = soundClips.first(where: { $0.type == "Voice" && $0.sceneIndex == sceneNum })
+            // このシーンに属する音声クリップ (Voice: 1人目および2人目)
+            let sceneVoices = soundClips.filter { $0.type == "Voice" && $0.sceneIndex == sceneNum }
+            let maxVoiceDuration = sceneVoices.map { $0.duration }.max()
 
             if autoFitDuration {
-                if let voice = voiceClip {
+                if let maxDur = maxVoiceDuration, let voice = sceneVoices.first {
                     let animDur = scene.animationDuration ?? 0.0
                     // 音声が余白をもって綺麗に鳴りきるための所要時間（最低2.5秒）
-                    let voiceRequired = voice.duration + 0.6
+                    let voiceRequired = maxDur + 0.6
                     let newDur = max(2.5, max(animDur, voiceRequired))
                     scene.duration = newDur
                     scene.voiceDuration = voice.duration
                     scene.voiceAudioPath = voice.audioFilePath
                     scene.voiceCharacter = voice.character ?? scene.characterName
                     scene.audioTrack = voice.trackId ?? "track_voice"
+
+                    if sceneVoices.count >= 2 {
+                        let voice2 = sceneVoices[1]
+                        scene.voice2AudioPath = voice2.audioFilePath
+                        scene.voice2Character = voice2.character
+                        scene.voice2Duration = voice2.duration
+                        scene.voice2StartTimeOffset = voice2.sceneRelativeStartTime ?? 0.0
+                    }
                 } else if let animDur = scene.animationDuration, animDur > 0 {
                     scene.duration = max(2.5, animDur)
                 } else {
@@ -1921,9 +2058,9 @@ public final class AppState: ObservableObject {
                         soundClips[cIdx].sceneRelativeStartTime = 0.0
                         scene.voiceStartTimeOffset = 0.0
                     } else if soundClips[cIdx].type == "SE" || soundClips[cIdx].type == "BGM" {
-                        // 1. 文字連動が設定されている場合は、その文字の発話推定時刻に正確にアライメント
-                        let targetChar = soundClips[cIdx].startCharIndex ?? soundClips[cIdx].fadeInCharIndex
-                        if let charIdx = targetChar,
+                        // 1. 文字連動が明示的に有効な場合は、その文字の発話推定時刻に正確にアライメント
+                        if soundClips[cIdx].voiceTriggerEnabled,
+                           let charIdx = soundClips[cIdx].startCharIndex,
                            let ctx = VoiceTextTimingService.resolveDialogueContext(clip: soundClips[cIdx], sceneIndex: sceneNum, clips: soundClips, scenes: movieScenes),
                            let timing = ctx.timings.first(where: { $0.index == charIdx }) {
                             let rel = max(0.0, timing.startSeconds + soundClips[cIdx].voiceTriggerOffset)
@@ -1932,22 +2069,23 @@ public final class AppState: ObservableObject {
                             if soundClips[cIdx].type == "SE" {
                                 scene.seStartTimeOffset = rel
                                 scene.seVolume = soundClips[cIdx].volume
+                            } else if soundClips[cIdx].type == "BGM" {
+                                scene.bgmStartTimeOffset = rel
+                                scene.bgmVolume = soundClips[cIdx].volume
                             }
                         } else {
-                            // 2. 文字連動なしの場合は、保持済みのシーン内相対オフセットを安全範囲で維持
-                            let rel: Double
-                            if let savedRel = soundClips[cIdx].sceneRelativeStartTime {
-                                rel = savedRel
-                            } else {
-                                let prevRel = soundClips[cIdx].startTime - sceneStart
-                                rel = (prevRel >= 0 && prevRel < scene.duration) ? prevRel : 0.3
-                            }
-                            let safeRel = min(max(0.0, rel), max(0.1, scene.duration - 0.1))
+                            // 2. 文字連動なしの場合は、シーン先頭からの相対オフセットを最優先で維持し、
+                            //    シーンの開始時間 sceneStart に追従させて startTime を同期
+                            let currentRel = soundClips[cIdx].sceneRelativeStartTime ?? max(0.0, soundClips[cIdx].startTime - sceneStart)
+                            let safeRel = min(max(0.0, currentRel), max(0.0, scene.duration - 0.05))
                             soundClips[cIdx].sceneRelativeStartTime = safeRel
                             soundClips[cIdx].startTime = sceneStart + safeRel
                             if soundClips[cIdx].type == "SE" {
                                 scene.seStartTimeOffset = safeRel
                                 scene.seVolume = soundClips[cIdx].volume
+                            } else if soundClips[cIdx].type == "BGM" {
+                                scene.bgmStartTimeOffset = safeRel
+                                scene.bgmVolume = soundClips[cIdx].volume
                             }
                         }
                     }
@@ -1972,7 +2110,16 @@ public final class AppState: ObservableObject {
                 if let charIdx = targetChar,
                    let ctx = VoiceTextTimingService.resolveDialogueContext(clip: soundClips[cIdx], sceneIndex: startSceneIdx, clips: soundClips, scenes: movieScenes),
                    let timing = ctx.timings.first(where: { $0.index == charIdx }) {
-                    finalStart = max(0.0, sStart + timing.startSeconds + soundClips[cIdx].voiceTriggerOffset)
+                    let rel = max(0.0, timing.startSeconds + soundClips[cIdx].voiceTriggerOffset)
+                    soundClips[cIdx].sceneRelativeStartTime = rel
+                    finalStart = sStart + rel
+                } else if let savedRel = soundClips[cIdx].sceneRelativeStartTime {
+                    finalStart = sStart + savedRel
+                } else {
+                    let prevRel = max(0.0, soundClips[cIdx].startTime - sStart)
+                    let safeRel = min(prevRel, max(0.0, sDur - 0.1))
+                    soundClips[cIdx].sceneRelativeStartTime = safeRel
+                    finalStart = sStart + safeRel
                 }
                 soundClips[cIdx].startTime = finalStart
                 soundClips[cIdx].duration = sDur
@@ -2010,7 +2157,10 @@ public final class AppState: ObservableObject {
     public func resolveAndRepairAudioPaths(for clips: [SoundClip]) -> [SoundClip] {
         let fm = FileManager.default
         let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let generatedAudioDir = appSupport.appendingPathComponent("TohoStudio/GeneratedAudio", isDirectory: true).path
+        let appSupportGenAudioDir = appSupport.appendingPathComponent("TohoStudio/GeneratedAudio", isDirectory: true).path
+        let resourceGenAudioDir = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/GeneratedAudio"
+
+        let genAudioDirs = [appSupportGenAudioDir, resourceGenAudioDir]
 
         let bgmDirs = [
             "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/音楽/BGM",
@@ -2028,7 +2178,9 @@ public final class AppState: ObservableObject {
             "/Volumes/ZSSD/GitHub/repository/TohoStudio/動画用/音楽"
         ]
 
-        let genAudioFiles = (try? fm.contentsOfDirectory(atPath: generatedAudioDir)) ?? []
+        let genAudioFiles: [(dir: String, file: String)] = genAudioDirs.flatMap { dir in
+            ((try? fm.contentsOfDirectory(atPath: dir)) ?? []).map { (dir, $0) }
+        }
         let bgmFiles: [(dir: String, file: String)] = bgmDirs.flatMap { dir in
             ((try? fm.contentsOfDirectory(atPath: dir)) ?? []).map { (dir, $0) }
         }
@@ -2041,11 +2193,35 @@ public final class AppState: ObservableObject {
         for var clip in clips {
             let path = clip.audioFilePath
 
-            // すでに有効なファイルが存在していれば波形と長さを確認してそのまま利用
+            // すでにファイルが存在する場合の検証
             if let p = path, fm.fileExists(atPath: p) {
-                if (clip.duration <= 0.5 || clip.waveformPoints == nil || clip.waveformPoints?.isEmpty == true),
-                   let player = try? AVAudioPlayer(contentsOf: URL(fileURLWithPath: p)) {
-                    if clip.duration <= 0.5 { clip.duration = max(0.5, player.duration) }
+                if let player = try? AVAudioPlayer(contentsOf: URL(fileURLWithPath: p)) {
+                    // Voice の場合、他プロジェクトの同名短縮ファイル等との衝突（durationの乖離）を検証
+                    if clip.type == "Voice" {
+                        let textLen = clip.text?.count ?? 0
+                        let isSuspiciouslyShort = (clip.duration > 3.0 && player.duration < clip.duration - 2.5) ||
+                                                 (textLen > 30 && player.duration < 4.0)
+
+                        if isSuspiciouslyShort {
+                            // Resource 側の同名ファイルを確認してより長い（正しい）ファイルを探索
+                            let fname = (p as NSString).lastPathComponent
+                            for (dir, f) in genAudioFiles {
+                                if f == fname && dir != (p as NSString).deletingLastPathComponent {
+                                    let altPath = (dir as NSString).appendingPathComponent(f)
+                                    if let altPlayer = try? AVAudioPlayer(contentsOf: URL(fileURLWithPath: altPath)),
+                                       altPlayer.duration > player.duration {
+                                        clip.audioFilePath = altPath
+                                        clip.duration = altPlayer.duration
+                                        break
+                                    }
+                                }
+                            }
+                        } else {
+                            clip.duration = max(0.5, player.duration)
+                        }
+                    } else if clip.duration <= 0.5 {
+                        clip.duration = max(0.5, player.duration)
+                    }
                 }
                 result.append(clip)
                 continue
@@ -2058,10 +2234,10 @@ public final class AppState: ObservableObject {
                 // パス名がすでに存在する場合のファイル名マッチ
                 if let p = path, !p.isEmpty {
                     let fname = (p as NSString).lastPathComponent
-                    for f in genAudioFiles {
+                    for (dir, f) in genAudioFiles {
                         if f.precomposedStringWithCanonicalMapping == fname.precomposedStringWithCanonicalMapping ||
                            f.decomposedStringWithCanonicalMapping == fname.decomposedStringWithCanonicalMapping {
-                            resolvedPath = (generatedAudioDir as NSString).appendingPathComponent(f)
+                            resolvedPath = (dir as NSString).appendingPathComponent(f)
                             break
                         }
                     }
@@ -2087,13 +2263,13 @@ public final class AppState: ObservableObject {
                         let prefixAlt = "Slide_\(idx)."
 
                         // 候補1: prefix + キャラ名 (例: Slide_011_操夢.wav)
-                        for f in genAudioFiles {
+                        for (dir, f) in genAudioFiles {
                             let fNFC = f.precomposedStringWithCanonicalMapping
                             let charNFC = cleanChar.precomposedStringWithCanonicalMapping
 
                             if fNFC.hasPrefix(prefix3) || fNFC.hasPrefix(prefix1) {
                                 if cleanChar.isEmpty || fNFC.contains(charNFC) {
-                                    resolvedPath = (generatedAudioDir as NSString).appendingPathComponent(f)
+                                    resolvedPath = (dir as NSString).appendingPathComponent(f)
                                     break
                                 }
                             }
@@ -2101,10 +2277,10 @@ public final class AppState: ObservableObject {
 
                         // 候補2: キャラ名表記揺れまたはシーン番号のみでのファイル検索
                         if resolvedPath == nil {
-                            for f in genAudioFiles {
+                            for (dir, f) in genAudioFiles {
                                 let fNFC = f.precomposedStringWithCanonicalMapping
                                 if fNFC.hasPrefix(prefix3) || fNFC.hasPrefix(prefix1) || fNFC.hasPrefix(prefixAlt) {
-                                    resolvedPath = (generatedAudioDir as NSString).appendingPathComponent(f)
+                                    resolvedPath = (dir as NSString).appendingPathComponent(f)
                                     break
                                 }
                             }
@@ -2403,6 +2579,31 @@ public final class AppState: ObservableObject {
                 updatedClips.append(voiceClip)
             }
 
+            // 1-2. 2人目のボイスマッチング（同一シーンに2人分の音声が割り当てられている場合）
+            let matchedVoice2Index = remainingClips.firstIndex(where: {
+                $0.type == "Voice" && $0.sceneIndex == sceneNum
+            })
+            if let v2Idx = matchedVoice2Index {
+                var voice2Clip = remainingClips.remove(at: v2Idx)
+                voice2Clip.sceneIndex = sceneNum
+                voice2Clip.startTime = accumulatedTime // シーン先頭に完全一致 (0.0s)
+                voice2Clip.sceneRelativeStartTime = 0.0
+
+                scene.voice2AudioPath = voice2Clip.audioFilePath
+                scene.voice2Character = voice2Clip.character
+                scene.voice2Duration = voice2Clip.duration
+                scene.voice2StartTimeOffset = 0.0
+
+                if autoFitDuration {
+                    let requiredDuration = max(2.5, voice2Clip.duration + 0.6)
+                    if scene.duration < requiredDuration {
+                        scene.duration = requiredDuration
+                    }
+                }
+                voiceCount += 1
+                updatedClips.append(voice2Clip)
+            }
+
             // 2. SE（効果音）マッチング
             let matchedSE = repairedClips.first(where: {
                 $0.type == "SE" && ($0.sceneIndex == sceneNum || ($0.spanStartSceneIndex != nil && $0.spanEndSceneIndex != nil && sceneNum >= $0.spanStartSceneIndex! && sceneNum <= $0.spanEndSceneIndex!))
@@ -2417,21 +2618,19 @@ public final class AppState: ObservableObject {
                         var singleSe = remainingClips.remove(at: rIdx)
                         singleSe.sceneIndex = sceneNum
 
-                        // 1. 文字連動が設定されている場合は、その文字の発話推定時刻に正確にアライメント
-                        let targetChar = singleSe.startCharIndex ?? singleSe.fadeInCharIndex
+                        // 1. 文字連動が明示的に有効な場合は、その文字の発話推定時刻に正確にアライメント
                         let seRelOffset: Double
-                        if let charIdx = targetChar,
+                        if singleSe.voiceTriggerEnabled,
+                           let charIdx = singleSe.startCharIndex,
                            let ctx = VoiceTextTimingService.resolveDialogueContext(clip: singleSe, sceneIndex: sceneNum, clips: repairedClips, scenes: self.movieScenes),
                            let timing = ctx.timings.first(where: { $0.index == charIdx }) {
                             seRelOffset = max(0.0, timing.startSeconds + singleSe.voiceTriggerOffset)
-                        } else if let savedRel = singleSe.sceneRelativeStartTime {
-                            seRelOffset = savedRel
                         } else {
-                            // 2. 文字連動なしの場合は、元々設定されていたシーン相対オフセットを安全範囲で維持
-                            let prevRel = singleSe.startTime - (self.movieScenes.prefix(max(0, sceneNum - 1)).reduce(0.0) { $0 + $1.duration })
-                            seRelOffset = (prevRel >= 0 && prevRel < scene.duration) ? prevRel : 0.3
+                            // 2. 文字連動なしの場合は、タイムライン上の実開始時刻とシーン先頭の差分から正確に算出
+                            let prevRel = max(0.0, singleSe.startTime - accumulatedTime)
+                            seRelOffset = min(prevRel, max(0.0, scene.duration - 0.05))
                         }
-                        let safeRel = min(max(0.0, seRelOffset), max(0.1, scene.duration - 0.1))
+                        let safeRel = min(max(0.0, seRelOffset), max(0.0, scene.duration - 0.05))
                         singleSe.sceneRelativeStartTime = safeRel
                         singleSe.startTime = accumulatedTime + safeRel
                         scene.seStartTimeOffset = safeRel
@@ -2459,10 +2658,35 @@ public final class AppState: ObservableObject {
             if let bgmClip = matchingBGM {
                 scene.bgmAudioPath = bgmClip.audioFilePath
                 scene.bgmName = bgmClip.name
+                scene.bgmVolume = bgmClip.volume
+                let isSpan = (bgmClip.spanStartSceneIndex != nil && bgmClip.spanEndSceneIndex != nil)
+                let startSceneNum = bgmClip.spanStartSceneIndex ?? bgmClip.sceneIndex ?? 1
+                if sceneNum == startSceneNum || (!isSpan && bgmClip.sceneIndex == sceneNum) {
+                    let bgmRel: Double
+                    if bgmClip.voiceTriggerEnabled,
+                       let charIdx = bgmClip.startCharIndex,
+                       let ctx = VoiceTextTimingService.resolveDialogueContext(clip: bgmClip, sceneIndex: sceneNum, clips: repairedClips, scenes: self.movieScenes),
+                       let timing = ctx.timings.first(where: { $0.index == charIdx }) {
+                        bgmRel = max(0.0, timing.startSeconds + bgmClip.voiceTriggerOffset)
+                    } else {
+                        let prevRel = max(0.0, bgmClip.startTime - accumulatedTime)
+                        bgmRel = min(prevRel, max(0.0, scene.duration - 0.05))
+                    }
+                    scene.bgmStartTimeOffset = bgmRel
+                } else if isSpan {
+                    let startSceneTime = self.movieScenes.prefix(startSceneNum - 1).reduce(0.0) { $0 + $1.duration }
+                    let initialOffset = bgmClip.sceneRelativeStartTime ?? max(0.0, bgmClip.startTime - startSceneTime)
+                    let elapsed = max(0.0, (accumulatedTime - startSceneTime) - initialOffset)
+                    scene.bgmStartTimeOffset = -elapsed
+                } else {
+                    scene.bgmStartTimeOffset = 0.0
+                }
                 bgmCount += 1
             } else {
                 scene.bgmAudioPath = nil
                 scene.bgmName = nil
+                scene.bgmStartTimeOffset = 0.0
+                scene.bgmVolume = 0.7
             }
 
             self.movieScenes[idx] = scene
@@ -2559,7 +2783,7 @@ public final class AppState: ObservableObject {
             isPlaying = true
         }
         // タイムライン音声の同期再生を開始
-        SoundMakerAudioManager.shared.startTimelinePlayback(from: currentTime, clips: soundClips)
+        SoundMakerAudioManager.shared.startTimelinePlayback(from: currentTime, clips: soundClips, scenes: movieScenes)
         moviePlaybackTimer?.invalidate()
         let interval: Double = 0.05
         moviePlaybackTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
@@ -2570,7 +2794,7 @@ public final class AppState: ObservableObject {
                 if self.isLooping {
                     self.currentTime = 0.0
                     self.syncSceneToCurrentTime()
-                    SoundMakerAudioManager.shared.startTimelinePlayback(from: 0.0, clips: self.soundClips)
+                    SoundMakerAudioManager.shared.startTimelinePlayback(from: 0.0, clips: self.soundClips, scenes: self.movieScenes)
                 } else {
                     self.stopMoviePlayback()
                 }
@@ -2578,7 +2802,7 @@ public final class AppState: ObservableObject {
             }
             self.currentTime = newTime
             self.syncSceneToCurrentTime()
-            SoundMakerAudioManager.shared.updateTimelinePlayback(currentTime: newTime, clips: self.soundClips)
+            SoundMakerAudioManager.shared.updateTimelinePlayback(currentTime: newTime, clips: self.soundClips, scenes: self.movieScenes)
         }
     }
 
@@ -2596,7 +2820,7 @@ public final class AppState: ObservableObject {
         currentTime = clamped
         syncSceneToCurrentTime()
         if isPlaying {
-            SoundMakerAudioManager.shared.startTimelinePlayback(from: clamped, clips: soundClips)
+            SoundMakerAudioManager.shared.startTimelinePlayback(from: clamped, clips: soundClips, scenes: movieScenes)
         }
     }
 

@@ -139,18 +139,8 @@ public final class SlideVoiceBatchService: ObservableObject {
         var items: [BatchVoiceItem] = []
         let appState = AppState.shared
 
-        let charDictionary: [String: String] = [
-            "操夢": "操夢", "サブ": "サブ", "ナレ1": "ナレ1", "ナレ2": "ナレ2", "みとり": "みとり",
-            "霊夢": "博麗霊夢", "魔理沙": "霧雨魔理沙", "咲夜": "十六夜咲夜", "妖夢": "魂魄妖夢",
-            "幽々子": "西行寺幽々子", "紫": "八雲紫", "パチュリー": "パチュリー・ノーレッジ",
-            "フラン": "フランドール・スカーレット", "レミリア": "レミリア・スカーレット",
-            "早苗": "東風谷早苗", "さとり": "古明地さとり", "こいし": "古明地こいし",
-            "アリス": "アリス・マーガトロイド", "チルノ": "チルノ", "文": "射命丸文",
-            "ナレーション": "ナレーション"
-        ]
-
         for slide in slides {
-            // 1. 話者抽出
+            // 1. 話者抽出 (カッコ書きから2人話者を優先認識し、A&B形式に正規化)
             var speaker = slide.characterName
             if let noteBracketSpeaker = SlideItem.extractSpeakerFromBrackets(from: slide.rawPresenterNote ?? slide.presenterNote), !noteBracketSpeaker.isEmpty {
                 speaker = noteBracketSpeaker
@@ -161,9 +151,7 @@ public final class SlideVoiceBatchService: ObservableObject {
             if speaker.isEmpty || speaker == "なし" {
                 speaker = "操夢" // メイン話者
             }
-            if let mapped = charDictionary[speaker] {
-                speaker = mapped
-            }
+            speaker = SlideItem.normalizeSpeakerName(speaker)
 
             // 2. セリフ抽出 (ノート本文優先、なければテロップ)
             var speechText = slide.telop
@@ -177,32 +165,6 @@ public final class SlideVoiceBatchService: ObservableObject {
                 speechText = slide.title.isEmpty ? "第\(slide.slideIndex)スライド" : slide.title
             }
 
-            // 3. 話者に対応するVoiceTemplateを検索 (完全一致または部分一致)
-            let matchedTemplate = appState.voiceTemplates.first(where: {
-                $0.characterName == speaker || $0.name.contains(speaker)
-            })
-
-            let voiceType: VoiceType
-            let speed: Int
-            let pitch: Int
-            let tplId: UUID?
-            let tplName: String
-
-            if let tpl = matchedTemplate {
-                voiceType = tpl.voiceType
-                speed = tpl.speed
-                pitch = tpl.pitch
-                tplId = tpl.id
-                tplName = tpl.name
-            } else {
-                let preset = AquesTalkBridge.shared.characterPreset(for: speaker)
-                voiceType = preset.voice
-                speed = preset.speed
-                pitch = preset.pitch
-                tplId = nil
-                tplName = "\(speaker)標準 (\(preset.voice.rawValue))"
-            }
-
             // セクション見出しとタイトルスライドは音声を必ずスキップ
             let isHeaderOrTitle = slide.isTitleOrSectionHeader
             let skipReason: String? = isHeaderOrTitle ? (slide.slideType == "title" ? "タイトルスライド (音声スキップ)" : "セクション見出し・クレジット (音声スキップ)") : nil
@@ -210,26 +172,58 @@ public final class SlideVoiceBatchService: ObservableObject {
             let animDur = slide.animationTimingDuration
             let animNote = slide.animationTimingNote
 
-            let item = BatchVoiceItem(
-                slideIndex: slide.slideIndex,
-                slideTitle: slide.title.isEmpty ? "スライド #\(slide.slideIndex)" : slide.title,
-                slideType: slide.slideType,
-                characterName: speaker,
-                text: speechText,
-                selectedTemplateId: tplId,
-                templateName: tplName,
-                voiceType: voiceType,
-                speed: speed,
-                pitch: pitch,
-                effect: defaultEffect,
-                quality: defaultQuality,
-                isSkipped: isHeaderOrTitle,
-                skipReason: skipReason,
-                animationDuration: animDur,
-                animationNote: animNote,
-                slideDuration: slide.duration
-            )
-            items.append(item)
+            // 2人の話者が認識された場合、話者Aと話者Bの2人分の音声アイテムを作成（1つのシーンに2人分割り当て可能に）
+            let duo = AquesTalkBridge.duoSpeakers(from: speaker)
+            let individualSpeakers = duo.isDuo ? [duo.speaker1, duo.speaker2] : [speaker]
+
+            for spk in individualSpeakers {
+                // 3. 話者に対応するVoiceTemplateを検索 (完全一致または部分一致)
+                let matchedTemplate = appState.voiceTemplates.first(where: {
+                    $0.characterName == spk || $0.name.contains(spk)
+                })
+
+                let voiceType: VoiceType
+                let speed: Int
+                let pitch: Int
+                let tplId: UUID?
+                let tplName: String
+
+                if let tpl = matchedTemplate {
+                    voiceType = tpl.voiceType
+                    speed = tpl.speed
+                    pitch = tpl.pitch
+                    tplId = tpl.id
+                    tplName = tpl.name
+                } else {
+                    let preset = AquesTalkBridge.shared.characterPreset(for: spk)
+                    voiceType = preset.voice
+                    speed = preset.speed
+                    pitch = preset.pitch
+                    tplId = nil
+                    tplName = "\(spk)標準 (\(preset.voice.rawValue))"
+                }
+
+                let item = BatchVoiceItem(
+                    slideIndex: slide.slideIndex,
+                    slideTitle: slide.title.isEmpty ? "スライド #\(slide.slideIndex)" : slide.title,
+                    slideType: slide.slideType,
+                    characterName: spk,
+                    text: speechText,
+                    selectedTemplateId: tplId,
+                    templateName: tplName,
+                    voiceType: voiceType,
+                    speed: speed,
+                    pitch: pitch,
+                    effect: defaultEffect,
+                    quality: defaultQuality,
+                    isSkipped: isHeaderOrTitle,
+                    skipReason: skipReason,
+                    animationDuration: animDur,
+                    animationNote: animNote,
+                    slideDuration: slide.duration
+                )
+                items.append(item)
+            }
         }
 
         return items
@@ -319,15 +313,26 @@ public final class SlideVoiceBatchService: ObservableObject {
                     onProgress?(i + 1, items.count, item)
                 }
 
-                // AquesTalkで音声を合成 (音質改善 & エフェクト適用 & ピッチシフト)
-                let wavData = AquesTalkBridge.shared.synthesizeToWavData(
-                    text: item.text,
-                    speed: item.speed,
-                    voice: item.voiceType,
-                    pitch: item.pitch,
-                    quality: quality,
-                    effect: effect
-                )
+                // AquesTalkで音声を合成 (音質改善 & エフェクト適用 & ピッチシフト、2人の場合はデュエット同時合成)
+                let wavData: Data?
+                if item.characterName.contains("&") {
+                    wavData = AquesTalkBridge.shared.synthesizeDuoVoiceToWavData(
+                        text: item.text,
+                        speakerName: item.characterName,
+                        customSpeed: item.speed != 100 ? item.speed : nil,
+                        quality: quality,
+                        effect: effect
+                    )
+                } else {
+                    wavData = AquesTalkBridge.shared.synthesizeToWavData(
+                        text: item.text,
+                        speed: item.speed,
+                        voice: item.voiceType,
+                        pitch: item.pitch,
+                        quality: quality,
+                        effect: effect
+                    )
+                }
 
                 if let data = wavData {
                     item.generatedWavData = data
@@ -377,80 +382,110 @@ public final class SlideVoiceBatchService: ObservableObject {
         // 既存の音声クリップ（Voice）をクリアまたは置き換え
         appState.soundClips.removeAll(where: { $0.type == "Voice" })
 
+        // スライド順序を維持した一意なスライド番号一覧
+        var orderedSlideIndices: [Int] = []
+        for it in items {
+            if !orderedSlideIndices.contains(it.slideIndex) {
+                orderedSlideIndices.append(it.slideIndex)
+            }
+        }
+
         // スライド情報からMovieScene一覧を同期構築（シーンごとの時間枠を正確に設定）
         var updatedScenes: [MovieScene] = []
         var currentPosition: Double = 0.0
 
-        for item in items {
-            // シーンの長さ決定:
-            // スライド上のアニメーション指定時間表記（例: 15秒、25秒）や"アニメーションに合わせる"表記がある場合は、
-            // そのアニメーション時間に合わせてシーン表示時間を正確に設定！
-            let sceneDuration = item.effectiveSceneDuration
+        for slideIdx in orderedSlideIndices {
+            let slideItems = items.filter { $0.slideIndex == slideIdx }
+            guard let firstItem = slideItems.first else { continue }
+
+            // シーンの長さ決定: 同一スライドの全話者の中で最長のもの、およびアニメーション指定時間を考慮
+            let sceneDuration = slideItems.map { $0.effectiveSceneDuration }.max() ?? firstItem.effectiveSceneDuration
 
             // MovieScene の生成/更新
-            let matchedSlide = appState.slides.first(where: { $0.slideIndex == item.slideIndex })
+            let matchedSlide = appState.slides.first(where: { $0.slideIndex == slideIdx })
             var rawTitle = matchedSlide?.title.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             if rawTitle.isEmpty {
-                rawTitle = item.slideTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                rawTitle = firstItem.slideTitle.trimmingCharacters(in: .whitespacesAndNewlines)
             }
-            while rawTitle.hasPrefix("シーン \(item.slideIndex):") || rawTitle.hasPrefix("シーン\(item.slideIndex):") {
-                let prefixLen = rawTitle.hasPrefix("シーン \(item.slideIndex):") ? ("シーン \(item.slideIndex):").count : ("シーン\(item.slideIndex):").count
+            while rawTitle.hasPrefix("シーン \(slideIdx):") || rawTitle.hasPrefix("シーン\(slideIdx):") {
+                let prefixLen = rawTitle.hasPrefix("シーン \(slideIdx):") ? ("シーン \(slideIdx):").count : ("シーン\(slideIdx):").count
                 rawTitle = String(rawTitle.dropFirst(prefixLen)).trimmingCharacters(in: .whitespacesAndNewlines)
             }
             let finalTitle: String
-            if rawTitle.isEmpty || rawTitle == "シーン \(item.slideIndex)" || rawTitle == "スライド #\(item.slideIndex)" {
-                finalTitle = "シーン \(item.slideIndex)"
+            if rawTitle.isEmpty || rawTitle == "シーン \(slideIdx)" || rawTitle == "スライド #\(slideIdx)" {
+                finalTitle = "シーン \(slideIdx)"
             } else {
-                finalTitle = "シーン \(item.slideIndex): \(rawTitle)"
+                finalTitle = "シーン \(slideIdx): \(rawTitle)"
             }
 
-            let telopText = matchedSlide?.telop.isEmpty == false ? matchedSlide!.telop : item.text
+            let telopText = matchedSlide?.telop.isEmpty == false ? matchedSlide!.telop : firstItem.text
             let slideHasAnim = (matchedSlide?.animations.isEmpty == false) && (matchedSlide?.animationTag != "なし") && (matchedSlide?.animationTag.isEmpty == false)
             let finalAnimName = slideHasAnim ? matchedSlide?.animationTag : "なし"
+
+            // 話者名: 2人の場合は "A&B"
+            let sceneCharacter: String
+            if slideItems.count >= 2 {
+                sceneCharacter = "\(slideItems[0].characterName)&\(slideItems[1].characterName)"
+            } else {
+                sceneCharacter = firstItem.characterName
+            }
+
+            // スキップされていない音声アイテム
+            let validVoices = slideItems.filter { !$0.isSkipped }
+            let v1 = validVoices.first
+            let v2 = validVoices.count >= 2 ? validVoices[1] : nil
 
             let scene = MovieScene(
                 title: finalTitle,
                 duration: sceneDuration,
-                slideTitle: "スライド #\(item.slideIndex)",
+                slideTitle: "スライド #\(slideIdx)",
                 backgroundName: matchedSlide?.backgroundName ?? "神社",
-                characterName: item.characterName,
+                characterName: sceneCharacter,
                 telop: telopText,
-                audioTrack: item.isSkipped ? nil : "track_voice",
+                audioTrack: validVoices.isEmpty ? nil : "track_voice",
                 animationName: finalAnimName,
                 transitionName: matchedSlide?.transitionEffect,
-                animationDuration: item.animationDuration,
-                animationNote: item.animationNote
+                animationDuration: firstItem.animationDuration,
+                animationNote: firstItem.animationNote,
+                voiceAudioPath: v1?.generatedWavURL?.path,
+                voiceCharacter: v1?.characterName,
+                voiceDuration: v1?.audioDuration,
+                voice2AudioPath: v2?.generatedWavURL?.path,
+                voice2Character: v2?.characterName,
+                voice2Duration: v2?.audioDuration
             )
             updatedScenes.append(scene)
 
-            // スキップ対象でなければ音声クリップを作成して配置
-            if !item.isSkipped, let track = findTrack(for: item.characterName) {
-                let clipName = "[\(item.characterName)] \(item.text)"
-                let phonetic = AquesTalkBridge.shared.convertToVoiceSymbol(text: item.text)
+            // 各話者の音声クリップを作成して同一シーン・同一開始時刻に配置
+            for item in validVoices {
+                if let track = findTrack(for: item.characterName) {
+                    let clipName = "[\(item.characterName)] \(item.text)"
+                    let phonetic = AquesTalkBridge.shared.convertToVoiceSymbol(text: item.text)
 
-                let clip = SoundClip(
-                    name: clipName,
-                    type: "Voice",
-                    character: item.characterName,
-                    text: item.text,
-                    voiceSymbol: phonetic,
-                    duration: item.audioDuration,
-                    volume: 1.0,
-                    speed: item.speed,
-                    startTime: currentPosition,
-                    trackId: track.id,
-                    pan: track.pan,
-                    colorHex: track.colorHex,
-                    waveformPoints: item.waveformPoints,
-                    sceneIndex: item.slideIndex,
-                    audioFilePath: item.generatedWavURL?.path,
-                    voiceType: item.voiceType,
-                    pitch: item.pitch
-                )
-                appState.soundClips.append(clip)
+                    let clip = SoundClip(
+                        name: clipName,
+                        type: "Voice",
+                        character: item.characterName,
+                        text: item.text,
+                        voiceSymbol: phonetic,
+                        duration: item.audioDuration,
+                        volume: 1.0,
+                        speed: item.speed,
+                        startTime: currentPosition,
+                        trackId: track.id,
+                        pan: track.pan,
+                        colorHex: track.colorHex,
+                        waveformPoints: item.waveformPoints,
+                        sceneIndex: item.slideIndex,
+                        audioFilePath: item.generatedWavURL?.path,
+                        voiceType: item.voiceType,
+                        pitch: item.pitch
+                    )
+                    appState.soundClips.append(clip)
+                }
             }
 
-            // 次のシーンの開始位置
+            // 次のシーンの開始位置（スライドごとに1回だけ進める）
             currentPosition += sceneDuration
         }
 
@@ -553,7 +588,17 @@ public final class SlideVoiceBatchService: ObservableObject {
 
         for char in distinctCharacters {
             if !existingCharTracks.contains(char) {
-                let trackId = "track_voice_\(char.lowercased().filter { $0.isASCII && $0.isLetter })_\(UUID().uuidString.prefix(4))"
+                let trackId: String
+                let iconName: String
+                if char.contains("&") {
+                    trackId = "track_voice_duo_\(abs(char.hashValue % 100000))_\(UUID().uuidString.prefix(4))"
+                    iconName = "person.2.wave.2.fill"
+                } else {
+                    let asciiPart = char.lowercased().filter { $0.isASCII && $0.isLetter }
+                    let prefix = asciiPart.isEmpty ? "char" : asciiPart
+                    trackId = "track_voice_\(prefix)_\(UUID().uuidString.prefix(4))"
+                    iconName = "waveform"
+                }
                 let color = colorPalette[colorIdx % colorPalette.count]
                 colorIdx += 1
 
@@ -561,7 +606,7 @@ public final class SlideVoiceBatchService: ObservableObject {
                     id: trackId,
                     name: "\(char) (Voice)",
                     type: "voice",
-                    icon: "waveform",
+                    icon: iconName,
                     colorHex: color,
                     volume: 1.0,
                     pan: (colorIdx % 2 == 0) ? 0.2 : -0.2,
@@ -574,11 +619,18 @@ public final class SlideVoiceBatchService: ObservableObject {
 
     private func findTrack(for characterName: String) -> AudioTrack? {
         let appState = AppState.shared
-        // キャラクター名一致
+        // 1. 完全一致
         if let match = appState.audioTracks.first(where: { $0.characterName == characterName }) {
             return match
         }
-        // Voiceタイプ
+        // 2. 部分一致 (例: "霊夢" と "博麗霊夢")
+        if let match = appState.audioTracks.first(where: { track in
+            guard let name = track.characterName else { return false }
+            return name.contains(characterName) || characterName.contains(name)
+        }) {
+            return match
+        }
+        // 3. Voiceタイプ
         if let voiceTrack = appState.audioTracks.first(where: { $0.type == "voice" }) {
             return voiceTrack
         }

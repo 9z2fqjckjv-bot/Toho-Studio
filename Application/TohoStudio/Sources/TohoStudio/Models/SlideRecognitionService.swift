@@ -579,26 +579,14 @@ public final class SlideRecognitionService: ObservableObject {
                 continue
             }
 
-            // ノートにあるカッコ書き"（）,(),[]"から話者を最優先で識別
+            // ノートにあるカッコ書き"（）,(),[]"から話者を最優先で識別 (2人同時話者もA&B形式で認識)
             var speaker = slide.characterName
             if let noteBracketSpeaker = SlideItem.extractSpeakerFromBrackets(from: slide.rawPresenterNote ?? slide.presenterNote), !noteBracketSpeaker.isEmpty {
                 speaker = noteBracketSpeaker
             } else if let telopBracketSpeaker = SlideItem.extractSpeakerFromBrackets(from: slide.telop), !telopBracketSpeaker.isEmpty {
                 speaker = telopBracketSpeaker
             }
-
-            // キャラクター辞書にあれば正式名に補正
-            let charDictionary = [
-                "操夢": "操夢", "サブ": "サブ", "ナレ1": "ナレ1", "ナレ2": "ナレ2", "みとり": "みとり",
-                "霊夢": "博麗霊夢", "魔理沙": "霧雨魔理沙", "咲夜": "十六夜咲夜", "妖夢": "魂魄妖夢",
-                "幽々子": "西行寺幽々子", "紫": "八雲紫", "パチュリー": "パチュリー・ノーレッジ",
-                "フラン": "フランドール・スカーレット", "レミリア": "レミリア・スカーレット",
-                "早苗": "東風谷早苗", "さとり": "古明地さとり", "こいし": "古明地こいし",
-                "アリス": "アリス・マーガトロイド", "チルノ": "チルノ", "文": "射命丸文"
-            ]
-            if let mapped = charDictionary[speaker] {
-                speaker = mapped
-            }
+            speaker = SlideItem.normalizeSpeakerName(speaker)
 
             // セリフ本文はカッコ書き"（）,(),[]"および()書き表記（アニメーション）を除去したクリーンなテキストを使用
             var speechText = slide.telop
@@ -608,71 +596,76 @@ public final class SlideRecognitionService: ObservableObject {
             speechText = SlideItem.cleanDialogueText(from: speechText)
 
             if !speechText.isEmpty && !speaker.isEmpty && speaker != "ナレーション" {
-                // 既存の Voice クリップに対応するものがあれば引き継ぎ
-                let matchedExisting = existingVoices.first(where: {
-                    $0.sceneIndex == slide.slideIndex ||
-                    ($0.character == speaker && $0.text != nil && ($0.text == speechText || speechText.contains($0.text!) || $0.text!.contains(speechText)))
-                })
+                let duo = AquesTalkBridge.duoSpeakers(from: speaker)
+                let targetSpeakers = duo.isDuo ? [duo.speaker1, duo.speaker2] : [speaker]
 
-                if var existing = matchedExisting {
-                    existing.sceneIndex = slide.slideIndex
-                    clips.append(existing)
-                    continue
+                for spk in targetSpeakers {
+                    // 既存の Voice クリップに対応するものがあれば引き継ぎ
+                    let matchedExisting = existingVoices.first(where: {
+                        ($0.sceneIndex == slide.slideIndex && $0.character == spk) ||
+                        ($0.character == spk && $0.text != nil && ($0.text == speechText || speechText.contains($0.text!) || $0.text!.contains(speechText)))
+                    })
+
+                    if var existing = matchedExisting {
+                        existing.sceneIndex = slide.slideIndex
+                        clips.append(existing)
+                        continue
+                    }
+
+                    let voiceSym = AquesTalkBridge.shared.convertToVoiceSymbol(text: speechText)
+                    let preset = AquesTalkBridge.shared.characterPreset(for: spk)
+
+                    // Track assignment based on individual speaker
+                    let trackId: String
+                    let colorHex: String
+                    if spk.contains("操夢") {
+                        trackId = "track_voice_soumu"
+                        colorHex = "#3498DB"
+                    } else if spk.contains("サブ") {
+                        trackId = "track_voice_sub"
+                        colorHex = "#9B59B6"
+                    } else if spk.contains("ナレ1") {
+                        trackId = "track_voice_nare1"
+                        colorHex = "#34495E"
+                    } else if spk.contains("ナレ2") {
+                        trackId = "track_voice_nare2"
+                        colorHex = "#2C3E50"
+                    } else if spk.contains("みとり") {
+                        trackId = "track_voice_mitori"
+                        colorHex = "#1ABC9C"
+                    } else if spk.contains("霊夢") {
+                        trackId = "track_voice_reimu"
+                        colorHex = "#E74C3C"
+                    } else if spk.contains("魔理沙") {
+                        trackId = "track_voice_marisa"
+                        colorHex = "#F1C40F"
+                    } else {
+                        let sanitized = spk.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? UUID().uuidString.prefix(6).description
+                        trackId = "track_voice_\(sanitized)"
+                        colorHex = "#00CEC9"
+                    }
+
+                    // Generate realistic random waveform points
+                    let waveform = (0..<16).map { _ in Float.random(in: 0.2...0.95) }
+
+                    clips.append(SoundClip(
+                        name: "\(spk)セリフ #\(slide.slideIndex)",
+                        type: "Voice",
+                        character: spk,
+                        text: speechText,
+                        voiceSymbol: voiceSym,
+                        duration: max(slide.duration, 2.5),
+                        volume: 1.0,
+                        speed: preset.speed,
+                        startTime: Double(slide.slideIndex - 1) * 8.0,
+                        trackId: trackId,
+                        colorHex: colorHex,
+                        waveformPoints: waveform,
+                        sceneIndex: slide.slideIndex,
+                        voiceType: preset.voice,
+                        pitch: preset.pitch
+                    ))
                 }
-
-                let voiceSym = AquesTalkBridge.shared.convertToVoiceSymbol(text: speechText)
-                let preset = AquesTalkBridge.shared.characterPreset(for: speaker)
-
-                // Track assignment based on speaker (操夢メイン)
-                let trackId: String
-                let colorHex: String
-                if speaker.contains("操夢") {
-                    trackId = "track_voice_soumu"
-                    colorHex = "#3498DB"
-                } else if speaker.contains("サブ") {
-                    trackId = "track_voice_sub"
-                    colorHex = "#9B59B6"
-                } else if speaker.contains("ナレ1") {
-                    trackId = "track_voice_nare1"
-                    colorHex = "#34495E"
-                } else if speaker.contains("ナレ2") {
-                    trackId = "track_voice_nare2"
-                    colorHex = "#2C3E50"
-                } else if speaker.contains("みとり") {
-                    trackId = "track_voice_mitori"
-                    colorHex = "#1ABC9C"
-                } else if speaker.contains("霊夢") {
-                    trackId = "track_voice_reimu"
-                    colorHex = "#E74C3C"
-                } else if speaker.contains("魔理沙") {
-                    trackId = "track_voice_marisa"
-                    colorHex = "#F1C40F"
-                } else {
-                    let sanitized = speaker.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? UUID().uuidString.prefix(6).description
-                    trackId = "track_voice_\(sanitized)"
-                    colorHex = "#00CEC9"
-                }
-
-                // Generate realistic random waveform points
-                let waveform = (0..<16).map { _ in Float.random(in: 0.2...0.95) }
-
-                clips.append(SoundClip(
-                    name: "\(speaker)セリフ #\(slide.slideIndex)",
-                    type: "Voice",
-                    character: speaker,
-                    text: speechText,
-                    voiceSymbol: voiceSym,
-                    duration: max(slide.duration, 2.5),
-                    volume: 1.0,
-                    speed: preset.speed,
-                    startTime: Double(slide.slideIndex - 1) * 8.0,
-                    trackId: trackId,
-                    colorHex: colorHex,
-                    waveformPoints: waveform,
-                    sceneIndex: slide.slideIndex,
-                    voiceType: preset.voice,
-                    pitch: preset.pitch
-                ))
             }
         }
         

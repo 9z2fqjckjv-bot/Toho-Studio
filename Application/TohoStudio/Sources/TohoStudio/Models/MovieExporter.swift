@@ -218,6 +218,71 @@ public enum MovieExporter {
             throw ExportError.ffmpegFailed("結合処理に失敗しました:\n\(concatLog)")
         }
 
+        // サウンドメーカーにクリップ（SE, BGM, Voice）が存在する場合、
+        // タイムライン全体の完全一致ミックスダウン音声でマスタートラックを置換合成
+        let soundClips = AppState.shared.soundClips
+        let audioTracks = AppState.shared.audioTracks
+        if !soundClips.isEmpty {
+            let tempMasterWav = tempDir.appendingPathComponent("master_timeline.wav")
+            let masterExportOpts = SoundMakerExporter.ExportOptions(
+                format: "WAV (非圧縮・最高音質)",
+                scope: .masterMix,
+                sampleRate: 44100,
+                bitDepth: 16,
+                audioBitrate: options.audioBitrate,
+                normalize: true,
+                includeEffects: true
+            )
+            do {
+                let (leftSamples, rightSamples) = try await SoundMakerExporter.renderMixdown(
+                    clips: soundClips,
+                    tracks: audioTracks,
+                    scenes: scenes,
+                    options: masterExportOpts
+                ) { _, _ in }
+
+                try SoundMakerExporter.writeWavFile(
+                    left: leftSamples,
+                    right: rightSamples,
+                    sampleRate: 44100,
+                    bitDepth: 16,
+                    outputURL: tempMasterWav
+                )
+
+                if fm.fileExists(atPath: tempMasterWav.path) {
+                    let ext = isProRes ? "mov" : "mp4"
+                    let tempRemuxURL = tempDir.appendingPathComponent("remuxed_master.\(ext)")
+                    var remuxArgs: [String] = [
+                        "-nostdin", "-y", "-loglevel", "warning",
+                        "-i", outputURL.path,
+                        "-i", tempMasterWav.path,
+                        "-c:v", "copy"
+                    ]
+                    if isProRes {
+                        remuxArgs += ["-c:a", "pcm_s16le"]
+                    } else {
+                        remuxArgs += ["-c:a", "aac", "-b:a", options.audioBitrate]
+                    }
+                    remuxArgs += [
+                        "-map", "0:v:0",
+                        "-map", "1:a:0",
+                        "-shortest"
+                    ]
+                    if !isProRes {
+                        remuxArgs += ["-movflags", "+faststart"]
+                    }
+                    remuxArgs.append(tempRemuxURL.path)
+                    _ = try runProcess(executable: ffmpeg, arguments: remuxArgs)
+                    if fm.fileExists(atPath: tempRemuxURL.path) {
+                        try fm.removeItem(at: outputURL)
+                        try fm.moveItem(at: tempRemuxURL, to: outputURL)
+                    }
+                }
+            } catch {
+                print("TohoStudio: マスターオーディオ置換スキップ（シーン個別合成音声を維持）: \(error)")
+            }
+        }
+
         // YouTube / ニコニコ動画向け SRT 字幕ファイルの出力
         if options.exportSrtFile {
             let srtURL = outputURL.deletingPathExtension().appendingPathExtension("srt")
@@ -337,9 +402,10 @@ public enum MovieExporter {
             filterComplex += ";[\(baseVideoLabel)]null[\(videoOutLabel)]"
         }
 
-        // 2. 音声ソースの決定 (Voice, BGM, SE)
+        // 2. 音声ソースの決定 (Voice, Voice2, BGM, SE)
         var audioInputs: [String] = []
         if let v = scene.voiceAudioPath, fm.fileExists(atPath: v) { audioInputs.append(v) }
+        if let v2 = scene.voice2AudioPath, fm.fileExists(atPath: v2) { audioInputs.append(v2) }
         if let b = scene.bgmAudioPath, fm.fileExists(atPath: b) { audioInputs.append(b) }
         if let s = scene.seAudioPath, fm.fileExists(atPath: s) { audioInputs.append(s) }
 
@@ -360,12 +426,32 @@ public enum MovieExporter {
             let aStream = inputIndex
             inputIndex += 1
             var filter = "[\(aStream):a]"
-            if aPath == scene.seAudioPath, let offset = scene.seStartTimeOffset, offset > 0.001 {
-                let delayMs = Int(offset * 1000)
-                filter += "adelay=\(delayMs)|\(delayMs),"
-            }
-            if aPath == scene.seAudioPath, let vol = scene.seVolume, abs(vol - 1.0) > 0.01 {
-                filter += "volume=\(String(format: "%.2f", max(0.0, min(1.0, vol)))),"
+            if aPath == scene.voiceAudioPath {
+                if let offset = scene.voiceStartTimeOffset, offset > 0.001 {
+                    let delayMs = Int(offset * 1000)
+                    filter += "adelay=\(delayMs)|\(delayMs),"
+                }
+            } else if aPath == scene.voice2AudioPath {
+                if let offset = scene.voice2StartTimeOffset, offset > 0.001 {
+                    let delayMs = Int(offset * 1000)
+                    filter += "adelay=\(delayMs)|\(delayMs),"
+                }
+            } else if aPath == scene.seAudioPath {
+                if let offset = scene.seStartTimeOffset, offset > 0.001 {
+                    let delayMs = Int(offset * 1000)
+                    filter += "adelay=\(delayMs)|\(delayMs),"
+                }
+                if let vol = scene.seVolume, abs(vol - 1.0) > 0.01 {
+                    filter += "volume=\(String(format: "%.2f", max(0.0, min(1.0, vol)))),"
+                }
+            } else if aPath == scene.bgmAudioPath {
+                if let offset = scene.bgmStartTimeOffset, offset > 0.001 {
+                    let delayMs = Int(offset * 1000)
+                    filter += "adelay=\(delayMs)|\(delayMs),"
+                }
+                if let vol = scene.bgmVolume, abs(vol - 1.0) > 0.01 {
+                    filter += "volume=\(String(format: "%.2f", max(0.0, min(1.0, vol)))),"
+                }
             }
             filter += "atrim=0:\(String(format: "%.3f", duration)),apad[\(audioOutLabel)]"
             filterComplex += ";\(filter)"
@@ -377,12 +463,32 @@ public enum MovieExporter {
                 let sIdx = inputIndex
                 inputIndex += 1
                 var filter = "[\(sIdx):a]"
-                if aPath == scene.seAudioPath, let offset = scene.seStartTimeOffset, offset > 0.001 {
-                    let delayMs = Int(offset * 1000)
-                    filter += "adelay=\(delayMs)|\(delayMs),"
-                }
-                if aPath == scene.seAudioPath, let vol = scene.seVolume, abs(vol - 1.0) > 0.01 {
-                    filter += "volume=\(String(format: "%.2f", max(0.0, min(1.0, vol)))),"
+                if aPath == scene.voiceAudioPath {
+                    if let offset = scene.voiceStartTimeOffset, offset > 0.001 {
+                        let delayMs = Int(offset * 1000)
+                        filter += "adelay=\(delayMs)|\(delayMs),"
+                    }
+                } else if aPath == scene.voice2AudioPath {
+                    if let offset = scene.voice2StartTimeOffset, offset > 0.001 {
+                        let delayMs = Int(offset * 1000)
+                        filter += "adelay=\(delayMs)|\(delayMs),"
+                    }
+                } else if aPath == scene.seAudioPath {
+                    if let offset = scene.seStartTimeOffset, offset > 0.001 {
+                        let delayMs = Int(offset * 1000)
+                        filter += "adelay=\(delayMs)|\(delayMs),"
+                    }
+                    if let vol = scene.seVolume, abs(vol - 1.0) > 0.01 {
+                        filter += "volume=\(String(format: "%.2f", max(0.0, min(1.0, vol)))),"
+                    }
+                } else if aPath == scene.bgmAudioPath {
+                    if let offset = scene.bgmStartTimeOffset, offset > 0.001 {
+                        let delayMs = Int(offset * 1000)
+                        filter += "adelay=\(delayMs)|\(delayMs),"
+                    }
+                    if let vol = scene.bgmVolume, abs(vol - 1.0) > 0.01 {
+                        filter += "volume=\(String(format: "%.2f", max(0.0, min(1.0, vol)))),"
+                    }
                 }
                 filter += "atrim=0:\(String(format: "%.3f", duration)),apad[a\(sIdx)]"
                 filterComplex += ";\(filter)"
@@ -539,6 +645,7 @@ public enum MovieExporter {
             if let bp = sc.backgroundImagePath { item["BackgroundImagePath"] = bp }
             if let cp = sc.characterImagePath { item["CharacterImagePath"] = cp }
             if let va = sc.voiceAudioPath { item["VoiceAudioPath"] = va }
+            if let va2 = sc.voice2AudioPath { item["Voice2AudioPath"] = va2 }
             if let bgm = sc.bgmAudioPath { item["BgmAudioPath"] = bgm }
             if let se = sc.seAudioPath { item["SeAudioPath"] = se }
 
@@ -548,7 +655,7 @@ public enum MovieExporter {
 
         let ymmpPayload: [String: Any] = [
             "AppName": "Toho-Studio",
-            "Version": "2.5.0",
+            "Version": "2.6.0",
             "ExportDate": ISO8601DateFormatter().string(from: Date()),
             "FPS": fps,
             "TotalFrames": currentFrame,
@@ -578,7 +685,7 @@ public enum MovieExporter {
 
         let container = ProjectExportContainer(
             appName: "TohoStudio",
-            version: "2.5.0",
+            version: "2.6.0",
             format: formatName,
             exportTimestamp: Date(),
             totalScenes: scenes.count,

@@ -779,6 +779,7 @@ public struct SpanAudioInsertSheet: View {
             colorHex: clipColor,
             waveformPoints: wave,
             sceneIndex: startSceneIndex,
+            sceneRelativeStartTime: 0.0,
             spanStartSceneIndex: startSceneIndex,
             spanEndSceneIndex: endSceneIndex,
             fadeInDuration: fadeInDuration,
@@ -793,6 +794,7 @@ public struct SpanAudioInsertSheet: View {
         )
 
         appState.soundClips.append(newClip)
+        appState.syncClipsToMovieScenes(appState.soundClips)
         appState.log("複数シーン跨ぎ \(audioType)『\(soundTitle)』を S\(startSceneIndex)〜S\(endSceneIndex) (計 \(String(format: "%.1f", timing.duration))秒) に挿入しました")
 
         presentationMode.wrappedValue.dismiss()

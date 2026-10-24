@@ -110,6 +110,55 @@ public final class AudioEffectProcessor {
         return encodeWav(samples: samples, sampleRate: sampleRate)
     }
 
+    /// 2つ以上のWAVデータを同時に合成（ミックス）し、1つの16bit PCM WAVデータとして出力
+    /// 2人の話者が同時に喋るユニゾン／デュエット音声を生成するために使用
+    public func mixWavs(_ wavList: [Data], quality: AudioQualitySetting = .enhanced) -> Data? {
+        let validWavs = wavList.compactMap { parseWav(data: $0) }
+        guard !validWavs.isEmpty else { return nil }
+        if validWavs.count == 1 {
+            return wavList[0]
+        }
+
+        let targetSampleRate = quality.isEnabled ? 44100 : (validWavs.map { $0.sampleRate }.max() ?? 44100)
+
+        // 全てのWAVを同一サンプリングレートにリサンプリング
+        var resampledList: [[Float]] = []
+        var maxSamples = 0
+        for wav in validWavs {
+            var s = wav.samples
+            if wav.sampleRate != targetSampleRate {
+                s = resampleWithAudioConverter(samples: s, from: Double(wav.sampleRate), to: Double(targetSampleRate))
+            }
+            if s.count > maxSamples {
+                maxSamples = s.count
+            }
+            resampledList.append(s)
+        }
+
+        guard maxSamples > 0 else { return nil }
+
+        // サンプルを加算合成
+        var mixed = [Float](repeating: 0.0, count: maxSamples)
+        // 話者数に応じたヘッドルーム係数 (2人なら各0.81倍程度にして自然な音量バランス＆音割れ防止)
+        let scale: Float = resampledList.count > 1 ? (1.0 / sqrt(Float(resampledList.count))) * 1.15 : 1.0
+
+        for sList in resampledList {
+            for i in 0..<sList.count {
+                mixed[i] += sList[i] * scale
+            }
+        }
+
+        // 高音質化時のボーカルプレゼンス調整
+        if quality.isEnabled {
+            mixed = applyVocalClarityEQ(samples: mixed, sampleRate: targetSampleRate)
+        }
+
+        // ピークリミッター適用
+        mixed = applyPeakLimiter(samples: mixed, targetPeak: 0.96)
+
+        return encodeWav(samples: mixed, sampleRate: targetSampleRate)
+    }
+
     // MARK: - WAV Parsing
     private struct ParsedWav {
         var samples: [Float] // -1.0 ... 1.0

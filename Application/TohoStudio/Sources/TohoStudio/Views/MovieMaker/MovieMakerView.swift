@@ -138,6 +138,8 @@ public struct MovieMakerView: View {
             )
         }
         .onAppear {
+            // サウンドメーカーのクリップとシーン時間のタイミング整合
+            appState.syncSceneAndClipTimings(autoFitDuration: false)
             // サウンドメーカーのクリップ割り当て（BGM・SE・ボイス）の最新状態を同期
             appState.syncClipsToMovieScenes(appState.soundClips)
             // スライド情報からメディア（画像・動画）を自動解決
@@ -625,7 +627,7 @@ public struct MovieMakerView: View {
                                     HStack {
                                         Image(systemName: "person.wave.2.fill")
                                             .foregroundColor(.orange)
-                                        Text(scene.voiceCharacter ?? "ボイス")
+                                        Text(scene.voiceCharacter ?? "話者1")
                                             .font(.caption).bold()
                                         Spacer()
                                         if let d = scene.voiceDuration {
@@ -641,7 +643,7 @@ public struct MovieMakerView: View {
                                                 .foregroundColor(.orange)
                                         }
                                         .buttonStyle(.plain)
-                                        .help("この音声を試聴")
+                                        .help("話者1の音声を試聴")
                                     }
                                     Text((vPath as NSString).lastPathComponent)
                                         .font(.system(size: 9.5))
@@ -662,11 +664,50 @@ public struct MovieMakerView: View {
                                 .cornerRadius(6)
                             }
 
+                            // 2人目のボイス（もし存在する場合）
+                            if let v2Path = scene.voice2AudioPath, FileManager.default.fileExists(atPath: v2Path) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    HStack {
+                                        Image(systemName: "person.2.wave.2.fill")
+                                            .foregroundColor(.yellow)
+                                        Text(scene.voice2Character ?? "話者2")
+                                            .font(.caption).bold()
+                                        Spacer()
+                                        if let d = scene.voice2Duration {
+                                            Text("\(String(format: "%.1f", d))秒")
+                                                .font(.caption2).foregroundColor(.secondary)
+                                        }
+                                        // 試聴ボタン
+                                        Button(action: {
+                                            let clip = SoundClip(name: (v2Path as NSString).lastPathComponent, type: "Voice", duration: scene.voice2Duration ?? scene.duration, audioFilePath: v2Path)
+                                            SoundMakerAudioManager.shared.togglePreview(clip: clip)
+                                        }) {
+                                            Image(systemName: SoundMakerAudioManager.shared.isPreviewPlaying && SoundMakerAudioManager.shared.currentlyPlayingClipId == nil ? "stop.circle.fill" : "play.circle.fill")
+                                                .foregroundColor(.yellow)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .help("話者2の音声を試聴")
+                                    }
+                                    Text((v2Path as NSString).lastPathComponent)
+                                        .font(.system(size: 9.5))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                }
+                                .padding(6)
+                                .background(Color.yellow.opacity(0.12))
+                                .cornerRadius(6)
+                            }
+
                             if let seName = scene.seName {
-                                HStack {
-                                    Image(systemName: "bolt.fill").foregroundColor(.green)
-                                    Text("SE: \(seName)").font(.caption2).lineLimit(1)
-                                    Spacer()
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack {
+                                        Image(systemName: "bolt.fill").foregroundColor(.green)
+                                        Text("SE: \(seName)").font(.caption2).bold().lineLimit(1)
+                                        Spacer()
+                                        if let offset = scene.seStartTimeOffset, offset > 0.001 {
+                                            Text("+\(String(format: "%.2f", offset))s").font(.caption2).foregroundColor(.secondary)
+                                        }
+                                    }
                                 }
                                 .padding(4)
                                 .background(Color.green.opacity(0.1))
@@ -674,10 +715,17 @@ public struct MovieMakerView: View {
                             }
 
                             if let bgmName = scene.bgmName {
-                                HStack {
-                                    Image(systemName: "music.note").foregroundColor(.purple)
-                                    Text("BGM: \(bgmName)").font(.caption2).lineLimit(1)
-                                    Spacer()
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack {
+                                        Image(systemName: "music.note").foregroundColor(.purple)
+                                        Text("BGM: \(bgmName)").font(.caption2).bold().lineLimit(1)
+                                        Spacer()
+                                        if let offset = scene.bgmStartTimeOffset, offset > 0.001 {
+                                            Text("+\(String(format: "%.2f", offset))s").font(.caption2).foregroundColor(.secondary)
+                                        } else if let offset = scene.bgmStartTimeOffset, offset < -0.001 {
+                                            Text("跨ぎ継続中 (\(String(format: "%.1f", abs(offset)))s経過)").font(.system(size: 8.5)).foregroundColor(.secondary)
+                                        }
+                                    }
                                 }
                                 .padding(4)
                                 .background(Color.purple.opacity(0.1))
@@ -785,6 +833,7 @@ public struct MovieMakerView: View {
                     )
                     appState.movieScenes.append(newScene)
                     appState.totalDuration = appState.movieScenes.reduce(0.0) { $0 + $1.duration }
+                    appState.syncSceneAndClipTimings(autoFitDuration: false)
                 }) {
                     Label("シーン追加", systemImage: "plus")
                         .font(.caption)

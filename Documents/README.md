@@ -2,7 +2,7 @@
 
 ![Toho-Studio](https://img.shields.io/badge/Platform-macOS%2013%2B-blue.svg)
 ![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)
-![Version](https://img.shields.io/badge/Version-v2.5.0-green.svg)
+![Version](https://img.shields.io/badge/Version-v2.6.0-green.svg)
 ![License](https://img.shields.io/badge/License-Touhou%20Project%20Guideline-red.svg)
 
 > **Powered By zuyasi & Nanndemoya**
@@ -76,6 +76,8 @@ Toho-Studio は、東方Projectの二次創作活動を総合的に支援する�
 - `Application/Toho-Studio.app`: macOS ネイティブアプリケーション（すぐに実行可能）
 - `Application/TohoStudio/`: Swift Package ソースコード一式
 - `Application/AquesTalk/`: AquesTalk 音声ライブラリおよび辞書
+- `DMG&ZIP/v2.6.0.dmg`: GitHub リリース公開用 macOS インストーラーイメージ（v2.6.0 アップデート版：音声エフェクト処理強化、スライド認識・サウンドメーカー連携、最新機能反映完全版）
+- `DMG&ZIP/v2.6.0.zip`: GitHub リリース公開用アーカイブ（AquesTalkライセンスキーを除去したサニタイズ済み完全版）
 - `DMG&ZIP/v2.5.0.dmg`: GitHub リリース公開用 macOS インストーラーイメージ（v2.5.0 アップデート版：全変更・修正の反映、有料機能・クラウド・アカウント機能の適切な制限画面表示）
 - `DMG&ZIP/v2.5.0.zip`: GitHub リリース公開用アーカイブ（AquesTalkライセンスキーを除去したサニタイズ済み完全版）
 - `DMG&ZIP/v2.0.0.dmg`: GitHub リリース公開用 macOS インストーラーイメージ（v2.0.0 メジャーアップデート版：NanndemoyaCloud連携、Google認証、有料機能整合性保護、スライド動画高度抽出、UI視認性向上）

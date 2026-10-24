@@ -92,8 +92,15 @@ public struct MovieScene: Identifiable, Codable, Equatable {
     public var voiceAudioPath: String? = nil
     public var voiceCharacter: String? = nil
     public var voiceDuration: Double? = nil
+    // 2人同時発話（話者2）用ボイスプロパティ
+    public var voice2AudioPath: String? = nil
+    public var voice2Character: String? = nil
+    public var voice2Duration: Double? = nil
+    public var voice2StartTimeOffset: Double? = 0.0
     public var bgmAudioPath: String? = nil
     public var bgmName: String? = nil
+    public var bgmStartTimeOffset: Double? = 0.0 // シーン先頭からのBGM再生遅延秒数
+    public var bgmVolume: Double? = 0.7          // BGMの音量 (0.0〜1.0)
     public var seAudioPath: String? = nil
     public var seName: String? = nil
     public var seStartTimeOffset: Double? = 0.0 // シーン先頭からのSE再生遅延秒数 (ミリ秒単位でアライメント)
@@ -120,8 +127,14 @@ public struct MovieScene: Identifiable, Codable, Equatable {
         voiceAudioPath: String? = nil,
         voiceCharacter: String? = nil,
         voiceDuration: Double? = nil,
+        voice2AudioPath: String? = nil,
+        voice2Character: String? = nil,
+        voice2Duration: Double? = nil,
+        voice2StartTimeOffset: Double? = 0.0,
         bgmAudioPath: String? = nil,
         bgmName: String? = nil,
+        bgmStartTimeOffset: Double? = 0.0,
+        bgmVolume: Double? = 0.7,
         seAudioPath: String? = nil,
         seName: String? = nil,
         seStartTimeOffset: Double? = 0.0,
@@ -147,8 +160,14 @@ public struct MovieScene: Identifiable, Codable, Equatable {
         self.voiceAudioPath = voiceAudioPath
         self.voiceCharacter = voiceCharacter
         self.voiceDuration = voiceDuration
+        self.voice2AudioPath = voice2AudioPath
+        self.voice2Character = voice2Character
+        self.voice2Duration = voice2Duration
+        self.voice2StartTimeOffset = voice2StartTimeOffset
         self.bgmAudioPath = bgmAudioPath
         self.bgmName = bgmName
+        self.bgmStartTimeOffset = bgmStartTimeOffset
+        self.bgmVolume = bgmVolume
         self.seAudioPath = seAudioPath
         self.seName = seName
         self.seStartTimeOffset = seStartTimeOffset
@@ -177,8 +196,14 @@ public struct MovieScene: Identifiable, Codable, Equatable {
         self.voiceAudioPath = try container.decodeIfPresent(String.self, forKey: .voiceAudioPath)
         self.voiceCharacter = try container.decodeIfPresent(String.self, forKey: .voiceCharacter)
         self.voiceDuration = try container.decodeIfPresent(Double.self, forKey: .voiceDuration)
+        self.voice2AudioPath = try container.decodeIfPresent(String.self, forKey: .voice2AudioPath)
+        self.voice2Character = try container.decodeIfPresent(String.self, forKey: .voice2Character)
+        self.voice2Duration = try container.decodeIfPresent(Double.self, forKey: .voice2Duration)
+        self.voice2StartTimeOffset = try container.decodeIfPresent(Double.self, forKey: .voice2StartTimeOffset) ?? 0.0
         self.bgmAudioPath = try container.decodeIfPresent(String.self, forKey: .bgmAudioPath)
         self.bgmName = try container.decodeIfPresent(String.self, forKey: .bgmName)
+        self.bgmStartTimeOffset = try container.decodeIfPresent(Double.self, forKey: .bgmStartTimeOffset) ?? 0.0
+        self.bgmVolume = try container.decodeIfPresent(Double.self, forKey: .bgmVolume) ?? 0.7
         self.seAudioPath = try container.decodeIfPresent(String.self, forKey: .seAudioPath)
         self.seName = try container.decodeIfPresent(String.self, forKey: .seName)
         self.seStartTimeOffset = try container.decodeIfPresent(Double.self, forKey: .seStartTimeOffset) ?? 0.0
@@ -190,7 +215,8 @@ public struct MovieScene: Identifiable, Codable, Equatable {
         case id, title, duration, slideTitle, backgroundName, characterName, telop
         case audioTrack, animationName, transitionName, animationDuration, animationNote
         case slideImagePath, videoPath, backgroundImagePath, characterImagePath
-        case voiceAudioPath, voiceCharacter, voiceDuration, bgmAudioPath, bgmName, seAudioPath, seName
+        case voiceAudioPath, voiceCharacter, voiceDuration, voice2AudioPath, voice2Character, voice2Duration, voice2StartTimeOffset
+        case bgmAudioPath, bgmName, bgmStartTimeOffset, bgmVolume, seAudioPath, seName
         case seStartTimeOffset, seVolume, voiceStartTimeOffset
     }
 
@@ -1063,8 +1089,8 @@ public struct SlideItem: Identifiable, Codable, Equatable {
             result = regexAnim.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "")
         }
 
-        // 2. 話者指定カッコ書きの除去（例: "[魔理沙]", "（霊夢）"）
-        let speakerPattern = "[（\\(\\[［][^）\\)\\]］\\s]{1,20}[）\\)\\]］]"
+        // 2. 話者指定カッコ書きの除去（例: "[魔理沙]", "（霊夢）", "（霊夢&魔理沙）", "（霊夢 & 魔理沙）"）
+        let speakerPattern = "[（\\(\\[［][^）\\)\\]］]{1,40}[）\\)\\]］]"
         if let regexSpeaker = try? NSRegularExpression(pattern: speakerPattern, options: []) {
             let range = NSRange(result.startIndex..., in: result)
             result = regexSpeaker.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "")
@@ -1072,7 +1098,16 @@ public struct SlideItem: Identifiable, Codable, Equatable {
 
         // 3. 行ごとの整形と余分な空白・改行のトリミング
         let lines = result.components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .map { line -> String in
+                var l = line.trimmingCharacters(in: .whitespaces)
+                while l.contains("  ") {
+                    l = l.replacingOccurrences(of: "  ", with: " ")
+                }
+                while l.contains("　　") {
+                    l = l.replacingOccurrences(of: "　　", with: "　")
+                }
+                return l
+            }
             .filter { !$0.isEmpty }
         return lines.joined(separator: "\n")
     }
@@ -1094,25 +1129,107 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         return cleanDialogueText(from: text)
     }
 
+    /// 東方キャラクター標準辞書（略称・通称から正式名称への変換用）
+    public static let standardCharacterDictionary: [String: String] = [
+        "操夢": "操夢", "サブ": "サブ", "ナレ1": "ナレ1", "ナレ2": "ナレ2", "みとり": "みとり",
+        "霊夢": "博麗霊夢", "魔理沙": "霧雨魔理沙", "咲夜": "十六夜咲夜", "妖夢": "魂魄妖夢",
+        "幽々子": "西行寺幽々子", "紫": "八雲紫", "パチュリー": "パチュリー・ノーレッジ",
+        "フラン": "フランドール・スカーレット", "レミリア": "レミリア・スカーレット",
+        "早苗": "東風谷早苗", "さとり": "古明地さとり", "こいし": "古明地こいし",
+        "アリス": "アリス・マーガトロイド", "チルノ": "チルノ", "文": "射命丸文",
+        "ナレーション": "ナレーション"
+    ]
+
+    /// 話者名を正規化する。
+    /// 2人の話者が含まれる場合（"&", "＆", "、", "・", "と" で区切られているか、または "A&B" 表記）、
+    /// 各話者名をトリミングし、辞書で正式名称に補正した上で、スペースなしの半角 `&` で連結した `A&B` 形式にする。
+    /// 単一話者の場合も辞書マッピングと空白トリミングを行う。
+    public static func normalizeSpeakerName(_ rawName: String) -> String {
+        let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+
+        // 区切り文字で2人の話者を分割 (優先度: & / ＆ > と > 、)
+        // ※「・」はカタカナ人名（例: フランドール・スカーレット、レミリア・スカーレット、パチュリー・ノーレッジ）で
+        // 姓名の区切り文字として使われるため、話者区切り文字に含めてはならない！
+        let delims = ["&", "＆", "、"]
+        for delim in delims {
+            if trimmed.contains(delim) {
+                let parts = trimmed.components(separatedBy: delim)
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                if parts.count >= 2 {
+                    let mapped0 = standardCharacterDictionary[parts[0]] ?? parts[0]
+                    let mapped1 = standardCharacterDictionary[parts[1]] ?? parts[1]
+                    let clean0 = mapped0.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "　", with: "")
+                    let clean1 = mapped1.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "　", with: "")
+                    return "\(clean0)&\(clean1)"
+                }
+            }
+        }
+
+        // "と" での区切り (例: "霊夢と魔理沙")
+        if trimmed.contains("と") && !trimmed.contains("こと") && !trimmed.contains("ひと") && trimmed.count <= 15 {
+            let parts = trimmed.components(separatedBy: "と")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            if parts.count == 2 {
+                let mapped0 = standardCharacterDictionary[parts[0]] ?? parts[0]
+                let mapped1 = standardCharacterDictionary[parts[1]] ?? parts[1]
+                let clean0 = mapped0.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "　", with: "")
+                let clean1 = mapped1.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "　", with: "")
+                return "\(clean0)&\(clean1)"
+            }
+        }
+
+        // 単一キャラクター
+        let mapped = standardCharacterDictionary[trimmed] ?? trimmed
+        return mapped.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "　", with: "")
+    }
+
     /// カッコ書き"（話者）", "(話者)", "[話者]" から話者名を抽出する（アニメーション・時間等の演出表記は除外）
+    /// 2人の話者が含まれる場合、または複数の話者カッコが存在する場合、"A&B"（スペースなしで&で繋げた形式）として認識する。
     public static func extractSpeakerFromBrackets(from text: String) -> String? {
-        let pattern = "[（\\(\\[［]([^）\\)\\]］\\s]{1,20})[）\\)\\]］]"
+        let pattern = "[（\\(\\[［]([^）\\)\\]］]{1,40})[）\\)\\]］]"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { return nil }
         let nsStr = text as NSString
         let range = NSRange(text.startIndex..., in: text)
         let matches = regex.matches(in: text, options: [], range: range)
 
-        let nonSpeakerKeywords = ["アニメーション", "アニメ", "表示時間", "時間", "秒", "フェード", "ズーム", "イン", "アクション", "アウト"]
+        let nonSpeakerKeywords = ["アニメーション", "アニメ", "表示時間", "時間", "秒", "フェード", "ズーム", "イン", "アクション", "アウト", "カット", "スライド"]
+
+        var candidateSpeakers: [String] = []
 
         for match in matches {
             if match.numberOfRanges > 1 {
-                let extracted = nsStr.substring(with: match.range(at: 1)).trimmingCharacters(in: .whitespaces)
+                let extracted = nsStr.substring(with: match.range(at: 1)).trimmingCharacters(in: .whitespacesAndNewlines)
                 if !extracted.isEmpty && !nonSpeakerKeywords.contains(where: { extracted.contains($0) }) {
-                    return extracted
+                    candidateSpeakers.append(extracted)
                 }
             }
         }
-        return nil
+
+        guard !candidateSpeakers.isEmpty else { return nil }
+
+        // 1. 最初の候補内にすでに2人の話者表記（&, ＆, と, 、）が含まれている場合
+        let firstCand = candidateSpeakers[0]
+        if firstCand.contains("&") || firstCand.contains("＆") || firstCand.contains("、") || (firstCand.contains("と") && firstCand.count <= 15) {
+            let normalized = normalizeSpeakerName(firstCand)
+            if !normalized.isEmpty {
+                return normalized
+            }
+        }
+
+        // 2. 複数の話者カッコが存在する場合（例: [霊夢][魔理沙] または [霊夢]...[魔理沙]...）
+        if candidateSpeakers.count >= 2 {
+            let s1 = normalizeSpeakerName(candidateSpeakers[0])
+            let s2 = normalizeSpeakerName(candidateSpeakers[1])
+            if !s1.isEmpty && !s2.isEmpty && s1 != s2 {
+                return "\(s1)&\(s2)"
+            }
+        }
+
+        // 3. 単一話者の場合
+        return normalizeSpeakerName(firstCand)
     }
 
     /// スライドテキスト（ノートやテロップ）からアニメーション指定時間（秒数）を抽出

@@ -34,6 +34,8 @@ public struct SoundMakerView: View {
     @State private var zoomScale: Double = 28.0 // pixels per second
     @State private var selectedClipId: UUID? = nil
     @State private var selectedTrackId: String = "track_movie"
+    @State private var draggingClipId: UUID? = nil
+    @State private var dragInitialStartTime: Double = 0.0
     @State private var showInspector: Bool = true
     @State private var showAquesTalkDrawer: Bool = false
 
@@ -132,6 +134,7 @@ public struct SoundMakerView: View {
                                 audioFilePath: url.path
                             )
                             appState.soundClips.append(clip)
+                            appState.updateClipSceneTiming(clipId: clip.id)
                             showHomeScreen = false
                         }
                     },
@@ -2542,18 +2545,32 @@ public struct SoundMakerView: View {
                                     return
                                 }
                                 isSynthesizing = true
-                                let preset = aquesTalk.characterPreset(for: targetCharacter)
-                                let vType = preset.voice
-                                aquesTalk.synthesizeAndPlay(
-                                    text: SlideItem.cleanDialogueText(from: inputSpeechText),
-                                    speed: speechSpeed,
-                                    voice: vType,
-                                    pitch: preset.pitch,
-                                    quality: selectedQuality,
-                                    effect: selectedEffect
-                                ) {
-                                    DispatchQueue.main.async {
-                                        self.isSynthesizing = false
+                                if targetCharacter.contains("&") {
+                                    aquesTalk.synthesizeDuoAndPlay(
+                                        text: SlideItem.cleanDialogueText(from: inputSpeechText),
+                                        speakerName: targetCharacter,
+                                        customSpeed: speechSpeed != 100 ? speechSpeed : nil,
+                                        quality: selectedQuality,
+                                        effect: selectedEffect
+                                    ) {
+                                        DispatchQueue.main.async {
+                                            self.isSynthesizing = false
+                                        }
+                                    }
+                                } else {
+                                    let preset = aquesTalk.characterPreset(for: targetCharacter)
+                                    let vType = preset.voice
+                                    aquesTalk.synthesizeAndPlay(
+                                        text: SlideItem.cleanDialogueText(from: inputSpeechText),
+                                        speed: speechSpeed,
+                                        voice: vType,
+                                        pitch: preset.pitch,
+                                        quality: selectedQuality,
+                                        effect: selectedEffect
+                                    ) {
+                                        DispatchQueue.main.async {
+                                            self.isSynthesizing = false
+                                        }
                                     }
                                 }
                             }) {
@@ -3179,14 +3196,24 @@ public struct SoundMakerView: View {
 
     // MARK: - Waveform Region View (波の形で表示する機能)
     private func clipWaveformRegionView(clip: SoundClip, track: AudioTrack) -> some View {
-        let clipX = CGFloat(clip.startTime) * CGFloat(zoomScale)
+        let scenes = activeSceneList()
+        let displayStartTime: Double = {
+            if draggingClipId == clip.id {
+                return clip.startTime
+            }
+            if let sIdx = clip.spanStartSceneIndex ?? clip.sceneIndex, sIdx >= 1 && sIdx <= scenes.count, let rel = clip.sceneRelativeStartTime {
+                let sRange = sceneTimeRange(index: sIdx - 1)
+                return sRange.start + rel
+            }
+            return clip.startTime
+        }()
+        let clipX = CGFloat(displayStartTime) * CGFloat(zoomScale)
         let clipWidth = max(35, CGFloat(clip.duration) * CGFloat(zoomScale))
         let isSelected = selectedClipId == clip.id
         let clipColor = Color(hex: clip.colorHex ?? track.colorHex)
         let isSpanning = clip.isSpanningScenes || (clip.spanStartSceneIndex != nil && clip.spanEndSceneIndex != nil)
 
         // シーン長超過 & 即切りカットオフ判定
-        let scenes = activeSceneList()
         var sceneEndOffsetInClip: CGFloat? = nil
         var isCutOffApplicable = false
         let targetCutSceneIndex = clip.spanEndSceneIndex ?? clip.sceneIndex
@@ -3467,11 +3494,39 @@ public struct SoundMakerView: View {
         .gesture(
             DragGesture()
                 .onChanged { gesture in
+                    if draggingClipId != clip.id {
+                        draggingClipId = clip.id
+                        dragInitialStartTime = displayStartTime
+                    }
                     let deltaSeconds = Double(gesture.translation.width) / zoomScale
                     if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
-                        let newStart = max(0, clip.startTime + deltaSeconds)
+                        let newStart = max(0, dragInitialStartTime + deltaSeconds)
                         appState.soundClips[idx].startTime = newStart
+                        
+                        // ドラッグ位置がどのシーンにあるかをリアルタイムに動的検出して即座に追従
+                        var acc: Double = 0.0
+                        var targetSceneIdx = 1
+                        var relTime = newStart
+                        for (sI, sc) in scenes.enumerated() {
+                            let nextAcc = acc + sc.duration
+                            if newStart >= acc && (newStart < nextAcc || sI == scenes.count - 1) {
+                                targetSceneIdx = sI + 1
+                                relTime = max(0.0, newStart - acc)
+                                break
+                            }
+                            acc = nextAcc
+                        }
+                        appState.soundClips[idx].sceneIndex = targetSceneIdx
+                        appState.soundClips[idx].sceneRelativeStartTime = relTime
                     }
+                }
+                .onEnded { _ in
+                    if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                        appState.soundClips[idx].voiceTriggerEnabled = false
+                        appState.updateClipSceneTiming(clipId: clip.id)
+                        appState.saveUndoSnapshot()
+                    }
+                    draggingClipId = nil
                 }
         )
         .contextMenu {
@@ -3790,6 +3845,7 @@ public struct SoundMakerView: View {
                 }
 
                 let waveCount = max(16, min(48, Int(audioDuration * 4)))
+                let relStart = max(0.0, clipStartTime - sRange.start)
                 let newClip = SoundClip(
                     name: "\(type): \(fileName)",
                     type: type,
@@ -3800,10 +3856,12 @@ public struct SoundMakerView: View {
                     colorHex: trackColor,
                     waveformPoints: generateRandomWaveform(count: waveCount),
                     sceneIndex: selectedSceneIndex,
+                    sceneRelativeStartTime: relStart,
                     audioFilePath: url.path
                 )
                 appState.soundClips.append(newClip)
                 selectedClipId = newClip.id
+                appState.syncClipsToMovieScenes(appState.soundClips)
                 appState.log("シーン \(selectedSceneIndex) に\(type)「\(fileName) (\(ext))」を読み込み配置しました (長さ: \(String(format: "%.2f", audioDuration))秒)")
             }
         }
@@ -3820,10 +3878,12 @@ public struct SoundMakerView: View {
             trackId: "track_se",
             colorHex: "#2ECC71",
             waveformPoints: [0.9, 0.7, 0.4, 0.2, 0.05],
-            sceneIndex: selectedSceneIndex
+            sceneIndex: selectedSceneIndex,
+            sceneRelativeStartTime: 0.1
         )
         appState.soundClips.append(seClip)
         selectedClipId = seClip.id
+        appState.syncClipsToMovieScenes(appState.soundClips)
         appState.log("シーン \(selectedSceneIndex) に\(name)を追加しました")
     }
 
@@ -3935,17 +3995,33 @@ public struct SoundMakerView: View {
         let vType = clip.voiceType ?? aquesTalk.voiceType(for: char)
         let effectivePitch = clip.pitch != 100 ? clip.pitch : aquesTalk.characterPreset(for: char).pitch
 
-        aquesTalk.synthesizeAndPlay(
-            text: text,
-            speed: clip.speed,
-            voice: vType,
-            pitch: effectivePitch,
-            quality: selectedQuality,
-            effect: selectedEffect
-        ) {
-            DispatchQueue.main.async {
-                if self.playingClipPreviewId == clip.id {
-                    self.playingClipPreviewId = nil
+        if char.contains("&") {
+            aquesTalk.synthesizeDuoAndPlay(
+                text: text,
+                speakerName: char,
+                customSpeed: clip.speed != 100 ? clip.speed : nil,
+                quality: selectedQuality,
+                effect: selectedEffect
+            ) {
+                DispatchQueue.main.async {
+                    if self.playingClipPreviewId == clip.id {
+                        self.playingClipPreviewId = nil
+                    }
+                }
+            }
+        } else {
+            aquesTalk.synthesizeAndPlay(
+                text: text,
+                speed: clip.speed,
+                voice: vType,
+                pitch: effectivePitch,
+                quality: selectedQuality,
+                effect: selectedEffect
+            ) {
+                DispatchQueue.main.async {
+                    if self.playingClipPreviewId == clip.id {
+                        self.playingClipPreviewId = nil
+                    }
                 }
             }
         }
@@ -3965,14 +4041,25 @@ public struct SoundMakerView: View {
         appState.log("シーン \(selectedSceneIndex) の音声『\(text)』を再生成中 (音程: \(effectivePitch)%)...")
 
         DispatchQueue.global(qos: .userInitiated).async {
-            let wavData = self.aquesTalk.synthesizeToWavData(
-                text: text,
-                speed: speed,
-                voice: vType,
-                pitch: effectivePitch,
-                quality: self.selectedQuality,
-                effect: self.selectedEffect
-            )
+            let wavData: Data?
+            if char.contains("&") {
+                wavData = self.aquesTalk.synthesizeDuoVoiceToWavData(
+                    text: text,
+                    speakerName: char,
+                    customSpeed: speed != 100 ? speed : nil,
+                    quality: self.selectedQuality,
+                    effect: self.selectedEffect
+                )
+            } else {
+                wavData = self.aquesTalk.synthesizeToWavData(
+                    text: text,
+                    speed: speed,
+                    voice: vType,
+                    pitch: effectivePitch,
+                    quality: self.selectedQuality,
+                    effect: self.selectedEffect
+                )
+            }
 
             // 音声ファイル保存先を決定・更新
             var targetFilePath: String? = clip.audioFilePath
@@ -4089,10 +4176,12 @@ public struct SoundMakerView: View {
             trackId: "track_se",
             colorHex: "#2ECC71",
             waveformPoints: [0.9, 0.7, 0.4, 0.2, 0.05],
-            sceneIndex: selectedSceneIndex
+            sceneIndex: selectedSceneIndex,
+            sceneRelativeStartTime: 0.1
         )
         appState.soundClips.append(seClip)
         selectedClipId = seClip.id
+        appState.syncClipsToMovieScenes(appState.soundClips)
         appState.log("シーン \(selectedSceneIndex) にSEを追加しました")
     }
 
@@ -4254,85 +4343,120 @@ public struct SoundMakerView: View {
     }
 
     private func addVoiceClipToTimeline() {
-        let voiceTrack = appState.audioTracks.first(where: { $0.characterName == targetCharacter || $0.type == "voice" })
-        let trackId = voiceTrack?.id ?? "track_voice_reimu"
-        let clipColor = voiceTrack?.colorHex ?? "#E74C3C"
-
-        let preset = aquesTalk.characterPreset(for: targetCharacter)
-        let vType = preset.voice
-        let effectivePitch = preset.pitch
         let cleanedSpeech = SlideItem.cleanDialogueText(from: inputSpeechText)
         let targetSpeech = cleanedSpeech.isEmpty ? inputSpeechText : cleanedSpeech
 
-        let wavData = aquesTalk.synthesizeToWavData(
-            text: targetSpeech,
-            speed: speechSpeed,
-            voice: vType,
-            pitch: effectivePitch,
-            quality: selectedQuality,
-            effect: selectedEffect
-        )
+        let duo = aquesTalk.duoSpeakers(from: targetCharacter)
+        let speakers = duo.isDuo ? [duo.speaker1, duo.speaker2] : [targetCharacter]
 
-        var audioFilePath: String? = nil
-        let duration: Double
-        let waveform: [Float]
-        if let data = wavData, data.count > 44 {
-            let audioDir = URL(fileURLWithPath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/GeneratedAudio")
-            try? FileManager.default.createDirectory(at: audioDir, withIntermediateDirectories: true)
-            let safeChar = targetCharacter.replacingOccurrences(of: "/", with: "_")
-            let suffix = String(UUID().uuidString.prefix(6))
-            let fileName = String(format: "Slide_%03d_%@_%@.wav", selectedSceneIndex, safeChar, suffix)
-            let fileURL = audioDir.appendingPathComponent(fileName)
-            if (try? data.write(to: fileURL)) != nil {
-                audioFilePath = fileURL.path
+        let audioDir = URL(fileURLWithPath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/GeneratedAudio")
+        try? FileManager.default.createDirectory(at: audioDir, withIntermediateDirectories: true)
+
+        var lastAddedClipId: UUID? = nil
+
+        for spk in speakers {
+            // トラック検索または自動追加
+            var voiceTrack = appState.audioTracks.first(where: {
+                $0.characterName == spk || ($0.type == "voice" && ($0.characterName == nil || $0.characterName == targetCharacter))
+            })
+            if voiceTrack == nil {
+                let asciiPart = spk.lowercased().filter { $0.isASCII && $0.isLetter }
+                let prefix = asciiPart.isEmpty ? "char" : asciiPart
+                let newTrack = AudioTrack(
+                    id: "track_voice_\(prefix)_\(UUID().uuidString.prefix(4))",
+                    name: "\(spk) (Voice)",
+                    type: "voice",
+                    icon: "waveform",
+                    colorHex: (spk == duo.speaker2) ? "#F1C40F" : "#E74C3C",
+                    volume: 1.0,
+                    pan: (spk == duo.speaker2) ? 0.2 : -0.2,
+                    characterName: spk
+                )
+                appState.audioTracks.append(newTrack)
+                voiceTrack = newTrack
             }
 
-            let sampleRate = Double(data.withUnsafeBytes { $0.load(fromByteOffset: 24, as: UInt32.self) })
-            let channels = Double(data.withUnsafeBytes { $0.load(fromByteOffset: 22, as: UInt16.self) })
-            let bitsPerSample = Double(data.withUnsafeBytes { $0.load(fromByteOffset: 34, as: UInt16.self) })
+            let trackId = voiceTrack?.id ?? "track_voice_reimu"
+            let clipColor = voiceTrack?.colorHex ?? "#E74C3C"
 
-            if sampleRate > 0 && channels > 0 && bitsPerSample > 0 {
-                let bytesPerSec = sampleRate * channels * (bitsPerSample / 8.0)
-                let pcmBytes = Double(data.count - 44)
-                duration = max(0.8, pcmBytes / bytesPerSec)
+            let preset = aquesTalk.characterPreset(for: spk)
+            let vType = preset.voice
+            let effectivePitch = preset.pitch
+
+            let wavData = aquesTalk.synthesizeToWavData(
+                text: targetSpeech,
+                speed: speechSpeed != 100 ? speechSpeed : preset.speed,
+                voice: vType,
+                pitch: effectivePitch,
+                quality: selectedQuality,
+                effect: selectedEffect
+            )
+
+            var audioFilePath: String? = nil
+            let duration: Double
+            let waveform: [Float]
+
+            if let data = wavData, data.count > 44 {
+                let safeChar = spk.replacingOccurrences(of: "/", with: "_")
+                let suffix = String(UUID().uuidString.prefix(6))
+                let fileName = String(format: "Slide_%03d_%@_%@.wav", selectedSceneIndex, safeChar, suffix)
+                let fileURL = audioDir.appendingPathComponent(fileName)
+                if (try? data.write(to: fileURL)) != nil {
+                    audioFilePath = fileURL.path
+                }
+
+                let sampleRate = Double(data.withUnsafeBytes { $0.load(fromByteOffset: 24, as: UInt32.self) })
+                let channels = Double(data.withUnsafeBytes { $0.load(fromByteOffset: 22, as: UInt16.self) })
+                let bitsPerSample = Double(data.withUnsafeBytes { $0.load(fromByteOffset: 34, as: UInt16.self) })
+
+                if sampleRate > 0 && channels > 0 && bitsPerSample > 0 {
+                    let bytesPerSec = sampleRate * channels * (bitsPerSample / 8.0)
+                    let pcmBytes = Double(data.count - 44)
+                    duration = Swift.max(0.8, pcmBytes / bytesPerSec)
+                } else {
+                    duration = Swift.max(1.2, Double(data.count - 44) / 88200.0)
+                }
+                waveform = generateRandomWaveform(count: 24)
             } else {
-                duration = max(1.2, Double(data.count - 44) / 88200.0)
+                duration = Swift.max(2.0, Double(targetSpeech.count) * 0.25)
+                waveform = generateRandomWaveform(count: 20)
             }
-            waveform = generateRandomWaveform(count: 24)
-        } else {
-            duration = max(2.0, Double(targetSpeech.count) * 0.25)
-            waveform = generateRandomWaveform(count: 20)
+
+            // 同一トラックかつほぼ同一時刻（0.1秒以内）の重複ボイスがあれば除去して二重発話を防止
+            appState.soundClips.removeAll(where: {
+                $0.trackId == trackId && abs($0.startTime - currentTime) < 0.1
+            })
+
+            let newClip = SoundClip(
+                name: "\(spk): \(targetSpeech)",
+                type: "Voice",
+                character: spk,
+                text: targetSpeech,
+                voiceSymbol: aquesTalk.convertToVoiceSymbol(text: targetSpeech),
+                duration: duration,
+                volume: 1.0,
+                speed: speechSpeed,
+                startTime: currentTime,
+                trackId: trackId,
+                colorHex: clipColor,
+                waveformPoints: waveform,
+                sceneIndex: selectedSceneIndex,
+                audioFilePath: audioFilePath,
+                voiceType: vType,
+                pitch: effectivePitch
+            )
+            appState.soundClips.append(newClip)
+            lastAddedClipId = newClip.id
         }
 
-        // 同一トラックかつほぼ同一時刻（0.1秒以内）の重複ボイスがあれば除去して二重発話を防止
-        appState.soundClips.removeAll(where: {
-            $0.trackId == trackId && abs($0.startTime - currentTime) < 0.1
-        })
-
-        let newClip = SoundClip(
-            name: "\(targetCharacter): \(targetSpeech)",
-            type: "Voice",
-            character: targetCharacter,
-            text: targetSpeech,
-            voiceSymbol: aquesTalk.convertToVoiceSymbol(text: targetSpeech),
-            duration: duration,
-            volume: 1.0,
-            speed: speechSpeed,
-            startTime: currentTime,
-            trackId: trackId,
-            colorHex: clipColor,
-            waveformPoints: waveform,
-            sceneIndex: selectedSceneIndex,
-            audioFilePath: audioFilePath,
-            voiceType: vType,
-            pitch: effectivePitch
-        )
-        appState.soundClips.append(newClip)
-        selectedClipId = newClip.id
+        if let lId = lastAddedClipId {
+            selectedClipId = lId
+        }
         appState.syncSceneAndClipTimings(autoFitDuration: true)
         let effStr = selectedEffect == .echo ? " (エコー付加)" : ""
         let qualStr = selectedQuality.isEnabled ? " (高音質44.1kHz)" : " (原音8kHz)"
-        appState.log("タイムライン \(String(format: "%.1fs", currentTime)) にボイス波形クリップを配置しました\(qualStr)\(effStr)")
+        let duoStr = duo.isDuo ? " (2人同時発話: \(duo.speaker1) & \(duo.speaker2))" : ""
+        appState.log("タイムライン \(String(format: "%.1fs", currentTime)) にボイス波形クリップを配置しました\(qualStr)\(effStr)\(duoStr)")
     }
 
     private func ensureDefaultTracksAndClips() {

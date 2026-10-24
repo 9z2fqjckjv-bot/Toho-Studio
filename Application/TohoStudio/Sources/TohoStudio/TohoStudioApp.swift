@@ -14,6 +14,7 @@ struct TohoStudioApp: App {
         if CommandLine.arguments.contains("--test-all") {
             runCharacterMakerSelfTest()
             runSoundMakerExportSelfTest()
+            runSoundMakerDuoSpeakerSelfTest()
             runAIImagePromptSelfTest()
             print("\n🎉 ALL TOHOSTUDIO SELF-TESTS PASSED SUCCESSFULLY! 🎉\n")
             exit(0)
@@ -24,6 +25,10 @@ struct TohoStudioApp: App {
         }
         if CommandLine.arguments.contains("--test-sound-maker-export") {
             runSoundMakerExportSelfTest()
+            exit(0)
+        }
+        if CommandLine.arguments.contains("--test-sound-maker-duo-speaker") {
+            runSoundMakerDuoSpeakerSelfTest()
             exit(0)
         }
         if CommandLine.arguments.contains("--test-ai-image-prompt") {
@@ -324,6 +329,113 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         while !isFinished {
             RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.1))
         }
+    }
+
+    private func runSoundMakerDuoSpeakerSelfTest() {
+        print("=== [TEST] SoundMaker Duo Speaker Recognition & Speech Synthesis Self-Test Started ===")
+
+        // 1. カッコ書きからの2人話者抽出テスト（スペースなしA&B形式）
+        let testCases = [
+            ("(霊夢&魔理沙) ゆっくりしていってね！", "博麗霊夢&霧雨魔理沙", "ゆっくりしていってね！"),
+            ("(霊夢 & 魔理沙) ゆっくりしていってね！", "博麗霊夢&霧雨魔理沙", "ゆっくりしていってね！"),
+            ("[霊夢＆魔理沙] ゆっくりしていってね！", "博麗霊夢&霧雨魔理沙", "ゆっくりしていってね！"),
+            ("(博麗霊夢 & 霧雨魔理沙) ゆっくりしていってね！", "博麗霊夢&霧雨魔理沙", "ゆっくりしていってね！"),
+            ("(操夢&サブ) 今日の解説を始めます", "操夢&サブ", "今日の解説を始めます"),
+            ("(操夢＆サブ) 今日の解説を始めます", "操夢&サブ", "今日の解説を始めます"),
+            ("(操夢 & サブ) 今日の解説を始めます", "操夢&サブ", "今日の解説を始めます"),
+            ("(霊夢)(魔理沙) 2人のセリフ", "博麗霊夢&霧雨魔理沙", "2人のセリフ"),
+            ("[霊夢] こんにちは [魔理沙] そうだな", "博麗霊夢&霧雨魔理沙", "こんにちは そうだな"),
+            ("(霊夢と魔理沙) 2人のセリフ", "博麗霊夢&霧雨魔理沙", "2人のセリフ")
+        ]
+
+        for (input, expectedSpeaker, expectedClean) in testCases {
+            guard let extracted = SlideItem.extractSpeakerFromBrackets(from: input) else {
+                fatalError("Failed to extract speaker from: \(input)")
+            }
+            print("  Input: '\(input)' -> Speaker: '\(extracted)'")
+            assert(extracted == expectedSpeaker, "Expected '\(expectedSpeaker)', got '\(extracted)'")
+            assert(!extracted.contains(" "), "Speaker must not contain spaces: '\(extracted)'")
+            assert(!extracted.contains("　"), "Speaker must not contain full-width spaces: '\(extracted)'")
+            assert(extracted.contains("&"), "Duo speaker must contain '&': '\(extracted)'")
+
+            let cleaned = SlideItem.cleanDialogueText(from: input).replacingOccurrences(of: "\n", with: " ")
+            print("    Cleaned Dialogue: '\(cleaned)'")
+            assert(cleaned == expectedClean, "Expected clean '\(expectedClean)', got '\(cleaned)'")
+        }
+        print("1. Speaker Recognition & Dialogue Cleaning: Verified 10/10 test cases successfully!")
+
+        // 1-2. カタカナ中黒（・）を含む人名が2人話者として誤分割されないことの検証（フランにスカーレットが勝手に追加されないこと）
+        let singleKanaTestCases = [
+            ("(フラン) こんにちは", "フランドール・スカーレット", "こんにちは"),
+            ("(フランドール・スカーレット) こんにちは", "フランドール・スカーレット", "こんにちは"),
+            ("(レミリア) おいで", "レミリア・スカーレット", "おいで"),
+            ("(レミリア・スカーレット) おいで", "レミリア・スカーレット", "おいで"),
+            ("(パチュリー) 本を読むわ", "パチュリー・ノーレッジ", "本を読むわ"),
+            ("(パチュリー・ノーレッジ) 本を読むわ", "パチュリー・ノーレッジ", "本を読むわ")
+        ]
+        for (input, expectedSpeaker, expectedClean) in singleKanaTestCases {
+            guard let extracted = SlideItem.extractSpeakerFromBrackets(from: input) else {
+                fatalError("Failed to extract speaker from: \(input)")
+            }
+            assert(extracted == expectedSpeaker, "Expected '\(expectedSpeaker)', got '\(extracted)'")
+            assert(!extracted.contains("&"), "Single speaker with middle-dot must NOT contain '&': '\(extracted)'")
+            let cleaned = SlideItem.cleanDialogueText(from: input).replacingOccurrences(of: "\n", with: " ")
+            assert(cleaned == expectedClean, "Expected clean '\(expectedClean)', got '\(cleaned)'")
+        }
+        print("1-2. Single speaker with middle-dot (フラン, レミリア, パチュリー): Verified NOT split into duo speaker!")
+
+        // 2. AquesTalkBridge 2人同時音声合成（ユニゾン・ミックスWAV）テスト
+        print("2. Synthesizing Duo Voice Audio (博麗霊夢&霧雨魔理沙)...")
+        let duoWav = AquesTalkBridge.shared.synthesizeDuoVoiceToWavData(
+            text: "ゆっくりしていってね！",
+            speakerName: "博麗霊夢&霧雨魔理沙",
+            quality: .enhanced,
+            effect: .none
+        )
+        assert(duoWav != nil, "Duo WAV data must not be nil")
+        assert(duoWav!.count > 1000, "Duo WAV data must be non-empty (size: \(duoWav!.count) bytes)")
+        print("   Duo WAV generated successfully! size=\(duoWav!.count) bytes")
+
+        // 3. BatchVoiceItem 抽出と1シーンへの2人分音声割り当ての検証
+        let sampleSlides = [
+            SlideItem(slideIndex: 1, title: "第1話", telop: "", presenterNote: "タイトル", characterName: "ナレーション", slideType: "title"),
+            SlideItem(slideIndex: 2, title: "神社", telop: "ゆっくりしていってね！", presenterNote: "(霊夢&魔理沙) ゆっくりしていってね！", characterName: "霊夢&魔理沙", slideType: "content"),
+            SlideItem(slideIndex: 3, title: "スタジオ", telop: "解説を始めるよ", presenterNote: "(操夢 & サブ) 解説を始めるよ", characterName: "操夢&サブ", slideType: "content")
+        ]
+        let batchItems = SlideVoiceBatchService.shared.extractBatchItems(from: sampleSlides)
+        // スライド1: 1アイテム (タイトルスキップ)
+        // スライド2: 2アイテム (博麗霊夢, 霧雨魔理沙)
+        // スライド3: 2アイテム (操夢, サブ)
+        // 合計 5 アイテム
+        assert(batchItems.count == 5, "Batch items count should be 5 (Slide 1: 1, Slide 2: 2, Slide 3: 2), got \(batchItems.count)")
+        assert(batchItems[1].slideIndex == 2 && batchItems[1].characterName == "博麗霊夢", "Slide 2 voice 1 should be 博麗霊夢")
+        assert(batchItems[2].slideIndex == 2 && batchItems[2].characterName == "霧雨魔理沙", "Slide 2 voice 2 should be 霧雨魔理沙")
+        assert(batchItems[3].slideIndex == 3 && batchItems[3].characterName == "操夢", "Slide 3 voice 1 should be 操夢")
+        assert(batchItems[4].slideIndex == 3 && batchItems[4].characterName == "サブ", "Slide 3 voice 2 should be サブ")
+        print("3-1. BatchVoiceItem extraction: Verified individual speaker mapping for duo scenes successfully!")
+
+        // 3-2. タイムライン配置時に1つのシーンに2人分の音声が割り当てられることを検証
+        SlideVoiceBatchService.shared.applyToSoundMakerTimeline(items: batchItems)
+        let appState = AppState.shared
+        assert(appState.movieScenes.count == 3, "MovieScenes count should be 3, got \(appState.movieScenes.count)")
+
+        let scene2Clips = appState.soundClips.filter { $0.type == "Voice" && $0.sceneIndex == 2 }
+        assert(scene2Clips.count == 2, "Scene 2 must have 2 voice clips assigned to it, got \(scene2Clips.count)")
+        let scene2Characters = Set(scene2Clips.compactMap { $0.character })
+        assert(scene2Characters.contains("博麗霊夢") && scene2Characters.contains("霧雨魔理沙"), "Scene 2 must contain 博麗霊夢 and 霧雨魔理沙")
+        assert(scene2Clips[0].startTime == scene2Clips[1].startTime, "Both clips in Scene 2 must share the same start time")
+        print("3-2. applyToSoundMakerTimeline: Verified assigning 2 voice clips to a single scene!")
+
+        // 3-3. SlideRecognitionService.syncToSoundMaker でも1シーンに2人分音声が割り当てられることを検証
+        SlideRecognitionService.shared.syncToSoundMaker(slides: sampleSlides)
+        let syncedScene2Clips = appState.soundClips.filter { $0.type == "Voice" && $0.sceneIndex == 2 }
+        assert(syncedScene2Clips.count == 2, "SlideRecognitionService must also assign 2 voice clips to Scene 2, got \(syncedScene2Clips.count)")
+        let syncedCharacters = Set(syncedScene2Clips.compactMap { $0.character })
+        assert(syncedCharacters.contains("博麗霊夢") && syncedCharacters.contains("霧雨魔理沙"), "Synced Scene 2 must contain 博麗霊夢 and 霧雨魔理沙")
+        assert(syncedScene2Clips[0].startTime == syncedScene2Clips[1].startTime, "Synced clips in Scene 2 must share the same start time")
+        print("3-3. SlideRecognitionService.syncToSoundMaker: Verified assigning 2 voices to a single scene!")
+
+        print("=== [TEST] ALL SOUNDMAKER DUO SPEAKER TESTS PASSED SUCCESSFULLY! ===")
     }
 
     var body: some Scene {

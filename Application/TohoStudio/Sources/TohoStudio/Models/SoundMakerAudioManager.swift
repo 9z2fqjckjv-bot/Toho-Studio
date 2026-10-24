@@ -187,17 +187,14 @@ public final class SoundMakerAudioManager: NSObject, ObservableObject, AVAudioPl
         var shouldBePlayingIds: Set<UUID> = []
 
         for clip in clips {
-            let clipStart = clip.startTime
+            // シーン跨ぎおよび単一シーンのインデックス解決
+            let isSpanning = clip.isSpanningScenes || (clip.spanStartSceneIndex != nil && clip.spanEndSceneIndex != nil)
+            let targetCutSceneIndex = clip.spanEndSceneIndex ?? clip.sceneIndex
 
             // クリップ本来の再生有効長
             // 繰り返し再生 (isLooping) の場合は、クリップの duration (または跨ぎ区間末尾) まで鳴り続ける
             // ループなしの場合は、音源自体の実効長 (effectiveDuration)
             let baseDuration = clip.isLooping ? max(clip.duration, clip.effectiveDuration) : (clip.duration > 0 ? min(clip.duration, clip.effectiveDuration) : clip.effectiveDuration)
-            var clipEnd = clipStart + baseDuration
-
-            // シーン跨ぎおよび単一シーンの即切り (isCutOffOnSceneEnd) 制御
-            let isSpanning = clip.isSpanningScenes || (clip.spanStartSceneIndex != nil && clip.spanEndSceneIndex != nil)
-            let targetCutSceneIndex = clip.spanEndSceneIndex ?? clip.sceneIndex
 
             // 台詞コンテキストの解決 (Voice クリップ または MovieScene の台詞)
             let dialogueCtx = VoiceTextTimingService.resolveDialogueContext(
@@ -206,20 +203,33 @@ public final class SoundMakerAudioManager: NSObject, ObservableObject, AVAudioPl
                 scenes: targetScenes
             )
 
-            // 実効再生開始時刻の算出: セリフの任意の文字から再生開始
-            var effectiveStart = clipStart
+            // 実効再生開始時刻の算出
+            var effectiveStart = clip.startTime
             var hasVoiceTrigger = false
 
-            let targetChar = clip.startCharIndex ?? clip.fadeInCharIndex
-            if let ctx = dialogueCtx, let charIdx = targetChar {
-                if let timing = ctx.timings.first(where: { $0.index == charIdx }) {
+            // 1. ボイス文字連動が明示的に有効化されている場合のみ、文字タイミングから計算
+            if clip.voiceTriggerEnabled, let targetChar = clip.startCharIndex {
+                if let ctx = dialogueCtx, let timing = ctx.timings.first(where: { $0.index == targetChar }) {
                     effectiveStart = ctx.sceneStartTime + timing.startSeconds + clip.voiceTriggerOffset
                     hasVoiceTrigger = true
                 }
             }
 
+            // 2. 文字連動なし（手動配置・通常配置）の場合:
+            // タイムライン上の指定時刻 (clip.startTime) を基準に正確に再生。
+            // 所属シーンが存在する場合はシーン相対時刻 (sceneRelativeStartTime) との整合を保証。
+            if !hasVoiceTrigger {
+                if let rel = clip.sceneRelativeStartTime,
+                   let sIdx = clip.spanStartSceneIndex ?? clip.sceneIndex,
+                   let sRange = sceneRanges[sIdx] {
+                    effectiveStart = sRange.start + rel
+                } else {
+                    effectiveStart = clip.startTime
+                }
+            }
+
             // 実効再生終了時刻の算出
-            clipEnd = effectiveStart + baseDuration
+            var clipEnd = effectiveStart + baseDuration
 
             if let targetIdx = targetCutSceneIndex, let targetRange = sceneRanges[targetIdx] {
                 if isSpanning {
@@ -239,21 +249,20 @@ public final class SoundMakerAudioManager: NSObject, ObservableObject, AVAudioPl
                 }
             }
 
-            // フェードアウト開始時刻の算出: セリフの任意の文字からフェードアウト開始
+            // フェードアウト開始時刻の算出: セリフの任意の文字からフェードアウト開始 (文字連動有効時)
             var effectiveFadeOutStart = clipEnd - max(0.001, clip.fadeOutDuration)
-            if let ctx = dialogueCtx, let outIdx = clip.fadeOutCharIndex {
+            if clip.voiceTriggerEnabled, let ctx = dialogueCtx, let outIdx = clip.fadeOutCharIndex {
                 if let timing = ctx.timings.first(where: { $0.index == outIdx }) {
                     effectiveFadeOutStart = ctx.sceneStartTime + timing.startSeconds + clip.voiceTriggerOffset
                 }
             }
 
-            // 指定文字または開始時刻に達するまでは絶対に鳴らさない（発話開始時の強制音声開始を完全防止）
+            // 指定文字または開始時刻に達するまでは絶対に鳴らさない（発話開始前のフライング鳴動を防止）
             let isActive = (currentTime >= effectiveStart && currentTime < clipEnd)
 
             if isActive {
                 shouldBePlayingIds.insert(clip.id)
 
-                // 指定文字の瞬間から音源の0秒目を流すため、effectiveStart からオフセットを計算
                 let offsetInClip = (currentTime - effectiveStart) * max(0.25, clip.playbackRate)
 
                 // フェードイン計算
@@ -279,17 +288,44 @@ public final class SoundMakerAudioManager: NSObject, ObservableObject, AVAudioPl
                 let currentVol = Float(max(0.0, min(1.0, clip.volume * fadeMultiplier)))
 
                 if let existingPlayer = timelinePlayers[clip.id] {
-                    // 既に再生中の場合、フェードイン・フェードアウト音量を動的計算して適用
-                    existingPlayer.volume = currentVol
+                    // 既に再生中の場合
+                    if existingPlayer.isPlaying {
+                        existingPlayer.volume = currentVol
+                    } else if clip.isLooping {
+                        // ループ音源が停止していれば再開
+                        existingPlayer.currentTime = 0.0
+                        existingPlayer.volume = currentVol
+                        existingPlayer.play()
+                    } else if offsetInClip < 0.08 {
+                        // 先頭に戻った場合（シークやループ）は最初から再発音
+                        existingPlayer.currentTime = 0.0
+                        existingPlayer.volume = currentVol
+                        existingPlayer.play()
+                    }
                 } else {
-                    // 新たに再生開始 (初期音量をフェード係数に合わせて設定し音漏れを防止)
+                    // 新たに再生開始
+                    // ワンショット効果音（SE かつ 非ループ）の場合、タイマー刻み内（0.08s未満）の開始であれば
+                    // アタック音の欠損を防ぐため先頭（0.0s）から鳴らす。途中シーク時は経過位置から再生。
+                    let isOneShotSE = (clip.type == "SE" && !clip.isLooping)
+                    let shouldStartFromBeginning = isOneShotSE && (offsetInClip < 0.08)
+
                     if let player = createConfiguredPlayer(for: clip, initialVolume: currentVol) {
                         let playerDur = player.duration
                         if playerDur > 0 {
-                            let targetPlayerTime = clip.isLooping ? offsetInClip.truncatingRemainder(dividingBy: playerDur) : offsetInClip
+                            let targetPlayerTime: Double
+                            if shouldStartFromBeginning {
+                                targetPlayerTime = 0.0
+                            } else if clip.isLooping {
+                                targetPlayerTime = offsetInClip.truncatingRemainder(dividingBy: playerDur)
+                            } else {
+                                targetPlayerTime = offsetInClip
+                            }
+
                             if targetPlayerTime < playerDur {
                                 player.volume = currentVol
-                                player.currentTime = targetPlayerTime
+                                if targetPlayerTime > 0.001 {
+                                    player.currentTime = targetPlayerTime
+                                }
                                 player.play()
                                 timelinePlayers[clip.id] = player
                             }

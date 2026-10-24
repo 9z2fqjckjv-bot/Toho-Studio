@@ -345,6 +345,16 @@ public struct BatchVoiceGenerationSheet: View {
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(isAllSkipped ? .secondary : .white)
 
+                if speaker.contains("&") {
+                    Text("2人同時")
+                        .font(.system(size: 8, weight: .bold))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Color.pink.opacity(0.25))
+                        .foregroundColor(.pink)
+                        .cornerRadius(3)
+                }
+
                 Spacer()
 
                 Text("\(speakerItems.count)件")
@@ -1020,17 +1030,34 @@ public struct BatchVoiceGenerationSheet: View {
         previewPlayingItemId = item.id
         let effectiveSpeed = (speedMode == "uniform") ? uniformSpeed : item.speed
 
-        aquesTalk.synthesizeAndPlay(
-            text: SlideItem.cleanDialogueText(from: item.text),
-            speed: effectiveSpeed,
-            voice: item.voiceType,
-            pitch: item.pitch,
-            quality: globalQuality,
-            effect: globalEffect
-        ) {
-            DispatchQueue.main.async {
-                if self.previewPlayingItemId == item.id {
-                    self.previewPlayingItemId = nil
+        if item.characterName.contains("&") {
+            // 2人同時発声（ユニゾン）プレビュー
+            aquesTalk.synthesizeDuoAndPlay(
+                text: SlideItem.cleanDialogueText(from: item.text),
+                speakerName: item.characterName,
+                customSpeed: (speedMode == "uniform") ? uniformSpeed : (item.speed != 100 ? item.speed : nil),
+                quality: globalQuality,
+                effect: globalEffect
+            ) {
+                DispatchQueue.main.async {
+                    if self.previewPlayingItemId == item.id {
+                        self.previewPlayingItemId = nil
+                    }
+                }
+            }
+        } else {
+            aquesTalk.synthesizeAndPlay(
+                text: SlideItem.cleanDialogueText(from: item.text),
+                speed: effectiveSpeed,
+                voice: item.voiceType,
+                pitch: item.pitch,
+                quality: globalQuality,
+                effect: globalEffect
+            ) {
+                DispatchQueue.main.async {
+                    if self.previewPlayingItemId == item.id {
+                        self.previewPlayingItemId = nil
+                    }
                 }
             }
         }
@@ -1061,6 +1088,7 @@ public struct BatchVoiceGenerationSheet: View {
     }
 
     private func colorForCharacter(_ name: String) -> Color {
+        if name.contains("&") { return Color(hex: "#E84393") }
         if name.contains("霊夢") { return Color(hex: "#E74C3C") }
         if name.contains("魔理沙") { return Color(hex: "#F1C40F") }
         if name.contains("咲夜") { return Color(hex: "#3498DB") }

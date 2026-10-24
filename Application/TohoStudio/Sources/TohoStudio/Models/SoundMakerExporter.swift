@@ -637,11 +637,27 @@ public final class SoundMakerExporter {
             )
 
             var effectiveStartTime = clip.startTime
-            let targetChar = clip.startCharIndex ?? clip.fadeInCharIndex
-            if let ctx = VoiceTextTimingService.resolveDialogueContext(clip: clip, clips: clips, scenes: scenes),
-               let charIdx = targetChar,
-               let timing = ctx.timings.first(where: { $0.index == charIdx }) {
-                effectiveStartTime = ctx.sceneStartTime + timing.startSeconds + clip.voiceTriggerOffset
+            var hasVoiceTrigger = false
+
+            // 1. ボイス文字連動が明示的に有効な場合のみ、文字タイミングから計算
+            if clip.voiceTriggerEnabled, let targetChar = clip.startCharIndex {
+                if let ctx = VoiceTextTimingService.resolveDialogueContext(clip: clip, clips: clips, scenes: scenes),
+                   let timing = ctx.timings.first(where: { $0.index == targetChar }) {
+                    effectiveStartTime = ctx.sceneStartTime + timing.startSeconds + clip.voiceTriggerOffset
+                    hasVoiceTrigger = true
+                }
+            }
+
+            // 2. 文字連動なしの場合: タイムライン配置時刻とシーン相対時刻から正確に確定
+            if !hasVoiceTrigger {
+                if let rel = clip.sceneRelativeStartTime,
+                   let sIdx = clip.spanStartSceneIndex ?? clip.sceneIndex,
+                   sIdx >= 1 && sIdx <= scenes.count {
+                    let sStart = scenes.prefix(sIdx - 1).reduce(0.0) { $0 + $1.duration }
+                    effectiveStartTime = sStart + rel
+                } else {
+                    effectiveStartTime = clip.startTime
+                }
             }
 
             let startFrame = max(0, Int(effectiveStartTime * Double(options.sampleRate)))

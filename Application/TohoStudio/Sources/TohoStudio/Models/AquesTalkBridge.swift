@@ -246,7 +246,10 @@ public final class AquesTalkBridge: NSObject, ObservableObject, AVAudioPlayerDel
 
     /// 東方キャラクター名から推奨されるVoiceTypeを解決（早苗はコゲ日記、それ以外はゆっくりボイスメーカー＞コゲ日記＞Gスカ）
     public func voiceType(for characterName: String) -> VoiceType {
-        let name = characterName.trimmingCharacters(in: .whitespacesAndNewlines)
+        var name = characterName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if name.contains("&"), let first = name.components(separatedBy: "&").first, !first.isEmpty {
+            name = first.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         // 0. メイン話者タグ（操夢）＆ 独自追加話者タグ
         if name.contains("操夢") { return .imd1 }
         if name.contains("サブ") { return .f1 }
@@ -355,7 +358,10 @@ public final class AquesTalkBridge: NSObject, ObservableObject, AVAudioPlayerDel
     /// ルール: 東風谷早苗はコゲ日記、それ以外はゆっくりボイスメーカー＞コゲ日記＞Gスカ
     public func characterPreset(for characterName: String) -> (voice: VoiceType, speed: Int, pitch: Int) {
         let v = voiceType(for: characterName)
-        let name = characterName.trimmingCharacters(in: .whitespacesAndNewlines)
+        var name = characterName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if name.contains("&"), let first = name.components(separatedBy: "&").first, !first.isEmpty {
+            name = first.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
 
         // 0. メイン話者タグ（操夢）＆ 独自追加話者タグ
         if name.contains("操夢") { return (.imd1, 100, 115) }
@@ -527,6 +533,75 @@ public final class AquesTalkBridge: NSObject, ObservableObject, AVAudioPlayerDel
         return generateFallbackWavData(text: targetText, speed: speed, quality: quality, effect: effect, pitch: pitch)
     }
 
+    /// 話者名から2人の話者（A&B）を分解してタプルで返す (静的メソッド)
+    public static func duoSpeakers(from name: String) -> (isDuo: Bool, speaker1: String, speaker2: String) {
+        let parts = name.components(separatedBy: "&")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if parts.count >= 2 {
+            return (true, parts[0], parts[1])
+        } else {
+            return (false, parts.first ?? name, "")
+        }
+    }
+
+    /// 話者名から2人の話者（A&B）を分解してタプルで返す
+    public func duoSpeakers(from name: String) -> (isDuo: Bool, speaker1: String, speaker2: String) {
+        return AquesTalkBridge.duoSpeakers(from: name)
+    }
+
+    /// 話者名から2人の話者（A&B）を分解して配列で返す
+    public func duoSpeakersList(from name: String) -> [String] {
+        let parts = name.components(separatedBy: "&")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return parts.isEmpty ? [name] : parts
+    }
+
+    /// 2人の話者（A&B）の音声を同時に合成し、ミックスした1つのWAVデータを返す
+    public func synthesizeDuoVoiceToWavData(
+        text: String,
+        speakerName: String,
+        customSpeed: Int? = nil,
+        quality: AudioQualitySetting = .enhanced,
+        effect: AudioEffectType = .none
+    ) -> Data? {
+        let duo = duoSpeakers(from: speakerName)
+        guard duo.isDuo else {
+            let singleSpeaker = duo.speaker1
+            let preset = characterPreset(for: singleSpeaker)
+            return synthesizeToWavData(
+                text: text,
+                speed: customSpeed ?? preset.speed,
+                voice: preset.voice,
+                pitch: preset.pitch,
+                quality: quality,
+                effect: effect
+            )
+        }
+
+        var wavList: [Data] = []
+        for spk in [duo.speaker1, duo.speaker2] {
+            let preset = characterPreset(for: spk)
+            let spd = customSpeed ?? preset.speed
+            if let data = synthesizeToWavData(
+                text: text,
+                speed: spd,
+                voice: preset.voice,
+                pitch: preset.pitch,
+                quality: quality,
+                effect: effect
+            ) {
+                wavList.append(data)
+            }
+        }
+
+        if wavList.isEmpty { return nil }
+        if wavList.count == 1 { return wavList[0] }
+
+        return AudioEffectProcessor.shared.mixWavs(wavList, quality: quality)
+    }
+
     /// 音声の再生を即座に停止
     public func stopPlayback() {
         if let p = audioPlayer, p.isPlaying {
@@ -597,6 +672,61 @@ public final class AquesTalkBridge: NSObject, ObservableObject, AVAudioPlayerDel
         lastLog = "macOS標準Speechで再生: [\(text)]"
         #endif
         onComplete?()
+    }
+
+    /// 2人の話者（A&B）の音声を同時に合成し、プレビュー再生する
+    public func synthesizeDuoAndPlay(
+        text: String,
+        speakerName: String,
+        customSpeed: Int? = nil,
+        quality: AudioQualitySetting = .enhanced,
+        effect: AudioEffectType = .none,
+        onComplete: (() -> Void)? = nil
+    ) {
+        stopPlayback()
+
+        let cleanedText = SlideItem.cleanDialogueText(from: text)
+        let targetText = cleanedText.isEmpty ? text : cleanedText
+
+        if let wavData = synthesizeDuoVoiceToWavData(
+            text: targetText,
+            speakerName: speakerName,
+            customSpeed: customSpeed,
+            quality: quality,
+            effect: effect
+        ) {
+            do {
+                let player = try AVAudioPlayer(data: wavData)
+                player.delegate = self
+                player.prepareToPlay()
+                self.audioPlayer = player
+                self.onPlaybackCompleted = onComplete
+                self.isCurrentlyPlaying = true
+                player.play()
+
+                let effectDesc = effect == .echo ? " [エコー]" : ""
+                let qualityDesc = quality == .enhanced ? " [高音質改善]" : " [原音]"
+                lastLog = "AquesTalk 2人同時再生成功: [\(speakerName)] 『\(targetText)』 (\(wavData.count) bytes)\(qualityDesc)\(effectDesc)"
+                return
+            } catch {
+                lastLog = "AVAudioPlayer再生エラー: \(error.localizedDescription)"
+                self.isCurrentlyPlaying = false
+            }
+        }
+
+        // フォールバック
+        let duo = duoSpeakers(from: speakerName)
+        let first = duo.speaker1
+        let preset = characterPreset(for: first)
+        synthesizeAndPlay(
+            text: targetText,
+            speed: customSpeed ?? preset.speed,
+            voice: preset.voice,
+            pitch: preset.pitch,
+            quality: quality,
+            effect: effect,
+            onComplete: onComplete
+        )
     }
 
     /// 音声ファイルが利用できない環境用の最小限のサイン波/無音WAVジェネレーター（プレビュー波形用）

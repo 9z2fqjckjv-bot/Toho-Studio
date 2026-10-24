@@ -89,33 +89,82 @@ def clean_dialogue_text(text):
     anim_re = re.compile(r'[（\(\[［][^）\)\]］]*(?:アニメーション|アニメ|表示時間|時間|\d+(?:\.\d+)?\s*秒|フェード|ズーム|タイプライター|スライド|アクション|イン|アウト|カット)[^）\)\]］]*[）\)\]］]', re.IGNORECASE)
     cleaned = anim_re.sub("", cleaned)
     # 2. 話者指定カッコ書きの除去
-    bracket_re = re.compile(r'[（\(\[［][^）\)\]］\s]{1,20}[）\)\]］]')
+    bracket_re = re.compile(r'[（\(\[［][^）\)\]］]{1,40}[）\)\]］]')
     cleaned = bracket_re.sub("", cleaned).strip()
     # 行ごとの整形
-    cleaned_lines = [l.strip() for l in cleaned.splitlines() if l.strip()]
+    cleaned_lines = []
+    for l in cleaned.splitlines():
+        line = l.strip()
+        while "  " in line:
+            line = line.replace("  ", " ")
+        while "　　" in line:
+            line = line.replace("　　", "　")
+        if line:
+            cleaned_lines.append(line)
     return "\n".join(cleaned_lines)
+
+def normalize_duo_speaker(raw_spk):
+    if not raw_spk:
+        return ""
+    trimmed = str(raw_spk).strip()
+    # ※「・」はカタカナ人名（例: フランドール・スカーレット、レミリア・スカーレット）の姓名区切りのため含めない
+    delims = ["&", "＆", "、"]
+    for delim in delims:
+        if delim in trimmed:
+            parts = [p.strip() for p in trimmed.split(delim) if p.strip()]
+            if len(parts) >= 2:
+                n0 = CHAR_MAP.get(parts[0], parts[0])
+                n1 = CHAR_MAP.get(parts[1], parts[1])
+                c0 = n0.replace(" ", "").replace("　", "")
+                c1 = n1.replace(" ", "").replace("　", "")
+                return f"{c0}&{c1}"
+    if "と" in trimmed and not any(k in trimmed for k in ["こと", "ひと"]) and len(trimmed) <= 15:
+        parts = [p.strip() for p in trimmed.split("と") if p.strip()]
+        if len(parts) == 2:
+            n0 = CHAR_MAP.get(parts[0], parts[0])
+            n1 = CHAR_MAP.get(parts[1], parts[1])
+            c0 = n0.replace(" ", "").replace("　", "")
+            c1 = n1.replace(" ", "").replace("　", "")
+            return f"{c0}&{c1}"
+    n = CHAR_MAP.get(trimmed, trimmed)
+    return n.replace(" ", "").replace("　", "")
 
 def extract_speaker_and_clean_note(raw_text):
     """
     ノートにあるカッコ書き"（）,(),[]"から話者を識別し、
     話者名、UI表示用・セリフ用のクリーンなノート（カッコ書きを除去したもの）、元の生ノートを返す。
+    ※2人の話者が含まれる場合、スペースなしの A&B 形式として認識する。
     ※アニメーションや表示時間などの演出カッコ書きは話者と誤認しないよう除外し、
       クリーンなセリフ文から完全に削除する。
     """
     if not raw_text:
         return "", "", ""
     raw_note = str(raw_text).strip()
-    speaker = ""
 
     # 全角丸カッコ（）、半角丸カッコ()、半角角カッコ[]、全角角カッコ［］に囲まれた話者表記
-    bracket_re = re.compile(r'[（\(\[［]([^）\)\]］\s]{1,20})[）\)\]］]')
+    bracket_re = re.compile(r'[（\(\[［]([^）\)\]］]{1,40})[）\)\]］]')
     non_speaker_kws = ["アニメ", "表示時間", "時間", "秒", "イン", "アクション", "アウト", "フェード", "ズーム", "カット"]
+    cands = []
     for m in bracket_re.finditer(raw_note):
         cand = m.group(1).strip()
         if any(k in cand for k in non_speaker_kws):
             continue
-        speaker = cand
-        break
+        cands.append(cand)
+
+    speaker = ""
+    if cands:
+        first = cands[0]
+        if any(d in first for d in ["&", "＆", "、"]) or ("と" in first and len(first) <= 15):
+            speaker = normalize_duo_speaker(first)
+        elif len(cands) >= 2:
+            s1 = normalize_duo_speaker(cands[0])
+            s2 = normalize_duo_speaker(cands[1])
+            if s1 and s2 and s1 != s2:
+                speaker = f"{s1}&{s2}"
+            else:
+                speaker = s1
+        else:
+            speaker = normalize_duo_speaker(first)
 
     # UI非表示・音声生成用: カッコ書きアニメーションおよび話者表記を完全に除去
     cleaned_note = clean_dialogue_text(raw_note)
@@ -1735,12 +1784,15 @@ def extract_via_direct_iwa(filepath, project_name):
 
             # ノート内のカッコ書き"（）,(),[]"から話者を最優先認識
             if note_speaker:
-                for k, full_n in CHAR_MAP.items():
-                    if k in note_speaker:
-                        char_name = full_n
-                        break
-                if not char_name:
+                if "&" in note_speaker:
                     char_name = note_speaker
+                else:
+                    for k, full_n in CHAR_MAP.items():
+                        if k in note_speaker:
+                            char_name = full_n
+                            break
+                    if not char_name:
+                        char_name = note_speaker
 
             if not char_name:
                 speaker_match = re.match(r"^([^\s「]{1,10})[「『](.*)[」』]$", telop)
@@ -2163,12 +2215,15 @@ def extract_keynote_slides(filepath):
 
                 # ノート内のカッコ書き"（）,(),[]"から話者を最優先認識
                 if note_speaker and not char_name:
-                    for k, full_n in CHAR_MAP.items():
-                        if k in note_speaker:
-                            char_name = full_n
-                            break
-                    if not char_name:
+                    if "&" in note_speaker:
                         char_name = note_speaker
+                    else:
+                        for k, full_n in CHAR_MAP.items():
+                            if k in note_speaker:
+                                char_name = full_n
+                                break
+                        if not char_name:
+                            char_name = note_speaker
 
                 if not char_name:
                     char_name = "ナレーション" if stype == "content" else ""
