@@ -10,10 +10,10 @@ public enum ServerConnectionStatus: String, Codable {
 }
 
 public struct VirtualLinuxMachineStatus: Codable {
-    public var hostIP: String = "192.168.64.3"
-    public var gcpZone: String = "local-virtualbuddy"
-    public var machineType: String = "VirtualBuddy VM (Apple A18 Pro, 4GB RAM + 8GB Swap)"
-    public var llmModel: String = "Qwen 2.5 (3B / 7B)"
+    public var hostIP: String = "153.115.43.151"
+    public var gcpZone: String = "xserver-vps"
+    public var machineType: String = "Xserver VPS (Ubuntu 24.04, 4vCPU, 4GB RAM + 4GB Swap)"
+    public var llmModel: String = "Qwen 2.5 (3B)"
     public var uptimeHours: Double = 999.0
     public var cpuUsagePercent: Double = 15.0
     public var memoryUsagePercent: Double = 40.0
@@ -46,6 +46,11 @@ public struct ChatCompletionResponse: Codable {
 public final class CloudVirtualLinuxService: ObservableObject {
     public static let shared = CloudVirtualLinuxService()
 
+    // Xserver VPS のエンドポイント・ユーザー管理 (xserver_vps_llm.md 準拠)
+    @Published public var serverBaseURL: String = "http://153.115.43.151"
+    @Published public var currentUserId: String = "local_user_default"
+    @Published public var isConnected: Bool = false
+
     @Published public var machineStatus: VirtualLinuxMachineStatus = VirtualLinuxMachineStatus()
     @Published public var colabBridge: ColabGPUBridgeInfo = ColabGPUBridgeInfo()
     @Published public var connectionStatus: ServerConnectionStatus = .connected
@@ -53,8 +58,8 @@ public final class CloudVirtualLinuxService: ObservableObject {
     @Published public var latencyMs: Int = 2
 
     // AI Prompt Subscription Quota Management
-    @Published public var totalPromptsMonthly: Int = 10000
-    @Published public var remainingPrompts: Int = 9999
+    @Published public var totalPromptsMonthly: Int = 1000
+    @Published public var remainingPrompts: Int = 1000
     @Published public var lastNotificationSentThreshold: Int? = nil
     @Published public var latestNotificationMessage: String? = nil
     @Published public var lastGeneratedMediaUrl: String? = nil
@@ -65,9 +70,158 @@ public final class CloudVirtualLinuxService: ObservableObject {
 
     private init() {
         startContinuousHeartbeat()
+        syncUserPromptsFromServer()
     }
 
-    /// Starts real-time continuous communication with Local Virtual Linux instance
+    /// サーバーのヘルスチェック (xserver_vps_llm.md 準拠)
+    public func checkHealth(completion: @escaping (Bool) -> Void) {
+        guard let url = URL(string: "\(serverBaseURL)/health") else {
+            completion(false)
+            return
+        }
+
+        URLSession.shared.dataTask(with: url) { [weak self] _, response, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if let httpRes = response as? HTTPURLResponse, httpRes.statusCode == 200 {
+                    self.isConnected = true
+                    self.connectionStatus = .connected
+                    completion(true)
+                } else {
+                    self.isConnected = false
+                    self.connectionStatus = .disconnected
+                    completion(false)
+                }
+            }
+        }.resume()
+    }
+
+    /// AIチャットおよびテキスト編集リクエスト (xserver_vps_llm.md 準拠)
+    public func requestCompletion(
+        userPrompt: String,
+        systemPrompt: String = "あなたは東方Projectの二次創作支援AIです。",
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(serverBaseURL)/v1/chat/completions") else {
+            completion(.failure(URLError(.badURL)))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 120
+
+        let body: [String: Any] = [
+            "user_id": currentUserId,
+            "system_prompt": systemPrompt,
+            "user_prompt": userPrompt,
+            "model": "qwen2.5:3b"
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        } catch {
+            completion(.failure(error))
+            return
+        }
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            if let error = error {
+                DispatchQueue.main.async { completion(.failure(error)) }
+                return
+            }
+
+            guard let httpRes = response as? HTTPURLResponse else {
+                DispatchQueue.main.async { completion(.failure(URLError(.badServerResponse))) }
+                return
+            }
+
+            if httpRes.statusCode == 403 {
+                DispatchQueue.main.async {
+                    self?.connectionStatus = .suspendedPromptZero
+                    completion(.failure(NSError(domain: "TohoStudio", code: 403, userInfo: [
+                        NSLocalizedDescriptionKey: "プロンプト残数が不足しています。広告視聴等でチャージしてください。"
+                    ])))
+                }
+                return
+            }
+
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                DispatchQueue.main.async { completion(.failure(URLError(.cannotParseResponse))) }
+                return
+            }
+
+            let responseText = json["response"] as? String ?? ""
+            let updatedPrompts = json["remaining_prompts"] as? Int ?? (self?.remainingPrompts ?? 1000)
+
+            DispatchQueue.main.async {
+                self?.remainingPrompts = updatedPrompts
+                AppState.shared.aiPlanRemainingPrompts = updatedPrompts
+                self?.connectionStatus = .connected
+                completion(.success(responseText))
+            }
+        }.resume()
+    }
+
+    /// 広告視聴完了時などのプロンプト加算処理 (xserver_vps_llm.md 準拠)
+    public func addPrompts(count: Int, completion: @escaping (Bool) -> Void) {
+        guard let url = URL(string: "\(serverBaseURL)/v1/user/prompts") else {
+            completion(false)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "user_id": currentUserId,
+            "add_prompts": count
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let httpRes = response as? HTTPURLResponse, httpRes.statusCode == 200,
+                   let data = data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let newPrompts = json["remaining_prompts"] as? Int {
+                    self?.remainingPrompts = newPrompts
+                    AppState.shared.aiPlanRemainingPrompts = newPrompts
+                    completion(true)
+                } else {
+                    completion(false)
+                }
+            }
+        }.resume()
+    }
+
+    /// サーバーから最新のプロンプト残数を取得して同期
+    public func syncUserPromptsFromServer(completion: ((Int?) -> Void)? = nil) {
+        guard let url = URL(string: "\(serverBaseURL)/v1/user/prompts/\(currentUserId)") else {
+            completion?(nil)
+            return
+        }
+
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let httpRes = response as? HTTPURLResponse, httpRes.statusCode == 200,
+                   let data = data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let count = json["remaining_prompts"] as? Int {
+                    self?.remainingPrompts = count
+                    AppState.shared.aiPlanRemainingPrompts = count
+                    completion?(count)
+                } else {
+                    completion?(nil)
+                }
+            }
+        }.resume()
+    }
+
+    /// Starts real-time continuous communication with Xserver VPS instance
     public func startContinuousHeartbeat() {
         heartbeatTimer?.invalidate()
         heartbeatTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
@@ -75,7 +229,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
         }
     }
 
-    /// Performs periodic heartbeat query to local Linux VM and direct Colab GPU
+    /// Performs periodic heartbeat query to Xserver VPS and direct Colab GPU
     public func performHeartbeat() {
         guard remainingPrompts > 0 else {
             if connectionStatus != .suspendedPromptZero {
@@ -92,7 +246,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
         }
 
         let start = Date()
-        guard let url = URL(string: "http://\(machineStatus.hostIP):8080/health") else { return }
+        guard let url = URL(string: "\(serverBaseURL)/health") else { return }
 
         var request = URLRequest(url: url)
         request.timeoutInterval = 3.0
@@ -100,66 +254,15 @@ public final class CloudVirtualLinuxService: ObservableObject {
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200, let data = data {
-                    self.connectionStatus = .connected
-                    let elapsed = Int(Date().timeIntervalSince(start) * 1000)
-                    self.latencyMs = max(1, min(elapsed, 99))
-                    self.lastHeartbeatAt = Date()
-
-                    // Parse Colab Bridge & Music Transcription status if present
-                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                        if let transcription = json["music_transcription"] as? [String: Any] {
-                            let supported = transcription["supported"] as? Bool ?? false
-                            if !self.isMusicTranscriptionSupported && supported {
-                                AppState.shared.addSystemLog(level: "INFO", message: "【自動採譜エンジン確認】Spotify Basic Pitch + LilyPond 採譜エンドポイント(/v1/audio/transcribe-to-sheet)が利用可能です。")
-                            }
-                            self.isMusicTranscriptionSupported = supported
-                        }
-
-                        if let colab = json["colab_gpu_bridge"] as? [String: Any] {
-                            let vmColabOnline = colab["online"] as? Bool ?? false
-                            if vmColabOnline {
-                                self.colabBridge.isOnline = true
-                                self.colabBridge.gpuName = colab["gpu"] as? String ?? "NVIDIA L4"
-                                if let endpoint = colab["endpoint"] as? String, !endpoint.isEmpty {
-                                    self.colabBridge.endpoint = endpoint
-                                }
-                            } else {
-                                // ローカルVM側がColab未設定/未同期でも、アプリが直接接続済みであれば切断しない
-                                if !self.colabBridge.endpoint.isEmpty && self.colabBridge.isOnline {
-                                    // ローカルVMへColab URLを自動同期
-                                    self.syncColabEndpointToLocalVM(endpoint: self.colabBridge.endpoint)
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    // 8080ポート未起動時は、VM内のOllama(11434)を直接チェック
-                    self.checkOllamaHeartbeat(start: start)
-                }
-            }
-        }.resume()
-    }
-
-    /// Ollama (11434) ポートへの直接ヘルスチェック
-    private func checkOllamaHeartbeat(start: Date) {
-        guard let url = URL(string: "http://\(machineStatus.hostIP):11434/api/tags") else {
-            self.connectionStatus = .disconnected
-            return
-        }
-        var req = URLRequest(url: url)
-        req.timeoutInterval = 3.0
-
-        URLSession.shared.dataTask(with: req) { [weak self] _, response, error in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
                     self.connectionStatus = .connected
+                    self.isConnected = true
                     let elapsed = Int(Date().timeIntervalSince(start) * 1000)
                     self.latencyMs = max(1, min(elapsed, 99))
                     self.lastHeartbeatAt = Date()
                 } else {
                     self.connectionStatus = .disconnected
+                    self.isConnected = false
                 }
             }
         }.resume()
@@ -264,60 +367,9 @@ public final class CloudVirtualLinuxService: ObservableObject {
         return true
     }
 
-    /// Sends a prompt request to the Local Linux VM (which automatically dispatches text to Qwen 2.5 and media to Colab GPU)
+    /// Sends a prompt request to the Xserver VPS LLM Engine
     public func sendPromptToLLM(prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
-        guard consumePrompt(count: 1, purpose: "LLM推論/メディア生成リクエスト") else {
-            completion(.failure(NSError(domain: "CloudLLM", code: 403, userInfo: [NSLocalizedDescriptionKey: "プロンプト残数が不足しています。"])))
-            return
-        }
-
-        guard let url = URL(string: "http://\(machineStatus.hostIP):8080/v1/chat/completions") else {
-            completion(.failure(NSError(domain: "CloudLLM", code: 400, userInfo: [NSLocalizedDescriptionKey: "不正なURLです。"])))
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 120.0 // Allow up to 2 mins for video generation
-
-        let requestBody: [String: Any] = [
-            "user_id": "tohostudio-user",
-            "user_prompt": prompt,
-            "system_prompt": "あなたは東方Projectの二次創作支援AIです。"
-        ]
-
-        guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
-            completion(.failure(NSError(domain: "CloudLLM", code: 400, userInfo: [NSLocalizedDescriptionKey: "JSON変換エラー"])))
-            return
-        }
-        request.httpBody = jsonData
-
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-
-                if error != nil {
-                    // 8080 が利用できない場合、VM内のOllama(11434)に直接フォールバック
-                    self.sendPromptToOllamaDirect(prompt: prompt, completion: completion)
-                    return
-                }
-
-                guard let data = data,
-                      let decoded = try? JSONDecoder().decode(ChatCompletionResponse.self, from: data) else {
-                    let text = String(data: data ?? Data(), encoding: .utf8) ?? "生成完了"
-                    completion(.success(text))
-                    return
-                }
-
-                if let mediaUrl = decoded.media_url {
-                    self.lastGeneratedMediaUrl = mediaUrl
-                    AppState.shared.addSystemLog(level: "SUCCESS", message: "Colab L4 GPU メディア生成成功: [\(decoded.media_type ?? "media")] \(mediaUrl)")
-                }
-
-                completion(.success(decoded.response))
-            }
-        }.resume()
+        requestCompletion(userPrompt: prompt, completion: completion)
     }
 
     /// VM内のOllama (11434) への直接チャット推論
@@ -417,8 +469,8 @@ public final class CloudVirtualLinuxService: ObservableObject {
             return
         }
 
-        // 1. VirtualBuddy Linux VM デーモン (ポート 8080) へ送信
-        let daemonURLString = "http://\(machineStatus.hostIP):8080/v1/chat/completions"
+        // 1. Xserver VPS デーモンへ送信
+        let daemonURLString = "\(serverBaseURL)/v1/chat/completions"
         if let url = URL(string: daemonURLString) {
             var req = URLRequest(url: url)
             req.httpMethod = "POST"

@@ -526,13 +526,12 @@ public final class TohoAIService: ObservableObject {
         }
     }
 
-    // MARK: - 仮想LinuxVM / ローカルOllama APIリクエスト
+    // MARK: - 仮想LinuxVM / Xserver VPS APIリクエスト
     private func executeLinuxVMRequest(prompt: String, model: String, completion: @escaping (String, String?) -> Void) {
-        let hostIP = CloudVirtualLinuxService.shared.machineStatus.hostIP
-        // 優先度順: 1. VM内のOllama(11434) 2. VM内のFastAPI(8080) 3. ローカルMac Ollama(11434)
+        let serverURL = CloudVirtualLinuxService.shared.serverBaseURL
+        // 優先度順: 1. Xserver VPS FastAPI (:80/v1/chat/completions) 2. ローカルMac Ollama(11434)
         let endpoints = [
-            "http://\(hostIP):11434/api/chat",
-            "http://\(hostIP):8080/v1/chat/completions",
+            "\(serverURL)/v1/chat/completions",
             "http://127.0.0.1:11434/api/chat",
             "http://localhost:11434/api/chat"
         ]
@@ -562,7 +561,15 @@ public final class TohoAIService: ObservableObject {
         }
 
         let bodyDict: [String: Any]
-        if urlStr.contains("11434") {
+        if urlStr.contains("/v1/chat/completions") {
+            // Xserver VPS FastAPI エンドポイント (xserver_vps_llm.md 準拠)
+            bodyDict = [
+                "user_id": CloudVirtualLinuxService.shared.currentUserId,
+                "system_prompt": "あなたは東方Projectの二次創作支援AIです。親切で知的なアシスタントとして、ユーザーの質問や指示に対して具体的かつ丁寧に回答してください。",
+                "user_prompt": prompt,
+                "model": "qwen2.5:3b"
+            ]
+        } else if urlStr.contains("11434") {
             // Ollama Chat API
             bodyDict = [
                 "model": resolvedModelTag,
@@ -587,6 +594,20 @@ public final class TohoAIService: ObservableObject {
         URLSession.shared.dataTask(with: req) { [weak self] data, _, error in
             if let data = data,
                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                // Xserver VPS FastAPI レスポンス (xserver_vps_llm.md 準拠)
+                if let text = json["response"] as? String {
+                    if let rem = json["remaining_prompts"] as? Int {
+                        DispatchQueue.main.async {
+                            CloudVirtualLinuxService.shared.remainingPrompts = rem
+                            AppState.shared.aiPlanRemainingPrompts = rem
+                        }
+                    }
+                    DispatchQueue.main.async {
+                        completion(text, "【Xserver VPS \(model) 実推論】ホスト(\(url.host ?? ""))との高速通信に成功しました。")
+                    }
+                    return
+                }
+
                 // OpenAI互換パース
                 if let choices = json["choices"] as? [[String: Any]],
                    let first = choices.first,

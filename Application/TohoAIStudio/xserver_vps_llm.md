@@ -296,7 +296,7 @@ public class CloudVirtualLinuxService: ObservableObject {
     public static let shared = CloudVirtualLinuxService()
     
     // Xserver VPS の IP アドレスまたは設定したドメインを指定
-    @Published public var serverBaseURL: String = "http://<XSERVER_VPS_IP>"
+    @Published public var serverBaseURL: String = "http://153.115.43.151"
     @Published public var currentUserId: String = "local_user_default"
     @Published public var remainingPrompts: Int = 1000
     @Published public var isConnected: Bool = false
@@ -431,7 +431,7 @@ VPS側のセットアップ完了後、クライアント（Macのターミナ�
 
 ### ① ヘルスチェック
 ```bash
-curl http://<XSERVER_VPS_IP>/health
+curl http://153.115.43.151/health
 ```
 **期待されるレスポンス**:
 ```json
@@ -440,7 +440,7 @@ curl http://<XSERVER_VPS_IP>/health
 
 ### ② AIチャット・文章編集テスト
 ```bash
-curl -X POST http://<XSERVER_VPS_IP>/v1/chat/completions \
+curl -X POST http://153.115.43.151/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "test_user_01",
@@ -459,7 +459,7 @@ curl -X POST http://<XSERVER_VPS_IP>/v1/chat/completions \
 
 ### ③ プロンプト残数チャージテスト（広告視聴などの連携時）
 ```bash
-curl -X POST http://<XSERVER_VPS_IP>/v1/user/prompts \
+curl -X POST http://153.115.43.151/v1/user/prompts \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "test_user_01",

@@ -38,11 +38,11 @@ public struct VirtualLinuxVMProgramView: View {
                     Image(systemName: "server.rack")
                         .font(.title2)
                         .foregroundColor(.blue)
-                    Text("LLM入りローカルLinuxVM & Colab GPU ブリッジ運用モニター")
+                    Text("LLM入りXserver VPS & Colab GPU ブリッジ運用モニター")
                         .font(.title2)
                         .bold()
                 }
-                Text("MacローカルのVirtualBuddy Linux環境（Qwen 2.5）およびGoogle Colab（NVIDIA L4 GPU）と連携し、テキスト対話・動画・画像・音楽・効果音の高速生成を実施します。")
+                Text("Xserver VPS環境（Ubuntu 24.04, 4vCPU / 4GB RAM + 4GB Swap / Qwen 2.5 3B）およびGoogle Colab（NVIDIA L4 GPU）と連携し、テキスト対話・シナリオ編集・クォータ管理・メディア生成を実施します。")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -260,21 +260,27 @@ public struct VirtualLinuxVMProgramView: View {
 
     private func runDiagnosticPing() {
         isRunningPingTest = true
-        pingTestLogs = ["[\(DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium))] 疎通テストを開始しています..."]
+        pingTestLogs = ["[\(DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium))] Xserver VPS 疎通テストを開始しています..."]
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            pingTestLogs.append("PING \(cloudLinuxService.machineStatus.hostIP) (VirtualBuddy Local VM): 64 bytes, time=\(cloudLinuxService.latencyMs) ms (超低遅延)")
-        }
+        cloudLinuxService.checkHealth { success in
+            if success {
+                pingTestLogs.append("PING \(cloudLinuxService.machineStatus.hostIP) (Xserver VPS): HTTP /health 200 OK, latency=\(cloudLinuxService.latencyMs) ms")
+                pingTestLogs.append("Backend LLM [\(cloudLinuxService.machineStatus.llmModel)]: OPERATIONAL (FastAPI :8080 / Nginx :80)")
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            pingTestLogs.append("Local LLM [\(cloudLinuxService.machineStatus.llmModel)]: Ready (FastAPI Port 8080)")
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            let colabOnline = cloudLinuxService.colabBridge.isOnline ? "ONLINE (GPU: \(cloudLinuxService.colabBridge.gpuName))" : "STANDBY (Notebook Ready)"
-            pingTestLogs.append("Colab GPU Bridge: \(colabOnline)")
-            pingTestLogs.append(">>> SUCCESS: ローカルLinuxVMおよびColab GPUブリッジの疎通確認は全て正常です。")
-            isRunningPingTest = false
+                // プロンプト残数同期
+                cloudLinuxService.syncUserPromptsFromServer { rem in
+                    if let rem = rem {
+                        pingTestLogs.append("Prompt Quota: \(rem) 回利用可能")
+                    }
+                    let colabOnline = cloudLinuxService.colabBridge.isOnline ? "ONLINE (GPU: \(cloudLinuxService.colabBridge.gpuName))" : "STANDBY (Notebook Ready)"
+                    pingTestLogs.append("Colab GPU Bridge: \(colabOnline)")
+                    pingTestLogs.append(">>> SUCCESS: Xserver VPSおよびColab GPUブリッジの疎通確認は全て正常です。")
+                    isRunningPingTest = false
+                }
+            } else {
+                pingTestLogs.append(">>> ERROR: Xserver VPS (\(cloudLinuxService.machineStatus.hostIP)) へのヘルスチェックに失敗しました。")
+                isRunningPingTest = false
+            }
         }
     }
 }
