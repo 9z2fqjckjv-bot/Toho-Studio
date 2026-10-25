@@ -1832,16 +1832,17 @@ public struct SoundMakerView: View {
                 }
             }
 
+            let soundPreviewRatio: CGFloat = appState.effectiveAspectRatio()
             ZStack {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(Color(red: 0.12, green: 0.13, blue: 0.15))
-                    .aspectRatio(16/9, contentMode: .fit)
+                    .aspectRatio(soundPreviewRatio, contentMode: .fit)
 
                 // 1. Keynote Native Recorded Movie Player
                 if let videoPath = activeSlide?.animationVideoPath, FileManager.default.fileExists(atPath: videoPath) {
                     SlideVideoPlayerView(videoPath: videoPath)
                         .id(videoPath)
-                        .aspectRatio(16/9, contentMode: .fit)
+                        .aspectRatio(contentMode: .fit)
                         .cornerRadius(6)
                         .clipped()
                 } else if let slidePath = (activeSlide?.slideImagePath.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil })

@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import AppKit
 import AVFoundation
+import ImageIO
 
 public enum ActiveModal: String, CaseIterable, Identifiable {
     case tour = "初回ツアー"
@@ -117,6 +118,7 @@ public final class AppState: ObservableObject {
     // Zoom & Layout
     @Published public var zoomScale: Double = 1.0
     @Published public var layoutMode: String = "標準" // "標準", "タイムライン重視", "プレビュー最大化", "インスペクター重視"
+    @Published public var videoAspectRatioPreset: String = "自動判別" // "自動判別", "16:9 (横長)", "9:16 (縦長・Shorts)", "1:1 (正方形)"
     @Published public var isPanelDisplayMode: Bool = false
 
     // Tour / Setup state
@@ -234,6 +236,128 @@ public final class AppState: ObservableObject {
         }
         return nil
     }
+
+    /// 画像ファイルの実ピクセルサイズを高速取得（メモリ展開不要）
+    public static func getImagePixelSize(at path: String) -> CGSize? {
+        guard FileManager.default.fileExists(atPath: path) else { return nil }
+        let url = URL(fileURLWithPath: path)
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        guard let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any] else { return nil }
+        if let w = props[kCGImagePropertyPixelWidth] as? CGFloat,
+           let h = props[kCGImagePropertyPixelHeight] as? CGFloat {
+            return CGSize(width: w, height: h)
+        }
+        return nil
+    }
+
+    /// 動画ファイルの実ピクセルサイズ（Transform補正後）を高速取得
+    public static func getVideoPixelSize(at path: String) -> CGSize? {
+        guard FileManager.default.fileExists(atPath: path) else { return nil }
+        let url = URL(fileURLWithPath: path)
+        let asset = AVURLAsset(url: url)
+        guard let track = asset.tracks(withMediaType: .video).first else { return nil }
+        let size = track.naturalSize.applying(track.preferredTransform)
+        return CGSize(width: abs(size.width), height: abs(size.height))
+    }
+
+    /// 現在のプロジェクトまたはシーンが縦長動画 (9:16) かどうかを判定
+    public func isVerticalVideo(sceneIndex: Int? = nil) -> Bool {
+        if videoAspectRatioPreset == "9:16 (縦長・Shorts)" {
+            return true
+        }
+        if videoAspectRatioPreset == "16:9 (横長)" || videoAspectRatioPreset == "1:1 (正方形)" {
+            return false
+        }
+        if layoutMode == "縦長動画 (9:16)" {
+            return true
+        }
+
+        let nameLower = currentProjectName.lowercased()
+        let pathLower = currentProjectPath.lowercased()
+        if nameLower.contains("ショート") || nameLower.contains("shorts") || nameLower.contains("short") ||
+           nameLower.contains("tiktok") || nameLower.contains("縦") || nameLower.contains("reel") ||
+           pathLower.contains("ショート") || pathLower.contains("shorts") || pathLower.contains("tiktok") {
+            return true
+        }
+
+        let targetIndex = sceneIndex ?? selectedSceneIndex
+        if targetIndex < movieScenes.count {
+            let sc = movieScenes[targetIndex]
+            if let v = sc.videoPath, let sz = AppState.getVideoPixelSize(at: v), sz.height > sz.width {
+                return true
+            }
+            if let s = sc.slideImagePath, let sz = AppState.getImagePixelSize(at: s), sz.height > sz.width {
+                return true
+            }
+        }
+
+        if let s = slides.first(where: { $0.slideHeight > $0.slideWidth }) {
+            return true
+        }
+        if let s = slides.first(where: {
+            if let path = $0.slideImagePath, let sz = AppState.getImagePixelSize(at: path), sz.height > sz.width {
+                return true
+            }
+            return false
+        }) {
+            return true
+        }
+        return false
+    }
+
+    /// 現在のシーンまたはプロジェクトの有効なアスペクト比を取得
+    public func effectiveAspectRatio(sceneIndex: Int? = nil) -> CGFloat {
+        if videoAspectRatioPreset == "9:16 (縦長・Shorts)" {
+            return 9.0 / 16.0
+        }
+        if videoAspectRatioPreset == "1:1 (正方形)" {
+            return 1.0
+        }
+        if videoAspectRatioPreset == "16:9 (横長)" {
+            return 16.0 / 9.0
+        }
+        if layoutMode == "縦長動画 (9:16)" {
+            return 9.0 / 16.0
+        }
+        if layoutMode == "正方形動画 (1:1)" {
+            return 1.0
+        }
+
+        let targetIndex = sceneIndex ?? selectedSceneIndex
+        if targetIndex < movieScenes.count {
+            let sc = movieScenes[targetIndex]
+            if let v = sc.videoPath, let sz = AppState.getVideoPixelSize(at: v), sz.width > 0, sz.height > 0 {
+                return sz.width / sz.height
+            }
+            if let s = sc.slideImagePath, let sz = AppState.getImagePixelSize(at: s), sz.width > 0, sz.height > 0 {
+                return sz.width / sz.height
+            }
+        }
+
+        if isVerticalVideo(sceneIndex: sceneIndex) {
+            return 9.0 / 16.0
+        }
+        return 16.0 / 9.0
+    }
+
+    /// 現在の解像度表示用テキスト (例: "1080x1920", "1920x1080", "1080x1080")
+    public func currentResolutionText(sceneIndex: Int? = nil) -> String {
+        let targetIndex = sceneIndex ?? selectedSceneIndex
+        if targetIndex < movieScenes.count {
+            let sc = movieScenes[targetIndex]
+            if let v = sc.videoPath, let sz = AppState.getVideoPixelSize(at: v) {
+                return "\(Int(sz.width))x\(Int(sz.height))"
+            }
+            if let s = sc.slideImagePath, let sz = AppState.getImagePixelSize(at: s) {
+                return "\(Int(sz.width))x\(Int(sz.height))"
+            }
+        }
+        if isVerticalVideo(sceneIndex: sceneIndex) {
+            return "1080x1920"
+        }
+        return "1920x1080"
+    }
+
     @Published public var currentCharacter: CharacterModel = CharacterModel(
         name: "博麗霊夢",
         parts: [
@@ -2763,6 +2887,16 @@ public final class AppState: ObservableObject {
             if currentPath == nil || currentPath?.isEmpty == true || !fm.fileExists(atPath: currentPath!) {
                 if let found = AppState.findLatestSlideImagePath(forProject: cleanProject, slideIndex: sceneNum) {
                     movieScenes[idx].slideImagePath = found
+                }
+            }
+
+            // 画像の実ピクセル解像度からスライドの縦横比・サイズを正確に補正 (縦型 1080x1920 / 横型 1920x1080)
+            if let finalSlidePath = movieScenes[idx].slideImagePath, let sz = AppState.getImagePixelSize(at: finalSlidePath), sz.width > 0, sz.height > 0 {
+                if let sIdx = slides.firstIndex(where: { $0.slideIndex == sceneNum }) {
+                    if slides[sIdx].slideWidth != sz.width || slides[sIdx].slideHeight != sz.height {
+                        slides[sIdx].slideWidth = sz.width
+                        slides[sIdx].slideHeight = sz.height
+                    }
                 }
             }
         }

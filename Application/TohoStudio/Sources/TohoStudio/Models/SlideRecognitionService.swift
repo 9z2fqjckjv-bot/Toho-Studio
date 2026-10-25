@@ -513,6 +513,7 @@ public final class SlideRecognitionService: ObservableObject {
         AppState.shared.movieScenes = scenes
         AppState.shared.totalDuration = scenes.reduce(0.0) { $0 + $1.duration }
         AppState.shared.selectedSceneIndex = 0
+        AppState.shared.resolveMovieScenesMedia()
         AppState.shared.saveUndoSnapshot()
         AppState.shared.notifySlideAssetsUpdated()
     }
@@ -848,15 +849,28 @@ public final class SlideRecognitionService: ObservableObject {
               let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else {
             return nil
         }
+        var loadedSlides: [SlideItem]? = nil
         if let directSlides = try? JSONDecoder().decode([SlideItem].self, from: data), !directSlides.isEmpty {
-            return directSlides
-        }
-        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            loadedSlides = directSlides
+        } else if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             if let slidesArray = json["slides"] as? [[String: Any]],
                let subData = try? JSONSerialization.data(withJSONObject: slidesArray),
                let decoded = try? JSONDecoder().decode([SlideItem].self, from: subData), !decoded.isEmpty {
-                return decoded
+                loadedSlides = decoded
             }
+        }
+
+        // 過去のパース失敗時に生成されたテンプレート文（フォールバックダミーデータ）が混入しているキャッシュは自動無効化
+        if let s = loadedSlides, !s.isEmpty {
+            let isDummy = s.contains { item in
+                item.telop.contains("異変の真実を追い求めましょう") ||
+                item.presenterNote.contains("異変の真実を追い求めましょう") ||
+                item.title.contains("幕の台本セリフです")
+            }
+            if isDummy {
+                return nil
+            }
+            return s
         }
         return nil
     }
@@ -916,6 +930,10 @@ public final class SlideRecognitionService: ObservableObject {
                             directSlides[i].slideImagePath = fresh
                         }
                     }
+                    if let imgPath = directSlides[i].slideImagePath, let sz = AppState.getImagePixelSize(at: imgPath), sz.width > 0, sz.height > 0 {
+                        directSlides[i].slideWidth = sz.width
+                        directSlides[i].slideHeight = sz.height
+                    }
                 }
                 return directSlides
             }
@@ -938,6 +956,10 @@ public final class SlideRecognitionService: ObservableObject {
                         if let fresh = AppState.findLatestSlideImagePath(forProject: cleanBase, slideIndex: s.slideIndex) {
                             savedSlides[i].slideImagePath = fresh
                         }
+                    }
+                    if let imgPath = savedSlides[i].slideImagePath, let sz = AppState.getImagePixelSize(at: imgPath), sz.width > 0, sz.height > 0 {
+                        savedSlides[i].slideWidth = sz.width
+                        savedSlides[i].slideHeight = sz.height
                     }
                 }
                 return savedSlides
@@ -978,8 +1000,11 @@ public final class SlideRecognitionService: ObservableObject {
                         let title = d["title"] as? String ?? "シーン \(idx)"
                         let rawTelop = d["telop"] as? String ?? ""
                         let rawNote = d["presenterNote"] as? String ?? ""
-                        let telop = SlideItem.cleanDialogueText(from: rawTelop)
+                        var telop = SlideItem.cleanDialogueText(from: rawTelop)
                         let note = SlideItem.cleanDialogueText(from: rawNote)
+                        if telop.isEmpty && !note.isEmpty {
+                            telop = note
+                        }
                         let bg = d["backgroundName"] as? String ?? "nc73538_【背景素材】博麗神社.jpg"
                         let char = d["characterName"] as? String ?? "ナレーション"
                         let objs = d["detectedObjects"] as? [String] ?? ["演出枠"]
@@ -1129,6 +1154,10 @@ public final class SlideRecognitionService: ObservableObject {
                                 if let fresh = AppState.findLatestSlideImagePath(forProject: cleanBase, slideIndex: items[i].slideIndex) {
                                     items[i].slideImagePath = fresh
                                 }
+                            }
+                            if let imgPath = items[i].slideImagePath, let sz = AppState.getImagePixelSize(at: imgPath), sz.width > 0, sz.height > 0 {
+                                items[i].slideWidth = sz.width
+                                items[i].slideHeight = sz.height
                             }
                         }
                         return items

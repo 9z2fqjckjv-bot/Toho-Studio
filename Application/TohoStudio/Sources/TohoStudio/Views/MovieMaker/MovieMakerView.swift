@@ -144,10 +144,17 @@ public struct MovieMakerView: View {
             appState.syncClipsToMovieScenes(appState.soundClips)
             // スライド情報からメディア（画像・動画）を自動解決
             appState.resolveMovieScenesMedia()
+            // 縦長動画プロジェクトの場合は書き出し解像度の初期値を自動で1080x1920 (9:16) に設定
+            if appState.isVerticalVideo() {
+                exportResolution = "1080x1920 (縦長 9:16)"
+            }
         }
     }
 
     private var timelineHeightForLayout: CGFloat {
+        if appState.isVerticalVideo() && appState.layoutMode == "標準" {
+            return 170
+        }
         switch appState.layoutMode {
         case "タイムライン重視": return 340
         case "プレビュー最大化": return 120
@@ -167,11 +174,7 @@ public struct MovieMakerView: View {
     }
 
     private var canvasAspectRatio: CGFloat {
-        switch appState.layoutMode {
-        case "縦長動画 (9:16)": return 9.0 / 16.0
-        case "正方形動画 (1:1)": return 1.0
-        default: return 16.0 / 9.0
-        }
+        return appState.effectiveAspectRatio(sceneIndex: appState.selectedSceneIndex)
     }
 
     // MARK: - Top Toolbar
@@ -298,7 +301,7 @@ public struct MovieMakerView: View {
                 if let vPath = media.videoPath, FileManager.default.fileExists(atPath: vPath) {
                     SlideVideoPlayerView(videoPath: vPath)
                         .id(vPath)
-                        .aspectRatio(canvasAspectRatio, contentMode: .fit)
+                        .aspectRatio(contentMode: .fit)
                         .cornerRadius(8)
                         .clipped()
                 } else if let slideImage = media.slideImage {
@@ -361,14 +364,45 @@ public struct MovieMakerView: View {
                         }
                         Spacer()
 
-                        // 解像度＆速度表示
-                        Text("\(String(format: "%.1f", appState.playbackSpeed))x | 1920x1080")
-                            .font(.system(size: 10, design: .monospaced))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(Color.black.opacity(0.6))
-                            .foregroundColor(.white.opacity(0.8))
-                            .cornerRadius(4)
+                        // 解像度＆速度表示＆アスペクト比選択
+                        HStack(spacing: 4) {
+                            Text("\(String(format: "%.1f", appState.playbackSpeed))x")
+                                .font(.system(size: 10, design: .monospaced))
+                            Text("|")
+                                .foregroundColor(.secondary)
+                            Menu {
+                                Button("自動判別 (現在: \(appState.isVerticalVideo() ? "縦長 9:16" : "横長 16:9"))") {
+                                    appState.videoAspectRatioPreset = "自動判別"
+                                }
+                                Divider()
+                                Button("16:9 (横長 1920x1080)") {
+                                    appState.videoAspectRatioPreset = "16:9 (横長)"
+                                }
+                                Button("9:16 (縦長 1080x1920 Shorts/TikTok)") {
+                                    appState.videoAspectRatioPreset = "9:16 (縦長・Shorts)"
+                                }
+                                Button("1:1 (正方形 1080x1080)") {
+                                    appState.videoAspectRatioPreset = "1:1 (正方形)"
+                                }
+                            } label: {
+                                HStack(spacing: 3) {
+                                    Text(appState.currentResolutionText())
+                                    if appState.isVerticalVideo() {
+                                        Text("(9:16)")
+                                            .foregroundColor(.cyan)
+                                    }
+                                    Image(systemName: "chevron.down")
+                                        .font(.system(size: 7))
+                                }
+                                .font(.system(size: 10, design: .monospaced))
+                            }
+                            .menuStyle(.borderlessButton)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.black.opacity(0.65))
+                        .foregroundColor(.white.opacity(0.9))
+                        .cornerRadius(4)
                     }
                     .padding(10)
 
@@ -376,12 +410,13 @@ public struct MovieMakerView: View {
 
                     // クリーンなテロップ字幕 (YouTube / ゆっくり解説風)
                     let telopText = scene.displayTelop.isEmpty ? scene.telop : scene.displayTelop
+                    let isVertical = appState.isVerticalVideo()
                     if !telopText.isEmpty {
                         VStack(spacing: 4) {
                             if !scene.characterName.isEmpty {
                                 HStack {
                                     Text(scene.characterName)
-                                        .font(.system(size: 12, weight: .bold))
+                                        .font(.system(size: isVertical ? 11 : 12, weight: .bold))
                                         .foregroundColor(.yellow)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 2)
@@ -389,22 +424,22 @@ public struct MovieMakerView: View {
                                         .cornerRadius(4)
                                     Spacer()
                                 }
-                                .padding(.horizontal, 16)
+                                .padding(.horizontal, isVertical ? 10 : 16)
                             }
 
                             Text(telopText)
-                                .font(.system(size: 15, weight: .bold))
+                                .font(.system(size: isVertical ? 13 : 15, weight: .bold))
                                 .foregroundColor(.white)
                                 .multilineTextAlignment(.center)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
+                                .padding(.horizontal, isVertical ? 10 : 16)
+                                .padding(.vertical, isVertical ? 6 : 8)
                                 .background(
                                     RoundedRectangle(cornerRadius: 6)
                                         .fill(Color.black.opacity(0.82))
                                         .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
                                 )
-                                .padding(.horizontal, 16)
-                                .padding(.bottom, 16)
+                                .padding(.horizontal, isVertical ? 8 : 16)
+                                .padding(.bottom, isVertical ? 10 : 16)
                         }
                     }
                 }
@@ -1243,7 +1278,7 @@ public struct MovieSlideImageView: View {
         ZStack {
             Image(nsImage: slideImage)
                 .resizable()
-                .aspectRatio(aspectRatio, contentMode: .fit)
+                .aspectRatio(contentMode: .fit)
                 .scaleEffect(pulse)
 
             if isPlaying {
@@ -1281,13 +1316,14 @@ public struct MovieLayerCompositeView: View {
 
     @ViewBuilder
     private func layerContent(time: Double) -> some View {
+        let isVertical = aspectRatio < 1.0
         let charBounce = isPlaying ? sin(time * 6.0) * 4.0 : sin(time * 1.8) * 1.0
         ZStack {
             // 背景
             if let bg = bgImage {
                 Image(nsImage: bg)
                     .resizable()
-                    .aspectRatio(aspectRatio, contentMode: .fill)
+                    .aspectRatio(contentMode: .fill)
                     .clipped()
             } else {
                 LinearGradient(
@@ -1306,7 +1342,7 @@ public struct MovieLayerCompositeView: View {
                         Image(nsImage: ch)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
-                            .frame(maxHeight: 280)
+                            .frame(maxHeight: isVertical ? 380 : 280)
                             .offset(y: charBounce)
                             .shadow(color: .black.opacity(0.4), radius: 8, x: 0, y: 4)
                         Spacer()

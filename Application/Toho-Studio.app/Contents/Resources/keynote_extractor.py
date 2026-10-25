@@ -1563,6 +1563,28 @@ def extract_via_direct_iwa(filepath, project_name):
         doc_w = 1920.0
         doc_h = 1080.0
 
+        # スライドキャッシュ画像またはファイル名から縦型スライド (9:16) を自動判定
+        is_vert = any(k in os.path.basename(filepath).lower() for k in ["ショート", "shorts", "short", "tiktok", "縦", "reel"])
+        if is_vert:
+            doc_w = 1080.0
+            doc_h = 1920.0
+        else:
+            cached_imgs = glob.glob(os.path.join(CACHE_SLIDES_ROOT, f"{project_name}*", "*.jp*g")) + glob.glob(os.path.join(CACHE_SLIDES_ROOT, f"{project_name}*", "*.png"))
+            if cached_imgs:
+                try:
+                    import subprocess
+                    out = subprocess.check_output(["sips", "-g", "pixelWidth", "-g", "pixelHeight", cached_imgs[0]], stderr=subprocess.DEVNULL).decode('utf-8')
+                    mw = re.search(r'pixelWidth:\s*(\d+)', out)
+                    mh = re.search(r'pixelHeight:\s*(\d+)', out)
+                    if mw and mh:
+                        pw = float(mw.group(1))
+                        ph = float(mh.group(1))
+                        if pw > 0 and ph > 0:
+                            doc_w = pw
+                            doc_h = ph
+                except Exception:
+                    pass
+
         slide_file_map = {}
         all_names = z.namelist() if is_zip else [f"Index/{f}" for f in os.listdir(os.path.join(filepath, "Index"))]
         slide_names = [n for n in all_names if n.startswith("Index/Slide") and n.endswith(".iwa")]
