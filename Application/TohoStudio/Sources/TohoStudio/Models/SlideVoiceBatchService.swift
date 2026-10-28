@@ -17,6 +17,7 @@ public struct BatchVoiceItem: Identifiable, Equatable {
     public var pitch: Int = 100
     public var effect: AudioEffectType = .none
     public var quality: AudioQualitySetting = .enhanced
+    public var volume: Double = 1.0
     public var isSkipped: Bool = false
     public var skipReason: String? = nil
     public var isGenerated: Bool = false
@@ -58,6 +59,7 @@ public struct BatchVoiceItem: Identifiable, Equatable {
         pitch: Int = 100,
         effect: AudioEffectType = .none,
         quality: AudioQualitySetting = .enhanced,
+        volume: Double = 1.0,
         isSkipped: Bool = false,
         skipReason: String? = nil,
         animationDuration: Double? = nil,
@@ -77,6 +79,7 @@ public struct BatchVoiceItem: Identifiable, Equatable {
         self.pitch = pitch
         self.effect = effect
         self.quality = quality
+        self.volume = volume
         self.isSkipped = isSkipped
         self.skipReason = skipReason
         self.animationDuration = animationDuration
@@ -140,44 +143,39 @@ public final class SlideVoiceBatchService: ObservableObject {
         let appState = AppState.shared
 
         for slide in slides {
-            // 1. 話者抽出 (カッコ書きから2人話者を優先認識し、A&B形式に正規化)
-            var speaker = slide.characterName
-            if let noteBracketSpeaker = SlideItem.extractSpeakerFromBrackets(from: slide.rawPresenterNote ?? slide.presenterNote), !noteBracketSpeaker.isEmpty {
-                speaker = noteBracketSpeaker
-            } else if let telopBracketSpeaker = SlideItem.extractSpeakerFromBrackets(from: slide.telop), !telopBracketSpeaker.isEmpty {
-                speaker = telopBracketSpeaker
-            }
-
-            if speaker.isEmpty || speaker == "なし" {
-                speaker = "操夢" // メイン話者
-            }
-            speaker = SlideItem.normalizeSpeakerName(speaker)
-
-            // 2. セリフ抽出 (ノート本文優先、なければテロップ)
-            var speechText = slide.telop
-            if !slide.displayPresenterNote.isEmpty && slide.displayPresenterNote != slide.title {
-                speechText = slide.displayPresenterNote
-            }
-            speechText = SlideItem.cleanDialogueText(from: speechText).trimmingCharacters(in: .whitespacesAndNewlines)
-
-            // 空白セリフの場合はタイトルまたはフォールバック
-            if speechText.isEmpty {
-                speechText = slide.title.isEmpty ? "第\(slide.slideIndex)スライド" : slide.title
-            }
-
             // セクション見出しとタイトルスライドは音声を必ずスキップ
             let isHeaderOrTitle = slide.isTitleOrSectionHeader
             let skipReason: String? = isHeaderOrTitle ? (slide.slideType == "title" ? "タイトルスライド (音声スキップ)" : "セクション見出し・クレジット (音声スキップ)") : nil
-
             let animDur = slide.animationTimingDuration
             let animNote = slide.animationTimingNote
 
-            // 2人の話者が認識された場合、話者Aと話者Bの2人分の音声アイテムを作成（1つのシーンに2人分割り当て可能に）
-            let duo = AquesTalkBridge.duoSpeakers(from: speaker)
-            let individualSpeakers = duo.isDuo ? [duo.speaker1, duo.speaker2] : [speaker]
+            let rawNote = slide.rawPresenterNote ?? slide.presenterNote
+            let sourceText = !rawNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? rawNote : slide.telop
+            let fallbackSpk = slide.characterName.isEmpty || slide.characterName == "なし" ? "操夢" : slide.characterName
 
-            for spk in individualSpeakers {
-                // 3. 話者に対応するVoiceTemplateを検索 (完全一致または部分一致)
+            // 1. ノートまたはテロップを行ごとに解析（話者、セリフ、音量指定を完全分離）
+            var dialogueLines = SlideItem.parseDialogueLines(from: sourceText, fallbackSpeaker: fallbackSpk)
+
+            // パース結果が空の場合はフォールバック
+            if dialogueLines.isEmpty {
+                var speechText = slide.telop
+                if !slide.displayPresenterNote.isEmpty && slide.displayPresenterNote != slide.title {
+                    speechText = slide.displayPresenterNote
+                }
+                speechText = SlideItem.cleanDialogueText(from: speechText).trimmingCharacters(in: .whitespacesAndNewlines)
+                if speechText.isEmpty {
+                    speechText = slide.title.isEmpty ? "第\(slide.slideIndex)スライド" : slide.title
+                }
+                let normSpk = SlideItem.normalizeSpeakerName(fallbackSpk)
+                dialogueLines = [SlideItem.ParsedDialogueLine(speaker: normSpk, text: speechText, volume: 1.0)]
+            }
+
+            for line in dialogueLines {
+                let spk = line.speaker
+                let speechText = line.text
+                let vol = line.volume
+
+                // 2. 話者に対応するVoiceTemplateを検索
                 let matchedTemplate = appState.voiceTemplates.first(where: {
                     $0.characterName == spk || $0.name.contains(spk)
                 })
@@ -216,6 +214,7 @@ public final class SlideVoiceBatchService: ObservableObject {
                     pitch: pitch,
                     effect: defaultEffect,
                     quality: defaultQuality,
+                    volume: vol,
                     isSkipped: isHeaderOrTitle,
                     skipReason: skipReason,
                     animationDuration: animDur,
@@ -338,9 +337,11 @@ public final class SlideVoiceBatchService: ObservableObject {
                     item.generatedWavData = data
                     item.isGenerated = true
 
-                    // ディスクに保存
-                    let safeChar = item.characterName.replacingOccurrences(of: "/", with: "_")
-                    let fileName = String(format: "Slide_%03d_%@.wav", item.slideIndex, safeChar)
+                    // ディスクに保存 (同一スライド内に同一話者の複数セリフがある場合は連番サフィックスを付与)
+                    let safeChar = item.characterName.replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: ":", with: "_")
+                    let sameSlidePrevCount = updatedItems[0..<i].filter { $0.slideIndex == item.slideIndex && $0.characterName == item.characterName }.count
+                    let suffix = sameSlidePrevCount > 0 ? "_\(sameSlidePrevCount + 1)" : ""
+                    let fileName = String(format: "Slide_%03d_%@%@.wav", item.slideIndex, safeChar, suffix)
                     let fileURL = audioDir.appendingPathComponent(fileName)
                     try? data.write(to: fileURL)
                     item.generatedWavURL = fileURL
@@ -398,8 +399,12 @@ public final class SlideVoiceBatchService: ObservableObject {
             let slideItems = items.filter { $0.slideIndex == slideIdx }
             guard let firstItem = slideItems.first else { continue }
 
-            // シーンの長さ決定: 同一スライドの全話者の中で最長のもの、およびアニメーション指定時間を考慮
-            let sceneDuration = slideItems.map { $0.effectiveSceneDuration }.max() ?? firstItem.effectiveSceneDuration
+            // シーンの長さ決定: 同一スライド内の複数セリフを順次再生（シーケンシャル）するため、合計尺およびアニメーション指定時間を考慮
+            let validVoicesForDur = slideItems.filter { !$0.isSkipped }
+            let totalVoiceDuration = validVoicesForDur.reduce(0.0) { $0 + $1.audioDuration } + Double(max(0, validVoicesForDur.count - 1)) * 0.2 + 0.6
+            let baseDuration = max(2.5, firstItem.slideDuration)
+            let animDur = firstItem.animationDuration ?? 0.0
+            let sceneDuration = max(baseDuration, max(animDur, totalVoiceDuration))
 
             // MovieScene の生成/更新
             let matchedSlide = appState.slides.first(where: { $0.slideIndex == slideIdx })
@@ -422,10 +427,16 @@ public final class SlideVoiceBatchService: ObservableObject {
             let slideHasAnim = (matchedSlide?.animations.isEmpty == false) && (matchedSlide?.animationTag != "なし") && (matchedSlide?.animationTag.isEmpty == false)
             let finalAnimName = slideHasAnim ? matchedSlide?.animationTag : "なし"
 
-            // 話者名: 2人の場合は "A&B"
+            // 話者名: 2人の場合は "A&B"（同一話者の場合は重複させず単一話者名）
             let sceneCharacter: String
             if slideItems.count >= 2 {
-                sceneCharacter = "\(slideItems[0].characterName)&\(slideItems[1].characterName)"
+                let c1 = slideItems[0].characterName
+                let c2 = slideItems[1].characterName
+                if c1 == c2 {
+                    sceneCharacter = c1
+                } else {
+                    sceneCharacter = "\(c1)&\(c2)"
+                }
             } else {
                 sceneCharacter = firstItem.characterName
             }
@@ -434,6 +445,7 @@ public final class SlideVoiceBatchService: ObservableObject {
             let validVoices = slideItems.filter { !$0.isSkipped }
             let v1 = validVoices.first
             let v2 = validVoices.count >= 2 ? validVoices[1] : nil
+            let v2Offset = (v1 != nil && v2 != nil) ? ((v1?.audioDuration ?? 0.0) + 0.2) : 0.0
 
             let scene = MovieScene(
                 title: finalTitle,
@@ -452,11 +464,13 @@ public final class SlideVoiceBatchService: ObservableObject {
                 voiceDuration: v1?.audioDuration,
                 voice2AudioPath: v2?.generatedWavURL?.path,
                 voice2Character: v2?.characterName,
-                voice2Duration: v2?.audioDuration
+                voice2Duration: v2?.audioDuration,
+                voice2StartTimeOffset: v2Offset
             )
             updatedScenes.append(scene)
 
-            // 各話者の音声クリップを作成して同一シーン・同一開始時刻に配置
+            // 各話者の音声クリップを作成して順次再生（シーケンシャル）で配置
+            var clipStartTime = currentPosition
             for item in validVoices {
                 if let track = findTrack(for: item.characterName) {
                     let clipName = "[\(item.characterName)] \(item.text)"
@@ -469,9 +483,9 @@ public final class SlideVoiceBatchService: ObservableObject {
                         text: item.text,
                         voiceSymbol: phonetic,
                         duration: item.audioDuration,
-                        volume: 1.0,
+                        volume: item.volume,
                         speed: item.speed,
-                        startTime: currentPosition,
+                        startTime: clipStartTime,
                         trackId: track.id,
                         pan: track.pan,
                         colorHex: track.colorHex,
@@ -482,6 +496,8 @@ public final class SlideVoiceBatchService: ObservableObject {
                         pitch: item.pitch
                     )
                     appState.soundClips.append(clip)
+                    // 次のセリフは前のセリフの終了後に開始（自然な0.2秒の間隔を空けて連続再生）
+                    clipStartTime += item.audioDuration + 0.2
                 }
             }
 

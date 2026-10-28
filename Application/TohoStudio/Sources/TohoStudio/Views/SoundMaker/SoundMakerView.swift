@@ -742,8 +742,8 @@ public struct SoundMakerView: View {
                     .background(Color(red: 0.13, green: 0.14, blue: 0.16))
                     .cornerRadius(4)
                 } else {
-                    ForEach(vClips) { clip in
-                        sceneVoiceClipRow(clip: clip)
+                    ForEach(Array(vClips.enumerated()), id: \.element.id) { index, clip in
+                        sceneVoiceClipRow(clip: clip, index: index, totalCount: vClips.count, vClips: vClips, sceneStart: sRange.start)
                     }
                 }
             }
@@ -887,19 +887,122 @@ public struct SoundMakerView: View {
     }
 
     // MARK: - Scene Voice Clip Row
-    private func sceneVoiceClipRow(clip: SoundClip) -> some View {
+    private func sceneVoiceClipRow(clip: SoundClip, index: Int, totalCount: Int, vClips: [SoundClip], sceneStart: Double) -> some View {
         let isSelected = selectedClipId == clip.id
         let charName = clip.character ?? "博麗霊夢"
         let charColor = Color(hex: clip.colorHex ?? "#E74C3C")
-        let isPlayingThis = playingClipPreviewId == clip.id
+        let isPlayingThis = playingClipPreviewId == clip.id || (soundManager.currentlyPlayingClipId == clip.id && soundManager.isPreviewPlaying)
+        let offsetFromStart = max(0.0, clip.startTime - sceneStart)
+        let scenes = activeSceneList()
+        let sRange = sceneTimeRange(index: max(0, min(selectedSceneIndex - 1, scenes.count - 1)))
+        let sDuration = max(2.5, sRange.end - sRange.start)
 
         return VStack(alignment: .leading, spacing: 6) {
-            // Header: Character badge, VoiceType, Preview, Regenerate, Delete
+            // Header: Order badge, Move buttons, Character Picker, Slide Mover, VoiceType, Timing Toggle, Preview, Regenerate, Delete
             HStack(spacing: 6) {
-                Circle().fill(charColor).frame(width: 8, height: 8)
-                Text(charName)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.white)
+                // 再生順序バッジ
+                Text("順序 \(index + 1)")
+                    .font(.system(size: 8, weight: .bold))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(Color.cyan.opacity(0.2))
+                    .foregroundColor(.cyan)
+                    .cornerRadius(3)
+
+                // 順序入替ボタン (▲ / ▼)
+                if totalCount > 1 {
+                    HStack(spacing: 2) {
+                        Button(action: {
+                            moveVoiceClipOrder(clip: clip, direction: -1)
+                        }) {
+                            Image(systemName: "chevron.up")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundColor(index > 0 ? .white : Color.white.opacity(0.2))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(index == 0)
+                        .help("このセリフの再生順序を上（先）へ移動")
+
+                        Button(action: {
+                            moveVoiceClipOrder(clip: clip, direction: 1)
+                        }) {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundColor(index < totalCount - 1 ? .white : Color.white.opacity(0.2))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(index >= totalCount - 1)
+                        .help("このセリフの再生順序を下（後）へ移動")
+                    }
+                }
+
+                // 🎭 キャラクター名 選択＆指定メニュー
+                Menu {
+                    let standardChars = [
+                        "操夢", "フランドール・スカーレット", "レミリア・スカーレット",
+                        "博麗霊夢", "霧雨魔理沙", "東風谷早苗", "萃香", "美鈴",
+                        "妹紅", "藤原妹紅", "アリス・マーガトロイド", "射命丸文",
+                        "十六夜咲夜", "チルノ", "パチュリー", "ナレーション"
+                    ]
+                    let existingTrackChars = appState.audioTracks.compactMap { $0.characterName }
+                    let combined = Array(Set(standardChars + existingTrackChars + [charName])).sorted { a, b in
+                        if a == "操夢" { return true }
+                        if b == "操夢" { return false }
+                        return a < b
+                    }
+                    ForEach(combined, id: \.self) { c in
+                        Button(action: {
+                            changeVoiceClipCharacter(clip: clip, newCharacter: c)
+                        }) {
+                            HStack {
+                                if c == charName {
+                                    Image(systemName: "checkmark")
+                                }
+                                Text(c)
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 3) {
+                        Circle().fill(charColor).frame(width: 8, height: 8)
+                        Text(charName)
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 7))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(Color.white.opacity(0.08))
+                    .cornerRadius(3)
+                }
+                .menuStyle(.borderlessButton)
+                .help("キャラクターを変更（クリックして一覧から指定）")
+
+                // 📑 スライド直接移動メニュー (別のスライドへ直接スライド移動)
+                Menu {
+                    ForEach(1...max(1, scenes.count), id: \.self) { sIdx in
+                        Button("スライド \(sIdx) へ移動" + (sIdx == (clip.sceneIndex ?? selectedSceneIndex) ? " (現在)" : "")) {
+                            moveVoiceClipToScene(clip: clip, targetSceneIndex: sIdx)
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: "arrow.right.to.line.compact")
+                            .font(.system(size: 8))
+                        Text("S\(clip.sceneIndex ?? selectedSceneIndex)")
+                            .font(.system(size: 8, weight: .bold))
+                    }
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(Color.purple.opacity(0.2))
+                    .foregroundColor(Color(hex: "#DDA0DD"))
+                    .cornerRadius(3)
+                }
+                .menuStyle(.borderlessButton)
+                .help("この音声を別のスライド（シーン）へ直接スライド移動")
 
                 // VoiceType Picker
                 Picker("", selection: Binding(
@@ -915,11 +1018,31 @@ public struct SoundMakerView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .frame(width: 90)
+                .frame(width: 80)
+
+                // 2件目以降: 連続再生 / 同時再生 切り替えトグル
+                if index > 0 {
+                    Button(action: {
+                        toggleVoiceClipSequential(clip: clip, index: index, vClips: vClips, sceneStart: sceneStart)
+                    }) {
+                        HStack(spacing: 2) {
+                            Image(systemName: offsetFromStart > 0.05 ? "arrow.turn.down.right" : "equal.circle")
+                            Text(offsetFromStart > 0.05 ? "連続再生" : "同時再生")
+                        }
+                        .font(.system(size: 8, weight: .bold))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(offsetFromStart > 0.05 ? Color.cyan.opacity(0.2) : Color.gray.opacity(0.25))
+                        .foregroundColor(offsetFromStart > 0.05 ? .cyan : .secondary)
+                        .cornerRadius(3)
+                    }
+                    .buttonStyle(.plain)
+                    .help(offsetFromStart > 0.05 ? "前のセリフの後に連続して再生中 (クリックで同時再生に切替)" : "同時再生中 (クリックで前のセリフの後に連続再生に切替)")
+                }
 
                 Spacer()
 
-                // Play / Stop Preview
+                // Play / Stop Preview (音量設定・実ファイルを反映した試聴)
                 Button(action: {
                     togglePlayVoiceClip(clip)
                 }) {
@@ -928,9 +1051,9 @@ public struct SoundMakerView: View {
                         .foregroundColor(isPlayingThis ? .green : .cyan)
                 }
                 .buttonStyle(.plain)
-                .help("この音声を試聴")
+                .help("この音声を現在の音量設定で試聴")
 
-                // Regenerate Voice Button (⚡️ 再生成)
+                // Regenerate Voice Button (⚡️ 指定キャラクター名・音量・パラメータで再生成)
                 Button(action: {
                     regenerateVoiceClip(clip)
                 }) {
@@ -946,7 +1069,7 @@ public struct SoundMakerView: View {
                     .cornerRadius(3)
                 }
                 .buttonStyle(.plain)
-                .help("現在のセリフ・声種・速度でAquesTalk音声を再生成")
+                .help("指定キャラクター名・セリフ・声種・速度・音量でAquesTalk音声を再生成")
 
                 // Delete Clip
                 Button(action: {
@@ -977,7 +1100,7 @@ public struct SoundMakerView: View {
             .textFieldStyle(.roundedBorder)
             .font(.system(size: 11))
 
-            // Speed & Pitch & Volume Sliders
+            // Speed & Pitch & Volume & Timing Sliders
             HStack(spacing: 8) {
                 // Speed (速度)
                 HStack(spacing: 2) {
@@ -1015,7 +1138,7 @@ public struct SoundMakerView: View {
                     Text("\(clip.pitch)%").font(.system(size: 8, design: .monospaced)).foregroundColor(.orange)
                 }
 
-                // Volume (音量)
+                // Volume (音量) - 変更時に即時反映
                 HStack(spacing: 2) {
                     Text("音:").font(.system(size: 9)).foregroundColor(.secondary)
                     Slider(
@@ -1031,9 +1154,32 @@ public struct SoundMakerView: View {
                     )
                     Text("\(Int(clip.volume * 100))%").font(.system(size: 8, design: .monospaced)).foregroundColor(Color(hex: "#0066CC"))
                 }
+
+                // Timing / Start Offset Slider (音声の再生開始位置を直接スライド調整)
+                HStack(spacing: 2) {
+                    Text("位置:").font(.system(size: 9)).foregroundColor(.secondary)
+                    Slider(
+                        value: Binding(
+                            get: { offsetFromStart },
+                            set: { val in
+                                if let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) {
+                                    let newStart = sceneStart + val
+                                    appState.soundClips[idx].startTime = newStart
+                                    appState.soundClips[idx].sceneRelativeStartTime = val
+                                }
+                            }
+                        ),
+                        in: 0...max(3.0, sDuration - 0.5),
+                        step: 0.1
+                    )
+                    .frame(width: 50)
+                    Text(String(format: "+%.1fs", offsetFromStart))
+                        .font(.system(size: 8, design: .monospaced))
+                        .foregroundColor(offsetFromStart > 0.05 ? .cyan : .secondary)
+                }
             }
 
-            // Audio File Badge (実音声ファイルの割り当て表示)
+            // Audio File Badge (実音声ファイルの割り当て表示 & 直接スライド割り当て・ファイル変更ボタン)
             HStack(spacing: 4) {
                 if let p = clip.audioFilePath, FileManager.default.fileExists(atPath: p) {
                     Image(systemName: "checkmark.circle.fill")
@@ -1051,6 +1197,23 @@ public struct SoundMakerView: View {
                         .font(.system(size: 8))
                         .foregroundColor(.secondary)
                 }
+
+                Button(action: {
+                    selectAudioFileForClip(clip)
+                }) {
+                    HStack(spacing: 2) {
+                        Image(systemName: "folder")
+                        Text("ファイル指定...")
+                    }
+                    .font(.system(size: 7.5))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1.5)
+                    .background(Color.white.opacity(0.12))
+                    .cornerRadius(3)
+                }
+                .buttonStyle(.plain)
+                .help("音声ファイル (.wav, .mp3, .m4a) を直接選択してこのスライドに割り当て")
+
                 Spacer()
                 Text(String(format: "%.2fs", clip.duration))
                     .font(.system(size: 8, design: .monospaced))
@@ -3910,7 +4073,7 @@ public struct SoundMakerView: View {
         return (acc, acc + dur)
     }
 
-    // 特定のシーンに属する音声クリップ (Voice)
+    // 特定のシーンに属する音声クリップ (Voice、再生開始時刻順にソート)
     private func voiceClips(for sceneIdx: Int) -> [SoundClip] {
         let scenes = activeSceneList()
         guard sceneIdx >= 1 && sceneIdx <= scenes.count else { return [] }
@@ -3924,7 +4087,81 @@ public struct SoundMakerView: View {
             // sceneIndex 未設定の場合は時間帯で判定
             let clipMid = clip.startTime + (clip.duration * 0.5)
             return clipMid >= sStart && clipMid < sEnd
+        }.sorted { $0.startTime < $1.startTime }
+    }
+
+    /// シーン内の音声クリップの再生順序を入れ替え（direction: -1 で上へ/先へ、+1 で下へ/後へ）
+    private func moveVoiceClipOrder(clip: SoundClip, direction: Int) {
+        let vClips = voiceClips(for: selectedSceneIndex)
+        guard let curIdx = vClips.firstIndex(where: { $0.id == clip.id }) else { return }
+        let targetIdx = curIdx + direction
+        guard targetIdx >= 0 && targetIdx < vClips.count else { return }
+
+        // クリップリストを並び替え
+        var reordered = vClips
+        reordered.swapAt(curIdx, targetIdx)
+
+        // シーン先頭時刻
+        let scenes = activeSceneList()
+        guard selectedSceneIndex >= 1 && selectedSceneIndex <= scenes.count else { return }
+        let (sStart, _) = sceneTimeRange(index: selectedSceneIndex - 1)
+
+        // 並び順に従って startTime を順次再計算（各セリフの終了後 0.2 秒に次のセリフ）
+        var pos = sStart
+        for item in reordered {
+            if let gIdx = appState.soundClips.firstIndex(where: { $0.id == item.id }) {
+                appState.soundClips[gIdx].startTime = pos
+                pos += item.duration + 0.2
+            }
         }
+
+        // MovieScene の voice / voice2 と voice2StartTimeOffset も同期
+        if selectedSceneIndex - 1 < appState.movieScenes.count {
+            let scIdx = selectedSceneIndex - 1
+            if reordered.count >= 1 {
+                appState.movieScenes[scIdx].voiceCharacter = reordered[0].character
+                appState.movieScenes[scIdx].voiceAudioPath = reordered[0].audioFilePath
+                appState.movieScenes[scIdx].voiceDuration = reordered[0].duration
+            }
+            if reordered.count >= 2 {
+                appState.movieScenes[scIdx].voice2Character = reordered[1].character
+                appState.movieScenes[scIdx].voice2AudioPath = reordered[1].audioFilePath
+                appState.movieScenes[scIdx].voice2Duration = reordered[1].duration
+                let v1Dur = reordered[0].duration
+                appState.movieScenes[scIdx].voice2StartTimeOffset = v1Dur + 0.2
+            }
+            // シーンの長さも必要に応じて拡張
+            let totalDur = reordered.reduce(0.0) { $0 + $1.duration } + Double(max(0, reordered.count - 1)) * 0.2 + 0.6
+            appState.movieScenes[scIdx].duration = max(appState.movieScenes[scIdx].duration, totalDur)
+        }
+
+        appState.saveUndoSnapshot()
+        appState.log("音声順序変更: 『\(clip.name)』を順序 \(targetIdx + 1) に移動しました")
+    }
+
+    /// 音声クリップの再生タイミング（連続再生 / 同時再生）を切り替え
+    private func toggleVoiceClipSequential(clip: SoundClip, index: Int, vClips: [SoundClip], sceneStart: Double) {
+        guard let gIdx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) else { return }
+        let offset = clip.startTime - sceneStart
+
+        if offset > 0.05 {
+            // 現在連続再生 -> 同時再生（シーン先頭）へ
+            appState.soundClips[gIdx].startTime = sceneStart
+            if selectedSceneIndex - 1 < appState.movieScenes.count {
+                appState.movieScenes[selectedSceneIndex - 1].voice2StartTimeOffset = 0.0
+            }
+            appState.log("再生タイミング変更: 『\(clip.name)』を同時再生に変更")
+        } else {
+            // 現在同時再生 -> 連続再生（前のクリップの直後）へ
+            let prevClip = vClips[index - 1]
+            let newStart = prevClip.startTime + prevClip.duration + 0.2
+            appState.soundClips[gIdx].startTime = newStart
+            if selectedSceneIndex - 1 < appState.movieScenes.count {
+                appState.movieScenes[selectedSceneIndex - 1].voice2StartTimeOffset = prevClip.duration + 0.2
+            }
+            appState.log("再生タイミング変更: 『\(clip.name)』を連続再生に変更 (+ \(String(format: "%.1f", prevClip.duration + 0.2))s)")
+        }
+        appState.saveUndoSnapshot()
     }
 
     /// クリップを削除し、タイムラインおよびムービーメーカーのシーン情報（BGM/SE/ボイス）と即時完全同期
@@ -3981,54 +4218,77 @@ public struct SoundMakerView: View {
         }
     }
 
-    // 音声クリップの試聴プレビュー再生
+    // 音声クリップの試聴プレビュー再生 (実ファイル優先 & 音量・速度完全適用)
     private func togglePlayVoiceClip(_ clip: SoundClip) {
-        if playingClipPreviewId == clip.id && aquesTalk.isCurrentlyPlaying {
+        if playingClipPreviewId == clip.id {
             aquesTalk.stopPlayback()
+            soundManager.stopPreview()
             playingClipPreviewId = nil
             return
         }
 
         aquesTalk.stopPlayback()
+        soundManager.stopPreview()
         playingClipPreviewId = clip.id
+
+        // 実音声ファイルが存在する場合は指定音量 (clip.volume) を適用して実音声ファイル再生
+        if let p = clip.audioFilePath, FileManager.default.fileExists(atPath: p) {
+            soundManager.playPreview(clip: clip) {
+                DispatchQueue.main.async {
+                    if self.playingClipPreviewId == clip.id {
+                        self.playingClipPreviewId = nil
+                    }
+                }
+            }
+            return
+        }
+
         let text = clip.text ?? clip.name
         let char = clip.character ?? "博麗霊夢"
         let vType = clip.voiceType ?? aquesTalk.voiceType(for: char)
         let effectivePitch = clip.pitch != 100 ? clip.pitch : aquesTalk.characterPreset(for: char).pitch
 
-        if char.contains("&") {
-            aquesTalk.synthesizeDuoAndPlay(
-                text: text,
-                speakerName: char,
-                customSpeed: clip.speed != 100 ? clip.speed : nil,
-                quality: selectedQuality,
-                effect: selectedEffect
-            ) {
-                DispatchQueue.main.async {
-                    if self.playingClipPreviewId == clip.id {
-                        self.playingClipPreviewId = nil
-                    }
-                }
+        // 実ファイルがない場合は AquesTalk で合成試聴
+        DispatchQueue.global(qos: .userInitiated).async {
+            let wavData: Data?
+            if char.contains("&") {
+                wavData = self.aquesTalk.synthesizeDuoVoiceToWavData(
+                    text: text,
+                    speakerName: char,
+                    customSpeed: clip.speed != 100 ? clip.speed : nil,
+                    quality: self.selectedQuality,
+                    effect: self.selectedEffect
+                )
+            } else {
+                wavData = self.aquesTalk.synthesizeToWavData(
+                    text: text,
+                    speed: clip.speed,
+                    voice: vType,
+                    pitch: effectivePitch,
+                    quality: self.selectedQuality,
+                    effect: self.selectedEffect
+                )
             }
-        } else {
-            aquesTalk.synthesizeAndPlay(
-                text: text,
-                speed: clip.speed,
-                voice: vType,
-                pitch: effectivePitch,
-                quality: selectedQuality,
-                effect: selectedEffect
-            ) {
-                DispatchQueue.main.async {
-                    if self.playingClipPreviewId == clip.id {
-                        self.playingClipPreviewId = nil
+
+            DispatchQueue.main.async {
+                guard self.playingClipPreviewId == clip.id else { return }
+                if let data = wavData, let player = try? AVAudioPlayer(data: data) {
+                    player.volume = Float(max(0.0, min(1.0, clip.volume)))
+                    player.play()
+                    // 終了待ち
+                    DispatchQueue.main.asyncAfter(deadline: .now() + clip.duration) {
+                        if self.playingClipPreviewId == clip.id {
+                            self.playingClipPreviewId = nil
+                        }
                     }
+                } else {
+                    self.playingClipPreviewId = nil
                 }
             }
         }
     }
 
-    // ⚡️ この音声を現在のパラメータで再生成
+    // ⚡️ この音声を指定されたキャラクター名・パラメータで再生成
     private func regenerateVoiceClip(_ clip: SoundClip) {
         guard let rawText = clip.text, !rawText.isEmpty else { return }
         let text = SlideItem.cleanDialogueText(from: rawText)
@@ -4039,11 +4299,12 @@ public struct SoundMakerView: View {
         let effectivePitch = clip.pitch != 100 ? clip.pitch : aquesTalk.characterPreset(for: char).pitch
 
         isRegeneratingVoice = true
-        appState.log("シーン \(selectedSceneIndex) の音声『\(text)』を再生成中 (音程: \(effectivePitch)%)...")
+        appState.log("スライド \(clip.sceneIndex ?? selectedSceneIndex) のキャラクター[\(char)]セリフ『\(text)』を再生成中 (音量: \(Int(clip.volume * 100))%, 音程: \(effectivePitch)%)...")
 
         DispatchQueue.global(qos: .userInitiated).async {
             let wavData: Data?
-            if char.contains("&") {
+            let safeChar = char.replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: ":", with: "_")
+            if char.contains("&") && !char.components(separatedBy: "&").allSatisfy({ $0 == char.components(separatedBy: "&")[0] }) {
                 wavData = self.aquesTalk.synthesizeDuoVoiceToWavData(
                     text: text,
                     speakerName: char,
@@ -4052,10 +4313,12 @@ public struct SoundMakerView: View {
                     effect: self.selectedEffect
                 )
             } else {
+                let singleChar = char.contains("&") ? (char.components(separatedBy: "&").first ?? char) : char
+                let finalVType = self.aquesTalk.voiceType(for: singleChar)
                 wavData = self.aquesTalk.synthesizeToWavData(
                     text: text,
                     speed: speed,
-                    voice: vType,
+                    voice: finalVType,
                     pitch: effectivePitch,
                     quality: self.selectedQuality,
                     effect: self.selectedEffect
@@ -4065,11 +4328,16 @@ public struct SoundMakerView: View {
             // 音声ファイル保存先を決定・更新
             var targetFilePath: String? = clip.audioFilePath
             if let data = wavData {
-                let audioDir = URL(fileURLWithPath: "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/GeneratedAudio")
+                let audioDir = URL(fileURLWithPath: "/Users/zuyasi/Library/Application Support/TohoStudio/GeneratedAudio")
                 try? FileManager.default.createDirectory(at: audioDir, withIntermediateDirectories: true)
                 let sIdx = clip.sceneIndex ?? self.selectedSceneIndex
-                let safeChar = char.replacingOccurrences(of: "/", with: "_")
-                let fileURL = audioDir.appendingPathComponent(String(format: "Slide_%03d_%@.wav", sIdx, safeChar))
+
+                // 同一スライド内の同一キャラクターの先行クリップ数を考慮してサフィックスを付与
+                let sameSlideClips = self.appState.soundClips.filter { $0.type == "Voice" && ($0.sceneIndex ?? 0) == sIdx && $0.character == char }
+                let myIdxInSame = sameSlideClips.firstIndex(where: { $0.id == clip.id }) ?? 0
+                let suffix = myIdxInSame > 0 ? "_\(myIdxInSame + 1)" : ""
+                let fileName = String(format: "Slide_%03d_%@%@.wav", sIdx, safeChar, suffix)
+                let fileURL = audioDir.appendingPathComponent(fileName)
                 if (try? data.write(to: fileURL)) != nil {
                     targetFilePath = fileURL.path
                 }
@@ -4098,6 +4366,8 @@ public struct SoundMakerView: View {
                     self.appState.soundClips[idx].waveformPoints = self.generateRandomWaveform(count: 24)
                 }
 
+                self.appState.soundClips[idx].character = char
+                self.appState.soundClips[idx].name = "[\(char)] \(text)"
                 self.appState.soundClips[idx].text = text
                 self.appState.soundClips[idx].voiceSymbol = self.aquesTalk.convertToVoiceSymbol(text: text)
                 self.appState.soundClips[idx].voiceType = vType
@@ -4105,6 +4375,12 @@ public struct SoundMakerView: View {
                 self.appState.soundClips[idx].pitch = effectivePitch
                 if let path = targetFilePath {
                     self.appState.soundClips[idx].audioFilePath = path
+                }
+
+                // トラックの適切な設定
+                if let track = self.appState.audioTracks.first(where: { $0.characterName == char || $0.name.contains(char) }) {
+                    self.appState.soundClips[idx].trackId = track.id
+                    self.appState.soundClips[idx].colorHex = track.colorHex
                 }
 
                 // ⚡️ 画面上部のシーン時間と実際の音声再生時間を即時・完全連動同期
@@ -4115,8 +4391,116 @@ public struct SoundMakerView: View {
 
                 let sIdx = max(0, min(self.selectedSceneIndex - 1, self.activeSceneList().count - 1))
                 let currentSceneDur = self.activeSceneList()[sIdx].duration
-                self.appState.log("シーン \(self.selectedSceneIndex) の音声『\(text)』を再生成しました (音程: \(effectivePitch)%, 音声再生時間: \(String(format: "%.2f", finalAudioDuration))秒, シーン時間: \(String(format: "%.1f", currentSceneDur))秒)")
+                self.appState.log("スライド \(self.selectedSceneIndex) のキャラクター[\(char)]音声『\(text)』を再生成しました (音声長: \(String(format: "%.2f", finalAudioDuration))秒, シーン長: \(String(format: "%.1f", currentSceneDur))秒)")
             }
+        }
+    }
+
+    /// キャラクター名を指定・変更
+    private func changeVoiceClipCharacter(clip: SoundClip, newCharacter: String) {
+        guard let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) else { return }
+        let cleanChar = SlideItem.normalizeSpeakerName(newCharacter)
+        appState.soundClips[idx].character = cleanChar
+        let text = appState.soundClips[idx].text ?? appState.soundClips[idx].name
+        appState.soundClips[idx].name = "[\(cleanChar)] \(text)"
+
+        // トラックの検索または割り当て
+        if let track = appState.audioTracks.first(where: { $0.characterName == cleanChar || $0.name.contains(cleanChar) }) {
+            appState.soundClips[idx].trackId = track.id
+            appState.soundClips[idx].colorHex = track.colorHex
+        }
+
+        // キャラクター固有のプリセット声種とピッチを適用
+        let preset = aquesTalk.characterPreset(for: cleanChar)
+        appState.soundClips[idx].voiceType = preset.voice
+        appState.soundClips[idx].pitch = preset.pitch
+        if preset.speed != 100 && appState.soundClips[idx].speed == 100 {
+            appState.soundClips[idx].speed = preset.speed
+        }
+
+        // ムービーシーンにも即時反映
+        let sIdx = clip.sceneIndex ?? selectedSceneIndex
+        if sIdx >= 1 && sIdx <= appState.movieScenes.count {
+            let scIdx = sIdx - 1
+            let vClips = voiceClips(for: sIdx)
+            if let firstV = vClips.first, firstV.id == clip.id {
+                appState.movieScenes[scIdx].voiceCharacter = cleanChar
+            } else if vClips.count >= 2 && vClips[1].id == clip.id {
+                appState.movieScenes[scIdx].voice2Character = cleanChar
+            }
+        }
+        appState.saveUndoSnapshot()
+        appState.log("キャラクター指定: 『\(cleanChar)』に変更しました")
+    }
+
+    /// 音声を別のスライド（シーン）へ直接スライド移動
+    private func moveVoiceClipToScene(clip: SoundClip, targetSceneIndex: Int) {
+        guard let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) else { return }
+        let scenes = activeSceneList()
+        guard targetSceneIndex >= 1 && targetSceneIndex <= scenes.count else { return }
+        let oldSceneIndex = clip.sceneIndex ?? selectedSceneIndex
+        if oldSceneIndex == targetSceneIndex { return }
+
+        let targetRange = sceneTimeRange(index: targetSceneIndex - 1)
+        // 移動先シーンの既存ボイスクリップ一覧
+        let targetVoices = voiceClips(for: targetSceneIndex).filter { $0.id != clip.id }
+        let newStartTime: Double
+        let newRelativeTime: Double
+        if let lastVoice = targetVoices.last {
+            newStartTime = lastVoice.startTime + lastVoice.duration + 0.2
+            newRelativeTime = max(0.0, newStartTime - targetRange.start)
+        } else {
+            newStartTime = targetRange.start
+            newRelativeTime = 0.0
+        }
+
+        appState.soundClips[idx].sceneIndex = targetSceneIndex
+        appState.soundClips[idx].startTime = newStartTime
+        appState.soundClips[idx].sceneRelativeStartTime = newRelativeTime
+
+        // シーン時間の自動調整と同期
+        appState.syncSceneAndClipTimings(autoFitDuration: true)
+        selectedSceneIndex = targetSceneIndex
+        appState.saveUndoSnapshot()
+        appState.log("音声スライド移動: 『\(clip.name)』をスライド \(targetSceneIndex) へ移動しました")
+    }
+
+    /// 音声ファイルを直接選択してスライドに割り当て
+    private func selectAudioFileForClip(_ clip: SoundClip) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.wav, .mp3, .audio]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canCreateDirectories = false
+        panel.message = "スライド \(clip.sceneIndex ?? selectedSceneIndex) のセリフ「\(clip.name)」に割り当てる音声ファイルを選択してください"
+
+        if panel.runModal() == .OK, let url = panel.url {
+            guard let idx = appState.soundClips.firstIndex(where: { $0.id == clip.id }) else { return }
+            let asset = AVURLAsset(url: url)
+            let seconds = CMTimeGetSeconds(asset.duration)
+            let duration = (seconds.isFinite && seconds > 0.05) ? seconds : 2.5
+
+            appState.soundClips[idx].audioFilePath = url.path
+            appState.soundClips[idx].duration = duration
+            appState.soundClips[idx].waveformPoints = generateRandomWaveform(count: 24)
+
+            // ムービーシーンにも即時反映
+            let sIdx = clip.sceneIndex ?? selectedSceneIndex
+            if sIdx >= 1 && sIdx <= appState.movieScenes.count {
+                let scIdx = sIdx - 1
+                let vClips = voiceClips(for: sIdx)
+                if let firstV = vClips.first, firstV.id == clip.id {
+                    appState.movieScenes[scIdx].voiceAudioPath = url.path
+                    appState.movieScenes[scIdx].voiceDuration = duration
+                } else if vClips.count >= 2 && vClips[1].id == clip.id {
+                    appState.movieScenes[scIdx].voice2AudioPath = url.path
+                    appState.movieScenes[scIdx].voice2Duration = duration
+                }
+            }
+
+            appState.syncSceneAndClipTimings(autoFitDuration: true)
+            appState.saveUndoSnapshot()
+            appState.log("音声ファイル指定: 『\(url.lastPathComponent)』をスライド \(sIdx) に設定しました")
         }
     }
 

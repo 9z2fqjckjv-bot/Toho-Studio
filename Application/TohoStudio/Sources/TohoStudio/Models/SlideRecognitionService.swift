@@ -580,35 +580,38 @@ public final class SlideRecognitionService: ObservableObject {
                 continue
             }
 
-            // ノートにあるカッコ書き"（）,(),[]"から話者を最優先で識別 (2人同時話者もA&B形式で認識)
-            var speaker = slide.characterName
-            if let noteBracketSpeaker = SlideItem.extractSpeakerFromBrackets(from: slide.rawPresenterNote ?? slide.presenterNote), !noteBracketSpeaker.isEmpty {
-                speaker = noteBracketSpeaker
-            } else if let telopBracketSpeaker = SlideItem.extractSpeakerFromBrackets(from: slide.telop), !telopBracketSpeaker.isEmpty {
-                speaker = telopBracketSpeaker
+            let rawNote = slide.rawPresenterNote ?? slide.presenterNote
+            let sourceText = !rawNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? rawNote : slide.telop
+            let fallbackSpk = slide.characterName.isEmpty || slide.characterName == "なし" ? "操夢" : slide.characterName
+
+            // ノートまたはテロップを行ごとに解析（話者、セリフ、音量指定を完全分離）
+            var dialogueLines = SlideItem.parseDialogueLines(from: sourceText, fallbackSpeaker: fallbackSpk)
+            if dialogueLines.isEmpty {
+                var speechText = slide.telop
+                if !slide.displayPresenterNote.isEmpty && slide.displayPresenterNote != slide.title {
+                    speechText = slide.displayPresenterNote
+                }
+                speechText = SlideItem.cleanDialogueText(from: speechText)
+                if !speechText.isEmpty {
+                    let normSpk = SlideItem.normalizeSpeakerName(fallbackSpk)
+                    dialogueLines = [SlideItem.ParsedDialogueLine(speaker: normSpk, text: speechText, volume: 1.0)]
+                }
             }
-            speaker = SlideItem.normalizeSpeakerName(speaker)
 
-            // セリフ本文はカッコ書き"（）,(),[]"および()書き表記（アニメーション）を除去したクリーンなテキストを使用
-            var speechText = slide.telop
-            if !slide.displayPresenterNote.isEmpty && slide.displayPresenterNote != slide.title {
-                speechText = slide.displayPresenterNote
-            }
-            speechText = SlideItem.cleanDialogueText(from: speechText)
+            for line in dialogueLines {
+                let spk = line.speaker
+                let speechText = line.text
+                let vol = line.volume
 
-            if !speechText.isEmpty && !speaker.isEmpty && speaker != "ナレーション" {
-                let duo = AquesTalkBridge.duoSpeakers(from: speaker)
-                let targetSpeakers = duo.isDuo ? [duo.speaker1, duo.speaker2] : [speaker]
-
-                for spk in targetSpeakers {
+                if !speechText.isEmpty && !spk.isEmpty && spk != "ナレーション" {
                     // 既存の Voice クリップに対応するものがあれば引き継ぎ
                     let matchedExisting = existingVoices.first(where: {
-                        ($0.sceneIndex == slide.slideIndex && $0.character == spk) ||
-                        ($0.character == spk && $0.text != nil && ($0.text == speechText || speechText.contains($0.text!) || $0.text!.contains(speechText)))
+                        $0.sceneIndex == slide.slideIndex && $0.character == spk && ($0.text == speechText || ($0.text != nil && speechText.contains($0.text!)))
                     })
 
                     if var existing = matchedExisting {
                         existing.sceneIndex = slide.slideIndex
+                        existing.volume = vol
                         clips.append(existing)
                         continue
                     }
@@ -656,7 +659,7 @@ public final class SlideRecognitionService: ObservableObject {
                         text: speechText,
                         voiceSymbol: voiceSym,
                         duration: max(slide.duration, 2.5),
-                        volume: 1.0,
+                        volume: vol,
                         speed: preset.speed,
                         startTime: Double(slide.slideIndex - 1) * 8.0,
                         trackId: trackId,

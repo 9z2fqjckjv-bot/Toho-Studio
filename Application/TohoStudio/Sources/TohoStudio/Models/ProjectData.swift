@@ -1140,12 +1140,76 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         "ナレーション": "ナレーション"
     ]
 
+    /// 行ごとに解析されたセリフ情報（話者名、セリフ本文、音量倍率）
+    public struct ParsedDialogueLine: Equatable, Codable {
+        public var speaker: String
+        public var text: String
+        public var volume: Double
+
+        public init(speaker: String, text: String, volume: Double = 1.0) {
+            self.speaker = speaker
+            self.text = text
+            self.volume = volume
+        }
+    }
+
+    /// 発表者ノートまたはテロップから行ごとの話者・セリフ・音量指定を解析
+    public static func parseDialogueLines(from noteOrTelop: String, fallbackSpeaker: String = "操夢") -> [ParsedDialogueLine] {
+        let lines = noteOrTelop.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        var results: [ParsedDialogueLine] = []
+
+        let bracketPattern = "[（\\(\\[［]([^）\\)\\]］]{1,40})[）\\)\\]］]"
+        guard let bracketRegex = try? NSRegularExpression(pattern: bracketPattern, options: []) else { return [] }
+        let volPattern = "[:：]?(?:音量|volume)[=：:]?\\s*(\\d+)%?"
+        let volRegex = try? NSRegularExpression(pattern: volPattern, options: .caseInsensitive)
+        let nonSpeakerKeywords = ["アニメーション", "アニメ", "表示時間", "時間", "秒", "フェード", "ズーム", "イン", "アクション", "アウト", "カット", "スライド"]
+
+        for line in lines {
+            let nsLine = line as NSString
+            let range = NSRange(line.startIndex..., in: line)
+            var spk = fallbackSpeaker
+            var vol: Double = 1.0
+
+            if let match = bracketRegex.firstMatch(in: line, options: [], range: range), match.numberOfRanges > 1 {
+                let rawCand = nsLine.substring(with: match.range(at: 1)).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !nonSpeakerKeywords.contains(where: { rawCand.contains($0) }) {
+                    let candRange = NSRange(rawCand.startIndex..., in: rawCand)
+                    if let vMatch = volRegex?.firstMatch(in: rawCand, options: [], range: candRange), vMatch.numberOfRanges > 1 {
+                        let nsCand = rawCand as NSString
+                        if let pct = Double(nsCand.substring(with: vMatch.range(at: 1))) {
+                            vol = max(0.0, min(1.0, pct / 100.0))
+                        }
+                    }
+                    let cleanSpk = volRegex?.stringByReplacingMatches(in: rawCand, options: [], range: candRange, withTemplate: "").trimmingCharacters(in: .whitespacesAndNewlines) ?? rawCand
+                    if !cleanSpk.isEmpty {
+                        spk = normalizeSpeakerName(cleanSpk)
+                    }
+                }
+            } else {
+                spk = normalizeSpeakerName(fallbackSpeaker)
+            }
+
+            let cleanText = cleanDialogueText(from: line).trimmingCharacters(in: .whitespacesAndNewlines)
+            if !cleanText.isEmpty {
+                results.append(ParsedDialogueLine(speaker: spk, text: cleanText, volume: vol))
+            }
+        }
+        return results
+    }
+
     /// 話者名を正規化する。
     /// 2人の話者が含まれる場合（"&", "＆", "、", "・", "と" で区切られているか、または "A&B" 表記）、
     /// 各話者名をトリミングし、辞書で正式名称に補正した上で、スペースなしの半角 `&` で連結した `A&B` 形式にする。
     /// 単一話者の場合も辞書マッピングと空白トリミングを行う。
     public static func normalizeSpeakerName(_ rawName: String) -> String {
-        let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        var trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+
+        // 音量指定の除外 (例: "レミリア:音量50%", "レミリア：音量50%", "レミリア:volume50%")
+        let volPattern = "[:：](?:音量|volume)\\s*\\d+%?"
+        if let regex = try? NSRegularExpression(pattern: volPattern, options: .caseInsensitive) {
+            trimmed = regex.stringByReplacingMatches(in: trimmed, options: [], range: NSRange(trimmed.startIndex..., in: trimmed), withTemplate: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         guard !trimmed.isEmpty else { return "" }
 
         // 区切り文字で2人の話者を分割 (優先度: & / ＆ > と > 、)
@@ -1184,6 +1248,21 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         // 単一キャラクター
         let mapped = standardCharacterDictionary[trimmed] ?? trimmed
         return mapped.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "　", with: "")
+    }
+
+    /// ノートまたはカッコ書きから音量指定（例: "音量50%", "volume=50%"）を解析して 0.0〜1.0 の倍率を返す
+    public static func extractVolumeRatioFromBrackets(from text: String) -> Double? {
+        let pattern = "[:：]?(?:音量|volume)[=：:]?\\s*(\\d+)%?"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return nil }
+        let nsStr = text as NSString
+        let range = NSRange(text.startIndex..., in: text)
+        if let match = regex.firstMatch(in: text, options: [], range: range), match.numberOfRanges > 1 {
+            let numStr = nsStr.substring(with: match.range(at: 1))
+            if let pct = Double(numStr) {
+                return max(0.0, min(1.0, pct / 100.0))
+            }
+        }
+        return nil
     }
 
     /// カッコ書き"（話者）", "(話者)", "[話者]" から話者名を抽出する（アニメーション・時間等の演出表記は除外）

@@ -149,7 +149,10 @@ def extract_speaker_and_clean_note(raw_text):
         cand = m.group(1).strip()
         if any(k in cand for k in non_speaker_kws):
             continue
-        cands.append(cand)
+        # 音量指定タグの除去（例: "レミリア:音量50%" -> "レミリア"）
+        cand_clean = re.sub(r'[:：]?(?:音量|volume)[=：:]?\s*\d+%?', '', cand, flags=re.IGNORECASE).strip()
+        if cand_clean:
+            cands.append(cand_clean)
 
     speaker = ""
     if cands:
