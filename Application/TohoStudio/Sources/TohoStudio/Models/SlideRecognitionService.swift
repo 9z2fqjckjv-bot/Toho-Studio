@@ -599,9 +599,12 @@ public final class SlideRecognitionService: ObservableObject {
             }
 
             for line in dialogueLines {
-                let spk = line.speaker
-                let speechText = line.text
-                let vol = line.volume
+                let duo = AquesTalkBridge.duoSpeakers(from: line.speaker)
+                let targetSpeakers = duo.isDuo ? [duo.speaker1, duo.speaker2] : [line.speaker]
+
+                for spk in targetSpeakers {
+                    let speechText = line.text
+                    let vol = line.volume
 
                 if !speechText.isEmpty && !spk.isEmpty && spk != "ナレーション" {
                     // 既存の Voice クリップに対応するものがあれば引き継ぎ
@@ -672,6 +675,7 @@ public final class SlideRecognitionService: ObservableObject {
                 }
             }
         }
+    }
         
         // Ensure default movie video clip present
         if !clips.contains(where: { $0.type == "Movie" }) {

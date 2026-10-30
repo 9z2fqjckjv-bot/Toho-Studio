@@ -171,57 +171,61 @@ public final class SlideVoiceBatchService: ObservableObject {
             }
 
             for line in dialogueLines {
-                let spk = line.speaker
-                let speechText = line.text
-                let vol = line.volume
+                let duo = AquesTalkBridge.duoSpeakers(from: line.speaker)
+                let targetSpeakers = duo.isDuo ? [duo.speaker1, duo.speaker2] : [line.speaker]
 
-                // 2. 話者に対応するVoiceTemplateを検索
-                let matchedTemplate = appState.voiceTemplates.first(where: {
-                    $0.characterName == spk || $0.name.contains(spk)
-                })
+                for spk in targetSpeakers {
+                    let speechText = line.text
+                    let vol = line.volume
 
-                let voiceType: VoiceType
-                let speed: Int
-                let pitch: Int
-                let tplId: UUID?
-                let tplName: String
+                    // 2. 話者に対応するVoiceTemplateを検索
+                    let matchedTemplate = appState.voiceTemplates.first(where: {
+                        $0.characterName == spk || $0.name.contains(spk)
+                    })
 
-                if let tpl = matchedTemplate {
-                    voiceType = tpl.voiceType
-                    speed = tpl.speed
-                    pitch = tpl.pitch
-                    tplId = tpl.id
-                    tplName = tpl.name
-                } else {
-                    let preset = AquesTalkBridge.shared.characterPreset(for: spk)
-                    voiceType = preset.voice
-                    speed = preset.speed
-                    pitch = preset.pitch
-                    tplId = nil
-                    tplName = "\(spk)標準 (\(preset.voice.rawValue))"
+                    let voiceType: VoiceType
+                    let speed: Int
+                    let pitch: Int
+                    let tplId: UUID?
+                    let tplName: String
+
+                    if let tpl = matchedTemplate {
+                        voiceType = tpl.voiceType
+                        speed = tpl.speed
+                        pitch = tpl.pitch
+                        tplId = tpl.id
+                        tplName = tpl.name
+                    } else {
+                        let preset = AquesTalkBridge.shared.characterPreset(for: spk)
+                        voiceType = preset.voice
+                        speed = preset.speed
+                        pitch = preset.pitch
+                        tplId = nil
+                        tplName = "\(spk)標準 (\(preset.voice.rawValue))"
+                    }
+
+                    let item = BatchVoiceItem(
+                        slideIndex: slide.slideIndex,
+                        slideTitle: slide.title.isEmpty ? "スライド #\(slide.slideIndex)" : slide.title,
+                        slideType: slide.slideType,
+                        characterName: spk,
+                        text: speechText,
+                        selectedTemplateId: tplId,
+                        templateName: tplName,
+                        voiceType: voiceType,
+                        speed: speed,
+                        pitch: pitch,
+                        effect: defaultEffect,
+                        quality: defaultQuality,
+                        volume: vol,
+                        isSkipped: isHeaderOrTitle,
+                        skipReason: skipReason,
+                        animationDuration: animDur,
+                        animationNote: animNote,
+                        slideDuration: slide.duration
+                    )
+                    items.append(item)
                 }
-
-                let item = BatchVoiceItem(
-                    slideIndex: slide.slideIndex,
-                    slideTitle: slide.title.isEmpty ? "スライド #\(slide.slideIndex)" : slide.title,
-                    slideType: slide.slideType,
-                    characterName: spk,
-                    text: speechText,
-                    selectedTemplateId: tplId,
-                    templateName: tplName,
-                    voiceType: voiceType,
-                    speed: speed,
-                    pitch: pitch,
-                    effect: defaultEffect,
-                    quality: defaultQuality,
-                    volume: vol,
-                    isSkipped: isHeaderOrTitle,
-                    skipReason: skipReason,
-                    animationDuration: animDur,
-                    animationNote: animNote,
-                    slideDuration: slide.duration
-                )
-                items.append(item)
             }
         }
 
@@ -400,8 +404,15 @@ public final class SlideVoiceBatchService: ObservableObject {
             guard let firstItem = slideItems.first else { continue }
 
             // シーンの長さ決定: 同一スライド内の複数セリフを順次再生（シーケンシャル）するため、合計尺およびアニメーション指定時間を考慮
+            // デュオユニゾン（2人が同一テキストをユニゾン発話）の場合は最大尺
             let validVoicesForDur = slideItems.filter { !$0.isSkipped }
-            let totalVoiceDuration = validVoicesForDur.reduce(0.0) { $0 + $1.audioDuration } + Double(max(0, validVoicesForDur.count - 1)) * 0.2 + 0.6
+            let isDuoUnison = validVoicesForDur.count == 2 && validVoicesForDur[0].text == validVoicesForDur[1].text
+            let totalVoiceDuration: Double
+            if isDuoUnison {
+                totalVoiceDuration = (validVoicesForDur.map { $0.audioDuration }.max() ?? 0.0) + 0.6
+            } else {
+                totalVoiceDuration = validVoicesForDur.reduce(0.0) { $0 + $1.audioDuration } + Double(max(0, validVoicesForDur.count - 1)) * 0.2 + 0.6
+            }
             let baseDuration = max(2.5, firstItem.slideDuration)
             let animDur = firstItem.animationDuration ?? 0.0
             let sceneDuration = max(baseDuration, max(animDur, totalVoiceDuration))
@@ -445,7 +456,7 @@ public final class SlideVoiceBatchService: ObservableObject {
             let validVoices = slideItems.filter { !$0.isSkipped }
             let v1 = validVoices.first
             let v2 = validVoices.count >= 2 ? validVoices[1] : nil
-            let v2Offset = (v1 != nil && v2 != nil) ? ((v1?.audioDuration ?? 0.0) + 0.2) : 0.0
+            let v2Offset = (v1 != nil && v2 != nil && !isDuoUnison) ? ((v1?.audioDuration ?? 0.0) + 0.2) : 0.0
 
             let scene = MovieScene(
                 title: finalTitle,
@@ -469,7 +480,7 @@ public final class SlideVoiceBatchService: ObservableObject {
             )
             updatedScenes.append(scene)
 
-            // 各話者の音声クリップを作成して順次再生（シーケンシャル）で配置
+            // 各話者の音声クリップを作成して配置（デュオユニゾンの場合は同一開始時刻、複数セリフは順次再生）
             var clipStartTime = currentPosition
             for item in validVoices {
                 if let track = findTrack(for: item.characterName) {
@@ -485,7 +496,7 @@ public final class SlideVoiceBatchService: ObservableObject {
                         duration: item.audioDuration,
                         volume: item.volume,
                         speed: item.speed,
-                        startTime: clipStartTime,
+                        startTime: isDuoUnison ? currentPosition : clipStartTime,
                         trackId: track.id,
                         pan: track.pan,
                         colorHex: track.colorHex,
@@ -497,7 +508,9 @@ public final class SlideVoiceBatchService: ObservableObject {
                     )
                     appState.soundClips.append(clip)
                     // 次のセリフは前のセリフの終了後に開始（自然な0.2秒の間隔を空けて連続再生）
-                    clipStartTime += item.audioDuration + 0.2
+                    if !isDuoUnison {
+                        clipStartTime += item.audioDuration + 0.2
+                    }
                 }
             }
 

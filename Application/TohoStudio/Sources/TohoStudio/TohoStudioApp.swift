@@ -384,6 +384,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         print("1-2. Single speaker with middle-dot (フラン, レミリア, パチュリー): Verified NOT split into duo speaker!")
 
+        // 1-3. 「さとり」「にとり」等「と」を含むキャラ名が「さ&り」等に誤分割されず単一キャラとして保持され、ボイスプリセットが正しく解決されることの検証
+        let toCharacterTestCases = [
+            ("(さとり) 心を読んだわ", "古明地さとり", "心を読んだわ"),
+            ("(古明地さとり) 心を読んだわ", "古明地さとり", "心を読んだわ"),
+            ("[さとり] サードアイが開く", "古明地さとり", "サードアイが開く"),
+            ("(にとり) 私に任せて！", "河城にとり", "私に任せて！"),
+            ("(みとり) 私はみとりよ", "みとり", "私はみとりよ"),
+            ("(さとりとこいし) 姉妹の会話", "古明地さとり&古明地こいし", "姉妹の会話")
+        ]
+        for (input, expectedSpeaker, expectedClean) in toCharacterTestCases {
+            guard let extracted = SlideItem.extractSpeakerFromBrackets(from: input) else {
+                fatalError("Failed to extract speaker from: \(input)")
+            }
+            assert(extracted == expectedSpeaker, "Expected '\(expectedSpeaker)', got '\(extracted)'")
+            let cleaned = SlideItem.cleanDialogueText(from: input).replacingOccurrences(of: "\n", with: " ")
+            assert(cleaned == expectedClean, "Expected clean '\(expectedClean)', got '\(cleaned)'")
+        }
+        let satoriPreset = AquesTalkBridge.shared.characterPreset(for: "古明地さとり")
+        assert(satoriPreset.voice == .jgr, "古明地さとり must have .jgr voice, got \(satoriPreset.voice)")
+        assert(satoriPreset.speed == 115, "古明地さとり must have speed 115, got \(satoriPreset.speed)")
+        assert(satoriPreset.pitch == 125, "古明地さとり must have pitch 125, got \(satoriPreset.pitch)")
+
+        let satoriShortPreset = AquesTalkBridge.shared.characterPreset(for: "さとり")
+        assert(satoriShortPreset.voice == .jgr, "さとり must have .jgr voice, got \(satoriShortPreset.voice)")
+        assert(satoriShortPreset.speed == 115, "さとり must have speed 115, got \(satoriShortPreset.speed)")
+        assert(satoriShortPreset.pitch == 125, "さとり must have pitch 125, got \(satoriShortPreset.pitch)")
+        print("1-3. Characters containing 'と' (さとり, にとり, みとり): Verified NOT split into 'さ&り' and correct voice preset (.jgr) applied!")
+
         // 2. AquesTalkBridge 2人同時音声合成（ユニゾン・ミックスWAV）テスト
         print("2. Synthesizing Duo Voice Audio (博麗霊夢&霧雨魔理沙)...")
         let duoWav = AquesTalkBridge.shared.synthesizeDuoVoiceToWavData(

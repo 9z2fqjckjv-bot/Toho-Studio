@@ -1131,12 +1131,26 @@ public struct SlideItem: Identifiable, Codable, Equatable {
 
     /// 東方キャラクター標準辞書（略称・通称から正式名称への変換用）
     public static let standardCharacterDictionary: [String: String] = [
-        "操夢": "操夢", "サブ": "サブ", "ナレ1": "ナレ1", "ナレ2": "ナレ2", "みとり": "みとり",
-        "霊夢": "博麗霊夢", "魔理沙": "霧雨魔理沙", "咲夜": "十六夜咲夜", "妖夢": "魂魄妖夢",
-        "幽々子": "西行寺幽々子", "紫": "八雲紫", "パチュリー": "パチュリー・ノーレッジ",
-        "フラン": "フランドール・スカーレット", "レミリア": "レミリア・スカーレット",
-        "早苗": "東風谷早苗", "さとり": "古明地さとり", "こいし": "古明地こいし",
-        "アリス": "アリス・マーガトロイド", "チルノ": "チルノ", "文": "射命丸文",
+        "操夢": "操夢", "サブ": "サブ", "ナレ1": "ナレ1", "ナレ2": "ナレ2", "みとり": "みとり", "河城みとり": "みとり",
+        "霊夢": "博麗霊夢", "博麗霊夢": "博麗霊夢",
+        "魔理沙": "霧雨魔理沙", "霧雨魔理沙": "霧雨魔理沙",
+        "咲夜": "十六夜咲夜", "十六夜咲夜": "十六夜咲夜",
+        "妖夢": "魂魄妖夢", "魂魄妖夢": "魂魄妖夢",
+        "幽々子": "西行寺幽々子", "西行寺幽々子": "西行寺幽々子",
+        "紫": "八雲紫", "八雲紫": "八雲紫",
+        "パチュリー": "パチュリー・ノーレッジ", "パチュリー・ノーレッジ": "パチュリー・ノーレッジ",
+        "フラン": "フランドール・スカーレット", "フランドール・スカーレット": "フランドール・スカーレット", "フランドール": "フランドール・スカーレット",
+        "レミリア": "レミリア・スカーレット", "レミリア・スカーレット": "レミリア・スカーレット",
+        "早苗": "東風谷早苗", "東風谷早苗": "東風谷早苗",
+        "さとり": "古明地さとり", "古明地さとり": "古明地さとり",
+        "こいし": "古明地こいし", "古明地こいし": "古明地こいし",
+        "にとり": "河城にとり", "河城にとり": "河城にとり",
+        "アリス": "アリス・マーガトロイド", "アリス・マーガトロイド": "アリス・マーガトロイド",
+        "チルノ": "チルノ",
+        "文": "射命丸文", "射命丸文": "射命丸文",
+        "妹紅": "藤原妹紅", "藤原妹紅": "藤原妹紅",
+        "輝夜": "蓬莱山輝夜", "蓬莱山輝夜": "蓬莱山輝夜",
+        "うどんげ": "鈴仙・優曇華院・イナバ", "優曇華": "鈴仙・優曇華院・イナバ", "鈴仙": "鈴仙・優曇華院・イナバ",
         "ナレーション": "ナレーション"
     ]
 
@@ -1198,9 +1212,9 @@ public struct SlideItem: Identifiable, Codable, Equatable {
     }
 
     /// 話者名を正規化する。
-    /// 2人の話者が含まれる場合（"&", "＆", "、", "・", "と" で区切られているか、または "A&B" 表記）、
+    /// 2人の話者が含まれる場合（"&", "＆", "、", または "AとB" 表記）、
     /// 各話者名をトリミングし、辞書で正式名称に補正した上で、スペースなしの半角 `&` で連結した `A&B` 形式にする。
-    /// 単一話者の場合も辞書マッピングと空白トリミングを行う。
+    /// 単一話者の場合（例: "さとり" -> "古明地さとり"）は分割せず、辞書マッピングと空白トリミングを行う。
     public static func normalizeSpeakerName(_ rawName: String) -> String {
         var trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
@@ -1212,35 +1226,82 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         }
         guard !trimmed.isEmpty else { return "" }
 
-        // 区切り文字で2人の話者を分割 (優先度: & / ＆ > と > 、)
-        // ※「・」はカタカナ人名（例: フランドール・スカーレット、レミリア・スカーレット、パチュリー・ノーレッジ）で
-        // 姓名の区切り文字として使われるため、話者区切り文字に含めてはならない！
-        let delims = ["&", "＆", "、"]
-        for delim in delims {
+        let cleanSingle = trimmed.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "　", with: "")
+        // 0. すでに単一のキャラクター名として辞書（キーまたは正式名称の値）に完全一致する場合は即座に解決
+        // （"さとり", "古明地さとり", "にとり", "みとり" など「と」を含むキャラ名が誤ってデュオ分割されるのを防止）
+        if let directMapped = standardCharacterDictionary[cleanSingle] {
+            return directMapped.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "　", with: "")
+        }
+        if standardCharacterDictionary.values.contains(cleanSingle) {
+            return cleanSingle
+        }
+
+        // 1. 明示的な区切り文字（&, ＆）で2人の話者を分割
+        let explicitDelims = ["&", "＆"]
+        for delim in explicitDelims {
             if trimmed.contains(delim) {
                 let parts = trimmed.components(separatedBy: delim)
                     .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                     .filter { !$0.isEmpty }
                 if parts.count >= 2 {
-                    let mapped0 = standardCharacterDictionary[parts[0]] ?? parts[0]
-                    let mapped1 = standardCharacterDictionary[parts[1]] ?? parts[1]
-                    let clean0 = mapped0.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "　", with: "")
-                    let clean1 = mapped1.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "　", with: "")
+                    let clean0 = normalizeSpeakerName(parts[0])
+                    let clean1 = normalizeSpeakerName(parts[1])
                     return "\(clean0)&\(clean1)"
                 }
             }
         }
 
-        // "と" での区切り (例: "霊夢と魔理沙")
-        if trimmed.contains("と") && !trimmed.contains("こと") && !trimmed.contains("ひと") && trimmed.count <= 15 {
-            let parts = trimmed.components(separatedBy: "と")
+        // 2. 読点「、」による分割
+        if trimmed.contains("、") {
+            let parts = trimmed.components(separatedBy: "、")
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
-            if parts.count == 2 {
-                let mapped0 = standardCharacterDictionary[parts[0]] ?? parts[0]
-                let mapped1 = standardCharacterDictionary[parts[1]] ?? parts[1]
-                let clean0 = mapped0.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "　", with: "")
-                let clean1 = mapped1.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "　", with: "")
+            if parts.count >= 2 {
+                let clean0 = normalizeSpeakerName(parts[0])
+                let clean1 = normalizeSpeakerName(parts[1])
+                return "\(clean0)&\(clean1)"
+            }
+        }
+
+        // 3. 助詞 "と" での区切り (例: "霊夢と魔理沙", "さとりとこいし", "霊夢とさとり")
+        // ※「さとり」の「と」のように単語内の「と」で誤分割されないよう、
+        // 文字列中の各「と」について前後に分割し、両辺が有効な話者名となる分割点を探索する。
+        let protectedSinglesWithTo = ["さとり", "古明地さとり", "にとり", "河城にとり", "みとり", "河城みとり", "屠自古", "蘇我屠自古", "寅丸", "寅丸星", "豊聡耳", "豊聡耳神子"]
+        let isProtectedSingle = protectedSinglesWithTo.contains(cleanSingle)
+
+        if !isProtectedSingle && trimmed.contains("と") && !trimmed.contains("こと") && !trimmed.contains("ひと") && trimmed.count <= 25 {
+            var candidatePair: (String, String)? = nil
+            var searchRange = trimmed.startIndex..<trimmed.endIndex
+
+            while let toRange = trimmed.range(of: "と", options: [], range: searchRange) {
+                let left = String(trimmed[trimmed.startIndex..<toRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                let right = String(trimmed[toRange.upperBound..<trimmed.endIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
+
+                let leftValid = left.count >= 2 || standardCharacterDictionary[left] != nil
+                let rightValid = right.count >= 2 || standardCharacterDictionary[right] != nil
+
+                let leftIsChar = standardCharacterDictionary[left] != nil || standardCharacterDictionary.values.contains(left)
+                let rightIsChar = standardCharacterDictionary[right] != nil || standardCharacterDictionary.values.contains(right)
+
+                if leftValid && rightValid && (leftIsChar || rightIsChar) {
+                    if leftIsChar && rightIsChar {
+                        candidatePair = (left, right)
+                        break
+                    } else if candidatePair == nil {
+                        candidatePair = (left, right)
+                    }
+                }
+
+                if toRange.upperBound < trimmed.endIndex {
+                    searchRange = toRange.upperBound..<trimmed.endIndex
+                } else {
+                    break
+                }
+            }
+
+            if let (p0, p1) = candidatePair {
+                let clean0 = normalizeSpeakerName(p0)
+                let clean1 = normalizeSpeakerName(p1)
                 return "\(clean0)&\(clean1)"
             }
         }
@@ -1289,11 +1350,11 @@ public struct SlideItem: Identifiable, Codable, Equatable {
 
         guard !candidateSpeakers.isEmpty else { return nil }
 
-        // 1. 最初の候補内にすでに2人の話者表記（&, ＆, と, 、）が含まれている場合
+        // 1. 最初の候補内にすでに2人の話者表記（&, ＆, と, 、）が含まれており、デュオ話者として正規化された場合
         let firstCand = candidateSpeakers[0]
-        if firstCand.contains("&") || firstCand.contains("＆") || firstCand.contains("、") || (firstCand.contains("と") && firstCand.count <= 15) {
+        if firstCand.contains("&") || firstCand.contains("＆") || firstCand.contains("、") || (firstCand.contains("と") && firstCand.count <= 25) {
             let normalized = normalizeSpeakerName(firstCand)
-            if !normalized.isEmpty {
+            if normalized.contains("&") {
                 return normalized
             }
         }
