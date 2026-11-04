@@ -74,7 +74,7 @@
 		</data>
 		<key>Resources/keynote_extractor.py</key>
 		<data>
-		CQHu1DvZZyHuIOPKR566+mgIXYo=
+		b8o1BA2esZBqPFSILIBv9Adsig0=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -83,10 +83,10 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			UtTzHemRLa8o5snLHDjU3h0ugv4=
+			xX1USNCUm6S3jYSo0xhIwTiHvIM=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"52d4f31de9912daf28e6c9cb1c38d4de1d2e82fe"</string>
+			<string>cdhash H"c57d5448d0949ba4b78d84a8d31848c13887bc83"</string>
 		</dict>
 		<key>Resources/AppIcon.png</key>
 		<dict>
@@ -211,7 +211,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			MydPFWn1+IRddndFq53QIqNtB3qdBWnafRjaeZwugf8=
+			VICkf/lWtpi73CeJav6IQ0uUZLmDZGkl2PIgEv+SHRw=
 			</data>
 		</dict>
 	</dict>
