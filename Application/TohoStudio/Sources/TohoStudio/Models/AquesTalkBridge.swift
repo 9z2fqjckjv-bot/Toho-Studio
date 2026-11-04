@@ -349,6 +349,10 @@ public final class AquesTalkBridge: NSObject, ObservableObject, AVAudioPlayerDel
         if name.contains("神綺") { return .f1 }
         if name.contains("夢美") { return .f1 }
         if name.contains("操夢") { return .imd1 }
+
+        // 5. 独自追加キャラクター（東方天空璋など）
+        if name.contains("隠岐奈") || name.contains("摩多羅") { return .f2 }
+
         if name == "ナレーション" || name.contains("ナレーション") { return .f1 }
 
         return .f1
@@ -462,6 +466,9 @@ public final class AquesTalkBridge: NSObject, ObservableObject, AVAudioPlayerDel
         if name.contains("魅魔") { return (.f2, 90, 125) }
         if name.contains("神綺") { return (.f1, 60, 130) }
         if name.contains("夢美") { return (.f1, 130, 80) }
+
+        // 5. 独自追加キャラクター（東方天空璋など）
+        if name.contains("隠岐奈") || name.contains("摩多羅") { return (.f2, 95, 120) }
 
         return (v, 100, 100)
     }

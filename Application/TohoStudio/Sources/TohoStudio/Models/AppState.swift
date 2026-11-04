@@ -1657,6 +1657,17 @@ public final class AppState: ObservableObject {
                 pitch: 180,
                 source: "Gスカのブログ",
                 description: "女性1・速度80%・音程180"
+            ),
+
+            // 6. 追加キャラクター テンプレート（東方天空璋など）
+            VoiceTemplate(
+                name: "摩多羅隠岐奈 (天空璋)",
+                characterName: "摩多羅隠岐奈",
+                voiceType: .f2,
+                speed: 95,
+                pitch: 120,
+                source: "東方天空璋",
+                description: "女性2・速度95%・音程120 (秘神・威厳)"
             )
         ]
         if activeVoiceTemplate == nil {
