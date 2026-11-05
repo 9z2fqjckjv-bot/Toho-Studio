@@ -474,9 +474,10 @@ public final class SlideRecognitionService: ObservableObject {
     public func syncToMovieMaker(slides: [SlideItem]) {
         let currentClips = AppState.shared.soundClips
         let scenes: [MovieScene] = slides.map { slide in
-            let matchedVoice = currentClips.first(where: {
+            let matchedVoices = currentClips.filter {
                 $0.type == "Voice" && ($0.sceneIndex == slide.slideIndex || ($0.text != nil && !slide.telop.isEmpty && (slide.telop.contains($0.text!) || $0.text!.contains(SlideItem.cleanDialogueText(from: slide.telop)))))
-            })
+            }
+            let matchedVoice = matchedVoices.first
             let matchedSE = currentClips.first(where: {
                 $0.type == "SE" && ($0.sceneIndex == slide.slideIndex || ($0.spanStartSceneIndex != nil && $0.spanEndSceneIndex != nil && slide.slideIndex >= $0.spanStartSceneIndex! && slide.slideIndex <= $0.spanEndSceneIndex!))
             })
@@ -487,9 +488,27 @@ public final class SlideRecognitionService: ObservableObject {
             let hasActualAnimation = !slide.animations.isEmpty && slide.animationTag != "なし" && !slide.animationTag.isEmpty
             let actualAnimName = hasActualAnimation ? slide.animationTag : "なし"
 
+            // シーンの長さ: 音声が存在する場合は音声の長さに完全一致
+            let sceneDur: Double
+            if !matchedVoices.isEmpty {
+                let isDuoUnison = matchedVoices.count >= 2 && matchedVoices[0].text == matchedVoices[1].text
+                if isDuoUnison {
+                    sceneDur = matchedVoices.map { $0.duration }.max() ?? matchedVoices[0].duration
+                } else {
+                    sceneDur = matchedVoices.reduce(0.0) { $0 + $1.duration }
+                }
+            } else if let animDur = slide.animationDuration, animDur > 0 {
+                sceneDur = animDur
+            } else {
+                sceneDur = max(slide.duration, 2.0)
+            }
+
+            let voice2 = matchedVoices.count >= 2 ? matchedVoices[1] : nil
+            let hasSlideOrVideo = (slide.slideImagePath != nil && !slide.slideImagePath!.isEmpty) || (slide.animationVideoPath != nil && !slide.animationVideoPath!.isEmpty)
+
             return MovieScene(
                 title: slide.title,
-                duration: max(slide.duration, 2.0),
+                duration: sceneDur,
                 slideTitle: slide.slideType == "title" ? "タイトル" : (slide.slideType == "sectionHeader" ? "中扉" : "第\(slide.slideIndex)スライド"),
                 backgroundName: slide.backgroundName,
                 characterName: slide.characterName,
@@ -504,16 +523,22 @@ public final class SlideRecognitionService: ObservableObject {
                 voiceAudioPath: matchedVoice?.audioFilePath,
                 voiceCharacter: matchedVoice?.character ?? slide.characterName,
                 voiceDuration: matchedVoice?.duration,
+                voice2AudioPath: voice2?.audioFilePath,
+                voice2Character: voice2?.character,
+                voice2Duration: voice2?.duration,
+                voice2StartTimeOffset: matchedVoices.count >= 2 ? matchedVoices[0].duration : 0.0,
                 bgmAudioPath: matchedBGM?.audioFilePath,
                 bgmName: matchedBGM?.name,
                 seAudioPath: matchedSE?.audioFilePath,
-                seName: matchedSE?.name
+                seName: matchedSE?.name,
+                showTelopOverlay: hasSlideOrVideo ? false : true
             )
         }
         AppState.shared.movieScenes = scenes
         AppState.shared.totalDuration = scenes.reduce(0.0) { $0 + $1.duration }
         AppState.shared.selectedSceneIndex = 0
         AppState.shared.resolveMovieScenesMedia()
+        AppState.shared.syncSceneAndClipTimings(autoFitDuration: true)
         AppState.shared.saveUndoSnapshot()
         AppState.shared.notifySlideAssetsUpdated()
     }

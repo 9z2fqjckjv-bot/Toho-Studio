@@ -403,19 +403,25 @@ public final class SlideVoiceBatchService: ObservableObject {
             let slideItems = items.filter { $0.slideIndex == slideIdx }
             guard let firstItem = slideItems.first else { continue }
 
-            // シーンの長さ決定: 同一スライド内の複数セリフを順次再生（シーケンシャル）するため、合計尺およびアニメーション指定時間を考慮
-            // デュオユニゾン（2人が同一テキストをユニゾン発話）の場合は最大尺
+            // シーンの長さ決定: セリフの音声の長さとシーンの長さを完全に一致させる
+            // デュオユニゾン（2人が同一テキストをユニゾン発話）の場合は最大尺、掛け合いは合計尺
             let validVoicesForDur = slideItems.filter { !$0.isSkipped }
             let isDuoUnison = validVoicesForDur.count == 2 && validVoicesForDur[0].text == validVoicesForDur[1].text
             let totalVoiceDuration: Double
             if isDuoUnison {
-                totalVoiceDuration = (validVoicesForDur.map { $0.audioDuration }.max() ?? 0.0) + 0.6
+                totalVoiceDuration = validVoicesForDur.map { $0.audioDuration }.max() ?? 0.0
             } else {
-                totalVoiceDuration = validVoicesForDur.reduce(0.0) { $0 + $1.audioDuration } + Double(max(0, validVoicesForDur.count - 1)) * 0.2 + 0.6
+                totalVoiceDuration = validVoicesForDur.reduce(0.0) { $0 + $1.audioDuration }
             }
-            let baseDuration = max(2.5, firstItem.slideDuration)
-            let animDur = firstItem.animationDuration ?? 0.0
-            let sceneDuration = max(baseDuration, max(animDur, totalVoiceDuration))
+            let sceneDuration: Double
+            if totalVoiceDuration > 0.05 {
+                // セリフ音声長に完全に一致
+                sceneDuration = totalVoiceDuration
+            } else if let animDur = firstItem.animationDuration, animDur > 0 {
+                sceneDuration = animDur
+            } else {
+                sceneDuration = max(2.5, firstItem.slideDuration)
+            }
 
             // MovieScene の生成/更新
             let matchedSlide = appState.slides.first(where: { $0.slideIndex == slideIdx })
@@ -456,7 +462,7 @@ public final class SlideVoiceBatchService: ObservableObject {
             let validVoices = slideItems.filter { !$0.isSkipped }
             let v1 = validVoices.first
             let v2 = validVoices.count >= 2 ? validVoices[1] : nil
-            let v2Offset = (v1 != nil && v2 != nil && !isDuoUnison) ? ((v1?.audioDuration ?? 0.0) + 0.2) : 0.0
+            let v2Offset = (v1 != nil && v2 != nil && !isDuoUnison) ? (v1?.audioDuration ?? 0.0) : 0.0
 
             let scene = MovieScene(
                 title: finalTitle,
@@ -507,9 +513,9 @@ public final class SlideVoiceBatchService: ObservableObject {
                         pitch: item.pitch
                     )
                     appState.soundClips.append(clip)
-                    // 次のセリフは前のセリフの終了後に開始（自然な0.2秒の間隔を空けて連続再生）
+                    // 次のセリフは前のセリフの終了直後に隙間なく開始
                     if !isDuoUnison {
-                        clipStartTime += item.audioDuration + 0.2
+                        clipStartTime += item.audioDuration
                     }
                 }
             }
@@ -546,6 +552,8 @@ public final class SlideVoiceBatchService: ObservableObject {
             appState.soundClips[movieIdx].duration = max(currentPosition, appState.soundClips[movieIdx].duration)
         }
 
+        appState.totalDuration = max(currentPosition, 1.0)
+        appState.syncClipsToMovieScenes(appState.soundClips)
         appState.log("全スライド (\(items.count) 件) の音声をシーンごとにタイムラインへ配置しました (総尺: \(String(format: "%.1f", currentPosition))秒)")
     }
 

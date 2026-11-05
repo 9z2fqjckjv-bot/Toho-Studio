@@ -106,6 +106,7 @@ public struct MovieScene: Identifiable, Codable, Equatable {
     public var seStartTimeOffset: Double? = 0.0 // シーン先頭からのSE再生遅延秒数 (ミリ秒単位でアライメント)
     public var seVolume: Double? = 1.0          // SEの音量 (0.0〜1.0)
     public var voiceStartTimeOffset: Double? = 0.0 // シーン先頭からのボイス再生遅延秒数
+    public var showTelopOverlay: Bool? = nil    // 映像上に黒帯字幕テロップを重ねて描画するか (nilの場合はスライド/動画有無により自動判定)
 
     public init(
         id: UUID = UUID(),
@@ -139,7 +140,8 @@ public struct MovieScene: Identifiable, Codable, Equatable {
         seName: String? = nil,
         seStartTimeOffset: Double? = 0.0,
         seVolume: Double? = 1.0,
-        voiceStartTimeOffset: Double? = 0.0
+        voiceStartTimeOffset: Double? = 0.0,
+        showTelopOverlay: Bool? = nil
     ) {
         self.id = id
         self.title = title
@@ -173,6 +175,7 @@ public struct MovieScene: Identifiable, Codable, Equatable {
         self.seStartTimeOffset = seStartTimeOffset
         self.seVolume = seVolume
         self.voiceStartTimeOffset = voiceStartTimeOffset
+        self.showTelopOverlay = showTelopOverlay
     }
 
     public init(from decoder: Decoder) throws {
@@ -209,6 +212,7 @@ public struct MovieScene: Identifiable, Codable, Equatable {
         self.seStartTimeOffset = try container.decodeIfPresent(Double.self, forKey: .seStartTimeOffset) ?? 0.0
         self.seVolume = try container.decodeIfPresent(Double.self, forKey: .seVolume) ?? 1.0
         self.voiceStartTimeOffset = try container.decodeIfPresent(Double.self, forKey: .voiceStartTimeOffset) ?? 0.0
+        self.showTelopOverlay = try container.decodeIfPresent(Bool.self, forKey: .showTelopOverlay)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -217,7 +221,20 @@ public struct MovieScene: Identifiable, Codable, Equatable {
         case slideImagePath, videoPath, backgroundImagePath, characterImagePath
         case voiceAudioPath, voiceCharacter, voiceDuration, voice2AudioPath, voice2Character, voice2Duration, voice2StartTimeOffset
         case bgmAudioPath, bgmName, bgmStartTimeOffset, bgmVolume, seAudioPath, seName
-        case seStartTimeOffset, seVolume, voiceStartTimeOffset
+        case seStartTimeOffset, seVolume, voiceStartTimeOffset, showTelopOverlay
+    }
+
+    /// 映像上にテロップ字幕オーバーレイを描画すべきかどうか
+    /// （スライド画像や動画がある場合はスライド自体に文字がレイアウトされているためデフォルトfalseで二重表示を防止）
+    public var shouldRenderTelopOverlay: Bool {
+        if let explicit = showTelopOverlay {
+            return explicit
+        }
+        let hasSlideOrVideo = (slideImagePath != nil && !slideImagePath!.isEmpty) || (videoPath != nil && !videoPath!.isEmpty)
+        if hasSlideOrVideo {
+            return false
+        }
+        return true
     }
 
     /// クリーンなテロップ/セリフ（()書き表記（アニメーション）や話者タグを除外したテキスト）

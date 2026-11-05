@@ -15,8 +15,13 @@ struct TohoStudioApp: App {
             runCharacterMakerSelfTest()
             runSoundMakerExportSelfTest()
             runSoundMakerDuoSpeakerSelfTest()
+            runSoundMakerMovieMakerSyncSelfTest()
             runAIImagePromptSelfTest()
             print("\n🎉 ALL TOHOSTUDIO SELF-TESTS PASSED SUCCESSFULLY! 🎉\n")
+            exit(0)
+        }
+        if CommandLine.arguments.contains("--test-sound-movie-sync") {
+            runSoundMakerMovieMakerSyncSelfTest()
             exit(0)
         }
         if CommandLine.arguments.contains("--test-character-maker") {
@@ -474,6 +479,259 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         print("3-3. SlideRecognitionService.syncToSoundMaker: Verified assigning 2 voices to a single scene!")
 
         print("=== [TEST] ALL SOUNDMAKER DUO SPEAKER TESTS PASSED SUCCESSFULLY! ===")
+    }
+
+    private func runSoundMakerMovieMakerSyncSelfTest() {
+        print("=== [TEST] SoundMaker Voice Duration & MovieMaker Sync Self-Test Started ===")
+        let appState = AppState.shared
+
+        // 1. テスト用スライドおよびシーンの準備
+        appState.slides = [
+            SlideItem(slideIndex: 1, title: "シーン1", telop: "霊夢のセリフです", presenterNote: "(霊夢) 霊夢のセリフです", characterName: "博麗霊夢", duration: 5.0),
+            SlideItem(slideIndex: 2, title: "シーン2", telop: "掛け合いシーン", presenterNote: "[霊夢] こんにちは [魔理沙] 元気か？", characterName: "博麗霊夢&霧雨魔理沙", duration: 5.0),
+            SlideItem(slideIndex: 3, title: "シーン3", telop: "ユニゾンシーン", presenterNote: "(霊夢&魔理沙) ゆっくりしていってね！", characterName: "博麗霊夢&霧雨魔理沙", duration: 5.0)
+        ]
+        appState.movieScenes = [
+            MovieScene(title: "シーン 1", duration: 5.0, slideTitle: "スライド #1", backgroundName: "神社", characterName: "博麗霊夢", telop: "霊夢のセリフです"),
+            MovieScene(title: "シーン 2", duration: 5.0, slideTitle: "スライド #2", backgroundName: "神社", characterName: "博麗霊夢&霧雨魔理沙", telop: "掛け合いシーン"),
+            MovieScene(title: "シーン 3", duration: 5.0, slideTitle: "スライド #3", backgroundName: "神社", characterName: "博麗霊夢&霧雨魔理沙", telop: "ゆっくりしていってね！")
+        ]
+
+        // 2. 音声クリップの配置（単一セリフ、掛け合いセリフ、ユニゾンセリフ）
+        let v1_duration = 3.42
+        let v2_1_duration = 2.15
+        let v2_2_duration = 1.85
+        let v3_1_duration = 2.80
+        let v3_2_duration = 2.80
+
+        let clipV1 = SoundClip(
+            name: "[博麗霊夢] 霊夢のセリフです",
+            type: "Voice",
+            character: "博麗霊夢",
+            text: "霊夢のセリフです",
+            duration: v1_duration,
+            sceneIndex: 1,
+            audioFilePath: "/mock/audio/reimu_1.wav"
+        )
+        let clipV2_1 = SoundClip(
+            name: "[博麗霊夢] こんにちは",
+            type: "Voice",
+            character: "博麗霊夢",
+            text: "こんにちは",
+            duration: v2_1_duration,
+            sceneIndex: 2,
+            audioFilePath: "/mock/audio/reimu_2.wav"
+        )
+        let clipV2_2 = SoundClip(
+            name: "[霧雨魔理沙] 元気か？",
+            type: "Voice",
+            character: "霧雨魔理沙",
+            text: "元気か？",
+            duration: v2_2_duration,
+            sceneIndex: 2,
+            audioFilePath: "/mock/audio/marisa_2.wav"
+        )
+        let clipV3_1 = SoundClip(
+            name: "[博麗霊夢] ゆっくりしていってね！",
+            type: "Voice",
+            character: "博麗霊夢",
+            text: "ゆっくりしていってね！",
+            duration: v3_1_duration,
+            sceneIndex: 3,
+            audioFilePath: "/mock/audio/reimu_3.wav"
+        )
+        let clipV3_2 = SoundClip(
+            name: "[霧雨魔理沙] ゆっくりしていってね！",
+            type: "Voice",
+            character: "霧雨魔理沙",
+            text: "ゆっくりしていってね！",
+            duration: v3_2_duration,
+            sceneIndex: 3,
+            audioFilePath: "/mock/audio/marisa_3.wav"
+        )
+
+        // 効果音（シーン1に相対時刻1.2秒で配置）
+        let se1 = SoundClip(
+            name: "決定音",
+            type: "SE",
+            duration: 0.8,
+            sceneIndex: 1,
+            sceneRelativeStartTime: 1.2,
+            audioFilePath: "/mock/audio/se_decision.wav"
+        )
+
+        // 跨ぎBGM（シーン1〜3、オフセット0.5秒）
+        let bgm1 = SoundClip(
+            name: "東方BGM",
+            type: "BGM",
+            duration: 20.0,
+            sceneIndex: 1,
+            sceneRelativeStartTime: 0.5,
+            spanStartSceneIndex: 1,
+            spanEndSceneIndex: 3,
+            audioFilePath: "/mock/audio/bgm.mp3"
+        )
+
+        appState.soundClips = [clipV1, clipV2_1, clipV2_2, clipV3_1, clipV3_2, se1, bgm1]
+
+        // 3. syncSceneAndClipTimings(autoFitDuration: true) を実行
+        appState.syncSceneAndClipTimings(autoFitDuration: true)
+
+        // 【検証1: セリフ音声の長さとシーンの長さの完全一致】
+        let sc1 = appState.movieScenes[0]
+        let sc2 = appState.movieScenes[1]
+        let sc3 = appState.movieScenes[2]
+
+        print("  Scene 1 Duration: \(sc1.duration) (Expected: \(v1_duration))")
+        assert(abs(sc1.duration - v1_duration) < 0.001, "Scene 1 duration must exactly match Voice 1 duration! got \(sc1.duration)")
+        assert(sc1.voiceDuration == v1_duration, "Scene 1 voice duration must match Voice 1 duration")
+        assert(sc1.voiceStartTimeOffset == 0.0, "Scene 1 voice start time offset must be 0.0")
+
+        let expectedScene2Dur = v2_1_duration + v2_2_duration
+        print("  Scene 2 Duration: \(sc2.duration) (Expected: \(expectedScene2Dur))")
+        assert(abs(sc2.duration - expectedScene2Dur) < 0.001, "Scene 2 duration must exactly match sum of 2 voices! got \(sc2.duration)")
+        assert(sc2.voiceDuration == v2_1_duration, "Scene 2 voice 1 duration must match")
+        assert(sc2.voice2Duration == v2_2_duration, "Scene 2 voice 2 duration must match")
+        assert(sc2.voiceStartTimeOffset == 0.0, "Scene 2 voice 1 start offset must be 0.0")
+        assert(abs(sc2.voice2StartTimeOffset! - v2_1_duration) < 0.001, "Scene 2 voice 2 start offset must be voice 1 duration")
+
+        print("  Scene 3 Duration: \(sc3.duration) (Expected: \(v3_1_duration))")
+        assert(abs(sc3.duration - v3_1_duration) < 0.001, "Scene 3 unison duration must match max voice duration! got \(sc3.duration)")
+        assert(sc3.voice2StartTimeOffset == 0.0, "Scene 3 unison voice 2 start offset must be 0.0")
+        print("1. Verified: Dialogue voice duration and scene duration match completely!")
+
+        // 【検証2: 効果音（SE）の時間と再生位置の反映】
+        assert(sc1.seName == "決定音", "Scene 1 SE name must be 決定音")
+        assert(sc1.seAudioPath == "/mock/audio/se_decision.wav", "Scene 1 SE path must match")
+        assert(abs(sc1.seStartTimeOffset! - 1.2) < 0.001, "Scene 1 SE start offset must be exactly 1.2s, got \(sc1.seStartTimeOffset!)")
+        let syncedSE1 = appState.soundClips.first(where: { $0.id == se1.id })!
+        assert(abs(syncedSE1.startTime - 1.2) < 0.001, "SE1 start time on timeline must be exactly 1.2s")
+        print("2. Verified: Sound effect (SE) timing and playback offset reflected accurately!")
+
+        // 【検証3: BGMの時間と再生位置の反映】
+        assert(sc1.bgmName == "東方BGM", "Scene 1 BGM name must match")
+        assert(abs(sc1.bgmStartTimeOffset! - 0.5) < 0.001, "Scene 1 BGM start offset must be 0.5s")
+
+        // シーン2での跨ぎ継続経過時間: (sc1.duration - 0.5)
+        let expectedBgmElapsed2 = sc1.duration - 0.5
+        assert(abs(sc2.bgmStartTimeOffset! - (-expectedBgmElapsed2)) < 0.001, "Scene 2 BGM offset must be negative elapsed time (-\(expectedBgmElapsed2)), got \(sc2.bgmStartTimeOffset!)")
+
+        // シーン3での跨ぎ継続経過時間: (sc1.duration + sc2.duration - 0.5)
+        let expectedBgmElapsed3 = (sc1.duration + sc2.duration) - 0.5
+        assert(abs(sc3.bgmStartTimeOffset! - (-expectedBgmElapsed3)) < 0.001, "Scene 3 BGM offset must be negative elapsed time (-\(expectedBgmElapsed3)), got \(sc3.bgmStartTimeOffset!)")
+        print("3. Verified: BGM timing and spanning offset reflected accurately across all scenes!")
+
+        // 【検証4: assignAudioFromSoundMaker による一括自動割り当ての検証】
+        appState.movieScenes = [
+            MovieScene(title: "シーン 1", duration: 10.0, slideTitle: "スライド #1", backgroundName: "神社", characterName: "博麗霊夢", telop: "霊夢のセリフです"),
+            MovieScene(title: "シーン 2", duration: 10.0, slideTitle: "スライド #2", backgroundName: "神社", characterName: "博麗霊夢&霧雨魔理沙", telop: "掛け合いシーン"),
+            MovieScene(title: "シーン 3", duration: 10.0, slideTitle: "スライド #3", backgroundName: "神社", characterName: "博麗霊夢&霧雨魔理沙", telop: "ゆっくりしていってね！")
+        ]
+        let assignResult = appState.assignAudioFromSoundMaker(autoFitDuration: true)
+        print("  Assign result message: \(assignResult.message)")
+        assert(assignResult.assignedVoiceCount == 5, "Should assign 5 voices, got \(assignResult.assignedVoiceCount)")
+        assert(assignResult.assignedSECount >= 1, "Should assign at least 1 SE")
+        assert(assignResult.assignedBGMCount >= 1, "Should assign at least 1 BGM")
+
+        let postSc1 = appState.movieScenes[0]
+        let postSc2 = appState.movieScenes[1]
+        let postSc3 = appState.movieScenes[2]
+        let actualV1Dur = postSc1.voiceDuration ?? v1_duration
+        let actualV2Total = (postSc2.voiceDuration ?? 0.0) + (postSc2.voice2Duration ?? 0.0)
+        let actualV3Unison = max(postSc3.voiceDuration ?? 0.0, postSc3.voice2Duration ?? 0.0)
+        assert(abs(postSc1.duration - actualV1Dur) < 0.001, "After assign, Scene 1 duration must match voice duration! got \(postSc1.duration), voice: \(actualV1Dur)")
+        assert(abs(postSc2.duration - actualV2Total) < 0.001, "After assign, Scene 2 duration must match sum of voices! got \(postSc2.duration), voices: \(actualV2Total)")
+        assert(abs(postSc3.duration - actualV3Unison) < 0.001, "After assign, Scene 3 duration must match unison duration! got \(postSc3.duration), unison: \(actualV3Unison)")
+        assert(abs(postSc1.seStartTimeOffset! - 1.2) < 0.001, "After assign, SE offset must be 1.2s")
+        assert(abs(postSc1.bgmStartTimeOffset! - 0.5) < 0.001, "After assign, BGM offset must be 0.5s")
+        print("4. Verified: assignAudioFromSoundMaker completely fits dialogue duration and reflects SE/BGM!")
+
+        // 【検証5: ムービーメーカー再生バーとタイムライン再生位置・時間表示の完全一致】
+        let totalMovieDuration = appState.movieTotalDuration
+        let expectedTotalMovie = postSc1.duration + postSc2.duration + postSc3.duration
+        print("  Total Movie Duration: \(totalMovieDuration)s (Sum of scenes: \(expectedTotalMovie)s)")
+        assert(abs(totalMovieDuration - expectedTotalMovie) < 0.001, "movieTotalDuration must exactly match sum of movieScenes duration!")
+
+        // タイムライン上のシーン1の途中（1.5秒）へシーク
+        appState.seekMoviePlayback(to: 1.5)
+        assert(appState.currentTime == 1.5, "Playback position must be 1.5s")
+        assert(appState.selectedSceneIndex == 0, "Current scene must be Scene 1 (index 0)")
+        let info1 = appState.currentScenePlaybackInfo()!
+        assert(info1.sceneIndex == 0, "Playback info scene index must be 0")
+        assert(abs(info1.sceneRelativeTime - 1.5) < 0.001, "Scene relative time must be 1.5s")
+
+        // タイムライン上のシーン2の途中（シーン1終了後 + 1.0秒）へシーク
+        let seekScene2 = postSc1.duration + 1.0
+        appState.seekMoviePlayback(to: seekScene2)
+        assert(abs(appState.currentTime - seekScene2) < 0.001, "Playback position must be \(seekScene2)s")
+        assert(appState.selectedSceneIndex == 1, "Current scene must be Scene 2 (index 1)")
+        let info2 = appState.currentScenePlaybackInfo()!
+        assert(info2.sceneIndex == 1, "Playback info scene index must be 1")
+        assert(abs(info2.sceneRelativeTime - 1.0) < 0.001, "Scene 2 relative time must be 1.0s")
+        assert(abs(info2.progress - (1.0 / postSc2.duration)) < 0.001, "Scene 2 progress must match relative/duration")
+
+        // 動画末尾を超える時間をシークしたとき、movieTotalDuration で正しくクランプされることを検証
+        appState.seekMoviePlayback(to: 999.0)
+        assert(abs(appState.currentTime - totalMovieDuration) < 0.001, "Seek beyond end must clamp to movieTotalDuration!")
+        assert(appState.selectedSceneIndex == 2, "Clamped position must select the last scene")
+        print("5. Verified: MovieMaker playback bar position & time display completely match timeline!")
+
+        // 【検証6: スライド画像・動画存在時の字幕オーバーレイ自動OFF（2重重複防止）】
+        var slideScene = MovieScene(
+            title: "スライドシーン",
+            duration: 5.0,
+            slideTitle: "スライド1",
+            backgroundName: "背景",
+            characterName: "操夢",
+            telop: "僕が、ATMから戻って、",
+            slideImagePath: "/mock/slides/Slide_001.png"
+        )
+        assert(slideScene.shouldRenderTelopOverlay == false, "Scene with slideImagePath must default shouldRenderTelopOverlay to false!")
+
+        let videoScene = MovieScene(
+            title: "動画シーン",
+            duration: 5.0,
+            slideTitle: "スライド2",
+            backgroundName: "背景",
+            characterName: "操夢",
+            telop: "動画テロップ",
+            videoPath: "/mock/video/anim.mp4"
+        )
+        assert(videoScene.shouldRenderTelopOverlay == false, "Scene with videoPath must default shouldRenderTelopOverlay to false!")
+
+        let normalLayerScene = MovieScene(
+            title: "レイヤー立ち絵シーン",
+            duration: 5.0,
+            slideTitle: "スライド3",
+            backgroundName: "背景",
+            characterName: "操夢",
+            telop: "立ち絵テロップ"
+        )
+        assert(normalLayerScene.shouldRenderTelopOverlay == true, "Scene without slide or video must default shouldRenderTelopOverlay to true!")
+
+        // ユーザーが明示的にONにした場合の動作検証
+        slideScene.showTelopOverlay = true
+        assert(slideScene.shouldRenderTelopOverlay == true, "Explicitly setting showTelopOverlay=true must override default")
+        print("6. Verified: Telop overlay auto-off on slide/video scenes prevents duplicate subtitle bug!")
+
+        // 【検証7: soundClips未登録時でもシーンに直接割り当てられた音声の秒数への自動一致補正】
+        let directVoiceScene = MovieScene(
+            title: "直割当シーン",
+            duration: 9.3, // 旧マージンや手動設定の9.3秒
+            slideTitle: "スライド4",
+            backgroundName: "背景",
+            characterName: "操夢",
+            telop: "僕が、ATMから戻って、",
+            voiceAudioPath: "/mock/Slide_001_操夢.wav",
+            voiceDuration: 8.7 // 実際の音声実尺8.7秒
+        )
+        appState.movieScenes = [directVoiceScene]
+        appState.soundClips = [] // soundClips にクリップがない状態
+        appState.syncSceneAndClipTimings(autoFitDuration: true)
+        assert(abs(appState.movieScenes[0].duration - 8.7) < 0.001, "Directly assigned voice duration (8.7s) must overwrite scene duration (9.3s)!")
+        print("7. Verified: Direct voiceDuration completely fixes 9.3s to 8.7s mismatch even without soundClips!")
+
+        print("=== [TEST] ALL SOUNDMAKER & MOVIEMAKER SYNC TESTS PASSED SUCCESSFULLY! ===")
     }
 
     var body: some Scene {

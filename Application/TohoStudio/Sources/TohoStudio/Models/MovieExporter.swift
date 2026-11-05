@@ -382,9 +382,10 @@ public enum MovieExporter {
         }
 
         // テロップ (字幕) の重畳 (CoreGraphicsで透過PNGを生成しoverlay合成)
+        // スライド画像や動画素材が存在する場合、スライド自体に文字がレイアウトされているため二重焼き込みを防止
         let telopText = (scene.telop.isEmpty ? scene.slideTitle : scene.telop).trimmingCharacters(in: .whitespacesAndNewlines)
         let telopPNGURL = outputURL.deletingLastPathComponent().appendingPathComponent(String(format: "telop_%04d.png", index))
-        let shouldBurn = options.includeBurnedSubtitles
+        let shouldBurn = options.includeBurnedSubtitles && scene.shouldRenderTelopOverlay
         let hasTelop = shouldBurn && generateTelopImage(
             speaker: scene.characterName,
             text: telopText,
@@ -437,17 +438,27 @@ public enum MovieExporter {
                     filter += "adelay=\(delayMs)|\(delayMs),"
                 }
             } else if aPath == scene.seAudioPath {
-                if let offset = scene.seStartTimeOffset, offset > 0.001 {
-                    let delayMs = Int(offset * 1000)
-                    filter += "adelay=\(delayMs)|\(delayMs),"
+                if let offset = scene.seStartTimeOffset {
+                    if offset > 0.001 {
+                        let delayMs = Int(offset * 1000)
+                        filter += "adelay=\(delayMs)|\(delayMs),"
+                    } else if offset < -0.001 {
+                        let skipSec = abs(offset)
+                        filter += "atrim=start=\(String(format: "%.3f", skipSec)),asetpts=PTS-STARTPTS,"
+                    }
                 }
                 if let vol = scene.seVolume, abs(vol - 1.0) > 0.01 {
                     filter += "volume=\(String(format: "%.2f", max(0.0, min(1.0, vol)))),"
                 }
             } else if aPath == scene.bgmAudioPath {
-                if let offset = scene.bgmStartTimeOffset, offset > 0.001 {
-                    let delayMs = Int(offset * 1000)
-                    filter += "adelay=\(delayMs)|\(delayMs),"
+                if let offset = scene.bgmStartTimeOffset {
+                    if offset > 0.001 {
+                        let delayMs = Int(offset * 1000)
+                        filter += "adelay=\(delayMs)|\(delayMs),"
+                    } else if offset < -0.001 {
+                        let skipSec = abs(offset)
+                        filter += "atrim=start=\(String(format: "%.3f", skipSec)),asetpts=PTS-STARTPTS,"
+                    }
                 }
                 if let vol = scene.bgmVolume, abs(vol - 1.0) > 0.01 {
                     filter += "volume=\(String(format: "%.2f", max(0.0, min(1.0, vol)))),"
@@ -474,17 +485,27 @@ public enum MovieExporter {
                         filter += "adelay=\(delayMs)|\(delayMs),"
                     }
                 } else if aPath == scene.seAudioPath {
-                    if let offset = scene.seStartTimeOffset, offset > 0.001 {
-                        let delayMs = Int(offset * 1000)
-                        filter += "adelay=\(delayMs)|\(delayMs),"
+                    if let offset = scene.seStartTimeOffset {
+                        if offset > 0.001 {
+                            let delayMs = Int(offset * 1000)
+                            filter += "adelay=\(delayMs)|\(delayMs),"
+                        } else if offset < -0.001 {
+                            let skipSec = abs(offset)
+                            filter += "atrim=start=\(String(format: "%.3f", skipSec)),asetpts=PTS-STARTPTS,"
+                        }
                     }
                     if let vol = scene.seVolume, abs(vol - 1.0) > 0.01 {
                         filter += "volume=\(String(format: "%.2f", max(0.0, min(1.0, vol)))),"
                     }
                 } else if aPath == scene.bgmAudioPath {
-                    if let offset = scene.bgmStartTimeOffset, offset > 0.001 {
-                        let delayMs = Int(offset * 1000)
-                        filter += "adelay=\(delayMs)|\(delayMs),"
+                    if let offset = scene.bgmStartTimeOffset {
+                        if offset > 0.001 {
+                            let delayMs = Int(offset * 1000)
+                            filter += "adelay=\(delayMs)|\(delayMs),"
+                        } else if offset < -0.001 {
+                            let skipSec = abs(offset)
+                            filter += "atrim=start=\(String(format: "%.3f", skipSec)),asetpts=PTS-STARTPTS,"
+                        }
                     }
                     if let vol = scene.bgmVolume, abs(vol - 1.0) > 0.01 {
                         filter += "volume=\(String(format: "%.2f", max(0.0, min(1.0, vol)))),"

@@ -138,8 +138,8 @@ public struct MovieMakerView: View {
             )
         }
         .onAppear {
-            // サウンドメーカーのクリップとシーン時間のタイミング整合
-            appState.syncSceneAndClipTimings(autoFitDuration: false)
+            // サウンドメーカーのクリップとシーン時間のタイミング整合（セリフ音声長とシーン長の完全一致およびSE/BGM反映）
+            appState.syncSceneAndClipTimings(autoFitDuration: autoFitDurationWithVoice)
             // サウンドメーカーのクリップ割り当て（BGM・SE・ボイス）の最新状態を同期
             appState.syncClipsToMovieScenes(appState.soundClips)
             // スライド情報からメディア（画像・動画）を自動解決
@@ -256,6 +256,22 @@ public struct MovieMakerView: View {
 
                 Divider()
 
+                Button("全シーンの表示秒数を割り当て音声に一括同期") {
+                    appState.syncSceneAndClipTimings(autoFitDuration: true)
+                }
+
+                Button("スライド文字重複防止 (全スライドの字幕オーバーレイを一括OFF)") {
+                    for i in 0..<appState.movieScenes.count {
+                        let sc = appState.movieScenes[i]
+                        let hasSlide = (sc.slideImagePath != nil && !sc.slideImagePath!.isEmpty) || (sc.videoPath != nil && !sc.videoPath!.isEmpty)
+                        if hasSlide {
+                            appState.movieScenes[i].showTelopOverlay = false
+                        }
+                    }
+                }
+
+                Divider()
+
                 Toggle("音声長さに合わせてシーン秒数を自動調整", isOn: $autoFitDurationWithVoice)
             } label: {
                 Label("サウンド音声を自動割り当て", systemImage: "waveform.badge.plus")
@@ -364,54 +380,77 @@ public struct MovieMakerView: View {
                         }
                         Spacer()
 
-                        // 解像度＆速度表示＆アスペクト比選択
-                        HStack(spacing: 4) {
-                            Text("\(String(format: "%.1f", appState.playbackSpeed))x")
-                                .font(.system(size: 10, design: .monospaced))
-                            Text("|")
-                                .foregroundColor(.secondary)
-                            Menu {
-                                Button("自動判別 (現在: \(appState.isVerticalVideo() ? "縦長 9:16" : "横長 16:9"))") {
-                                    appState.videoAspectRatioPreset = "自動判別"
-                                }
-                                Divider()
-                                Button("16:9 (横長 1920x1080)") {
-                                    appState.videoAspectRatioPreset = "16:9 (横長)"
-                                }
-                                Button("9:16 (縦長 1080x1920 Shorts/TikTok)") {
-                                    appState.videoAspectRatioPreset = "9:16 (縦長・Shorts)"
-                                }
-                                Button("1:1 (正方形 1080x1080)") {
-                                    appState.videoAspectRatioPreset = "1:1 (正方形)"
-                                }
-                            } label: {
+                        // 字幕表示切り替え & 解像度＆速度表示＆アスペクト比選択
+                        HStack(spacing: 6) {
+                            // 字幕オーバーレイ切り替えボタン
+                            let hasSlideOrVideo = (scene.slideImagePath != nil && !scene.slideImagePath!.isEmpty) || (scene.videoPath != nil && !scene.videoPath!.isEmpty)
+                            Button(action: {
+                                let current = scene.shouldRenderTelopOverlay
+                                appState.movieScenes[appState.selectedSceneIndex].showTelopOverlay = !current
+                            }) {
                                 HStack(spacing: 3) {
-                                    Text(appState.currentResolutionText())
-                                    if appState.isVerticalVideo() {
-                                        Text("(9:16)")
-                                            .foregroundColor(.cyan)
-                                    }
-                                    Image(systemName: "chevron.down")
-                                        .font(.system(size: 7))
+                                    Image(systemName: scene.shouldRenderTelopOverlay ? "captions.bubble.fill" : "captions.bubble")
+                                    Text(scene.shouldRenderTelopOverlay ? "字幕:ON" : "字幕:OFF")
                                 }
-                                .font(.system(size: 10, design: .monospaced))
+                                .font(.system(size: 10, weight: .bold))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(scene.shouldRenderTelopOverlay ? (hasSlideOrVideo ? Color.orange.opacity(0.85) : Color.cyan.opacity(0.85)) : Color.black.opacity(0.65))
+                                .foregroundColor(scene.shouldRenderTelopOverlay ? .white : .white.opacity(0.7))
+                                .cornerRadius(4)
                             }
-                            .menuStyle(.borderlessButton)
+                            .buttonStyle(.plain)
+                            .help(hasSlideOrVideo ? "スライド画像に文字が含まれているためOFF推奨。クリックで切替" : "映像上の字幕テロップ表示切替")
+
+                            HStack(spacing: 4) {
+                                Text("\(String(format: "%.1f", appState.playbackSpeed))x")
+                                    .font(.system(size: 10, design: .monospaced))
+                                Text("|")
+                                    .foregroundColor(.secondary)
+                                Menu {
+                                    Button("自動判別 (現在: \(appState.isVerticalVideo() ? "縦長 9:16" : "横長 16:9"))") {
+                                        appState.videoAspectRatioPreset = "自動判別"
+                                    }
+                                    Divider()
+                                    Button("16:9 (横長 1920x1080)") {
+                                        appState.videoAspectRatioPreset = "16:9 (横長)"
+                                    }
+                                    Button("9:16 (縦長 1080x1920 Shorts/TikTok)") {
+                                        appState.videoAspectRatioPreset = "9:16 (縦長・Shorts)"
+                                    }
+                                    Button("1:1 (正方形 1080x1080)") {
+                                        appState.videoAspectRatioPreset = "1:1 (正方形)"
+                                    }
+                                } label: {
+                                    HStack(spacing: 3) {
+                                        Text(appState.currentResolutionText())
+                                        if appState.isVerticalVideo() {
+                                            Text("(9:16)")
+                                                .foregroundColor(.cyan)
+                                        }
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 7))
+                                    }
+                                    .font(.system(size: 10, design: .monospaced))
+                                }
+                                .menuStyle(.borderlessButton)
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(Color.black.opacity(0.65))
+                            .foregroundColor(.white.opacity(0.9))
+                            .cornerRadius(4)
                         }
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(Color.black.opacity(0.65))
-                        .foregroundColor(.white.opacity(0.9))
-                        .cornerRadius(4)
                     }
                     .padding(10)
 
                     Spacer()
 
                     // クリーンなテロップ字幕 (YouTube / ゆっくり解説風)
+                    // スライド画像や動画がある場合はスライド自体に文字が描画されているため、shouldRenderTelopOverlayが有効な場合のみ描画
                     let telopText = scene.displayTelop.isEmpty ? scene.telop : scene.displayTelop
                     let isVertical = appState.isVerticalVideo()
-                    if !telopText.isEmpty {
+                    if !telopText.isEmpty && scene.shouldRenderTelopOverlay {
                         VStack(spacing: 4) {
                             if !scene.characterName.isEmpty {
                                 HStack {
@@ -437,7 +476,7 @@ public struct MovieMakerView: View {
                                     RoundedRectangle(cornerRadius: 6)
                                         .fill(Color.black.opacity(0.82))
                                         .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
-                                )
+                                raid)
                                 .padding(.horizontal, isVertical ? 8 : 16)
                                 .padding(.bottom, isVertical ? 10 : 16)
                         }
@@ -520,19 +559,19 @@ public struct MovieMakerView: View {
     // MARK: - Playback Control Bar
     private var playbackControlBar: some View {
         VStack(spacing: 8) {
-            // Scrubber
+            // Scrubber (ムービー全体の総尺 movieTotalDuration に完全連動)
             HStack(spacing: 10) {
                 Text(formatTime(appState.currentTime))
                     .font(.caption)
                     .monospacedDigit()
                 Slider(
                     value: Binding(
-                        get: { appState.currentTime },
+                        get: { min(appState.currentTime, appState.movieTotalDuration) },
                         set: { appState.seekMoviePlayback(to: $0) }
                     ),
-                    in: 0...max(appState.totalDuration, 1.0)
+                    in: 0...max(appState.movieTotalDuration, 0.1)
                 )
-                Text(formatTime(appState.totalDuration))
+                Text(formatTime(appState.movieTotalDuration))
                     .font(.caption)
                     .monospacedDigit()
             }
@@ -572,7 +611,7 @@ public struct MovieMakerView: View {
                 .help(appState.isPlaying ? "一時停止 (Space)" : "再生 (Space)")
 
                 // Forward 5s
-                Button(action: { appState.seekMoviePlayback(to: min(appState.currentTime + 5.0, appState.totalDuration)) }) {
+                Button(action: { appState.seekMoviePlayback(to: min(appState.currentTime + 5.0, appState.movieTotalDuration)) }) {
                     Image(systemName: "goforward.5")
                 }
                 .buttonStyle(.plain)
@@ -629,12 +668,87 @@ public struct MovieMakerView: View {
                         .frame(height: 60)
                         .border(Color.secondary.opacity(0.2))
 
-                        HStack {
-                            Text("表示秒数:")
-                            Spacer()
-                            Text("\(String(format: "%.1f", scene.duration)) 秒").bold()
+                        // 字幕オーバーレイ表示トグル
+                        let hasSlideOrVideo = (scene.slideImagePath != nil && !scene.slideImagePath!.isEmpty) || (scene.videoPath != nil && !scene.videoPath!.isEmpty)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Toggle("映像上にテロップ字幕を重ねる", isOn: Binding(
+                                get: { scene.shouldRenderTelopOverlay },
+                                set: { appState.movieScenes[appState.selectedSceneIndex].showTelopOverlay = $0 }
+                            ))
+                            .font(.caption)
+
+                            if hasSlideOrVideo {
+                                Text("※ スライド画像/動画自体に文字が含まれるため、重複防止のためOFFが推奨されます")
+                                    .font(.system(size: 9.5))
+                                    .foregroundColor(.orange)
+                            }
                         }
-                        .font(.caption)
+                        .padding(.vertical, 2)
+
+                        // 表示秒数コントロール & 音声同期
+                        let voice1Dur = scene.voiceDuration ?? 0.0
+                        let voice2Dur = scene.voice2Duration ?? 0.0
+                        let isUnison = (scene.voice2StartTimeOffset ?? 0.0) == 0.0 && (scene.voiceCharacter == scene.voice2Character)
+                        let targetVoiceDur: Double = isUnison ? max(voice1Dur, voice2Dur) : (voice1Dur + voice2Dur)
+                        let hasVoice = targetVoiceDur > 0.05
+                        let isDurationSynced = hasVoice && abs(scene.duration - targetVoiceDur) < 0.05
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("表示秒数:")
+                                    .font(.caption)
+                                Spacer()
+                                Text("\(String(format: "%.1f", scene.duration)) 秒")
+                                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+
+                                // 微調整ボタン
+                                HStack(spacing: 2) {
+                                    Button("-0.1") {
+                                        let newD = max(0.2, appState.movieScenes[appState.selectedSceneIndex].duration - 0.1)
+                                        appState.movieScenes[appState.selectedSceneIndex].duration = newD
+                                        appState.syncSceneAndClipTimings(autoFitDuration: false)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .font(.system(size: 9))
+
+                                    Button("+0.1") {
+                                        let newD = appState.movieScenes[appState.selectedSceneIndex].duration + 0.1
+                                        appState.movieScenes[appState.selectedSceneIndex].duration = newD
+                                        appState.syncSceneAndClipTimings(autoFitDuration: false)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .font(.system(size: 9))
+                                }
+                            }
+
+                            if hasVoice {
+                                if !isDurationSynced {
+                                    HStack {
+                                        Label("音声長 (\(String(format: "%.1f", targetVoiceDur))秒) と不一致", systemImage: "exclamationmark.triangle.fill")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(.orange)
+                                        Spacer()
+                                        Button("音声長に合わせる") {
+                                            appState.movieScenes[appState.selectedSceneIndex].duration = targetVoiceDur
+                                            appState.syncSceneAndClipTimings(autoFitDuration: false)
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                        .tint(.orange)
+                                        .font(.system(size: 10, weight: .bold))
+                                    }
+                                } else {
+                                    HStack {
+                                        Label("音声実尺 (\(String(format: "%.1f", targetVoiceDur))秒) に完全一致", systemImage: "checkmark.circle.fill")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(.green)
+                                        Spacer()
+                                    }
+                                }
+                            }
+                        }
+                        .padding(6)
+                        .background(Color.secondary.opacity(0.06))
+                        .cornerRadius(6)
 
                         Divider()
 
@@ -803,10 +917,24 @@ public struct MovieMakerView: View {
     // MARK: - Timeline Tracks
     private var timelineTrackView: some View {
         VStack(alignment: .leading, spacing: 6) {
+            // ヘッダー情報
             HStack {
-                Text("タイムライン (全 \(appState.movieScenes.count) シーン / \(formatTime(appState.totalDuration)))")
-                    .font(.caption)
-                    .bold()
+                HStack(spacing: 8) {
+                    Text("タイムライン")
+                        .font(.caption)
+                        .bold()
+                    Text("全 \(appState.movieScenes.count) シーン")
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.2))
+                        .cornerRadius(4)
+                    Text("再生位置: \(formatTimePrecise(appState.currentTime)) / \(formatTimePrecise(appState.movieTotalDuration))")
+                        .font(.caption)
+                        .monospacedDigit()
+                        .foregroundColor(.cyan)
+                }
+
                 Spacer()
 
                 Menu {
@@ -877,85 +1005,190 @@ public struct MovieMakerView: View {
             .padding(.horizontal, 12)
             .padding(.top, 6)
 
-            ScrollView(.horizontal, showsIndicators: true) {
-                HStack(spacing: 8) {
-                    ForEach(0..<appState.movieScenes.count, id: \.self) { idx in
-                        let scene = appState.movieScenes[idx]
-                        let isSelected = appState.selectedSceneIndex == idx
+            // 全体再生位置ルーラーバー (ムービー全体の現在位置インジケーター & クリックシーク)
+            GeometryReader { rulerGeo in
+                let totalDur = max(appState.movieTotalDuration, 0.1)
+                let currentProgress = min(1.0, max(0.0, appState.currentTime / totalDur))
+                ZStack(alignment: .leading) {
+                    // 背景レール
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.secondary.opacity(0.18))
+                        .frame(height: 8)
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text("#\(idx + 1)")
-                                    .font(.caption2)
-                                    .bold()
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 1)
-                                    .background(isSelected ? Color.accentColor : Color.secondary.opacity(0.3))
-                                    .foregroundColor(isSelected ? .white : .primary)
-                                    .cornerRadius(3)
-                                Spacer()
-                                Text(String(format: "%.1fs", scene.duration))
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-
-                            Text(scene.title)
-                                .font(.caption)
-                                .lineLimit(1)
-                                .bold()
-
-                            Text(scene.displayTelop.isEmpty ? scene.telop : scene.displayTelop)
-                                .font(.system(size: 9))
-                                .lineLimit(2)
-                                .foregroundColor(.secondary)
-
-                            Spacer()
-
-                            // 音声割り当てバッジ
-                            HStack(spacing: 4) {
-                                if let vc = scene.voiceCharacter ?? (scene.voiceAudioPath != nil ? "ボイス" : nil) {
-                                    HStack(spacing: 2) {
-                                        Image(systemName: "waveform")
-                                        Text(vc)
-                                    }
-                                    .font(.system(size: 8.5, weight: .bold))
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 1)
-                                    .background(Color.orange.opacity(0.2))
-                                    .foregroundColor(.orange)
-                                    .cornerRadius(3)
-                                }
-                                if scene.seName != nil {
-                                    Image(systemName: "bolt.fill")
-                                        .font(.system(size: 8))
-                                        .foregroundColor(.green)
-                                }
-                                if scene.videoPath != nil {
-                                    Image(systemName: "video.fill")
-                                        .font(.system(size: 8))
-                                        .foregroundColor(.blue)
-                                }
-                                Spacer()
-                            }
-                        }
-                        .padding(8)
-                        .frame(width: 150, height: 110)
-                        .background(isSelected ? Color.accentColor.opacity(0.18) : Color(NSColor.controlBackgroundColor))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.2), lineWidth: isSelected ? 2 : 1)
-                        )
-                        .cornerRadius(6)
-                        .onTapGesture {
-                            appState.selectedSceneIndex = idx
-                            // シーン開始時刻へ再生ヘッドをシーク
-                            let seekTime = appState.movieScenes.prefix(idx).reduce(0.0) { $0 + $1.duration }
-                            appState.seekMoviePlayback(to: seekTime)
+                    // シーン境界線の描画
+                    HStack(spacing: 0) {
+                        ForEach(0..<appState.movieScenes.count, id: \.self) { sIdx in
+                            let scDur = appState.movieScenes[sIdx].duration
+                            let fraction = CGFloat(scDur / totalDur)
+                            Rectangle()
+                                .fill(sIdx % 2 == 0 ? Color.white.opacity(0.06) : Color.white.opacity(0.02))
+                                .frame(width: max(1.0, rulerGeo.size.width * fraction), height: 8)
+                                .overlay(
+                                    Rectangle()
+                                        .fill(Color.secondary.opacity(0.3))
+                                        .frame(width: 1),
+                                    alignment: .trailing
+                                )
                         }
                     }
+                    .cornerRadius(3)
+
+                    // 再生済み進捗ハイライト
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.accentColor.opacity(0.5))
+                        .frame(width: rulerGeo.size.width * CGFloat(currentProgress), height: 8)
+
+                    // 再生ヘッドピン (赤い針)
+                    VStack(spacing: 0) {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 9, height: 9)
+                        Rectangle()
+                            .fill(Color.red)
+                            .frame(width: 2, height: 5)
+                    }
+                    .offset(x: max(0, min(rulerGeo.size.width - 5, rulerGeo.size.width * CGFloat(currentProgress) - 4.5)), y: 0)
                 }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 6)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { val in
+                            let ratio = max(0.0, min(1.0, val.location.x / rulerGeo.size.width))
+                            appState.seekMoviePlayback(to: Double(ratio) * totalDur)
+                        }
+                )
+            }
+            .frame(height: 14)
+            .padding(.horizontal, 12)
+
+            // シーンカード一覧（自動スクロール＆シーン内進捗表示連動）
+            ScrollViewReader { scrollProxy in
+                ScrollView(.horizontal, showsIndicators: true) {
+                    HStack(spacing: 8) {
+                        ForEach(0..<appState.movieScenes.count, id: \.self) { idx in
+                            let scene = appState.movieScenes[idx]
+                            let sStart = appState.sceneStartTime(at: idx)
+                            let sEnd = sStart + scene.duration
+                            let isSelected = appState.selectedSceneIndex == idx
+                            let isPlayingNow = appState.isPlaying && appState.currentTime >= sStart && (appState.currentTime < sEnd || idx == appState.movieScenes.count - 1)
+                            let relPlayTime = max(0.0, min(scene.duration, appState.currentTime - sStart))
+                            let sceneProgress = scene.duration > 0.01 ? (relPlayTime / scene.duration) : 0.0
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text("#\(idx + 1)")
+                                        .font(.caption2)
+                                        .bold()
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 1)
+                                        .background(isSelected ? Color.accentColor : Color.secondary.opacity(0.3))
+                                        .foregroundColor(isSelected ? .white : .primary)
+                                        .cornerRadius(3)
+
+                                    Text("\(formatTimePrecise(sStart)) - \(formatTimePrecise(sEnd))")
+                                        .font(.system(size: 8, weight: .regular, design: .monospaced))
+                                        .foregroundColor(.secondary)
+
+                                    Spacer()
+
+                                    if isPlayingNow {
+                                        HStack(spacing: 2) {
+                                            Circle()
+                                                .fill(Color.red)
+                                                .frame(width: 5, height: 5)
+                                            Text(String(format: "%.1fs", relPlayTime))
+                                                .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                                                .foregroundColor(.cyan)
+                                        }
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 1)
+                                        .background(Color.black.opacity(0.6))
+                                        .cornerRadius(3)
+                                    } else {
+                                        Text(String(format: "%.1fs", scene.duration))
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+
+                                Text(scene.title)
+                                    .font(.caption)
+                                    .lineLimit(1)
+                                    .bold()
+
+                                Text(scene.displayTelop.isEmpty ? scene.telop : scene.displayTelop)
+                                    .font(.system(size: 9))
+                                    .lineLimit(2)
+                                    .foregroundColor(.secondary)
+
+                                Spacer()
+
+                                // 音声割り当てバッジ
+                                HStack(spacing: 4) {
+                                    if let vc = scene.voiceCharacter ?? (scene.voiceAudioPath != nil ? "ボイス" : nil) {
+                                        HStack(spacing: 2) {
+                                            Image(systemName: "waveform")
+                                            Text(vc)
+                                        }
+                                        .font(.system(size: 8.5, weight: .bold))
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 1)
+                                        .background(Color.orange.opacity(0.2))
+                                        .foregroundColor(.orange)
+                                        .cornerRadius(3)
+                                    }
+                                    if scene.seName != nil {
+                                        Image(systemName: "bolt.fill")
+                                            .font(.system(size: 8))
+                                            .foregroundColor(.green)
+                                    }
+                                    if scene.videoPath != nil {
+                                        Image(systemName: "video.fill")
+                                            .font(.system(size: 8))
+                                            .foregroundColor(.blue)
+                                    }
+                                    Spacer()
+                                }
+
+                                // シーン内再生進捗バー
+                                GeometryReader { cardGeo in
+                                    ZStack(alignment: .leading) {
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .fill(Color.secondary.opacity(0.2))
+                                            .frame(height: 3)
+                                        if isPlayingNow || isSelected {
+                                            RoundedRectangle(cornerRadius: 2)
+                                                .fill(isPlayingNow ? Color.cyan : Color.accentColor)
+                                                .frame(width: max(0, min(cardGeo.size.width, cardGeo.size.width * CGFloat(sceneProgress))), height: 3)
+                                        }
+                                    }
+                                }
+                                .frame(height: 3)
+                            }
+                            .padding(8)
+                            .frame(width: 160, height: 110)
+                            .background(isSelected ? Color.accentColor.opacity(0.18) : Color(NSColor.controlBackgroundColor))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(isPlayingNow ? Color.cyan : (isSelected ? Color.accentColor : Color.secondary.opacity(0.2)), lineWidth: isPlayingNow ? 2.5 : (isSelected ? 2 : 1))
+                            )
+                            .cornerRadius(6)
+                            .id(idx)
+                            .onTapGesture {
+                                appState.selectedSceneIndex = idx
+                                // シーン開始時刻へ再生ヘッドをシーク
+                                appState.seekMoviePlayback(to: sStart)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 6)
+                }
+                .onChange(of: appState.selectedSceneIndex) { newIdx in
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        scrollProxy.scrollTo(newIdx, anchor: .center)
+                    }
+                }
             }
         }
     }
@@ -1109,7 +1342,7 @@ public struct MovieMakerView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "info.circle")
                             .foregroundColor(.secondary)
-                        Text("全 \(appState.movieScenes.count) シーン (合計 \(formatTime(appState.totalDuration))) をレンダリングして1本の動画に結合します。")
+                        Text("全 \(appState.movieScenes.count) シーン (合計 \(formatTime(appState.movieTotalDuration))) をレンダリングして1本の動画に結合します。")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -1251,6 +1484,12 @@ public struct MovieMakerView: View {
         let mins = Int(seconds) / 60
         let secs = Int(seconds) % 60
         return String(format: "%02d:%02d", mins, secs)
+    }
+
+    private func formatTimePrecise(_ seconds: Double) -> String {
+        let mins = Int(seconds) / 60
+        let secs = seconds.truncatingRemainder(dividingBy: 60)
+        return String(format: "%02d:%04.1f", mins, secs)
     }
 }
 
