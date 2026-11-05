@@ -476,7 +476,7 @@ public struct MovieMakerView: View {
                                     RoundedRectangle(cornerRadius: 6)
                                         .fill(Color.black.opacity(0.82))
                                         .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
-                                raid)
+                                )
                                 .padding(.horizontal, isVertical ? 8 : 16)
                                 .padding(.bottom, isVertical ? 10 : 16)
                         }

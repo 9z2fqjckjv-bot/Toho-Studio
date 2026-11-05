@@ -731,6 +731,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         assert(abs(appState.movieScenes[0].duration - 8.7) < 0.001, "Directly assigned voice duration (8.7s) must overwrite scene duration (9.3s)!")
         print("7. Verified: Direct voiceDuration completely fixes 9.3s to 8.7s mismatch even without soundClips!")
 
+        // 【検証8: 実時間マスタークロック同期と、直接割り当て音声の再生クリップ解決（effectivePlaybackClips）】
+        // soundClipsが空のプロジェクトでも、シーン直接割り当ての音声が再生クリップとして自動解決されることを検証
+        let effectiveClips = appState.effectivePlaybackClips()
+        assert(!effectiveClips.isEmpty, "effectivePlaybackClips must automatically resolve direct voice from scene!")
+        assert(effectiveClips[0].type == "Voice" && effectiveClips[0].duration == 8.7, "Resolved clip must have Voice type and 8.7s duration")
+        assert(effectiveClips[0].audioFilePath == "/mock/Slide_001_操夢.wav", "Resolved clip audio path must match scene voiceAudioPath")
+
+        // 実時間同期の動作検証: startMoviePlayback() 後に実時間に合わせて正確に進むことを検証
+        appState.currentTime = 0.0
+        appState.playbackSpeed = 1.0
+        appState.startMoviePlayback()
+        assert(appState.isPlaying, "Playback must be started")
+        // RunLoop を回してタイマー発火と時間進行を確認
+        RunLoop.current.run(until: Date().addingTimeInterval(0.12))
+        assert(appState.currentTime > 0.05, "Current time must advance in real-time according to CACurrentMediaTime, got \(appState.currentTime)")
+        appState.stopMoviePlayback()
+        assert(!appState.isPlaying, "Playback must be stopped")
+        print("8. Verified: Real-time wall-clock sync & effectivePlaybackClips work seamlessly!")
+
         print("=== [TEST] ALL SOUNDMAKER & MOVIEMAKER SYNC TESTS PASSED SUCCESSFULLY! ===")
     }
 

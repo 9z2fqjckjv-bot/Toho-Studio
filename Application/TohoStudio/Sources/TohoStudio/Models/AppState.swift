@@ -126,6 +126,8 @@ public final class AppState: ObservableObject {
 
     // Playback state (cmd+p commands for MovieMaker)
     private var moviePlaybackTimer: Timer? = nil
+    private var playbackStartMediaTime: Double = 0.0
+    private var playbackStartTimeOffset: Double = 0.0
     @Published public var isPlaying: Bool = false {
         didSet {
             if isPlaying != oldValue {
@@ -3083,6 +3085,98 @@ public final class AppState: ObservableObject {
     }
 
     // MARK: - ムービーメーカー再生管理 (Play/Pause/Seek/Timer)
+
+    /// ムービー再生時に鳴らすべき全音声を解決したSoundClipリスト
+    /// soundClipsに登録されているものはそのまま使用し、
+    /// シーンに直接設定されているボイス・BGM・SEでsoundClipsに未登録のものを自動補完して完全同期
+    public func effectivePlaybackClips() -> [SoundClip] {
+        var clips = soundClips
+        var accumulatedTime: Double = 0.0
+
+        for (idx, scene) in movieScenes.enumerated() {
+            let sceneNum = idx + 1
+            let sceneStart = accumulatedTime
+
+            // 1. ボイス1 (voiceAudioPath) がsoundClipsに存在しない場合、クリップを自動補完
+            if let vPath = scene.voiceAudioPath, !vPath.isEmpty {
+                let hasClip = clips.contains { $0.type == "Voice" && $0.sceneIndex == sceneNum }
+                if !hasClip {
+                    let vDur = scene.voiceDuration ?? scene.duration
+                    let vClip = SoundClip(
+                        name: (vPath as NSString).lastPathComponent,
+                        type: "Voice",
+                        character: scene.voiceCharacter ?? scene.characterName,
+                        duration: vDur,
+                        startTime: sceneStart + (scene.voiceStartTimeOffset ?? 0.0),
+                        sceneIndex: sceneNum,
+                        sceneRelativeStartTime: (scene.voiceStartTimeOffset ?? 0.0),
+                        audioFilePath: vPath
+                    )
+                    clips.append(vClip)
+                }
+            }
+
+            // 2. ボイス2 (voice2AudioPath)
+            if let v2Path = scene.voice2AudioPath, !v2Path.isEmpty {
+                let hasClip2 = clips.contains { $0.type == "Voice" && $0.sceneIndex == sceneNum && $0.audioFilePath == v2Path }
+                if !hasClip2 {
+                    let v2Dur = scene.voice2Duration ?? 2.0
+                    let v2Clip = SoundClip(
+                        name: (v2Path as NSString).lastPathComponent,
+                        type: "Voice",
+                        character: scene.voice2Character ?? "話者2",
+                        duration: v2Dur,
+                        startTime: sceneStart + (scene.voice2StartTimeOffset ?? 0.0),
+                        sceneIndex: sceneNum,
+                        sceneRelativeStartTime: (scene.voice2StartTimeOffset ?? 0.0),
+                        audioFilePath: v2Path
+                    )
+                    clips.append(v2Clip)
+                }
+            }
+
+            // 3. SE (seAudioPath)
+            if let sePath = scene.seAudioPath, !sePath.isEmpty {
+                let hasSE = clips.contains { $0.type == "SE" && $0.sceneIndex == sceneNum && $0.audioFilePath == sePath }
+                if !hasSE {
+                    let seClip = SoundClip(
+                        name: scene.seName ?? (sePath as NSString).lastPathComponent,
+                        type: "SE",
+                        duration: 2.0,
+                        volume: scene.seVolume ?? 1.0,
+                        startTime: sceneStart + (scene.seStartTimeOffset ?? 0.0),
+                        sceneIndex: sceneNum,
+                        sceneRelativeStartTime: (scene.seStartTimeOffset ?? 0.0),
+                        audioFilePath: sePath
+                    )
+                    clips.append(seClip)
+                }
+            }
+
+            // 4. BGM (bgmAudioPath)
+            if let bgmPath = scene.bgmAudioPath, !bgmPath.isEmpty {
+                let hasBGM = clips.contains { $0.type == "BGM" && ($0.sceneIndex == sceneNum || $0.audioFilePath == bgmPath) }
+                if !hasBGM {
+                    let bgmClip = SoundClip(
+                        name: scene.bgmName ?? (bgmPath as NSString).lastPathComponent,
+                        type: "BGM",
+                        duration: scene.duration,
+                        volume: scene.bgmVolume ?? 0.7,
+                        startTime: sceneStart + (scene.bgmStartTimeOffset ?? 0.0),
+                        sceneIndex: sceneNum,
+                        sceneRelativeStartTime: (scene.bgmStartTimeOffset ?? 0.0),
+                        audioFilePath: bgmPath
+                    )
+                    clips.append(bgmClip)
+                }
+            }
+
+            accumulatedTime += scene.duration
+        }
+
+        return clips
+    }
+
     public func toggleMoviePlayback() {
         if isPlaying {
             stopMoviePlayback()
@@ -3095,20 +3189,33 @@ public final class AppState: ObservableObject {
         if !isPlaying {
             isPlaying = true
         }
-        // タイムライン音声の同期再生を開始
-        SoundMakerAudioManager.shared.startTimelinePlayback(from: currentTime, clips: soundClips, scenes: movieScenes)
+
+        // タイムライン音声の同期再生を開始 (直接割り当てボイス・SE・BGMも完全補完)
+        let clipsToPlay = effectivePlaybackClips()
+        SoundMakerAudioManager.shared.startTimelinePlayback(from: currentTime, clips: clipsToPlay, scenes: movieScenes)
+
+        // 高精度マスタークロック (CACurrentMediaTime) で実時間同期を開始
+        playbackStartMediaTime = CACurrentMediaTime()
+        playbackStartTimeOffset = currentTime
+
         moviePlaybackTimer?.invalidate()
-        let interval: Double = 0.05
-        moviePlaybackTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+        let interval: Double = 0.033 // 約30fpsで極めて滑らかにUI更新
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             guard let self = self, self.isPlaying else { return }
-            let step = interval * self.playbackSpeed
-            let newTime = self.currentTime + step
+
+            // 実時間の経過秒数に再生速度 (playbackSpeed) を掛け合わせて進める
+            let now = CACurrentMediaTime()
+            let elapsedReal = (now - self.playbackStartMediaTime) * max(0.1, self.playbackSpeed)
+            let newTime = self.playbackStartTimeOffset + elapsedReal
             let maxDur = self.movieTotalDuration
+
             if newTime >= maxDur {
                 if self.isLooping {
                     self.currentTime = 0.0
+                    self.playbackStartMediaTime = CACurrentMediaTime()
+                    self.playbackStartTimeOffset = 0.0
                     self.syncSceneToCurrentTime()
-                    SoundMakerAudioManager.shared.startTimelinePlayback(from: 0.0, clips: self.soundClips, scenes: self.movieScenes)
+                    SoundMakerAudioManager.shared.startTimelinePlayback(from: 0.0, clips: clipsToPlay, scenes: self.movieScenes)
                 } else {
                     self.currentTime = maxDur
                     self.syncSceneToCurrentTime()
@@ -3116,10 +3223,15 @@ public final class AppState: ObservableObject {
                 }
                 return
             }
+
             self.currentTime = newTime
             self.syncSceneToCurrentTime()
-            SoundMakerAudioManager.shared.updateTimelinePlayback(currentTime: newTime, clips: self.soundClips, scenes: self.movieScenes)
+            SoundMakerAudioManager.shared.updateTimelinePlayback(currentTime: newTime, clips: clipsToPlay, scenes: self.movieScenes)
         }
+
+        // RunLoop.common に追加することで、UI操作中（マウス移動やスクロール中）でもタイマー停止を完全に防ぐ
+        RunLoop.main.add(timer, forMode: .common)
+        moviePlaybackTimer = timer
     }
 
     public func stopMoviePlayback() {
@@ -3135,9 +3247,12 @@ public final class AppState: ObservableObject {
         let maxDur = movieTotalDuration
         let clamped = max(0.0, min(time, maxDur))
         currentTime = clamped
+        playbackStartMediaTime = CACurrentMediaTime()
+        playbackStartTimeOffset = clamped
         syncSceneToCurrentTime()
         if isPlaying {
-            SoundMakerAudioManager.shared.startTimelinePlayback(from: clamped, clips: soundClips, scenes: movieScenes)
+            let clipsToPlay = effectivePlaybackClips()
+            SoundMakerAudioManager.shared.startTimelinePlayback(from: clamped, clips: clipsToPlay, scenes: movieScenes)
         }
     }
 

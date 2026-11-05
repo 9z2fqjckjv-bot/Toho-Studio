@@ -478,11 +478,23 @@ public final class SlideRecognitionService: ObservableObject {
                 $0.type == "Voice" && ($0.sceneIndex == slide.slideIndex || ($0.text != nil && !slide.telop.isEmpty && (slide.telop.contains($0.text!) || $0.text!.contains(SlideItem.cleanDialogueText(from: slide.telop)))))
             }
             let matchedVoice = matchedVoices.first
-            let matchedSE = currentClips.first(where: {
-                $0.type == "SE" && ($0.sceneIndex == slide.slideIndex || ($0.spanStartSceneIndex != nil && $0.spanEndSceneIndex != nil && slide.slideIndex >= $0.spanStartSceneIndex! && slide.slideIndex <= $0.spanEndSceneIndex!))
+            let sIdx = slide.slideIndex
+            let matchedSE = currentClips.first(where: { clip in
+                guard clip.type == "SE" else { return false }
+                if clip.sceneIndex == sIdx { return true }
+                if let start = clip.spanStartSceneIndex, let end = clip.spanEndSceneIndex {
+                    return sIdx >= start && sIdx <= end
+                }
+                return false
             })
-            let matchedBGM = currentClips.first(where: {
-                $0.type == "BGM" && ($0.sceneIndex == slide.slideIndex || ($0.spanStartSceneIndex != nil && $0.spanEndSceneIndex != nil && slide.slideIndex >= $0.spanStartSceneIndex! && slide.slideIndex <= $0.spanEndSceneIndex!) || $0.isLooping || $0.spanStartSceneIndex == nil)
+            let matchedBGM = currentClips.first(where: { clip in
+                guard clip.type == "BGM" else { return false }
+                if clip.isLooping || clip.spanStartSceneIndex == nil { return true }
+                if clip.sceneIndex == sIdx { return true }
+                if let start = clip.spanStartSceneIndex, let end = clip.spanEndSceneIndex {
+                    return sIdx >= start && sIdx <= end
+                }
+                return false
             })
 
             let hasActualAnimation = !slide.animations.isEmpty && slide.animationTag != "なし" && !slide.animationTag.isEmpty
@@ -497,10 +509,13 @@ public final class SlideRecognitionService: ObservableObject {
                 } else {
                     sceneDur = matchedVoices.reduce(0.0) { $0 + $1.duration }
                 }
-            } else if let animDur = slide.animationDuration, animDur > 0 {
-                sceneDur = animDur
             } else {
-                sceneDur = max(slide.duration, 2.0)
+                let animTotal = slide.animations.reduce(0.0) { $0 + $1.duration }
+                if animTotal > 0 {
+                    sceneDur = animTotal
+                } else {
+                    sceneDur = max(slide.duration, 2.0)
+                }
             }
 
             let voice2 = matchedVoices.count >= 2 ? matchedVoices[1] : nil

@@ -31,6 +31,8 @@ public struct SoundMakerView: View {
     @State private var currentTime: Double = 0.0
     @State private var isPlaying: Bool = false
     @State private var playbackTimer: Timer? = nil
+    @State private var playbackStartMediaTime: Double = 0.0
+    @State private var playbackStartTimeOffset: Double = 0.0
     @State private var zoomScale: Double = 28.0 // pixels per second
     @State private var selectedClipId: UUID? = nil
     @State private var selectedTrackId: String = "track_movie"
@@ -3908,16 +3910,26 @@ public struct SoundMakerView: View {
     private func startPlayback() {
         isPlaying = true
         soundManager.startTimelinePlayback(from: currentTime, clips: appState.soundClips, scenes: activeSceneList())
+        playbackStartMediaTime = CACurrentMediaTime()
+        playbackStartTimeOffset = currentTime
         playbackTimer?.invalidate()
-        playbackTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
-            currentTime += 0.05
-            if currentTime >= totalTimelineDuration {
-                currentTime = 0.0
+        let timer = Timer(timeInterval: 0.033, repeats: true) { _ in
+            let now = CACurrentMediaTime()
+            let elapsed = now - playbackStartMediaTime
+            var newTime = playbackStartTimeOffset + elapsed
+            if newTime >= totalTimelineDuration {
+                newTime = 0.0
+                playbackStartMediaTime = CACurrentMediaTime()
+                playbackStartTimeOffset = 0.0
+                soundManager.startTimelinePlayback(from: 0.0, clips: appState.soundClips, scenes: activeSceneList())
             }
-            soundManager.updateTimelinePlayback(currentTime: currentTime, clips: appState.soundClips, scenes: activeSceneList())
+            currentTime = newTime
+            soundManager.updateTimelinePlayback(currentTime: newTime, clips: appState.soundClips, scenes: activeSceneList())
             // Animate meter
             currentMeterLevel = Double.random(in: 0.4...0.95)
         }
+        RunLoop.main.add(timer, forMode: .common)
+        playbackTimer = timer
     }
 
     private func stopPlayback() {
