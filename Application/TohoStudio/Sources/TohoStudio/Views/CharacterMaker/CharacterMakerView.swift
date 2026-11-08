@@ -144,6 +144,7 @@ public struct CharacterMakerView: View {
 
                     Divider()
                 }
+                .frame(maxWidth: .infinity)
                 .background(Color(NSColor.windowBackgroundColor))
                 .shadow(color: Color.black.opacity(0.35), radius: 8, x: 0, y: 4)
                 .transition(.asymmetric(
@@ -278,70 +279,74 @@ public struct CharacterMakerView: View {
 
     // MARK: - 1. コントロールバー (仕様書 Slide-3467568 準拠)
     private var specControlBar: some View {
-        HStack(spacing: 12) {
-            HStack(spacing: 6) {
-                Image(systemName: "person.crop.artframe")
-                    .foregroundColor(.accentColor)
-                Text("キャラクターメーカー")
-                    .font(.subheadline)
-                    .bold()
-                Text("(Google図形描画 × PSDTool)")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-
-            Button(action: { showHomeScreen = true }) {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
                 HStack(spacing: 4) {
-                    Image(systemName: "house.fill")
-                    Text("ホーム画面 (広告枠あり)")
+                    Image(systemName: "person.crop.artframe")
+                        .foregroundColor(.accentColor)
+                    Text("キャラクターメーカー")
+                        .font(.caption)
+                        .bold()
+                    Text("(Google図形描画 × PSDTool)")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
                 }
-                .font(.caption2)
-            }
-            .buttonStyle(.bordered)
-            .help("仕様書スライド193のホーム画面（Google広告枠あり）を表示します")
 
-            // レイアウトモード切り替え (MovieMaker, SlideScenarioMaker と完全統一)
-            HStack(spacing: 4) {
-                Text("レイアウト:").font(.caption2).foregroundColor(.secondary)
-                Picker("", selection: $appState.layoutMode) {
-                    Text("標準").tag("標準")
-                    Text("キャンバス最大化").tag("キャンバス最大化")
-                    Text("インスペクター重視").tag("インスペクター重視")
-                    Text("タイムライン重視").tag("タイムライン重視")
+                Button(action: { showHomeScreen = true }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "house.fill")
+                        Text("ホーム")
+                    }
+                    .font(.caption2)
                 }
-                .pickerStyle(.menu)
-                .frame(width: 130)
-            }
+                .buttonStyle(.bordered)
+                .help("仕様書スライド193のホーム画面を表示します")
 
-            // パーツトレイ表示トグル
-            Button(action: { showBottomTray.toggle() }) {
+                // レイアウトモード切り替え
                 HStack(spacing: 3) {
-                    Image(systemName: showBottomTray ? "rectangle.bottomthird.inset.filled" : "rectangle")
-                    Text("トレイ")
+                    Text("レイアウト:").font(.system(size: 10)).foregroundColor(.secondary)
+                    Picker("", selection: $appState.layoutMode) {
+                        Text("標準").tag("標準")
+                        Text("キャンバス最大化").tag("キャンバス最大化")
+                        Text("インスペクター重視").tag("インスペクター重視")
+                        Text("タイムライン重視").tag("タイムライン重視")
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 105)
                 }
-                .font(.caption2)
+
+                // パーツトレイ表示トグル
+                Button(action: { showBottomTray.toggle() }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: showBottomTray ? "rectangle.bottomthird.inset.filled" : "rectangle")
+                        Text("トレイ")
+                    }
+                    .font(.caption2)
+                }
+                .buttonStyle(.bordered)
+
+                Spacer(minLength: 8)
+
+                // 日時 & アカウント & メモリ & ファイル情報
+                Text("\(controlBarTimestamp) (zuyasi)  メモリ: 242MB / 16GB")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.secondary)
+
+                Divider().frame(height: 12)
+
+                // アプリ拡張バッジ
+                HStack(spacing: 4) {
+                    extensionBadge(title: "PSDTool", isUnlocked: true)
+                    extensionBadge(title: "Photoshop", isUnlocked: appState.unlockedExtensions.contains("Photoshop非搭載機能"))
+                    extensionBadge(title: "Pixelmator", isUnlocked: appState.unlockedExtensions.contains("PixelmatorPro非搭載機能"))
+                    extensionBadge(title: "独自機能", isUnlocked: appState.unlockedExtensions.contains("リモートサポート＆独自機能"))
+                }
             }
-            .buttonStyle(.bordered)
-
-            Spacer()
-
-            // 日時 & アカウント & メモリ & ファイル情報
-            Text("\(controlBarTimestamp) (zuyasi)  メモリ: 242MB / 16GB  ファイル: 1.4MB / 128MB")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(.secondary)
-
-            Divider().frame(height: 14)
-
-            // アプリ拡張バッジ
-            HStack(spacing: 6) {
-                extensionBadge(title: "PSDTool機能", isUnlocked: true)
-                extensionBadge(title: "Photoshop機能", isUnlocked: appState.unlockedExtensions.contains("Photoshop非搭載機能"))
-                extensionBadge(title: "Pixelmator機能", isUnlocked: appState.unlockedExtensions.contains("PixelmatorPro非搭載機能"))
-                extensionBadge(title: "独自機能", isUnlocked: appState.unlockedExtensions.contains("リモートサポート＆独自機能"))
-            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 3)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 5)
+        .controlSize(.small)
         .background(Color(NSColor.windowBackgroundColor))
     }
 
@@ -366,296 +371,309 @@ public struct CharacterMakerView: View {
 
     // MARK: - 2. ツールバー (Google図形描画 & PSDTool 統一スタイル)
     private var characterToolbar: some View {
-        HStack(spacing: 8) {
-            // キャラクター選択・プリセット
-            Menu {
-                Button("博麗霊夢 (主人公)") { appState.loadCharacterPreset(name: "博麗霊夢") }
-                Button("霧雨魔理沙 (箒・帽子パーツ付)") { appState.loadCharacterPreset(name: "霧雨魔理沙") }
-                Button("古明地こいし (第3の目パーツ付)") { appState.loadCharacterPreset(name: "古明地こいし") }
-                Button("十六夜咲夜 (紅魔館メイド)") { appState.loadCharacterPreset(name: "十六夜咲夜") }
-                Button("魂魄妖夢 (半人半霊)") { appState.loadCharacterPreset(name: "魂魄妖夢") }
-            } label: {
-                HStack(spacing: 4) {
-                    Text(appState.currentCharacter.name)
-                        .bold()
-                    Image(systemName: "chevron.down")
-                        .font(.caption2)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                // キャラクター選択・プリセット
+                Menu {
+                    Button("博麗霊夢 (主人公)") { appState.loadCharacterPreset(name: "博麗霊夢") }
+                    Button("霧雨魔理沙 (箒・帽子パーツ付)") { appState.loadCharacterPreset(name: "霧雨魔理沙") }
+                    Button("古明地こいし (第3の目パーツ付)") { appState.loadCharacterPreset(name: "古明地こいし") }
+                    Button("十六夜咲夜 (紅魔館メイド)") { appState.loadCharacterPreset(name: "十六夜咲夜") }
+                    Button("魂魄妖夢 (半人半霊)") { appState.loadCharacterPreset(name: "魂魄妖夢") }
+                } label: {
+                    HStack(spacing: 2) {
+                        Text(appState.currentCharacter.name)
+                            .font(.caption)
+                            .bold()
+                            .lineLimit(1)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8))
+                    }
                 }
-            }
-            .menuStyle(.borderlessButton)
-            .frame(width: 130)
+                .menuStyle(.borderlessButton)
+                .frame(maxWidth: 95)
 
-            Divider().frame(height: 18)
+                Divider().frame(height: 14)
 
-            // 表情差分ピッカー (リポジトリ実画像と連動)
-            HStack(spacing: 4) {
-                Text("表情:").font(.caption).foregroundColor(.secondary)
-                Picker("", selection: Binding(
-                    get: { appState.currentCharacter.expression },
-                    set: { newExp in
-                        appState.saveUndoSnapshot()
-                        appState.currentCharacter.expression = newExp
-                        let expressions = imageService.findCharacterExpressions(characterName: appState.currentCharacter.name)
-                        if let path = expressions[newExp] {
-                            appState.currentCharacter.baseImagePath = path
-                            if let idx = appState.currentCharacter.parts.firstIndex(where: { $0.name.contains("本体") || $0.name.contains("ベース") }) {
-                                appState.currentCharacter.parts[idx].assetPath = path
+                // 表情差分ピッカー (リポジトリ実画像と連動)
+                HStack(spacing: 2) {
+                    Text("表情:").font(.system(size: 10)).foregroundColor(.secondary)
+                    Picker("", selection: Binding(
+                        get: { appState.currentCharacter.expression },
+                        set: { newExp in
+                            appState.saveUndoSnapshot()
+                            appState.currentCharacter.expression = newExp
+                            let expressions = imageService.findCharacterExpressions(characterName: appState.currentCharacter.name)
+                            if let path = expressions[newExp] {
+                                appState.currentCharacter.baseImagePath = path
+                                if let idx = appState.currentCharacter.parts.firstIndex(where: { $0.name.contains("本体") || $0.name.contains("ベース") }) {
+                                    appState.currentCharacter.parts[idx].assetPath = path
+                                }
+                                appState.log("表情を『\(newExp)』に変更しました: \(path)")
                             }
-                            appState.log("表情を『\(newExp)』に変更しました: \(path)")
+                        }
+                    )) {
+                        Text("通常").tag("通常")
+                        Text("微笑").tag("微笑")
+                        Text("笑顔").tag("笑顔")
+                        Text("怒り").tag("怒り")
+                        Text("驚き").tag("驚き")
+                        Text("泣く").tag("泣く")
+                        Text("困惑").tag("困惑")
+                        Text("不満").tag("不満")
+                        Text("余裕").tag("余裕")
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 65)
+                }
+
+                Divider().frame(height: 14)
+
+                // 前後反転ボタン（前面 ↔ 背面/背中側）
+                Button(action: {
+                    appState.toggleCharacterFacingDirection()
+                }) {
+                    HStack(spacing: 2) {
+                        Image(systemName: appState.currentCharacter.isBackView ? "figure.walk.arrival" : "figure.stand")
+                        Text(appState.currentCharacter.isBackView ? "🔙 背面" : "👤 正面")
+                    }
+                    .font(.system(size: 10))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 3)
+                    .background(appState.currentCharacter.isBackView ? Color.purple.opacity(0.85) : Color.accentColor.opacity(0.12))
+                    .foregroundColor(appState.currentCharacter.isBackView ? .white : .primary)
+                    .cornerRadius(4)
+                }
+                .buttonStyle(.plain)
+                .help("キャラクターを前後反転（背中側と正面の表示切り替え）")
+
+                Divider().frame(height: 14)
+
+                // ツール切り替えボタングループ
+                HStack(spacing: 2) {
+                    toolButton(tool: .select, icon: "arrow.up.left", label: "選択")
+                    toolButton(tool: .move, icon: "hand.raised", label: "移動")
+
+                    Button(action: {
+                        activeTool = .eyedropper
+                        inspectorTab = .color
+                        startEyedropperSampling()
+                    }) {
+                        HStack(spacing: 2) {
+                            Image(systemName: "eyedropper.halffull")
+                            Text("スポイト")
+                        }
+                        .font(.system(size: 10))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 3)
+                        .background(activeTool == .eyedropper ? Color.accentColor : Color.clear)
+                        .foregroundColor(activeTool == .eyedropper ? .white : .primary)
+                        .cornerRadius(4)
+                    }
+                    .buttonStyle(.plain)
+                    .help("立ち絵や画面から色をスポイトで読み取り、ピンポイント色変えを行います")
+
+                    Button(action: {
+                        isTrimmingMode.toggle()
+                        if isTrimmingMode {
+                            appState.log("キャラクターメーカー: トリミングモードを開始しました。キャンバス上で切り取り枠を調整してください")
+                        }
+                    }) {
+                        HStack(spacing: 2) {
+                            Image(systemName: "crop")
+                            Text("トリム")
+                        }
+                        .font(.system(size: 10))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 3)
+                        .background(isTrimmingMode ? Color.accentColor : Color.clear)
+                        .foregroundColor(isTrimmingMode ? .white : .primary)
+                        .cornerRadius(4)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: {
+                        appState.performCharacterSplit()
+                    }) {
+                        HStack(spacing: 2) {
+                            Image(systemName: "scissors")
+                            Text("分割")
+                        }
+                        .font(.system(size: 10))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 3)
+                        .background(Color.secondary.opacity(0.12))
+                        .cornerRadius(4)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Divider().frame(height: 14)
+
+                // 一本化立絵スタジオ / 静止画キャンバス 切替
+                Picker("", selection: $canvasViewMode) {
+                    Label("立絵スタジオ", systemImage: "sparkles").tag(CanvasViewMode.studio)
+                    Label("キャンバス", systemImage: "paintbrush").tag(CanvasViewMode.composite)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 175)
+
+                Divider().frame(height: 14)
+
+                // 東方PSDクイックメニュー
+                Menu {
+                    ForEach(psdService.availablePresets) { preset in
+                        Button("\(preset.name) (\(preset.detail))") {
+                            psdService.loadPSD(filePath: preset.path)
                         }
                     }
-                )) {
-                    Text("通常").tag("通常")
-                    Text("微笑").tag("微笑")
-                    Text("笑顔").tag("笑顔")
-                    Text("怒り").tag("怒り")
-                    Text("驚き").tag("驚き")
-                    Text("泣く").tag("泣く")
-                    Text("困惑").tag("困惑")
-                    Text("不満").tag("不満")
-                    Text("余裕").tag("余裕")
-                }
-                .pickerStyle(.menu)
-                .frame(width: 80)
-            }
-
-            Divider().frame(height: 18)
-
-            // 前後反転ボタン（前面 ↔ 背面/背中側）
-            Button(action: {
-                appState.toggleCharacterFacingDirection()
-            }) {
-                HStack(spacing: 3) {
-                    Image(systemName: appState.currentCharacter.isBackView ? "figure.walk.arrival" : "figure.stand")
-                    Text(appState.currentCharacter.isBackView ? "🔙 背面 (背中側)" : "👤 前面 (正面)")
-                        .bold()
-                }
-                .font(.caption)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 4)
-                .background(appState.currentCharacter.isBackView ? Color.purple.opacity(0.85) : Color.accentColor.opacity(0.12))
-                .foregroundColor(appState.currentCharacter.isBackView ? .white : .primary)
-                .cornerRadius(5)
-            }
-            .buttonStyle(.plain)
-            .help("キャラクターを前後反転（背中側と正面の表示切り替え）")
-
-            Divider().frame(height: 18)
-
-            // ツール切り替えボタングループ
-            HStack(spacing: 2) {
-                toolButton(tool: .select, icon: "arrow.up.left", label: "選択")
-                toolButton(tool: .move, icon: "hand.raised", label: "移動")
-
-                Button(action: {
-                    activeTool = .eyedropper
-                    inspectorTab = .color
-                    startEyedropperSampling()
-                }) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "eyedropper.halffull")
-                        Text("スポイト")
+                    Divider()
+                    Button("外部PSD/ZIPファイルを開く...") {
+                        psdService.openLocalPSDFileDialog()
                     }
-                    .font(.caption)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 4)
-                    .background(activeTool == .eyedropper ? Color.accentColor : Color.clear)
-                    .foregroundColor(activeTool == .eyedropper ? .white : .primary)
-                    .cornerRadius(5)
+                } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: "folder.badge.gearshape")
+                        Text(psdService.currentPsdName.isEmpty ? "東方PSD" : psdService.currentPsdName)
+                            .font(.system(size: 10))
+                            .lineLimit(1)
+                        Image(systemName: "chevron.down").font(.system(size: 7))
+                    }
+                }
+                .menuStyle(.borderlessButton)
+                .frame(maxWidth: 105)
+
+                // インスペクター表示トグル
+                Button(action: { showNativeInspector.toggle() }) {
+                    HStack(spacing: 2) {
+                        Image(systemName: showNativeInspector ? "sidebar.right" : "sidebar.trailing")
+                        Text("詳細")
+                    }
+                    .font(.system(size: 10))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 3)
+                    .background(showNativeInspector ? Color.accentColor.opacity(0.15) : Color.clear)
+                    .cornerRadius(4)
                 }
                 .buttonStyle(.plain)
-                .help("立ち絵や画面から色をスポイトで読み取り、ピンポイント色変えを行います")
+                .help("AI差分生成やパーツ詳細設定サイドバーを表示/非表示にします")
 
-                Button(action: {
-                    isTrimmingMode.toggle()
-                    if isTrimmingMode {
-                        appState.log("キャラクターメーカー: トリミングモードを開始しました。キャンバス上で切り取り枠を調整してください")
+                // ズーム
+                HStack(spacing: 2) {
+                    Button(action: { canvasZoom = max(0.5, canvasZoom - 0.25) }) {
+                        Image(systemName: "minus.magnifyingglass")
+                            .font(.system(size: 10))
                     }
+                    .buttonStyle(.plain)
+
+                    Text("\(Int(canvasZoom * 100))%")
+                        .font(.system(size: 9, design: .monospaced))
+                        .frame(width: 30)
+
+                    Button(action: { canvasZoom = min(2.5, canvasZoom + 0.25) }) {
+                        Image(systemName: "plus.magnifyingglass")
+                            .font(.system(size: 10))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Spacer(minLength: 6)
+
+                // バー固定 / 自動で隠す (ホバー表示) 切り替えボタン (ショートカット: ⌘\ または Esc)
+                Button(action: {
+                    toggleHeaderBars()
                 }) {
                     HStack(spacing: 3) {
-                        Image(systemName: "crop")
-                        Text("トリミング")
+                        Image(systemName: isHeaderBarsPinned ? "pin.fill" : "pin")
+                            .font(.system(size: 9))
+                        Text(isHeaderBarsPinned ? "固定中 (⌘\\)" : "自動隠蔽")
+                            .font(.system(size: 10))
                     }
-                    .font(.caption)
                     .padding(.horizontal, 6)
-                    .padding(.vertical, 4)
-                    .background(isTrimmingMode ? Color.accentColor : Color.clear)
-                    .foregroundColor(isTrimmingMode ? .white : .primary)
-                    .cornerRadius(5)
+                    .padding(.vertical, 3)
+                    .background(isHeaderBarsPinned ? Color.accentColor : Color.secondary.opacity(0.15))
+                    .foregroundColor(isHeaderBarsPinned ? .white : .primary)
+                    .cornerRadius(4)
                 }
                 .buttonStyle(.plain)
+                .help("上の白いバーの固定/自動隠蔽を切り替えます。ショートカットキー: ⌘+\\ (または Esc)")
 
-                Button(action: {
-                    appState.performCharacterSplit()
-                }) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "scissors")
-                        Text("パーツ分割")
-                    }
-                    .font(.caption)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 4)
-                    .background(Color.secondary.opacity(0.12))
-                    .cornerRadius(5)
-                }
-                .buttonStyle(.plain)
-            }
-
-            Divider().frame(height: 18)
-
-            // 一本化立絵スタジオ / 静止画キャンバス 切替
-            Picker("", selection: $canvasViewMode) {
-                Label("立絵スタジオ (一本化)", systemImage: "sparkles").tag(CanvasViewMode.studio)
-                Label("静止画キャンバス", systemImage: "paintbrush").tag(CanvasViewMode.composite)
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 250)
-
-            Divider().frame(height: 18)
-
-            // 東方PSDクイックメニュー
-            Menu {
-                ForEach(psdService.availablePresets) { preset in
-                    Button("\(preset.name) (\(preset.detail))") {
-                        psdService.loadPSD(filePath: preset.path)
-                    }
-                }
-                Divider()
-                Button("外部PSD/ZIPファイルを開く...") {
-                    psdService.openLocalPSDFileDialog()
-                }
-            } label: {
+                // アクションボタングループ
                 HStack(spacing: 4) {
-                    Image(systemName: "folder.badge.gearshape")
-                    Text(psdService.currentPsdName.isEmpty ? "東方PSD選択" : psdService.currentPsdName)
-                        .font(.caption)
-                        .lineLimit(1)
-                    Image(systemName: "chevron.down").font(.caption2)
-                }
-            }
-            .menuStyle(.borderlessButton)
-            .frame(maxWidth: 150)
-
-            // インスペクター表示トグル
-            Button(action: { showNativeInspector.toggle() }) {
-                HStack(spacing: 3) {
-                    Image(systemName: showNativeInspector ? "sidebar.right" : "sidebar.trailing")
-                    Text("詳細設定")
-                }
-                .font(.caption)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 4)
-                .background(showNativeInspector ? Color.accentColor.opacity(0.15) : Color.clear)
-                .cornerRadius(5)
-            }
-            .buttonStyle(.plain)
-            .help("AI差分生成やパーツ詳細設定サイドバーを表示/非表示にします")
-
-            // ズーム
-            HStack(spacing: 3) {
-                Button(action: { canvasZoom = max(0.5, canvasZoom - 0.25) }) {
-                    Image(systemName: "minus.magnifyingglass")
-                }
-                .buttonStyle(.plain)
-
-                Text("\(Int(canvasZoom * 100))%")
-                    .font(.system(size: 10, design: .monospaced))
-                    .frame(width: 36)
-
-                Button(action: { canvasZoom = min(2.5, canvasZoom + 0.25) }) {
-                    Image(systemName: "plus.magnifyingglass")
-                }
-                .buttonStyle(.plain)
-            }
-
-            Spacer()
-
-            // バー固定 / 自動で隠す (ホバー表示) 切り替えボタン (ショートカット: ⌘\ または Esc)
-            Button(action: {
-                toggleHeaderBars()
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: isHeaderBarsPinned ? "pin.fill" : "pin")
-                    Text(isHeaderBarsPinned ? "バー固定中 (⌘\\ / Esc)" : "自動で隠す (ホバー / ⌘\\)")
-                }
-                .font(.caption)
-                .bold()
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(isHeaderBarsPinned ? Color.accentColor : Color.secondary.opacity(0.15))
-                .foregroundColor(isHeaderBarsPinned ? .white : .primary)
-                .cornerRadius(5)
-            }
-            .buttonStyle(.plain)
-            .help("上の白いバーの固定/自動隠蔽を切り替えます。ショートカットキー: ⌘+\\ (または Esc)")
-
-            // アクションボタングループ
-            HStack(spacing: 5) {
-                // ✨ AI立ち絵生成ショートカット
-                Button(action: {
-                    inspectorTab = .extensions
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "sparkles")
-                        Text("AI立ち絵生成")
+                    // ✨ AI立ち絵生成ショートカット
+                    Button(action: {
+                        inspectorTab = .extensions
+                    }) {
+                        HStack(spacing: 2) {
+                            Image(systemName: "sparkles")
+                            Text("AI生成")
+                        }
+                        .font(.system(size: 10))
+                        .foregroundColor(.yellow)
                     }
-                    .foregroundColor(.yellow)
-                }
-                .buttonStyle(.bordered)
-                .help("AI拡散モデル・Colab GPUを使って立ち絵パーツや背景を即座に生成します")
+                    .buttonStyle(.bordered)
+                    .help("AI拡散モデル・Colab GPUを使って立ち絵パーツや背景を即座に生成します")
 
-                // PSDToolで選んだ差分をキャンバスへ瞬時に取り込むボタン
-                Button(action: {
-                    psdService.requestExport(target: "characterMaker")
-                }) {
-                    Label("差分反映", systemImage: "arrow.down.doc.fill")
-                        .foregroundColor(.green)
-                }
-                .buttonStyle(.borderedProminent)
-                .help("PSDToolの現在の差分合成画像をキャラクターメーカーに取り込みます")
+                    // PSDToolで選んだ差分をキャンバスへ瞬時に取り込むボタン
+                    Button(action: {
+                        psdService.requestExport(target: "characterMaker")
+                    }) {
+                        Label("差分反映", systemImage: "arrow.down.doc.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(.green)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .help("PSDToolの現在の差分合成画像をキャラクターメーカーに取り込みます")
 
-                Button(action: { showLoadDialog = true }) {
-                    Label("読込", systemImage: "folder")
-                }
-                .buttonStyle(.bordered)
+                    Button(action: { showLoadDialog = true }) {
+                        Label("読込", systemImage: "folder")
+                            .font(.system(size: 10))
+                    }
+                    .buttonStyle(.bordered)
 
-                Button(action: {
-                    appState.performRegenerate()
-                }) {
-                    Label("再生成", systemImage: "arrow.counterclockwise")
-                }
-                .buttonStyle(.bordered)
+                    Button(action: {
+                        appState.performRegenerate()
+                    }) {
+                        Label("再生成", systemImage: "arrow.counterclockwise")
+                            .font(.system(size: 10))
+                    }
+                    .buttonStyle(.bordered)
 
-                Button(action: {
-                    appState.performCreateMaterialFromCurrent()
-                }) {
-                    Label("素材保存", systemImage: "tray.and.arrow.down")
-                }
-                .buttonStyle(.bordered)
+                    Button(action: {
+                        appState.performCreateMaterialFromCurrent()
+                    }) {
+                        Label("素材保存", systemImage: "tray.and.arrow.down")
+                            .font(.system(size: 10))
+                    }
+                    .buttonStyle(.bordered)
 
-                Button(action: { showExportDialog = true }) {
-                    Label("書出", systemImage: "square.and.arrow.up")
+                    Button(action: { showExportDialog = true }) {
+                        Label("書出", systemImage: "square.and.arrow.up")
+                            .font(.system(size: 10))
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
-                .buttonStyle(.borderedProminent)
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
+        .controlSize(.small)
         .background(Color(NSColor.controlBackgroundColor).opacity(0.4))
     }
 
     private func toolButton(tool: CharacterMakerTool, icon: String, label: String) -> some View {
         Button(action: { activeTool = tool }) {
-            HStack(spacing: 4) {
+            HStack(spacing: 2) {
                 Image(systemName: icon)
                 Text(label)
             }
-            .font(.caption)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .font(.system(size: 10))
+            .padding(.horizontal, 5)
+            .padding(.vertical, 3)
             .background(activeTool == tool ? Color.accentColor : Color.clear)
             .foregroundColor(activeTool == tool ? .white : .primary)
-            .cornerRadius(5)
+            .cornerRadius(4)
         }
         .buttonStyle(.plain)
     }
