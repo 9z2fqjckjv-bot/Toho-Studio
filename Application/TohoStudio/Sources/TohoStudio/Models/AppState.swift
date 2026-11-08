@@ -230,6 +230,28 @@ public final class AppState: ObservableObject {
         return NSImage(data: data)
     }
 
+    public static func normalizeProjectKey(_ name: String) -> String {
+        var s = SlideRecognitionService.cleanProjectBaseName(from: name).precomposedStringWithCanonicalMapping
+        if let regex = try? NSRegularExpression(pattern: "_[a-fA-F0-9]{8,12}$", options: []) {
+            s = regex.stringByReplacingMatches(in: s, options: [], range: NSRange(location: 0, length: s.utf16.count), withTemplate: "")
+        }
+        s = s.replacingOccurrences(of: "（", with: "")
+             .replacingOccurrences(of: "）", with: "")
+             .replacingOccurrences(of: "【", with: "")
+             .replacingOccurrences(of: "】", with: "")
+             .replacingOccurrences(of: "(", with: "")
+             .replacingOccurrences(of: ")", with: "")
+             .replacingOccurrences(of: "[", with: "")
+             .replacingOccurrences(of: "]", with: "")
+             .replacingOccurrences(of: "話目", with: "話")
+             .replacingOccurrences(of: "　", with: "")
+             .replacingOccurrences(of: " ", with: "")
+             .replacingOccurrences(of: "_", with: "")
+             .replacingOccurrences(of: "-", with: "")
+             .replacingOccurrences(of: ".", with: "")
+        return s.lowercased()
+    }
+
     /// 指定プロジェクト名およびスライド番号に対応する最新キャッシュ画像パスを更新日時降順で探索
     public static func findLatestSlideImagePath(forProject project: String, slideIndex: Int) -> String? {
         let fm = FileManager.default
@@ -237,17 +259,22 @@ public final class AppState: ObservableObject {
         guard fm.fileExists(atPath: slidesCacheBase) else { return nil }
 
         let clean = SlideRecognitionService.cleanProjectBaseName(from: project)
+        let normClean = normalizeProjectKey(clean)
         let idx3 = String(format: "%03d", slideIndex)
-        let idxPatterns = [".\(idx3).jpeg", ".\(idx3).jpg", ".\(slideIndex).jpeg", ".\(slideIndex).jpg", "_\(idx3).jpeg"]
+        let idxPatterns = [".\(idx3).jpeg", ".\(idx3).jpg", ".\(slideIndex).jpeg", ".\(slideIndex).jpg", "_\(idx3).jpeg", "_\(slideIndex).jpeg"]
 
         guard let subdirs = try? fm.contentsOfDirectory(atPath: slidesCacheBase) else { return nil }
 
         let matchedDirs = subdirs.filter { dir in
             if clean.isEmpty { return true }
+            let normDir = normalizeProjectKey(dir)
+            if normDir == normClean { return true }
+            if normClean.count >= 2 && normDir.contains(normClean) { return true }
+            if dir.contains(clean) || clean.contains(dir) { return true }
             let dirClean = SlideRecognitionService.cleanProjectBaseName(from: dir)
-            let normDir = dir.replacingOccurrences(of: "_", with: "").replacingOccurrences(of: " ", with: "")
-            let normClean = clean.replacingOccurrences(of: "_", with: "").replacingOccurrences(of: " ", with: "")
-            return dir.contains(clean) || clean.contains(dirClean) || normDir.contains(normClean) || normClean.contains(normDir)
+            let rawNormDir = dir.replacingOccurrences(of: "_", with: "").replacingOccurrences(of: " ", with: "")
+            let rawNormClean = clean.replacingOccurrences(of: "_", with: "").replacingOccurrences(of: " ", with: "")
+            return dirClean.contains(clean) || clean.contains(dirClean) || rawNormDir.contains(rawNormClean) || rawNormClean.contains(rawNormDir)
         }
 
         let sortedDirs = matchedDirs.sorted { d1, d2 in
@@ -440,7 +467,7 @@ public final class AppState: ObservableObject {
         initializeSampleData()
         initializeVoiceTemplates()
         initializeAchievements()
-        addHistory("アプリケーション起動: Toho-Studio v2.8.0 正常起動")
+        addHistory("アプリケーション起動: Toho-Studio v2.9.0 正常起動")
         saveUndoSnapshot()
     }
 

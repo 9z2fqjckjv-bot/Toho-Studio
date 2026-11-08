@@ -347,7 +347,7 @@ public final class SlideRecognitionService: ObservableObject {
 
                 // Step 3: 背景画像の検出と「動画用」探索照合
                 let bgName = slide.backgroundName
-                let matchedBg = availableBackgrounds.first(where: { bgName.contains($0) || $0.contains(bgName) }) ?? (availableBackgrounds.first ?? bgName)
+                let matchedBg = availableBackgrounds.first(where: { bgName.contains($0) || $0.contains(bgName) }) ?? bgName
                 bgMatches += 1
                 if shouldLog {
                     self.appendLog(&logEntries, slide: sIdx, step: "背景画像照合", status: "MATCHED", details: "背景「\(bgName)」-> 動画用/背景/\(matchedBg) (99.4%照合)")
@@ -1052,7 +1052,7 @@ public final class SlideRecognitionService: ObservableObject {
                         if telop.isEmpty && !note.isEmpty {
                             telop = note
                         }
-                        let bg = d["backgroundName"] as? String ?? "nc73538_【背景素材】博麗神社.jpg"
+                        let bg = d["backgroundName"] as? String ?? ""
                         let char = d["characterName"] as? String ?? "ナレーション"
                         let objs = d["detectedObjects"] as? [String] ?? ["演出枠"]
                         let anim = d["animationTag"] as? String ?? "なし"

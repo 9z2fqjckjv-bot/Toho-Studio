@@ -63,6 +63,7 @@ public struct SoundMakerView: View {
 
     // Batch Voice Generation Sheet
     @State private var showBatchVoiceGenerationSheet: Bool = false
+    @State private var showSceneVoiceManagerSheet: Bool = false
     @State private var showDictionarySheet: Bool = false
     @State private var showScoreViewerSheet: Bool = false
     @State private var scoreViewerInitialURL: URL? = nil
@@ -192,6 +193,9 @@ public struct SoundMakerView: View {
         }
         .sheet(isPresented: $showBatchVoiceGenerationSheet) {
             BatchVoiceGenerationSheet()
+        }
+        .sheet(isPresented: $showSceneVoiceManagerSheet) {
+            SceneVoiceManagerSheet(initialSceneIndex: selectedSceneIndex)
         }
         .sheet(isPresented: $showSpanAudioInsertSheet) {
             SpanAudioInsertSheet(initialStartScene: selectedSceneIndex)
@@ -403,6 +407,19 @@ public struct SoundMakerView: View {
                 }
                 .buttonStyle(.bordered)
                 .help("スライド＆シナリオの全セリフをゆっくりボイスで一括音声生成してタイムラインに配置")
+
+                // Scene Voice Manager Sheet Quick Button (1シーン個別管理ポップアップ)
+                Button(action: { showSceneVoiceManagerSheet = true }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "waveform.badge.mic")
+                            .foregroundColor(.cyan)
+                        Text("シーン別音声管理...")
+                    }
+                    .font(.caption)
+                    .foregroundColor(.white)
+                }
+                .buttonStyle(.bordered)
+                .help("選択中シーンの音声をポップアップウインドウで集中管理・微調整・再生成（Python版東方ムービーメーカー連携）")
 
                 // 📖 発音・キャラクター辞書設定ボタン
                 Button(action: { showDictionarySheet = true }) {
@@ -714,6 +731,21 @@ public struct SoundMakerView: View {
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.white)
                     Spacer()
+
+                    // ポップアップで管理ボタン
+                    Button(action: {
+                        showSceneVoiceManagerSheet = true
+                    }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            Text("ポップアップで管理")
+                        }
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.cyan)
+                    }
+                    .buttonStyle(.plain)
+                    .help("このシーンの音声をポップアップウインドウで集中管理・微調整・再生成")
+
                     Button(action: {
                         addVoiceClipToCurrentScene()
                     }) {
@@ -3239,6 +3271,21 @@ public struct SoundMakerView: View {
                     .stroke(isSelected ? Color.cyan : (hasAnimation ? Color.yellow.opacity(0.5) : Color.cyan.opacity(0.3)), lineWidth: isSelected ? 2.5 : 1)
             )
             .shadow(color: isSelected ? Color.cyan.opacity(0.7) : Color.clear, radius: isSelected ? 3 : 0)
+            .contextMenu {
+                Button(action: {
+                    selectScene(index: sNum, proxy: proxy)
+                    showSceneVoiceManagerSheet = true
+                }) {
+                    Label("このシーンの音声をポップアップで管理...", systemImage: "waveform.badge.mic")
+                }
+
+                Button(action: {
+                    selectScene(index: sNum, proxy: proxy)
+                    showBatchVoiceGenerationSheet = true
+                }) {
+                    Label("スライドから全音声一括生成...", systemImage: "sparkles")
+                }
+            }
         }
         .buttonStyle(.plain)
     }

@@ -358,7 +358,7 @@ public struct RootView: View {
                 .font(.caption2)
                 .foregroundColor(.secondary)
 
-            Text("バージョン: v2.8.0")
+            Text("バージョン: v2.9.0")
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }

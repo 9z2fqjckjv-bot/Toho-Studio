@@ -225,7 +225,7 @@ public struct SlideScenarioMakerView: View {
                 let slide = appState.slides[idx]
                 HStack(alignment: .top, spacing: 8) {
                     // スライド画面サムネイル (16:9)
-                    let resolvedPath = (slide.slideImagePath.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }) ?? AppState.findLatestSlideImagePath(forProject: appState.currentProjectName, slideIndex: slide.slideIndex)
+                    let resolvedPath = currentSlideImagePath(for: slide)
                     if let imgPath = resolvedPath, let thumbImg = resolveImage(path: imgPath, name: nil, subfolder: nil) {
                         Image(nsImage: thumbImg)
                             .resizable()
@@ -421,7 +421,8 @@ public struct SlideScenarioMakerView: View {
 
                         Spacer()
 
-                        if slide.slideImagePath != nil && resolveImage(path: slide.slideImagePath, name: nil, subfolder: nil) != nil {
+                        let activeSlideImgPath = currentSlideImagePath(for: slide)
+                        if let sPath = activeSlideImgPath, resolveImage(path: sPath, name: nil, subfolder: nil) != nil {
                             HStack(spacing: 4) {
                                 Image(systemName: "photo.badge.checkmark.fill")
                                     .foregroundColor(.green)
@@ -524,7 +525,7 @@ public struct SlideScenarioMakerView: View {
                                     .background(Color.black.opacity(0.85))
                                 }
                             } else if canvasViewMode == .slideOriginal,
-                               let slidePath = (slide.slideImagePath.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }) ?? AppState.findLatestSlideImagePath(forProject: appState.currentProjectName, slideIndex: slide.slideIndex),
+                               let slidePath = currentSlideImagePath(for: slide),
                                let slideOriginalImg = resolveImage(path: slidePath, name: nil, subfolder: nil) {
                                 // 🌟 スライド画面そのものの完全レンダリング画像 (Keynote Native) 🌟
                                 ZStack {
@@ -565,7 +566,8 @@ public struct SlideScenarioMakerView: View {
                             } else {
                                 // --- 要素レイヤー分解表示 (編集プレビュー / フォールバック) ---
                                 // A. Slide Background Image Layer
-                                if let bgImg = resolveImage(path: slide.backgroundImagePath, name: slide.backgroundName, subfolder: "背景") {
+                                if slide.backgroundName != "単色背景" && !slide.backgroundName.isEmpty,
+                                   let bgImg = resolveImage(path: slide.backgroundImagePath, name: slide.backgroundName, subfolder: "背景") {
                                     Image(nsImage: bgImg)
                                         .resizable()
                                         .aspectRatio(contentMode: .fill)
@@ -576,7 +578,7 @@ public struct SlideScenarioMakerView: View {
                                     LinearGradient(
                                         colors: slide.slideType == "sectionHeader" ?
                                             [Color(red: 0.05, green: 0.1, blue: 0.25), Color(red: 0.02, green: 0.05, blue: 0.15)] :
-                                            [Color(red: 0.1, green: 0.12, blue: 0.18), Color(red: 0.05, green: 0.06, blue: 0.1)],
+                                            [Color(red: 0.08, green: 0.09, blue: 0.13), Color(red: 0.03, green: 0.04, blue: 0.06)],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
@@ -625,7 +627,7 @@ public struct SlideScenarioMakerView: View {
                                         .frame(width: cw, height: ch)
                                         .position(x: cx + cw / 2, y: cy + ch / 2)
                                         .shadow(color: .black.opacity(0.35), radius: 6, x: 2, y: 3)
-                                } else if !slide.characterName.isEmpty && slide.characterName != "ナレーション" && slide.slideType == "content" {
+                                } else if !slide.characterName.isEmpty && slide.characterName != "ナレーション" && slide.slideType == "content" && canvasViewMode == .elementLayers {
                                     VStack(spacing: 4) {
                                         Image(systemName: "person.crop.rectangle.fill")
                                             .font(.system(size: min(cw, ch) * 0.35))
@@ -709,7 +711,7 @@ public struct SlideScenarioMakerView: View {
                                         .foregroundColor(.white)
                                         .cornerRadius(4)
 
-                                    if canvasViewMode == .slideOriginal && slide.slideImagePath != nil {
+                                    if canvasViewMode == .slideOriginal && currentSlideImagePath(for: slide) != nil {
                                         Text("原画")
                                             .font(.system(size: 9, weight: .bold))
                                             .padding(.horizontal, 5)
@@ -935,6 +937,13 @@ public struct SlideScenarioMakerView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+    }
+
+    private func currentSlideImagePath(for slide: SlideItem) -> String? {
+        if let p = slide.slideImagePath, FileManager.default.fileExists(atPath: p) {
+            return p
+        }
+        return AppState.findLatestSlideImagePath(forProject: appState.currentProjectName, slideIndex: slide.slideIndex)
     }
 
     /// Resolves image path by checking given path, project cache, and 動画用 asset directories

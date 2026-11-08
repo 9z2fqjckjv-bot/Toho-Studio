@@ -69,26 +69,26 @@ public struct AppInfoView: View {
             HStack(spacing: 16) {
                 AppLogoView(size: 56, cornerRadius: 10)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Toho-Studio Ver. 2.8.0 (Release)")
-                        .font(.title3)
-                        .bold()
-                    Text(updateStatusMessage)
-                        .font(.subheadline)
-                        .foregroundColor(.green)
-                }
+                    Text("Toho-Studio Ver. 2.9.0 (Release)")
+                    .font(.title3)
+                    .bold()
+                Text(updateStatusMessage)
+                    .font(.subheadline)
+                    .foregroundColor(.green)
             }
+        }
 
-            GroupBox(label: Text("更新情報とリソース照合")) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("GitHub リポジトリ上の最新リリースと現在のバージョンを照合します。")
-                        .font(.caption).foregroundColor(.secondary)
+        GroupBox(label: Text("更新情報とリソース照合")) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("GitHub リポジトリ上の最新リリースと現在のバージョンを照合します。")
+                    .font(.caption).foregroundColor(.secondary)
 
-                    HStack(spacing: 12) {
-                        Button(action: {
-                            isCheckingUpdate = true
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                                isCheckingUpdate = false
-                                updateStatusMessage = "最新バージョンです。(v2.8.0)"
+                HStack(spacing: 12) {
+                    Button(action: {
+                        isCheckingUpdate = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            isCheckingUpdate = false
+                            updateStatusMessage = "最新バージョンです。(v2.9.0)"
                                 appState.log("GitHub上のリソースを確認し、最新であることを検証しました")
                             }
                         }) {

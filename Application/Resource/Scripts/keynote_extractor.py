@@ -207,7 +207,8 @@ def export_slide_images_if_needed(filepath, expected_count=0):
         mtime = os.path.getmtime(filepath)
         size = os.path.getsize(filepath)
         base_name = unicodedata.normalize("NFC", os.path.splitext(os.path.basename(filepath))[0])
-        safe_slug = re.sub(r'[^a-zA-Z0-9_\-\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uffef\u4e00-\u9faf]', '_', base_name)
+        # Preserve () and （） in safe_slug
+        safe_slug = re.sub(r'[^a-zA-Z0-9_\-\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uffef\u4e00-\u9faf\(\)（）]', '_', base_name)
         hash_str = hashlib.md5(f"{filepath}:{mtime}:{size}".encode("utf-8")).hexdigest()[:10]
         cache_dir = os.path.join(CACHE_SLIDES_ROOT, f"{safe_slug}_{hash_str}")
 
@@ -228,18 +229,42 @@ def export_slide_images_if_needed(filepath, expected_count=0):
         time.sleep(0.5)
 
         script = f'''
+set theFile to (POSIX file "{filepath}") as alias
+set outFolder to (POSIX file "{cache_dir}") as alias
 tell application id "com.apple.Keynote"
-    set theFile to POSIX file "{filepath}"
-    try
-        set theDoc to open theFile
-        set outDir to POSIX file "{cache_dir}"
-        export theDoc to file outDir as slide images with properties {{image format:JPEG}}
-        close theDoc saving no
-    on error
+    set wasOpen to false
+    set theDoc to missing value
+    repeat with d in documents
         try
-            close theDoc saving no
+            if (get file of d as text) is (theFile as text) then
+                set theDoc to d
+                set wasOpen to true
+                exit repeat
+            end if
         end try
-    end try
+    end repeat
+    if theDoc is missing value then
+        try
+            set targetName to name of (info for theFile)
+            set baseTarget to text 1 thru -5 of targetName
+            repeat with d in documents
+                try
+                    if (get name of d) is targetName or (get name of d) is baseTarget then
+                        set theDoc to d
+                        set wasOpen to true
+                        exit repeat
+                    end if
+                end try
+            end repeat
+        end try
+    end if
+    if theDoc is missing value then
+        set theDoc to open theFile
+    end if
+    export theDoc to outFolder as slide images with properties {{image format:JPEG}}
+    if not wasOpen then
+        close theDoc saving no
+    end if
 end tell
 '''
         subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=30)
@@ -261,11 +286,12 @@ end tell
         # 3. エクスポートが空または失敗した場合の最終フォールバック（最新の過去キャッシュディレクトリを探索）
         best_candidate_dir = None
         best_mtime = 0
-        norm_slug = unicodedata.normalize("NFC", safe_slug).lower()
+        norm_slug = re.sub(r'[\(\)（）\s_\-\.]', '', unicodedata.normalize("NFKC", base_name)).lower()
         if os.path.exists(CACHE_SLIDES_ROOT):
             for candidate in os.listdir(CACHE_SLIDES_ROOT):
-                cand_norm = unicodedata.normalize("NFC", candidate).lower()
-                if cand_norm.startswith(f"{norm_slug}_") or cand_norm == norm_slug:
+                cand_clean = re.sub(r'_[a-f0-9]{8,12}$', '', candidate)
+                cand_norm = re.sub(r'[\(\)（）\s_\-\.]', '', unicodedata.normalize("NFKC", cand_clean)).lower()
+                if cand_norm == norm_slug or (len(norm_slug) >= 2 and norm_slug in cand_norm):
                     cand_dir = os.path.join(CACHE_SLIDES_ROOT, candidate)
                     if os.path.isdir(cand_dir):
                         c_mtime = os.path.getmtime(cand_dir)
@@ -356,26 +382,50 @@ def export_slide_animation_videos_if_needed(filepath, slides):
             set skipped of slide i of theDoc to true
         end repeat
         set skipped of slide {s_idx} of theDoc to false
-        set outMovie to POSIX file "{out_path}"
+        set outMovie to (POSIX file "{out_path}") as «class furl»
         try
-            export theDoc to file outMovie as QuickTime movie with properties {{skipped slides:false, movie format:format720p}}
+            export theDoc to outMovie as QuickTime movie with properties {{skipped slides:false, movie format:format720p}}
         end try
 '''
             export_blocks.append(block)
 
         script = f'''
+set theFile to (POSIX file "{filepath}") as alias
 tell application id "com.apple.Keynote"
-    set theFile to POSIX file "{filepath}"
-    try
-        set theDoc to open theFile
-        set totalSlides to count of slides of theDoc
-        {"".join(export_blocks)}
-        close theDoc saving no
-    on error
+    set wasOpen to false
+    set theDoc to missing value
+    repeat with d in documents
         try
-            close theDoc saving no
+            if (get file of d as text) is (theFile as text) then
+                set theDoc to d
+                set wasOpen to true
+                exit repeat
+            end if
         end try
-    end try
+    end repeat
+    if theDoc is missing value then
+        try
+            set targetName to name of (info for theFile)
+            set baseTarget to text 1 thru -5 of targetName
+            repeat with d in documents
+                try
+                    if (get name of d) is targetName or (get name of d) is baseTarget then
+                        set theDoc to d
+                        set wasOpen to true
+                        exit repeat
+                    end if
+                end try
+            end repeat
+        end try
+    end if
+    if theDoc is missing value then
+        set theDoc to open theFile
+    end if
+    set totalSlides to count of slides of theDoc
+    {"".join(export_blocks)}
+    if not wasOpen then
+        close theDoc saving no
+    end if
 end tell
 '''
         res = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=15)
@@ -394,11 +444,105 @@ end tell
 _ASSET_INDEX = {}
 _ASSET_INFO = {}
 
+def clean_project_base_name(path_or_name):
+    name = os.path.basename(path_or_name)
+    exts = [".tspm", ".key", ".tsvm", ".tssm", ".tscm", ".tsgm", ".json", ".txt", ".pptx", ".keynote", ".gslide"]
+    changed = True
+    while changed:
+        changed = False
+        for ext in exts:
+            if name.lower().endswith(ext):
+                name = name[:-len(ext)]
+                changed = True
+    return name
+
+def decode_zip_name(name):
+    if not name:
+        return ""
+    if isinstance(name, str):
+        try:
+            return name.encode("cp437").decode("utf-8")
+        except Exception:
+            try:
+                return name.encode("cp437").decode("cp932")
+            except Exception:
+                return name
+    return name
+
+def is_ignored_asset(name):
+    if not name:
+        return True
+    low = name.lower()
+    return any(low.startswith(p) for p in ["tile_paper_", "tile_", "paper_", "st-", "mt-", "arrow_", "bullet_"]) or "-small" in low
+
+def extract_embedded_keynote_assets(filepath, project_name):
+    """
+    Keynoteファイル内の Data/ 配下のアセットを .cache/keynote_extracted/<project_name>/ に展開し、
+    インデックスに登録する。
+    """
+    if not filepath or not os.path.exists(filepath):
+        return {}
+    clean_pname = clean_project_base_name(project_name)
+    dest_dir = os.path.join(CACHE_ROOT, clean_pname)
+    os.makedirs(dest_dir, exist_ok=True)
+
+    extracted_map = {}
+    if zipfile.is_zipfile(filepath):
+        try:
+            with zipfile.ZipFile(filepath, "r") as z:
+                for name in z.namelist():
+                    if name.startswith("Data/") and not name.endswith("/"):
+                        base = os.path.basename(name)
+                        dec = decode_zip_name(base)
+                        if is_ignored_asset(dec):
+                            continue
+                        data = z.read(name)
+                        if not data:
+                            continue
+                        cname = clean_image_name(dec)
+                        p1 = os.path.join(dest_dir, dec)
+                        if not os.path.exists(p1) or os.path.getsize(p1) < len(data):
+                            with open(p1, "wb") as f:
+                                f.write(data)
+                        extracted_map[dec] = p1
+                        if cname and cname != dec:
+                            p2 = os.path.join(dest_dir, cname)
+                            if not os.path.exists(p2) or os.path.getsize(p2) < len(data):
+                                with open(p2, "wb") as f:
+                                    f.write(data)
+                            extracted_map[cname] = p2
+        except Exception as e:
+            sys.stderr.write(f"Embedded assets extraction warning: {e}\n")
+    elif os.path.isdir(filepath):
+        data_dir = os.path.join(filepath, "Data")
+        if os.path.isdir(data_dir):
+            try:
+                for f in os.listdir(data_dir):
+                    src = os.path.join(data_dir, f)
+                    if os.path.isfile(src):
+                        dec = decode_zip_name(f)
+                        if is_ignored_asset(dec):
+                            continue
+                        cname = clean_image_name(dec)
+                        p1 = os.path.join(dest_dir, dec)
+                        if not os.path.exists(p1) or os.path.getsize(p1) < os.path.getsize(src):
+                            shutil.copy2(src, p1)
+                        extracted_map[dec] = p1
+                        if cname and cname != dec:
+                            p2 = os.path.join(dest_dir, cname)
+                            if not os.path.exists(p2) or os.path.getsize(p2) < os.path.getsize(src):
+                                shutil.copy2(src, p2)
+                            extracted_map[cname] = p2
+            except Exception as e:
+                sys.stderr.write(f"Embedded directory assets copy warning: {e}\n")
+    return extracted_map
+
 def classify_video_asset(full_path):
     """
     指示書 Slide 15-33 準拠:
     『キャラクターと背景画像の識別には”動画用”フォルダ内を用い入ります』
-    ファイルパスが動画用フォルダのどのサブディレクトリに属するかによって、
+    ファイルパスが動画用フォルダのどのサブディレクトリに属するか、
+    または抽出ファイルの特徴（アスペクト比・キーワード・透過）によって、
     background, character, handmade, bgm, se, voice を確定識別する。
     """
     norm_path = unicodedata.normalize("NFC", full_path)
@@ -406,47 +550,88 @@ def classify_video_asset(full_path):
     if "/動画用/" in norm_path:
         rel = norm_path.split("/動画用/", 1)[1]
     
-    parts = rel.split("/")
-    top_folder = parts[0] if len(parts) > 0 else ""
-    
-    cat = "object"
-    char_name = None
-    
-    if top_folder == "背景":
-        cat = "background"
-    elif top_folder in ["キャラクター", "キャラクター元ファイル"]:
-        cat = "character"
-        # ディレクトリパスからキャラクター名を特定
-        # 例: 動画用/キャラクター/魂魄妖夢/... -> 魂魄妖夢
-        # 例: 動画用/キャラクター/主人公たち/博麗霊夢/... -> 博麗霊夢
-        for p in parts[1:]:
-            p_clean = re.sub(r"\(.*?\)|（.*?）", "", p).strip()
-            for k, full_n in CHAR_MAP.items():
-                if k in p_clean:
-                    char_name = full_n
-                    break
-            if char_name:
-                break
-            if p_clean in CHAR_MAP.values():
-                char_name = p_clean
-                break
-        if not char_name and len(parts) >= 2:
-            cand = re.sub(r"\(.*?\)|（.*?）", "", parts[-2]).strip()
-            if cand and cand not in ["キャラクター", "元ファイル", "主人公", "主人公たち"]:
-                char_name = cand
-    elif top_folder == "手作り素材":
-        cat = "handmade"
-    elif top_folder == "音楽":
-        if len(parts) >= 2 and "BGM" in parts[1]:
-            cat = "bgm"
-        elif len(parts) >= 2 and ("効果音" in parts[1] or "SE" in parts[1]):
-            cat = "se"
-        else:
-            cat = "bgm"
-    elif top_folder == "Podcast":
-        cat = "voice"
+        parts = rel.split("/")
+        top_folder = parts[0] if len(parts) > 0 else ""
         
-    return cat, char_name
+        cat = "object"
+        char_name = None
+        
+        if top_folder == "背景":
+            cat = "background"
+        elif top_folder in ["キャラクター", "キャラクター元ファイル"]:
+            cat = "character"
+            for p in parts[1:]:
+                p_clean = re.sub(r"\(.*?\)|（.*?）", "", p).strip()
+                for k, full_n in CHAR_MAP.items():
+                    if k in p_clean:
+                        char_name = full_n
+                        break
+                if char_name:
+                    break
+                if p_clean in CHAR_MAP.values():
+                    char_name = p_clean
+                    break
+            if not char_name and len(parts) >= 2:
+                cand = re.sub(r"\(.*?\)|（.*?）", "", parts[-2]).strip()
+                if cand and cand not in ["キャラクター", "元ファイル", "主人公", "主人公たち"]:
+                    char_name = cand
+        elif top_folder == "手作り素材":
+            cat = "handmade"
+        elif top_folder == "音楽":
+            if len(parts) >= 2 and "BGM" in parts[1]:
+                cat = "bgm"
+            elif len(parts) >= 2 and ("効果音" in parts[1] or "SE" in parts[1]):
+                cat = "se"
+            else:
+                cat = "bgm"
+        elif top_folder == "Podcast":
+            cat = "voice"
+            
+        return cat, char_name
+
+    # 動画用フォルダ外（.cache/keynote_extracted 配下の抽出画像など）
+    fname = os.path.basename(norm_path)
+    if is_ignored_asset(fname):
+        return "ignore", None
+
+    # 背景キーワード判定
+    has_bg_kw = any(k in fname for k in [
+        "背景", "和室", "神社", "紅魔館", "スキマ", "リビング", "空", "部屋",
+        "夜", "昼", "夕", "道", "駅前", "町", "洋館", "廊下", "森", "庭", "図書館", "ベッド", "室内"
+    ])
+    if has_bg_kw:
+        return "background", None
+
+    char_name = None
+    for k, v in CHAR_MAP.items():
+        if k in fname:
+            char_name = v
+            break
+
+    has_trait = any(k in fname for k in [
+        "立ち絵", "表情", "顔", "私服", "制服", "水着", "通常", "泣き", "慌てる",
+        "笑み", "苦しい", "やられ", "狂気", "困り", "怒り", "叫び", "照れ", "焦り",
+        "悲しみ", "汗", "寝顔", "疑問顔", "余裕"
+    ])
+    if char_name or has_trait:
+        return "character", char_name
+
+    # 画像の実サイズとアスペクト比・アルファチャンネルで識別
+    try:
+        from PIL import Image
+        with Image.open(full_path) as img:
+            w, h = img.size
+            is_trans = img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info)
+            # 横長ワイド(16:9等)かつ不透明かつ一定サイズ以上の画像は背景
+            if not is_trans and w >= 800 and (w / max(h, 1) >= 1.2):
+                return "background", None
+            # 透過PNGまたは縦長比率の画像はキャラクター
+            if is_trans or h > w:
+                return "character", char_name
+    except Exception:
+        pass
+
+    return "object", None
 
 def build_asset_index():
     global _ASSET_INDEX, _ASSET_INFO
@@ -526,7 +711,7 @@ def fix_mojibake(name):
     for enc in ["cp1256", "cp1252", "mac_roman"]:
         try:
             fixed = name.encode(enc).decode("cp932")
-            if any(k in fixed for k in ["霊夢", "魔理沙", "紫", "フラン", "和室", "背景", "余裕", "驚く", "困る"]):
+            if any(k in fixed for k in ["霊夢", "魔理沙", "紫", "フラン", "和室", "背景", "余裕", "驚く", "困る", "泣き", "苦しい"]):
                 return unicodedata.normalize("NFC", fixed)
         except Exception:
             pass
@@ -535,10 +720,12 @@ def fix_mojibake(name):
 def clean_image_name(name):
     if not name:
         return ""
+    name = decode_zip_name(name)
     m = re.search(r"([\w\u3040-\u30ff\u4e00-\u9fff\(\)（）\-\.【】_＋]+?\.(?:jpg|png|jpeg|pxd|gif))", name, re.IGNORECASE)
     if m:
         res = m.group(1)
         res = re.sub(r"^[^\w\u3040-\u30ff\u4e00-\u9fff【]+", "", res)
+        res = re.sub(r"-\d+(\.[a-zA-Z0-9]+)$", r"\1", res)
         if re.match(r"^\dnc\d+_", res):
             res = res[1:]
         elif re.match(r"^[0-9a-zA-Z][\u3040-\u30ff\u4e00-\u9fff【]", res):
@@ -547,6 +734,7 @@ def clean_image_name(name):
         fixed = fix_mojibake(res)
         return unicodedata.normalize("NFC", fixed.strip())
     cname = re.sub(r"^[^\w\u3040-\u30ff\u4e00-\u9fff]+", "", name)
+    cname = re.sub(r"-\d+(\.[a-zA-Z0-9]+)$", r"\1", cname)
     cname = re.sub(r"-small", "", cname)
     cname = fix_mojibake(cname)
     return unicodedata.normalize("NFC", cname.strip())
@@ -1676,7 +1864,7 @@ def extract_via_direct_iwa(filepath, project_name):
                 vb = bytes(b)
                 if vb in decomp:
                     clean_img = re.sub(r"-small", "", iname)
-                    if clean_img not in slide_images:
+                    if not is_ignored_asset(clean_img) and clean_img not in slide_images:
                         slide_images.append(clean_img)
 
             bg_name = ""
@@ -1686,23 +1874,31 @@ def extract_via_direct_iwa(filepath, project_name):
             detected_names = []
 
             for iname in slide_images:
+                if is_ignored_asset(iname):
+                    continue
+
+                clean_in = clean_image_name(iname)
+                if bg_name:
+                    clean_bg = clean_image_name(bg_name)
+                    if os.path.splitext(clean_in)[0] == os.path.splitext(clean_bg)[0]:
+                        continue
+
                 info = find_asset_info(iname)
                 asset_path = info["path"] if info else find_asset(iname)
                 category = info["category"] if info else "unknown"
                 cat_char_name = info.get("character_name") if info else None
 
-                is_bg = False
-                is_char = False
+                if category == "ignore":
+                    continue
 
-                # 指示書 Slide 15-33: キャラクターと背景画像の識別には”動画用”フォルダ内を用い入る
+                # 指示書 Slide 15-33: キャラクターと背景画像の識別
                 if category == "background" and not bg_name:
                     bg_name = iname
                     bg_path = asset_path
-                    is_bg = True
-                    detected_names.append("背景(動画用/背景): " + iname)
+                    detected_names.append("背景: " + iname)
+                    continue
 
                 elif category == "character":
-                    is_char = True
                     c_display = cat_char_name if cat_char_name else ""
                     if not c_display:
                         for k, full_n in CHAR_MAP.items():
@@ -1717,7 +1913,8 @@ def extract_via_direct_iwa(filepath, project_name):
                         "imageName": iname,
                         "imagePath": asset_path
                     })
-                    detected_names.append("キャラクター(動画用/キャラクター): " + iname)
+                    detected_names.append("キャラクター: " + iname)
+                    continue
 
                 elif category == "handmade":
                     objects.append({
@@ -1729,46 +1926,73 @@ def extract_via_direct_iwa(filepath, project_name):
                         "height": 300.0,
                         "imagePath": asset_path
                     })
-                    detected_names.append("手作り素材(動画用/手作り素材): " + iname)
+                    detected_names.append("手作り素材: " + iname)
                     continue
 
                 # フォルダ外または未知の場合のフォールバックキーワード照合
-                if not is_bg and not bg_name:
-                    has_bg_keyword = any(k in iname for k in ["背景", "和室", "神社", "紅魔館", "スキマ", "リビング", "空", "部屋", "夜", "昼", "夕", "道"])
-                    if has_bg_keyword:
-                        bg_name = iname
-                        bg_path = asset_path
-                        is_bg = True
-                        detected_names.append("背景:" + iname)
+                has_bg_keyword = any(k in iname for k in [
+                    "背景", "和室", "神社", "紅魔館", "スキマ", "リビング", "空", "部屋",
+                    "夜", "昼", "夕", "道", "駅前", "町", "洋館", "廊下", "森", "庭", "図書館", "ベッド", "室内"
+                ])
+                if has_bg_keyword and not bg_name:
+                    bg_name = iname
+                    bg_path = asset_path
+                    detected_names.append("背景:" + iname)
+                    continue
 
-                if not is_bg and not is_char:
-                    detected_char_in_img = ""
-                    for k, full_n in CHAR_MAP.items():
-                        if k in iname:
-                            detected_char_in_img = full_n
-                            break
-                    has_char_trait = any(k in iname for k in ["立ち絵", "（余裕）", "（驚く）", "（困る）", "（微笑）", "（笑い）", "寝顔", "疑問顔", "表情", "私服", "水着"])
-                    if detected_char_in_img or has_char_trait:
-                        c_display = detected_char_in_img if detected_char_in_img else "キャラクター"
-                        characters.append({
-                            "name": c_display,
-                            "imageName": iname,
-                            "imagePath": asset_path
-                        })
-                        is_char = True
-                        detected_names.append("キャラクター:" + iname)
-
-                if not is_bg and not is_char:
-                    objects.append({
-                        "name": iname,
-                        "objectType": "image",
-                        "x": 100.0,
-                        "y": 100.0,
-                        "width": 300.0,
-                        "height": 300.0,
+                detected_char_in_img = ""
+                for k, full_n in CHAR_MAP.items():
+                    if k in iname:
+                        detected_char_in_img = full_n
+                        break
+                has_char_trait = any(k in iname for k in [
+                    "立ち絵", "表情", "顔", "私服", "制服", "水着", "通常", "泣き", "慌てる",
+                    "笑み", "苦しい", "やられ", "狂気", "困り", "怒り", "叫び", "照れ", "焦り",
+                    "悲しみ", "汗", "寝顔", "疑問顔", "余裕"
+                ])
+                if detected_char_in_img or has_char_trait:
+                    c_display = detected_char_in_img if detected_char_in_img else "キャラクター"
+                    characters.append({
+                        "name": c_display,
+                        "imageName": iname,
                         "imagePath": asset_path
                     })
-                    detected_names.append("オブジェクト:" + iname)
+                    detected_names.append("キャラクター:" + iname)
+                    continue
+
+                # 画像の実サイズとアスペクト比で識別（横長ワイドは背景、透過・縦長はキャラクター）
+                if asset_path and os.path.exists(asset_path):
+                    try:
+                        from PIL import Image
+                        with Image.open(asset_path) as a_img:
+                            aw, ah = a_img.size
+                            a_trans = a_img.mode in ('RGBA', 'LA') or (a_img.mode == 'P' and 'transparency' in a_img.info)
+                            if not a_trans and aw >= 600 and (aw / max(ah, 1) >= 1.2) and not bg_name:
+                                bg_name = iname
+                                bg_path = asset_path
+                                detected_names.append("背景:" + iname)
+                                continue
+                            elif a_trans or ah > aw:
+                                characters.append({
+                                    "name": "キャラクター",
+                                    "imageName": iname,
+                                    "imagePath": asset_path
+                                })
+                                detected_names.append("キャラクター:" + iname)
+                                continue
+                    except Exception:
+                        pass
+
+                objects.append({
+                    "name": iname,
+                    "objectType": "image",
+                    "x": 100.0,
+                    "y": 100.0,
+                    "width": 300.0,
+                    "height": 300.0,
+                    "imagePath": asset_path
+                })
+                detected_names.append("オブジェクト:" + iname)
 
 
             title = f"シーン {s_idx}"
@@ -1904,8 +2128,12 @@ def extract_via_direct_iwa(filepath, project_name):
                     duration = parse_duration_from_note(raw_note, default_duration=base_duration, anim_duration=total_anim_dur)
 
             if not bg_name:
-                bg_name = "nc73538_【背景素材】博麗神社.jpg" if stype == "content" else "単色背景"
-                bg_path = find_asset(bg_name)
+                if stype == "content" and parsed_slides and parsed_slides[-1].get("backgroundImagePath") and parsed_slides[-1].get("backgroundName") != "単色背景":
+                    bg_name = parsed_slides[-1]["backgroundName"]
+                    bg_path = parsed_slides[-1]["backgroundImagePath"]
+                else:
+                    bg_name = "単色背景"
+                    bg_path = None
 
             parsed_slides.append({
                 "slideIndex": s_idx,
@@ -2106,8 +2334,9 @@ def extract_keynote_slides(filepath):
     if not os.path.exists(filepath):
         return {"error": f"File not found: {filepath}", "slides": [], "total": 0}
 
-    build_asset_index()
     project_name = os.path.splitext(os.path.basename(filepath))[0]
+    extract_embedded_keynote_assets(filepath, project_name)
+    build_asset_index()
 
     # Priority 1: Direct Native IWA Parser (Fast, no GUI, zero interruption, ~2s)
     direct_res = extract_via_direct_iwa(filepath, project_name)
@@ -2253,8 +2482,12 @@ def extract_keynote_slides(filepath):
                 if not char_name:
                     char_name = "ナレーション" if stype == "content" else ""
                 if not bg_name:
-                    bg_name = "nc73538_【背景素材】博麗神社.jpg" if stype == "content" else "単色背景"
-                    bg_path = find_asset(bg_name)
+                    if stype == "content" and parsed_slides and parsed_slides[-1].get("backgroundImagePath") and parsed_slides[-1].get("backgroundName") != "単色背景":
+                        bg_name = parsed_slides[-1]["backgroundName"]
+                        bg_path = parsed_slides[-1]["backgroundImagePath"]
+                    else:
+                        bg_name = "単色背景"
+                        bg_path = None
 
                 trans_raw = s_raw.get("trans", {})
                 raw_eff = trans_raw.get("transitionEffect", "none")
