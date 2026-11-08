@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>東方Project キャラクタースタジオ (Toho Character PSD Studio)</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme">
+  <!-- アプリケーションヘッダー -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="app-logo">
+        <span class="logo-icon">🌸</span>
+        <span class="logo-text">東方キャラ立絵スタジオ</span>
+        <span class="version-badge">Mac Ver 1.0</span>
+      </div>
+      <div class="current-file-badge" id="currentFileBadge" style="display: none;">
+        <span class="file-icon">📄</span>
+        <span id="currentFileName">未読み込み</span>
+        <span class="file-dims" id="currentFileDims"></span>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="view-controls">
+        <button class="icon-btn" id="btnZoomOut" title="縮小 (Cmd -)"><span>−</span></button>
+        <span class="zoom-level" id="zoomLevelDisplay">100%</span>
+        <button class="icon-btn" id="btnZoomIn" title="拡大 (Cmd +)"><span>+</span></button>
+        <button class="tool-btn" id="btnZoomFit" title="全体表示 (Cmd 0)">フィット</button>
+        <button class="tool-btn" id="btnZoom100" title="等倍表示">100%</button>
+      </div>
+      <div class="bg-selector">
+        <span class="bg-label">背景:</span>
+        <button class="bg-btn active" data-bg="checker" title="透過（格子）">🏁</button>
+        <button class="bg-btn" data-bg="dark" title="ダーク">⬛</button>
+        <button class="bg-btn" data-bg="white" title="白">⬜</button>
+        <button class="bg-btn" data-bg="green" title="グリーンバック（GB）">🟩</button>
+        <button class="bg-btn" data-bg="blue" title="ブルーバック（BB）">🟦</button>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <button class="action-btn secondary" id="btnOpenLocalPSD">
+        <span class="btn-icon">📂</span> PSDを開く...
+      </button>
+      <input type="file" id="psdFileInput" accept=".psd,.psb" style="display: none;">
+      
+      <button class="action-btn primary" id="btnExportQuick">
+        <span class="btn-icon">💾</span> エクスポート
+      </button>
+    </div>
+  </header>
+
+  <!-- メインレイアウト（3カラム） -->
+  <main class="app-main">
+    <!-- 左ペイン: キャラクター・表情・レイヤー -->
+    <aside class="sidebar left-sidebar">
+      <div class="tabs left-tabs">
+        <button class="tab-btn active" data-tab="tab-chars">
+          <span class="tab-icon">👥</span> 東方キャラ
+        </button>
+        <button class="tab-btn" data-tab="tab-expressions">
+          <span class="tab-icon">🎭</span> 表情パーツ
+        </button>
+        <button class="tab-btn" data-tab="tab-presets">
+          <span class="tab-icon">✨</span> プリセット
+        </button>
+        <button class="tab-btn" data-tab="tab-layers">
+          <span class="tab-icon">📑</span> レイヤー
+        </button>
+      </div>
+
+      <div class="tab-content left-content">
+        <!-- 東方キャラ一覧タブ -->
+        <div class="tab-pane active" id="tab-chars">
+          <div class="search-box">
+            <input type="text" id="charSearchInput" placeholder="キャラクター名で検索 (霊夢, 魔理沙, チルノ...)">
+            <span class="search-icon">🔍</span>
+          </div>
+          <div class="char-count-bar">
+            <span>内蔵PSD素材: <strong id="charCount">0</strong> 体</span>
+            <button class="text-btn" id="btnRefreshChars">更新</button>
+          </div>
+          <div class="character-list" id="characterList">
+            <div class="loading-spinner">キャラクター素材をスキャン中...</div>
+          </div>
+        </div>
+
+        <!-- 表情パーツ切り替えタブ -->
+        <div class="tab-pane" id="tab-expressions">
+          <div class="pane-header">
+            <h3>表情差分パーツ</h3>
+            <button class="text-btn" id="btnResetParts">初期状態に戻す</button>
+          </div>
+          <div class="expression-parts-container" id="expressionPartsContainer">
+            <div class="empty-state">PSDファイルを読み込むと、目・口・眉などのパーツがここに表示されます。</div>
+          </div>
+        </div>
+
+        <!-- 表情プリセットタブ -->
+        <div class="tab-pane" id="tab-presets">
+          <div class="pane-header">
+            <h3>表情ワンクリックプリセット</h3>
+          </div>
+          <div class="preset-grid" id="expressionPresetsGrid">
+            <!-- 動的生成 -->
+          </div>
+
+          <div class="pane-header" style="margin-top: 20px;">
+            <h3>キャラクター内蔵サンプル</h3>
+          </div>
+          <div class="preset-grid" id="charEmbeddedPresetsGrid">
+            <div class="empty-state-sm">PSD内の表情サンプルが検出されるとここに表示されます。</div>
+          </div>
+        </div>
+
+        <!-- 詳細レイヤーツリータブ -->
+        <div class="tab-pane" id="tab-layers">
+          <div class="pane-header">
+            <h3>全レイヤーツリー</h3>
+            <div class="layer-actions">
+              <button class="text-btn" id="btnExpandAllLayers">全展開</button>
+              <button class="text-btn" id="btnCollapseAllLayers">全折りたたみ</button>
+            </div>
+          </div>
+          <div class="layer-tree-container" id="layerTreeContainer">
+            <div class="empty-state">レイヤー構造がここに表示されます。</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 中央ペイン: キャンバスプレビュー -->
+    <section class="canvas-viewport" id="canvasViewport">
+      <div class="canvas-container bg-checker" id="canvasContainer">
+        <canvas id="previewCanvas"></canvas>
+        <div class="drop-zone-overlay" id="dropZoneOverlay">
+          <div class="drop-zone-box">
+            <span class="drop-icon">📥</span>
+            <h3>PSDファイルをドロップ</h3>
+            <p>ここにPSDファイルをドラッグ＆ドロップすると瞬時に読み込みます</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 下部フローティングバー -->
+      <div class="viewport-bottom-bar">
+        <div class="status-indicator">
+          <span class="status-dot"></span>
+          <span id="statusText">待機中 (東方キャラまたはPSDファイルを選択してください)</span>
+        </div>
+        <div class="quick-helpers">
+          <button class="helper-btn" id="btnFlipH" title="左右反転">↔️ 反転</button>
+          <button class="helper-btn" id="btnFitWindow" title="ウィンドウに合わせる">🔲 フィット</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 右ペイン: 色彩変換 & エクスポート -->
+    <aside class="sidebar right-sidebar">
+      <div class="tabs right-tabs">
+        <button class="tab-btn active" data-tab="tab-color">
+          <span class="tab-icon">🎨</span> 色彩・カラー
+        </button>
+        <button class="tab-btn" data-tab="tab-export">
+          <span class="tab-icon">📤</span> エクスポート
+        </button>
+      </div>
+
+      <div class="tab-content right-content">
+        <!-- 色彩・カラー変換タブ -->
+        <div class="tab-pane active" id="tab-color">
+          <div class="pane-header">
+            <h3>雰囲気カラーフィルター</h3>
+            <button class="text-btn" id="btnResetFilter">通常に戻す</button>
+          </div>
+          <div class="filter-preset-grid">
+            <button class="filter-chip active" data-filter="normal">通常 (Normal)</button>
+            <button class="filter-chip" data-filter="sunset">夕暮れ (黄昏)</button>
+            <button class="filter-chip" data-filter="moonlight">夜・月光</button>
+            <button class="filter-chip" data-filter="darkness">闇落ち・妖気</button>
+            <button class="filter-chip" data-filter="suntan">日焼け・小麦肌</button>
+            <button class="filter-chip" data-filter="sepia">セピア (回想)</button>
+            <button class="filter-chip" data-filter="monochrome">モノクロ</button>
+            <button class="filter-chip" data-filter="cyber">サイバーネオン</button>
+            <button class="filter-chip" data-filter="pastel">パステルドリーム</button>
+            <button class="filter-chip" data-filter="horror">ホラー・怨霊</button>
+          </div>
+
+          <div class="pane-header" style="margin-top: 18px;">
+            <h3>全体カラー調整</h3>
+            <button class="text-btn" id="btnResetColorSliders">リセット</button>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-item">
+              <div class="slider-label-row">
+                <span>色相 (Hue)</span>
+                <span class="slider-val" id="valHue">0°</span>
+              </div>
+              <input type="range" id="sliderHue" min="-180" max="180" value="0" class="color-slider hue-track">
+            </div>
+
+            <div class="slider-item">
+              <div class="slider-label-row">
+                <span>彩度 (Saturation)</span>
+                <span class="slider-val" id="valSaturation">100%</span>
+              </div>
+              <input type="range" id="sliderSaturation" min="0" max="200" value="100">
+            </div>
+
+            <div class="slider-item">
+              <div class="slider-label-row">
+                <span>明度 / 輝度 (Brightness)</span>
+                <span class="slider-val" id="valBrightness">0%</span>
+              </div>
+              <input type="range" id="sliderBrightness" min="-100" max="100" value="0">
+            </div>
+
+            <div class="slider-item">
+              <div class="slider-label-row">
+                <span>コントラスト (Contrast)</span>
+                <span class="slider-val" id="valContrast">0%</span>
+              </div>
+              <input type="range" id="sliderContrast" min="-100" max="100" value="0">
+            </div>
+
+            <div class="slider-item">
+              <div class="slider-label-row">
+                <span>色温度 (暖色 / 寒色)</span>
+                <span class="slider-val" id="valTemperature">0</span>
+              </div>
+              <input type="range" id="sliderTemperature" min="-100" max="100" value="0">
+            </div>
+          </div>
+
+          <!-- RGBバランス -->
+          <details class="advanced-color-details">
+            <summary>RGBカラーバランス詳細</summary>
+            <div class="slider-group" style="margin-top: 10px;">
+              <div class="slider-item">
+                <div class="slider-label-row">
+                  <span style="color: #ff6b6b;">赤 (Red)</span>
+                  <span class="slider-val" id="valRed">0</span>
+                </div>
+                <input type="range" id="sliderRed" min="-100" max="100" value="0">
+              </div>
+              <div class="slider-item">
+                <div class="slider-label-row">
+                  <span style="color: #51cf66;">緑 (Green)</span>
+                  <span class="slider-val" id="valGreen">0</span>
+                </div>
+                <input type="range" id="sliderGreen" min="-100" max="100" value="0">
+              </div>
+              <div class="slider-item">
+                <div class="slider-label-row">
+                  <span style="color: #339af0;">青 (Blue)</span>
+                  <span class="slider-val" id="valBlue">0</span>
+                </div>
+                <input type="range" id="sliderBlue" min="-100" max="100" value="0">
+              </div>
+            </div>
+          </details>
+
+          <!-- 部位別カラー調整 -->
+          <div class="pane-header" style="margin-top: 20px;">
+            <h3>部位別・レイヤー別カラー調整</h3>
+          </div>
+          <div class="part-color-box">
+            <p class="desc-text">選択したパーツ・レイヤーのみの色を変更できます（例：服だけ青に、髪だけ金髪に、肌だけ日焼け等）。</p>
+            <select id="partColorTargetSelect" class="styled-select">
+              <option value="all">（全体に適用）</option>
+              <!-- レイヤー読み込み時に動的追加 -->
+            </select>
+            <div class="slider-group" style="margin-top: 8px;">
+              <div class="slider-item">
+                <div class="slider-label-row">
+                  <span>部位色相 (Part Hue)</span>
+                  <span class="slider-val" id="valPartHue">0°</span>
+                </div>
+                <input type="range" id="sliderPartHue" min="-180" max="180" value="0" class="color-slider hue-track">
+              </div>
+            </div>
+          </div>
+
+          <!-- 特定色の置き換え（カラーリプレイスメント） -->
+          <div class="pane-header" style="margin-top: 20px;">
+            <h3>特定色の置き換え (カラー置換)</h3>
+            <button class="text-btn" id="btnAddColorRule">＋ ルール追加</button>
+          </div>
+          <div class="color-replace-container">
+            <p class="desc-text">イラスト内の特定の色（例：服の赤、髪の黄色、瞳の色など）をスポイトで吸い取り、陰影を保ったまま別の色に置き換えます。</p>
+            <div class="eyedropper-bar">
+              <button class="action-btn secondary eyedropper-btn" id="btnEyedropper" title="キャンバス上をクリックして色を取得">
+                <span class="btn-icon">💧</span> スポイトで色を取得
+              </button>
+              <span class="eyedropper-hint" id="eyedropperHint" style="display: none;">キャンバスをクリックして色を選択してください</span>
+            </div>
+            <div class="color-rules-list" id="colorRulesList">
+              <!-- ルールカードが動的に生成される -->
+            </div>
+          </div>
+        </div>
+
+        <!-- エクスポートタブ -->
+        <div class="tab-pane" id="tab-export">
+          <div class="pane-header">
+            <h3>エクスポート設定</h3>
+          </div>
+
+          <div class="export-format-selector">
+            <label class="format-card active">
+              <input type="radio" name="exportFormat" value="png" checked>
+              <div class="format-info">
+                <span class="format-ext">PNG</span>
+                <span class="format-desc">透過アルファ保持 / 動画編集用</span>
+              </div>
+            </label>
+
+            <label class="format-card">
+              <input type="radio" name="exportFormat" value="jpg">
+              <div class="format-info">
+                <span class="format-ext">JPG</span>
+                <span class="format-desc">背景色指定 / 軽量高画質</span>
+              </div>
+            </label>
+
+            <label class="format-card">
+              <input type="radio" name="exportFormat" value="pxd">
+              <div class="format-info">
+                <span class="format-ext">PXD</span>
+                <span class="format-desc">Pixelmator / Pixlr レイヤー保持</span>
+              </div>
+            </label>
+
+            <label class="format-card">
+              <input type="radio" name="exportFormat" value="psd">
+              <div class="format-info">
+                <span class="format-ext">PSD</span>
+                <span class="format-desc">Photoshop / クリスタ レイヤー保持</span>
+              </div>
+            </label>
+          </div>
+
+          <!-- JPG専用オプション -->
+          <div class="format-options-box" id="jpgOptionsBox" style="display: none;">
+            <div class="option-row">
+              <span>背景色:</span>
+              <div class="color-picker-wrapper">
+                <input type="color" id="jpgBgColor" value="#ffffff">
+                <button class="mini-btn" id="btnJpgWhite">白</button>
+                <button class="mini-btn" id="btnJpgBlack">黒</button>
+                <button class="mini-btn" id="btnJpgGreen">GB</button>
+              </div>
+            </div>
+            <div class="option-row">
+              <span>品質:</span>
+              <div class="quality-row">
+                <input type="range" id="jpgQuality" min="50" max="100" value="95">
+                <span id="jpgQualityVal">95%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 解像度スケーリング -->
+          <div class="option-block" style="margin-top: 15px;">
+            <span class="option-label">出力解像度スケーリング:</span>
+            <div class="scale-buttons">
+              <button class="scale-btn active" data-scale="1.0">100% (原寸)</button>
+              <button class="scale-btn" data-scale="0.75">75%</button>
+              <button class="scale-btn" data-scale="0.5">50%</button>
+              <button class="scale-btn" data-scale="1.5">150%</button>
+              <button class="scale-btn" data-scale="2.0">200%</button>
+            </div>
+            <div class="dims-preview" id="exportDimsPreview">出力サイズ: - x - px</div>
+          </div>
+
+          <!-- ファイル名指定 -->
+          <div class="option-block">
+            <span class="option-label">ファイル名:</span>
+            <div class="filename-input-row">
+              <input type="text" id="exportFilenameInput" value="東方キャラ_立絵">
+              <span class="filename-ext-badge" id="exportExtBadge">.png</span>
+            </div>
+          </div>
+
+          <!-- エクスポートボタン郡 -->
+          <div class="export-actions">
+            <button class="big-action-btn" id="btnApplyToTohoStudio" onclick="window.tohoStudioApplyToProject()" style="background: linear-gradient(135deg, #8e44ad, #d63031); color: #fff; margin-bottom: 8px;">
+              <span class="btn-icon">⭐</span> TohoStudioプロジェクトに適用
+            </button>
+            <button class="big-action-btn primary" id="btnDownloadExport">
+              <span class="btn-icon">📥</span> Macへダウンロード保存
+            </button>
+            <button class="big-action-btn secondary" id="btnSaveToMaterials">
+              <span class="btn-icon">📁</span> 素材フォルダへ直接一発保存
+            </button>
+            <p class="save-path-hint">保存先: <code>動画用/手作り素材/psdtool/エクスポート/</code></p>
+          </div>
+
+          <!-- 一括バッチエクスポート -->
+          <div class="batch-export-section">
+            <div class="pane-header">
+              <h4>差分一括書き出し</h4>
+            </div>
+            <p class="desc-text">全表情プリセット（通常、笑顔、怒り、泣き等）を連番PNGとして一括エクスポートします。</p>
+            <button class="batch-btn" id="btnBatchExportExpressions">
+              <span class="btn-icon">📦</span> 全表情差分を一括PNG書き出し (ZIP)
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- スポイト追従インジケーター -->
+  <div class="eyedropper-tooltip" id="eyedropperTooltip">
+    <div class="eyedropper-tooltip-preview" id="eyedropperTooltipPreview"></div>
+    <span id="eyedropperTooltipText">#FFFFFF</span>
+  </div>
+
+  <!-- 通知トースト -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- スクリプトの読み込み -->
+  <script src="vendor/ag-psd.bundle.js"></script>
+  <script src="vendor/jszip.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

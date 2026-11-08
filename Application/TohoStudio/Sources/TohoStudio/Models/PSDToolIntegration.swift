@@ -18,8 +18,9 @@ public class PSDToolService: NSObject, ObservableObject {
     public static let shared = PSDToolService()
 
     public enum PSDToolSourceMode: String, CaseIterable {
-        case web = "Web版 (公式)"
+        case tohoStudio = "東方キャラ立絵スタジオ (内蔵)"
         case local = "ローカル保存版"
+        case web = "Web版 (公式)"
     }
 
     @Published public var availablePresets: [PSDToolPreset] = []
@@ -27,13 +28,13 @@ public class PSDToolService: NSObject, ObservableObject {
     @Published public var isLoadingPSD: Bool = false
     @Published public var isHTMLReady: Bool = false
     @Published public var htmlLoadError: String? = nil
-    @Published public var statusMessage: String = "PSDTool 準備完了"
+    @Published public var statusMessage: String = "東方キャラ立絵スタジオ 準備完了"
     @Published public var isAutoTrimEnabled: Bool = true
     @Published public var isFlippedX: Bool = false
     @Published public var isFlippedY: Bool = false
-    @Published public var sourceMode: PSDToolSourceMode = .web
+    @Published public var sourceMode: PSDToolSourceMode = .tohoStudio
     @Published public var customHTMLPath: String? = nil
-    @Published public var currentURLString: String = "https://oov.github.io/psdtool/"
+    @Published public var currentURLString: String = "http://127.0.0.1:8088"
 
     // WebKit 参照
     public weak var webView: WKWebView?
@@ -238,13 +239,66 @@ public class PSDToolService: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - アプリケーション内ブラウザでの PSDTool ロード
+    // MARK: - 内蔵の東方キャラ立絵スタジオ (web_psd) のステージングURL取得
+    public static func getWebPSDHTMLURL() -> URL? {
+        let repo = resolveRepoRoot()
+        let candidates = [
+            "\(repo)/Application/Resource/CharacterStudio/web_psd/index.html",
+            "\(repo)/Resource/CharacterStudio/web_psd/index.html",
+            "\(repo)/Application/TohoStudio/Sources/TohoStudio/Resources/web_psd/index.html",
+            Bundle.main.resourcePath.map { "\($0)/Resource/CharacterStudio/web_psd/index.html" },
+            Bundle.main.resourcePath.map { "\($0)/web_psd/index.html" },
+            Bundle.main.resourcePath.map { "\($0)/Contents/Resources/web_psd/index.html" }
+        ].compactMap { $0 }
+
+        guard let sourcePath = candidates.first(where: { FileManager.default.fileExists(atPath: $0) }) else {
+            return nil
+        }
+        let sourceURL = URL(fileURLWithPath: sourcePath)
+        let sourceDir = sourceURL.deletingLastPathComponent()
+
+        let cacheBaseDir: URL
+        if let cachesURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
+            cacheBaseDir = cachesURL.appendingPathComponent("TohoStudio/WebPSD")
+        } else {
+            cacheBaseDir = URL(fileURLWithPath: "/tmp/TohoStudio/WebPSD")
+        }
+        let destHtmlURL = cacheBaseDir.appendingPathComponent("index.html")
+
+        do {
+            try FileManager.default.createDirectory(at: cacheBaseDir, withIntermediateDirectories: true)
+            // ディレクトリまるごと同期
+            let subitems = (try? FileManager.default.contentsOfDirectory(atPath: sourceDir.path)) ?? []
+            for item in subitems {
+                let s = sourceDir.appendingPathComponent(item)
+                let d = cacheBaseDir.appendingPathComponent(item)
+                if !FileManager.default.fileExists(atPath: d.path) {
+                    try? FileManager.default.copyItem(at: s, to: d)
+                }
+            }
+            return destHtmlURL
+        } catch {
+            return sourceURL
+        }
+    }
+
+    // MARK: - アプリケーション内ブラウザでの PSDTool / 立絵スタジオ ロード
     public func loadPSDToolPage() {
         guard let webView = self.webView else { return }
         self.htmlLoadError = nil
         self.isHTMLReady = false
 
         switch sourceMode {
+        case .tohoStudio:
+            self.statusMessage = "🌸 東方キャラ立絵スタジオ 接続中..."
+            CharacterStudioServerManager.shared.startServerIfNeeded()
+            let serverURL = URL(string: "http://127.0.0.1:8088")!
+            self.currentURLString = serverURL.absoluteString
+            
+            // ローカルサーバーへ接続を試みる
+            let req = URLRequest(url: serverURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 3.0)
+            webView.load(req)
+
         case .web:
             self.statusMessage = "PSDTool (Web版) 読み込み中..."
             self.currentURLString = "https://oov.github.io/psdtool/"
@@ -408,6 +462,21 @@ public class PSDToolService: NSObject, ObservableObject {
               let action = dict["action"] as? String else { return }
 
         switch action {
+        case "applyToProject":
+            guard let dataUrl = dict["dataUrl"] as? String else { return }
+            let charName = dict["characterName"] as? String ?? "東方キャラ"
+            handleExportedComposite(dataUrl: dataUrl, target: "characterMaker")
+            DispatchQueue.main.async {
+                AppState.shared.currentCharacter.name = charName
+                self.statusMessage = "「\(charName)」の立ち絵をTohoStudioプロジェクトに適用しました"
+            }
+
+        case "didExportImage":
+            let filename = dict["filename"] as? String ?? "立ち絵.png"
+            DispatchQueue.main.async {
+                self.statusMessage = "素材フォルダへ保存完了: \(filename)"
+            }
+
         case "exportComposite":
             guard let dataUrl = dict["dataUrl"] as? String,
                   let target = dict["target"] as? String else { return }
@@ -633,10 +702,19 @@ public struct PSDToolWebView: NSViewRepresentable {
         }
 
         public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            // tohoStudio モードでローカルサーバーへの接続に失敗した場合、ローカルステージングの HTML へ自動フォールバック
+            if self.parent.service.sourceMode == .tohoStudio, let htmlURL = PSDToolService.getWebPSDHTMLURL() {
+                let accessDir = htmlURL.deletingLastPathComponent()
+                self.parent.service.currentURLString = htmlURL.absoluteString
+                self.parent.service.statusMessage = "🌸 東方キャラ立絵スタジオ (オフライン版) ロード中..."
+                webView.loadFileURL(htmlURL, allowingReadAccessTo: accessDir)
+                return
+            }
+
             DispatchQueue.main.async {
                 self.parent.service.isHTMLReady = false
                 self.parent.service.htmlLoadError = error.localizedDescription
-                self.parent.service.statusMessage = "PSDTool ロードエラー: \(error.localizedDescription)"
+                self.parent.service.statusMessage = "立絵スタジオ ロードエラー: \(error.localizedDescription)"
             }
         }
     }
@@ -659,7 +737,7 @@ public struct PSDToolHostView: View {
                         .font(.system(size: 40))
                         .foregroundColor(.orange)
 
-                    Text("PSDToolの読み込みに失敗しました")
+                    Text("東方キャラ立絵スタジオの読み込みに失敗しました")
                         .font(.headline)
 
                     Text(errorMsg)
@@ -670,12 +748,20 @@ public struct PSDToolHostView: View {
 
                     HStack(spacing: 12) {
                         Button(action: {
+                            psdService.sourceMode = .tohoStudio
+                            psdService.loadPSDToolPage()
+                        }) {
+                            Label("立絵スタジオ(内蔵)で起動", systemImage: "sparkles")
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button(action: {
                             psdService.sourceMode = .web
                             psdService.loadPSDToolPage()
                         }) {
                             Label("Web版(公式)で開く", systemImage: "globe")
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.bordered)
 
                         Button(action: { psdService.openCustomHTMLFileDialog() }) {
                             Label("保存したHTMLを選択...", systemImage: "doc.badge.plus")

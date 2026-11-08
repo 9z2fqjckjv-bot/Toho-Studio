@@ -13,12 +13,13 @@ public struct CharacterMakerView: View {
     @State private var isAIGeneratingPart: Bool = false
 
     @State private var showHomeScreen: Bool = false
-    @State private var canvasViewMode: CanvasViewMode = .composite
+    @State private var canvasViewMode: CanvasViewMode = .studio
+    @State private var showNativeInspector: Bool = false
     @State private var selectedPartIndex: Int = 0
     @State private var showExportDialog: Bool = false
     @State private var showLoadDialog: Bool = false
     @State private var showAddPartDialog: Bool = false
-    @State private var showBottomTray: Bool = true
+    @State private var showBottomTray: Bool = false
     @State private var exportImageFormat: String = "PNG (透過立ち絵)"
 
     // ツールモード
@@ -34,9 +35,8 @@ public struct CharacterMakerView: View {
     @State private var inspectorTab: InspectorTab = .layers
 
     public enum CanvasViewMode: String, CaseIterable {
-        case composite = "キャンバス"
-        case psdTool = "PSDTool"
-        case split = "分割表示"
+        case studio = "立絵スタジオ (一本化)"
+        case composite = "静止画キャンバス"
     }
 
     enum CharacterMakerTool: String, CaseIterable {
@@ -110,12 +110,12 @@ public struct CharacterMakerView: View {
 
             Divider()
 
-            // 3. メインエディタ領域 (HSplitView: キャンバス/PSDTool + インスペクター)
+            // 3. メインエディタ領域 (東方キャラ立絵スタジオ一本化)
             HSplitView {
                 integratedWorkspaceArea
                     .frame(minWidth: 460, maxWidth: .infinity)
 
-                if appState.layoutMode != "キャンバス最大化" {
+                if showNativeInspector || appState.layoutMode == "インスペクター重視" {
                     inspectorSidebar
                         .frame(minWidth: 320, idealWidth: inspectorWidthForLayout, maxWidth: 440)
                         .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
@@ -392,14 +392,13 @@ public struct CharacterMakerView: View {
 
             Divider().frame(height: 18)
 
-            // ビュー表示切り替え (キャンバス / PSDTool / 分割表示)
+            // 一本化立絵スタジオ / 静止画キャンバス 切替
             Picker("", selection: $canvasViewMode) {
-                Label("キャンバス", systemImage: "paintbrush").tag(CanvasViewMode.composite)
-                Label("PSDTool", systemImage: "photo.stack").tag(CanvasViewMode.psdTool)
-                Label("分割表示", systemImage: "square.split.2x1").tag(CanvasViewMode.split)
+                Label("立絵スタジオ (一本化)", systemImage: "sparkles").tag(CanvasViewMode.studio)
+                Label("静止画キャンバス", systemImage: "paintbrush").tag(CanvasViewMode.composite)
             }
             .pickerStyle(.segmented)
-            .frame(width: 220)
+            .frame(width: 250)
 
             Divider().frame(height: 18)
 
@@ -408,17 +407,11 @@ public struct CharacterMakerView: View {
                 ForEach(psdService.availablePresets) { preset in
                     Button("\(preset.name) (\(preset.detail))") {
                         psdService.loadPSD(filePath: preset.path)
-                        if canvasViewMode == .composite {
-                            canvasViewMode = .split
-                        }
                     }
                 }
                 Divider()
                 Button("外部PSD/ZIPファイルを開く...") {
                     psdService.openLocalPSDFileDialog()
-                    if canvasViewMode == .composite {
-                        canvasViewMode = .split
-                    }
                 }
             } label: {
                 HStack(spacing: 4) {
@@ -431,6 +424,21 @@ public struct CharacterMakerView: View {
             }
             .menuStyle(.borderlessButton)
             .frame(maxWidth: 150)
+
+            // インスペクター表示トグル
+            Button(action: { showNativeInspector.toggle() }) {
+                HStack(spacing: 3) {
+                    Image(systemName: showNativeInspector ? "sidebar.right" : "sidebar.trailing")
+                    Text("詳細設定")
+                }
+                .font(.caption)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
+                .background(showNativeInspector ? Color.accentColor.opacity(0.15) : Color.clear)
+                .cornerRadius(5)
+            }
+            .buttonStyle(.plain)
+            .help("AI差分生成やパーツ詳細設定サイドバーを表示/非表示にします")
 
             // ズーム
             HStack(spacing: 3) {
@@ -522,40 +530,33 @@ public struct CharacterMakerView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - 3. 統合ワークスペース領域 (キャンバス / PSDTool / 分割表示)
+    // MARK: - 3. 統合ワークスペース領域 (一本化立絵スタジオ / 静止画キャンバス)
     private var integratedWorkspaceArea: some View {
         VStack(spacing: 0) {
             switch canvasViewMode {
+            case .studio:
+                psdToolHostArea
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
             case .composite:
                 mainCanvasArea
-
-            case .psdTool:
-                psdToolHostArea
-
-            case .split:
-                HSplitView {
-                    mainCanvasArea
-                        .frame(minWidth: 260, maxWidth: .infinity)
-
-                    psdToolHostArea
-                        .frame(minWidth: 320, maxWidth: .infinity)
-                }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
     }
 
-    // PSDTool ホストエリア (上部インラインバー + WebKit)
+    // PSDTool / 立絵スタジオ ホストエリア (上部インラインバー + WebKit)
     private var psdToolHostArea: some View {
         VStack(spacing: 0) {
-            // PSDTool 上部インラインバー
+            // 立絵スタジオ 上部インラインバー
             HStack(spacing: 8) {
-                Image(systemName: "photo.stack")
-                    .foregroundColor(.accentColor)
-                Text(psdService.currentPsdName.isEmpty ? "PSDTool 立ち絵エディタ" : psdService.currentPsdName)
+                Image(systemName: "sparkles")
+                    .foregroundColor(.pink)
+                Text(psdService.currentPsdName.isEmpty ? "🌸 東方キャラ立絵スタジオ" : "🌸 \(psdService.currentPsdName)")
                     .font(.caption)
                     .bold()
 
-                // Web版 / ローカル版 切り替え
+                // モード切り替え (内蔵立絵スタジオ / ローカル / Web版)
                 Picker("", selection: Binding(
                     get: { psdService.sourceMode },
                     set: { newMode in
@@ -568,7 +569,7 @@ public struct CharacterMakerView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 170)
+                .frame(width: 290)
 
                 if psdService.sourceMode == .local {
                     Button(action: { psdService.openCustomHTMLFileDialog() }) {
@@ -1836,20 +1837,20 @@ public struct CharacterMakerView: View {
             aiCharacterGeneratorCard
 
             // PSDTool 拡張 (PSDTool_files完全統合)
-            GroupBox(label: Label("PSDTool 立ち絵・差分エディタ (PSD/PSB/ZIP解析)", systemImage: "photo.stack.fill")) {
+            GroupBox(label: Label("東方キャラ立絵スタジオ (PSD差分・表情一括書き出し)", systemImage: "sparkles")) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("PSDTool (HTML5+JS) ツール群を完全統合。レイヤーツリー展開、表情・ポーズ差分、お気に入り管理、シンプルビュー、自動トリミングが利用可能です。")
+                    Text("東方キャラ立絵スタジオを完全統合。全レイヤーツリー展開、表情・ポーズ差分パーツ自動分類、ワンクリックプリセット、色彩変換・スポイト色置換、全表情一括ZIP書き出しが利用可能です。")
                         .font(.caption2)
                         .foregroundColor(.secondary)
 
                     HStack(spacing: 8) {
-                        Button(action: { canvasViewMode = .split }) {
-                            Label("🎨 PSDTool を開く (分割表示)", systemImage: "arrow.up.forward.app")
+                        Button(action: { canvasViewMode = .studio }) {
+                            Label("🌸 立絵スタジオを開く", systemImage: "arrow.up.forward.app")
                         }
                         .buttonStyle(.borderedProminent)
 
                         Button("外部PSDを開く...") {
-                            canvasViewMode = .split
+                            canvasViewMode = .studio
                             psdService.openLocalPSDFileDialog()
                         }
                         .buttonStyle(.bordered)
@@ -1862,7 +1863,7 @@ public struct CharacterMakerView: View {
                         HStack(spacing: 6) {
                             ForEach(psdService.availablePresets.prefix(8)) { preset in
                                 Button(preset.characterName) {
-                                    canvasViewMode = .split
+                                    canvasViewMode = .studio
                                     psdService.loadPSD(filePath: preset.path)
                                 }
                                 .buttonStyle(.bordered)
@@ -2200,19 +2201,18 @@ public struct CharacterMakerView: View {
 
                     HStack(spacing: 8) {
                         Button(action: {
-                            canvasViewMode = .psdTool
+                            canvasViewMode = .studio
                             psdService.loadPSDToolPage()
                         }) {
-                            Label("全画面で開く", systemImage: "arrow.up.left.and.arrow.down.right")
+                            Label("立絵スタジオ表示", systemImage: "sparkles")
                         }
                         .buttonStyle(.borderedProminent)
                         .font(.caption)
 
                         Button(action: {
-                            canvasViewMode = .split
-                            psdService.loadPSDToolPage()
+                            canvasViewMode = .composite
                         }) {
-                            Label("分割表示", systemImage: "square.split.2x1")
+                            Label("静止画キャンバス", systemImage: "paintbrush")
                         }
                         .buttonStyle(.bordered)
                         .font(.caption)
@@ -2316,9 +2316,7 @@ public struct CharacterMakerView: View {
                     ForEach(psdService.availablePresets) { preset in
                         Button(action: {
                             psdService.loadPSD(filePath: preset.path)
-                            if canvasViewMode == .composite {
-                                canvasViewMode = .split
-                            }
+                            canvasViewMode = .studio
                         }) {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
