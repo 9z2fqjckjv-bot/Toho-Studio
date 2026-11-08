@@ -516,7 +516,7 @@ public struct SpanAudioInsertSheet: View {
                         .bold()
                         .foregroundColor(.cyan)
                 }
-                Slider(value: $volume, in: 0.0...1.0)
+                Slider(value: $volume, in: 0.0...2.0)
             }
 
             // Fades

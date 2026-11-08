@@ -448,7 +448,7 @@ public enum MovieExporter {
                     }
                 }
                 if let vol = scene.seVolume, abs(vol - 1.0) > 0.01 {
-                    filter += "volume=\(String(format: "%.2f", max(0.0, min(1.0, vol)))),"
+                    filter += "volume=\(String(format: "%.2f", max(0.0, min(2.0, vol)))),"
                 }
             } else if aPath == scene.bgmAudioPath {
                 if let offset = scene.bgmStartTimeOffset {
@@ -461,7 +461,7 @@ public enum MovieExporter {
                     }
                 }
                 if let vol = scene.bgmVolume, abs(vol - 1.0) > 0.01 {
-                    filter += "volume=\(String(format: "%.2f", max(0.0, min(1.0, vol)))),"
+                    filter += "volume=\(String(format: "%.2f", max(0.0, min(2.0, vol)))),"
                 }
             }
             filter += "atrim=0:\(String(format: "%.3f", duration)),apad[\(audioOutLabel)]"
@@ -495,7 +495,7 @@ public enum MovieExporter {
                         }
                     }
                     if let vol = scene.seVolume, abs(vol - 1.0) > 0.01 {
-                        filter += "volume=\(String(format: "%.2f", max(0.0, min(1.0, vol)))),"
+                        filter += "volume=\(String(format: "%.2f", max(0.0, min(2.0, vol)))),"
                     }
                 } else if aPath == scene.bgmAudioPath {
                     if let offset = scene.bgmStartTimeOffset {
@@ -508,7 +508,7 @@ public enum MovieExporter {
                         }
                     }
                     if let vol = scene.bgmVolume, abs(vol - 1.0) > 0.01 {
-                        filter += "volume=\(String(format: "%.2f", max(0.0, min(1.0, vol)))),"
+                        filter += "volume=\(String(format: "%.2f", max(0.0, min(2.0, vol)))),"
                     }
                 }
                 filter += "atrim=0:\(String(format: "%.3f", duration)),apad[a\(sIdx)]"

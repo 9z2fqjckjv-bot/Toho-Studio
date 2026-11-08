@@ -91,7 +91,7 @@ public final class SoundMakerAudioManager: NSObject, ObservableObject, AVAudioPl
                 if clip.fadeInDuration > 0.001 {
                     p.volume = 0.0
                 } else {
-                    p.volume = Float(max(0.0, min(1.0, clip.volume)))
+                    p.volume = Float(max(0.0, min(2.0, clip.volume)))
                 }
 
                 p.play()
@@ -135,7 +135,7 @@ public final class SoundMakerAudioManager: NSObject, ObservableObject, AVAudioPl
                     }
 
                     let mult = min(inFactor, outFactor)
-                    p.volume = Float(max(0.0, min(1.0, clip.volume * mult)))
+                    p.volume = Float(max(0.0, min(2.0, clip.volume * mult)))
                 }
                 self.previewTimer = timer
                 RunLoop.main.add(timer, forMode: .common)
@@ -285,7 +285,7 @@ public final class SoundMakerAudioManager: NSObject, ObservableObject, AVAudioPl
                 }
 
                 let fadeMultiplier = min(inFactor, outFactor)
-                let currentVol = Float(max(0.0, min(1.0, clip.volume * fadeMultiplier)))
+                let currentVol = Float(max(0.0, min(2.0, clip.volume * fadeMultiplier)))
 
                 if let existingPlayer = timelinePlayers[clip.id] {
                     // 既に再生中の場合
@@ -406,7 +406,7 @@ public final class SoundMakerAudioManager: NSObject, ObservableObject, AVAudioPl
         } else if clip.fadeInDuration > 0.001 {
             resolvedVol = 0.0
         } else {
-            resolvedVol = Float(max(0.0, min(1.0, clip.volume)))
+            resolvedVol = Float(max(0.0, min(2.0, clip.volume)))
         }
         p.volume = resolvedVol
         p.numberOfLoops = clip.isLooping ? -1 : 0

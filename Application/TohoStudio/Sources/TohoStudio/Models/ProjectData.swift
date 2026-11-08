@@ -100,11 +100,11 @@ public struct MovieScene: Identifiable, Codable, Equatable {
     public var bgmAudioPath: String? = nil
     public var bgmName: String? = nil
     public var bgmStartTimeOffset: Double? = 0.0 // シーン先頭からのBGM再生遅延秒数
-    public var bgmVolume: Double? = 0.7          // BGMの音量 (0.0〜1.0)
+    public var bgmVolume: Double? = 0.7          // BGMの音量 (0.0〜2.0, Max200%)
     public var seAudioPath: String? = nil
     public var seName: String? = nil
     public var seStartTimeOffset: Double? = 0.0 // シーン先頭からのSE再生遅延秒数 (ミリ秒単位でアライメント)
-    public var seVolume: Double? = 1.0          // SEの音量 (0.0〜1.0)
+    public var seVolume: Double? = 1.0          // SEの音量 (0.0〜2.0, Max200%)
     public var voiceStartTimeOffset: Double? = 0.0 // シーン先頭からのボイス再生遅延秒数
     public var showTelopOverlay: Bool? = nil    // 映像上に黒帯字幕テロップを重ねて描画するか (nilの場合はスライド/動画有無により自動判定)
 

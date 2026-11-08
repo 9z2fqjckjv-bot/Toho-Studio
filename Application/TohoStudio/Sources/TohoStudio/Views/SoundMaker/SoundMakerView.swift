@@ -1140,7 +1140,7 @@ public struct SoundMakerView: View {
                     Text("\(clip.pitch)%").font(.system(size: 8, design: .monospaced)).foregroundColor(.orange)
                 }
 
-                // Volume (音量) - 変更時に即時反映
+                // Volume (音量) - 変更時に即時反映 (Max 200%)
                 HStack(spacing: 2) {
                     Text("音:").font(.system(size: 9)).foregroundColor(.secondary)
                     Slider(
@@ -1152,7 +1152,7 @@ public struct SoundMakerView: View {
                                 }
                             }
                         ),
-                        in: 0...1.0
+                        in: 0...2.0
                     )
                     Text("\(Int(clip.volume * 100))%").font(.system(size: 8, design: .monospaced)).foregroundColor(Color(hex: "#0066CC"))
                 }
@@ -1528,7 +1528,7 @@ public struct SoundMakerView: View {
                 Spacer()
             }
 
-            // Volume Slider
+            // Volume Slider (Max 200%)
             HStack(spacing: 8) {
                 HStack(spacing: 2) {
                     Text("音量:").font(.system(size: 9)).foregroundColor(.secondary)
@@ -1541,7 +1541,7 @@ public struct SoundMakerView: View {
                                 }
                             }
                         ),
-                        in: 0...1.0
+                        in: 0...2.0
                     )
                     Text("\(Int(clip.volume * 100))%").font(.system(size: 8, design: .monospaced)).foregroundColor(.cyan)
                 }
@@ -1902,7 +1902,7 @@ public struct SoundMakerView: View {
 
                 Spacer()
 
-                // Volume mini slider
+                // Volume mini slider (Max 200%)
                 HStack(spacing: 2) {
                     Text("音量:").font(.system(size: 8)).foregroundColor(.secondary)
                     Slider(
@@ -1914,7 +1914,7 @@ public struct SoundMakerView: View {
                                 }
                             }
                         ),
-                        in: 0...1.0
+                        in: 0...2.0
                     )
                     .frame(width: 45)
                     Text("\(Int(clip.volume * 100))%").font(.system(size: 7, design: .monospaced)).foregroundColor(.cyan)
@@ -2255,7 +2255,7 @@ public struct SoundMakerView: View {
                         }
                     }
 
-                    // 音量スライダー
+                    // 音量スライダー (Max 200%)
                     HStack {
                         Text("音量:").font(.caption2).foregroundColor(Color(white: 0.7))
                         Slider(
@@ -2267,7 +2267,7 @@ public struct SoundMakerView: View {
                                     }
                                 }
                             ),
-                            in: 0...1.0
+                            in: 0...2.0
                         )
                         Text("\(Int(clip.volume * 100))%").font(.caption2.monospaced()).foregroundColor(.cyan)
                     }
@@ -2879,8 +2879,8 @@ public struct SoundMakerView: View {
                 }
                 .foregroundColor(.secondary)
 
-                // Fader Slider
-                Slider(value: volume, in: 0...1.0)
+                // Fader Slider (Max 200%)
+                Slider(value: volume, in: 0...2.0)
                     .frame(height: 120)
                     .rotationEffect(.degrees(-90))
                     .frame(width: 24, height: 120)
@@ -3321,7 +3321,7 @@ public struct SoundMakerView: View {
                         }
                     }
 
-                    // Mini Volume Slider
+                    // Mini Volume Slider (Max 200%)
                     Slider(
                         value: Binding(
                             get: { track.volume },
@@ -3331,7 +3331,7 @@ public struct SoundMakerView: View {
                                 }
                             }
                         ),
-                        in: 0...1.0
+                        in: 0...2.0
                     )
                     .frame(width: 50)
                 }
@@ -4285,7 +4285,7 @@ public struct SoundMakerView: View {
             DispatchQueue.main.async {
                 guard self.playingClipPreviewId == clip.id else { return }
                 if let data = wavData, let player = try? AVAudioPlayer(data: data) {
-                    player.volume = Float(max(0.0, min(1.0, clip.volume)))
+                    player.volume = Float(max(0.0, min(2.0, clip.volume)))
                     player.play()
                     // 終了待ち
                     DispatchQueue.main.asyncAfter(deadline: .now() + clip.duration) {
