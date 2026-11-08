@@ -676,6 +676,9 @@ body {
   border-radius: 4px;
   overflow: hidden;
   cursor: grab;
+  flex-shrink: 0;
+  isolation: isolate;
+  -webkit-transform-style: preserve-3d;
 }
 
 .canvas-container:active {
@@ -685,6 +688,8 @@ body {
 #previewCanvas {
   display: block;
   max-width: none;
+  width: 100%;
+  height: 100%;
 }
 
 /* 背景パターン */

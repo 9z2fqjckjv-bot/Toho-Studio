@@ -269,6 +269,12 @@
     elements.btnFitWindow.addEventListener('click', fitToViewport);
     elements.btnFlipH.addEventListener('click', toggleFlipH);
 
+    window.addEventListener('resize', () => {
+      if (state.psdData) {
+        fitToViewport();
+      }
+    });
+
     // マウスホイールによるズーム
     elements.canvasViewport.addEventListener('wheel', e => {
       if (e.ctrlKey || e.metaKey) {
@@ -543,6 +549,12 @@
       state.psdData = psd;
       elements.previewCanvas.width = psd.width;
       elements.previewCanvas.height = psd.height;
+      elements.previewCanvas.style.width = psd.width + 'px';
+      elements.previewCanvas.style.height = psd.height + 'px';
+      if (elements.canvasContainer) {
+        elements.canvasContainer.style.width = psd.width + 'px';
+        elements.canvasContainer.style.height = psd.height + 'px';
+      }
 
       // ヘッダー情報更新
       elements.currentFileBadge.style.display = 'flex';
