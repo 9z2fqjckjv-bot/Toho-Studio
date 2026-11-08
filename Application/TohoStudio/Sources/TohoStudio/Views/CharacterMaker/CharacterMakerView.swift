@@ -14,7 +14,15 @@ public struct CharacterMakerView: View {
 
     @State private var showHomeScreen: Bool = false
     @State private var canvasViewMode: CanvasViewMode = .studio
+    @State private var isHeaderBarsPinned: Bool = false
+    @State private var isHoveringTop: Bool = false
+    @State private var mouseMonitor: Any? = nil
+    @State private var keyMonitor: Any? = nil
     @State private var showNativeInspector: Bool = false
+
+    private var shouldShowHeaderBars: Bool {
+        isHeaderBarsPinned || isHoveringTop
+    }
     @State private var selectedPartIndex: Int = 0
     @State private var showExportDialog: Bool = false
     @State private var showLoadDialog: Bool = false
@@ -99,35 +107,49 @@ public struct CharacterMakerView: View {
     }
 
     private var editorView: some View {
-        VStack(spacing: 0) {
-            // 1. 仕様書スライド準拠の統一コントロールバー
-            specControlBar
+        ZStack(alignment: .top) {
+            // メインエディタ領域 (東方キャラ立絵スタジオ一本化 - 常に全画面)
+            VStack(spacing: 0) {
+                HSplitView {
+                    integratedWorkspaceArea
+                        .frame(minWidth: 460, maxWidth: .infinity)
 
-            Divider()
+                    if showNativeInspector || appState.layoutMode == "インスペクター重視" {
+                        inspectorSidebar
+                            .frame(minWidth: 320, idealWidth: inspectorWidthForLayout, maxWidth: 440)
+                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    }
+                }
 
-            // 2. Google図形描画 & PSDTool 統一ツールバー
-            characterToolbar
-
-            Divider()
-
-            // 3. メインエディタ領域 (東方キャラ立絵スタジオ一本化)
-            HSplitView {
-                integratedWorkspaceArea
-                    .frame(minWidth: 460, maxWidth: .infinity)
-
-                if showNativeInspector || appState.layoutMode == "インスペクター重視" {
-                    inspectorSidebar
-                        .frame(minWidth: 320, idealWidth: inspectorWidthForLayout, maxWidth: 440)
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                // ボトムトレイ
+                if showBottomTray {
+                    Divider()
+                    bottomPartTray
+                        .frame(height: bottomTrayHeightForLayout)
+                        .background(Color(NSColor.windowBackgroundColor))
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // 4. ボトムトレイ (他のソフトのタイムライン/スライドトレイと統一)
-            if showBottomTray {
-                Divider()
-                bottomPartTray
-                    .frame(height: bottomTrayHeightForLayout)
-                    .background(Color(NSColor.windowBackgroundColor))
+            // 上部の白いバー群 (画面上部にカーソルを近付けた際に自動展開 / ピン留め固定時)
+            if shouldShowHeaderBars {
+                VStack(spacing: 0) {
+                    // 1. 仕様書スライド準拠の統一コントロールバー
+                    specControlBar
+
+                    Divider()
+
+                    // 2. Google図形描画 & PSDTool 統一ツールバー
+                    characterToolbar
+
+                    Divider()
+                }
+                .background(Color(NSColor.windowBackgroundColor))
+                .shadow(color: Color.black.opacity(0.35), radius: 8, x: 0, y: 4)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .top).combined(with: .opacity),
+                    removal: .move(edge: .top).combined(with: .opacity)
+                ))
             }
         }
         .sheet(isPresented: $showExportDialog) {
@@ -140,9 +162,98 @@ public struct CharacterMakerView: View {
             addPartDialogView
         }
         .onAppear {
+            setupEventMonitors()
             if appState.currentCharacter.parts.isEmpty || appState.currentCharacter.baseImagePath.isEmpty {
                 appState.loadCharacterPreset(name: appState.currentCharacter.name)
             }
+        }
+        .onDisappear {
+            removeEventMonitors()
+        }
+    }
+
+    // MARK: - 上部白いバーのトグル (ショートカット / ボタン共通)
+    private func toggleHeaderBars() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            if isHeaderBarsPinned {
+                isHeaderBarsPinned = false
+                isHoveringTop = false
+            } else {
+                isHeaderBarsPinned = true
+            }
+        }
+    }
+
+    // MARK: - マウスカーソル上部ホバー & キーボードショートカット検知
+    private func setupEventMonitors() {
+        // 1. マウスホバー監視 (画面最上部への接近を検知)
+        if mouseMonitor == nil {
+            mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved]) { event in
+                guard let window = NSApp.keyWindow else { return event }
+                let loc = event.locationInWindow
+                let winHeight = window.frame.height
+                let distFromTop = winHeight - loc.y
+
+                if isHeaderBarsPinned {
+                    return event
+                }
+
+                // 画面上部 28px 以内にカーソルが入ったら上部バーを展開
+                if distFromTop <= 28 {
+                    if !isHoveringTop {
+                        DispatchQueue.main.async {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isHoveringTop = true
+                            }
+                        }
+                    }
+                } else if distFromTop > 88 {
+                    // 上部バー領域（約80px）より下に離れたら自動で隠す
+                    if isHoveringTop {
+                        DispatchQueue.main.async {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                isHoveringTop = false
+                            }
+                        }
+                    }
+                }
+                return event
+            }
+        }
+
+        // 2. キーボードショートカット監視 (Esc, ⌘+\, ⌘+T 等で上部バーを即座に呼び出し/折りたたみ)
+        if keyMonitor == nil {
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { event in
+                let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                let keyCode = event.keyCode
+
+                // keyCode 53: Esc
+                // keyCode 42: '\' (バックスラッシュ / 円マーク)
+                // keyCode 17: 'T'
+                let isEsc = (keyCode == 53 && flags.isEmpty)
+                let isCmdBackslash = (flags.contains(.command) && (keyCode == 42 || keyCode == 24))
+                let isCmdT = (flags.contains(.command) && keyCode == 17)
+
+                if isEsc || isCmdBackslash || isCmdT {
+                    DispatchQueue.main.async {
+                        toggleHeaderBars()
+                    }
+                    return nil // イベントを消費
+                }
+
+                return event
+            }
+        }
+    }
+
+    private func removeEventMonitors() {
+        if let monitor = mouseMonitor {
+            NSEvent.removeMonitor(monitor)
+            mouseMonitor = nil
+        }
+        if let monitor = keyMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyMonitor = nil
         }
     }
 
@@ -459,6 +570,25 @@ public struct CharacterMakerView: View {
 
             Spacer()
 
+            // バー固定 / 自動で隠す (ホバー表示) 切り替えボタン (ショートカット: ⌘\ または Esc)
+            Button(action: {
+                toggleHeaderBars()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: isHeaderBarsPinned ? "pin.fill" : "pin")
+                    Text(isHeaderBarsPinned ? "バー固定中 (⌘\\ / Esc)" : "自動で隠す (ホバー / ⌘\\)")
+                }
+                .font(.caption)
+                .bold()
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(isHeaderBarsPinned ? Color.accentColor : Color.secondary.opacity(0.15))
+                .foregroundColor(isHeaderBarsPinned ? .white : .primary)
+                .cornerRadius(5)
+            }
+            .buttonStyle(.plain)
+            .help("上の白いバーの固定/自動隠蔽を切り替えます。ショートカットキー: ⌘+\\ (または Esc)")
+
             // アクションボタングループ
             HStack(spacing: 5) {
                 // ✨ AI立ち絵生成ショートカット
@@ -548,99 +678,101 @@ public struct CharacterMakerView: View {
     // PSDTool / 立絵スタジオ ホストエリア (上部インラインバー + WebKit)
     private var psdToolHostArea: some View {
         VStack(spacing: 0) {
-            // 立絵スタジオ 上部インラインバー
-            HStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                    .foregroundColor(.pink)
-                Text(psdService.currentPsdName.isEmpty ? "🌸 東方キャラ立絵スタジオ" : "🌸 \(psdService.currentPsdName)")
-                    .font(.caption)
-                    .bold()
+            // Web版 / ローカル保存版 PSDTool 使用時のみインラインバーを表示 (東方キャラ立絵スタジオ内蔵時は立絵スタジオ自身のヘッダーを使用)
+            if psdService.sourceMode != .tohoStudio {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                        .foregroundColor(.pink)
+                    Text(psdService.currentPsdName.isEmpty ? "🌸 東方キャラ立絵スタジオ" : "🌸 \(psdService.currentPsdName)")
+                        .font(.caption)
+                        .bold()
 
-                // モード切り替え (内蔵立絵スタジオ / ローカル / Web版)
-                Picker("", selection: Binding(
-                    get: { psdService.sourceMode },
-                    set: { newMode in
-                        psdService.sourceMode = newMode
-                        psdService.loadPSDToolPage()
+                    // モード切り替え (内蔵立絵スタジオ / ローカル / Web版)
+                    Picker("", selection: Binding(
+                        get: { psdService.sourceMode },
+                        set: { newMode in
+                            psdService.sourceMode = newMode
+                            psdService.loadPSDToolPage()
+                        }
+                    )) {
+                        ForEach(PSDToolService.PSDToolSourceMode.allCases, id: \.self) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
                     }
-                )) {
-                    ForEach(PSDToolService.PSDToolSourceMode.allCases, id: \.self) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 290)
+                    .pickerStyle(.segmented)
+                    .frame(width: 290)
 
-                if psdService.sourceMode == .local {
-                    Button(action: { psdService.openCustomHTMLFileDialog() }) {
+                    if psdService.sourceMode == .local {
+                        Button(action: { psdService.openCustomHTMLFileDialog() }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "doc.badge.plus")
+                                Text("再保存HTML選択")
+                            }
+                            .font(.caption2)
+                        }
+                        .buttonStyle(.bordered)
+                        .help("ブラウザ等から再保存した PSDTool.html を指定して開きます")
+                    }
+
+                    if psdService.isLoadingPSD {
+                        ProgressView().scaleEffect(0.6)
+                    }
+
+                    Text("(\(psdService.statusMessage))")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    Button(action: { psdService.reloadPSDTool() }) {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .buttonStyle(.bordered)
+                    .help("PSDToolを再読み込み")
+
+                    Button(action: { psdService.openLocalPSDFileDialog() }) {
                         HStack(spacing: 3) {
-                            Image(systemName: "doc.badge.plus")
-                            Text("再保存HTML選択")
+                            Image(systemName: "folder")
+                            Text("PSDを開く")
                         }
                         .font(.caption2)
                     }
                     .buttonStyle(.bordered)
-                    .help("ブラウザ等から再保存した PSDTool.html を指定して開きます")
-                }
 
-                if psdService.isLoadingPSD {
-                    ProgressView().scaleEffect(0.6)
-                }
-
-                Text("(\(psdService.statusMessage))")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-
-                Spacer()
-
-                Button(action: { psdService.reloadPSDTool() }) {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .buttonStyle(.bordered)
-                .help("PSDToolを再読み込み")
-
-                Button(action: { psdService.openLocalPSDFileDialog() }) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "folder")
-                        Text("PSDを開く")
+                    Button(action: { psdService.toggleAutoTrim() }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: psdService.isAutoTrimEnabled ? "checkmark.circle.fill" : "circle")
+                            Text("自動トリム")
+                        }
+                        .font(.caption2)
                     }
-                    .font(.caption2)
-                }
-                .buttonStyle(.bordered)
+                    .buttonStyle(.bordered)
 
-                Button(action: { psdService.toggleAutoTrim() }) {
-                    HStack(spacing: 3) {
-                        Image(systemName: psdService.isAutoTrimEnabled ? "checkmark.circle.fill" : "circle")
-                        Text("自動トリム")
+                    Button(action: { psdService.toggleFlipX() }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: psdService.isFlippedX ? "arrow.left.and.right.circle.fill" : "arrow.left.and.right.circle")
+                            Text("左右反転")
+                        }
+                        .font(.caption2)
                     }
-                    .font(.caption2)
-                }
-                .buttonStyle(.bordered)
+                    .buttonStyle(.bordered)
 
-                Button(action: { psdService.toggleFlipX() }) {
-                    HStack(spacing: 3) {
-                        Image(systemName: psdService.isFlippedX ? "arrow.left.and.right.circle.fill" : "arrow.left.and.right.circle")
-                        Text("左右反転")
+                    Button(action: { psdService.requestExport(target: "characterMaker") }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "arrow.down.doc.fill")
+                            Text("キャンバスに反映")
+                        }
+                        .font(.caption2)
                     }
-                    .font(.caption2)
+                    .buttonStyle(.borderedProminent)
                 }
-                .buttonStyle(.bordered)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color(NSColor.controlBackgroundColor))
 
-                Button(action: { psdService.requestExport(target: "characterMaker") }) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "arrow.down.doc.fill")
-                        Text("キャンバスに反映")
-                    }
-                    .font(.caption2)
-                }
-                .buttonStyle(.borderedProminent)
+                Divider()
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Color(NSColor.controlBackgroundColor))
-
-            Divider()
 
             PSDToolHostView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

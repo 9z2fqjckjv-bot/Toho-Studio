@@ -234,7 +234,13 @@
     });
 
     // ファイル選択
-    elements.btnOpenLocalPSD.addEventListener('click', () => elements.psdFileInput.click());
+    elements.btnOpenLocalPSD.addEventListener("click", () => {
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tohoStudio) {
+        window.webkit.messageHandlers.tohoStudio.postMessage({ action: "openLocalPSD" });
+      } else {
+        elements.psdFileInput.click();
+      }
+    });
     elements.psdFileInput.addEventListener('change', handleFileSelect);
 
     // ドラッグ＆ドロップ

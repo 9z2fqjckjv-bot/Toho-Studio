@@ -404,7 +404,15 @@ public class PSDToolService: NSObject, ObservableObject {
         }
 
         let escapedFilename = filename.replacingOccurrences(of: "\"", with: "\\\"")
-        let js = "window.tohoStudioLoadPSD && window.tohoStudioLoadPSD(\"\(base64)\", \"\(escapedFilename)\");"
+        let js = """
+        (function() {
+            if (typeof window.tohoStudioLoadPSDFromNative === 'function') {
+                window.tohoStudioLoadPSDFromNative("\(base64)", "\(escapedFilename)");
+            } else if (typeof window.tohoStudioLoadPSD === 'function') {
+                window.tohoStudioLoadPSD("\(base64)", "\(escapedFilename)");
+            }
+        })();
+        """
 
         webView.evaluateJavaScript(js) { [weak self] _, error in
             guard let self = self else { return }
@@ -462,6 +470,11 @@ public class PSDToolService: NSObject, ObservableObject {
               let action = dict["action"] as? String else { return }
 
         switch action {
+        case "openLocalPSD":
+            DispatchQueue.main.async { [weak self] in
+                self?.openLocalPSDFileDialog()
+            }
+
         case "applyToProject":
             guard let dataUrl = dict["dataUrl"] as? String else { return }
             let charName = dict["characterName"] as? String ?? "東方キャラ"
@@ -662,6 +675,7 @@ public struct PSDToolWebView: NSViewRepresentable {
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
+        webView.uiDelegate = context.coordinator
         service.webView = webView
 
         // HTML/Web のロード
@@ -672,11 +686,32 @@ public struct PSDToolWebView: NSViewRepresentable {
 
     public func updateNSView(_ nsView: WKWebView, context: Context) {}
 
-    public class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+    public class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
         var parent: PSDToolWebView
 
         init(_ parent: PSDToolWebView) {
             self.parent = parent
+        }
+
+        // input[type=file] をクリックした時にファイル選択ダイアログを開く
+        public func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
+            let panel = NSOpenPanel()
+            panel.allowsMultipleSelection = parameters.allowsMultipleSelection
+            panel.canChooseDirectories = parameters.allowsDirectories
+            panel.canChooseFiles = true
+            var types: [UTType] = []
+            if let psdType = UTType(filenameExtension: "psd") { types.append(psdType) }
+            if let psbType = UTType(filenameExtension: "psb") { types.append(psbType) }
+            types.append(.zip)
+            panel.allowedContentTypes = types
+            panel.message = "PSD/PSBファイルを選択してください"
+            panel.prompt = "開く"
+
+            if panel.runModal() == .OK {
+                completionHandler(panel.urls)
+            } else {
+                completionHandler(nil)
+            }
         }
 
         public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
