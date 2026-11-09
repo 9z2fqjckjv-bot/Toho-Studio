@@ -267,12 +267,21 @@ public class PSDToolService: NSObject, ObservableObject {
 
         do {
             try FileManager.default.createDirectory(at: cacheBaseDir, withIntermediateDirectories: true)
-            // ディレクトリまるごと同期
+            // ディレクトリまるごと同期 (更新日時の新しいファイルを確実に上書き反映)
             let subitems = (try? FileManager.default.contentsOfDirectory(atPath: sourceDir.path)) ?? []
             for item in subitems {
                 let s = sourceDir.appendingPathComponent(item)
                 let d = cacheBaseDir.appendingPathComponent(item)
-                if !FileManager.default.fileExists(atPath: d.path) {
+                var needsCopy = !FileManager.default.fileExists(atPath: d.path)
+                if !needsCopy {
+                    let srcMod = (try? FileManager.default.attributesOfItem(atPath: s.path)[.modificationDate] as? Date) ?? Date.distantPast
+                    let dstMod = (try? FileManager.default.attributesOfItem(atPath: d.path)[.modificationDate] as? Date) ?? Date.distantPast
+                    if srcMod > dstMod {
+                        needsCopy = true
+                    }
+                }
+                if needsCopy {
+                    try? FileManager.default.removeItem(at: d)
                     try? FileManager.default.copyItem(at: s, to: d)
                 }
             }

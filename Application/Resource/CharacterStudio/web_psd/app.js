@@ -275,6 +275,15 @@
       }
     });
 
+    if (window.ResizeObserver && elements.canvasViewport) {
+      const ro = new ResizeObserver(() => {
+        if (state.psdData) {
+          fitToViewport();
+        }
+      });
+      ro.observe(elements.canvasViewport);
+    }
+
     // マウスホイールによるズーム
     elements.canvasViewport.addEventListener('wheel', e => {
       if (e.ctrlKey || e.metaKey) {
@@ -571,16 +580,17 @@
       populatePartColorSelect();
       checkEmbeddedPresets(psd);
 
-      // 初回レンダリング & フィット
-      renderComposite();
-      fitToViewport();
-
-      setStatus(`読み込み完了: ${displayName}`);
-      showToast(`${displayName} を読み込みました (${psd.width}×${psd.height})`, 'success');
-
       // 表情タブをアクティブにする
       const exprTabBtn = document.querySelector('.tab-btn[data-tab="tab-expressions"]');
       if (exprTabBtn) exprTabBtn.click();
+
+      // 初回レンダリング & フィット (タブ切り替え・レイアウト確定後に確実に再フィッティング)
+      renderComposite();
+      fitToViewport();
+      setTimeout(fitToViewport, 50);
+
+      setStatus(`読み込み完了: ${displayName}`);
+      showToast(`${displayName} を読み込みました (${psd.width}×${psd.height})`, 'success');
 
     } catch (e) {
       console.error(e);
@@ -1756,12 +1766,28 @@
   function fitToViewport() {
     if (!state.psdData) return;
     const vpRect = elements.canvasViewport.getBoundingClientRect();
-    const pad = 60;
-    const scaleX = (vpRect.width - pad) / elements.previewCanvas.width;
-    const scaleY = (vpRect.height - pad) / elements.previewCanvas.height;
+    if (!vpRect.width || !vpRect.height || vpRect.width <= 0 || vpRect.height <= 0) {
+      setTimeout(fitToViewport, 50);
+      return;
+    }
+    // 上下左右に安全なマージンを確保。
+    // 特に下部フローティング操作バー（高さ約44px + 下余白12px = 56px）と上部ヘッダー境界に
+    // キャラクターの頭や足、サードアイコードなどの装飾が重ならないよう安全マージンを設定
+    const padX = 60; // 左右各 30px
+    const padTop = 30; // 上部 30px
+    const padBottom = 80; // 下部 80px (フローティングバー 56px + 24px)
+    
+    const availableWidth = Math.max(50, vpRect.width - padX);
+    const availableHeight = Math.max(50, vpRect.height - (padTop + padBottom));
+    
+    const scaleX = availableWidth / elements.previewCanvas.width;
+    const scaleY = availableHeight / elements.previewCanvas.height;
+    // 画面枠から絶対にはみ出さないよう、縦横比を維持したまま最小の縮尺を採用
     const fitScale = Math.min(scaleX, scaleY, 1.0);
+    
+    // 上下余白の差分 (padBottom - padTop) を考慮して、キャンバスの垂直中央を微調整
     state.panX = 0;
-    state.panY = 0;
+    state.panY = Math.round((padTop - padBottom) / 2);
     setZoom(fitScale);
   }
 

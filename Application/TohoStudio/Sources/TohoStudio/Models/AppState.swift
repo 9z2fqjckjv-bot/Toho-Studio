@@ -467,7 +467,7 @@ public final class AppState: ObservableObject {
         initializeSampleData()
         initializeVoiceTemplates()
         initializeAchievements()
-        addHistory("アプリケーション起動: Toho-Studio v2.9.0 正常起動")
+        addHistory("アプリケーション起動: Toho-Studio v2.9.1 正常起動")
         saveUndoSnapshot()
     }
 

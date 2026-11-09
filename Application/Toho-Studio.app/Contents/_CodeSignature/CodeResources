@@ -78,7 +78,7 @@
 		</data>
 		<key>Resources/web_psd/app.js</key>
 		<data>
-		lDlv7rFK9nPQI1zGaC9GAr4oXOg=
+		Aq6Lqi2igTLkDVFcHplVEb9o9Sc=
 		</data>
 		<key>Resources/web_psd/index.html</key>
 		<data>
@@ -86,7 +86,7 @@
 		</data>
 		<key>Resources/web_psd/style.css</key>
 		<data>
-		rF8uKLzZbBWkxjmt59tbxKf93gg=
+		blxR18Y3miepRMHzdR+3ytTVkDA=
 		</data>
 		<key>Resources/web_psd/vendor/ag-psd.bundle.js</key>
 		<data>
@@ -103,10 +103,10 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			rGhbX9HqfQU+KtW3jGXrXuMxoog=
+			YmCAA5z22DMX5Xfnrg56FomVp9w=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"ac685b5fd1ea7d053e2ad5b78c65eb5ee331a288"</string>
+			<string>cdhash H"626080039cf6d83317e577e7ae0e7a168995a7dc"</string>
 		</dict>
 		<key>Resources/AppIcon.png</key>
 		<dict>
@@ -238,7 +238,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			zhX8pfZtbtR8gVcjMBbDgU8I+hIPdBj/gAD8zIcH9kE=
+			S+zqFCUwNC+KGPVhvzfaq9k8etJN6Yh+fcP5L8/dkqU=
 			</data>
 		</dict>
 		<key>Resources/web_psd/index.html</key>
@@ -252,7 +252,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			VBqW+bDCk9d/UjwMQxQvu0KFsHu0X/I08rwKBm0Gw5c=
+			YbAFsNpuRahA84FAzGRWvAq2IcXFwf29C4wlHYgnolY=
 			</data>
 		</dict>
 		<key>Resources/web_psd/vendor/ag-psd.bundle.js</key>
