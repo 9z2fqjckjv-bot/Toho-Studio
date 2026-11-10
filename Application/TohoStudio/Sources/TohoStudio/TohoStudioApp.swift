@@ -425,7 +425,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         assert(okinaShortPreset.voice == .f2, "隠岐奈 must have .f2 voice, got \(okinaShortPreset.voice)")
         assert(okinaShortPreset.speed == 95, "隠岐奈 must have speed 95, got \(okinaShortPreset.speed)")
         assert(okinaShortPreset.pitch == 120, "隠岐奈 must have pitch 120, got \(okinaShortPreset.pitch)")
-        print("1-3. Characters containing 'と' (さとり, にとり, みとり) & 摩多羅隠岐奈: Verified correct voice preset applied!")
+
+        let sendaiPreset = AquesTalkBridge.shared.characterPreset(for: "先代の巫女")
+        assert(sendaiPreset.voice == .f1, "先代の巫女 must have .f1 voice, got \(sendaiPreset.voice)")
+        assert(sendaiPreset.speed == 130, "先代の巫女 must have speed 130, got \(sendaiPreset.speed)")
+        assert(sendaiPreset.pitch == 115, "先代の巫女 must have pitch 115, got \(sendaiPreset.pitch)")
+
+        let sendaiShortPreset = AquesTalkBridge.shared.characterPreset(for: "先代巫女")
+        assert(sendaiShortPreset.voice == .f1, "先代巫女 must have .f1 voice, got \(sendaiShortPreset.voice)")
+        assert(sendaiShortPreset.speed == 130, "先代巫女 must have speed 130, got \(sendaiShortPreset.speed)")
+        assert(sendaiShortPreset.pitch == 115, "先代巫女 must have pitch 115, got \(sendaiShortPreset.pitch)")
+        print("1-3. Characters containing 'と' (さとり, にとり, みとり), 摩多羅隠岐奈 & 先代の巫女: Verified correct voice preset applied!")
 
         // 2. AquesTalkBridge 2人同時音声合成（ユニゾン・ミックスWAV）テスト
         print("2. Synthesizing Duo Voice Audio (博麗霊夢&霧雨魔理沙)...")

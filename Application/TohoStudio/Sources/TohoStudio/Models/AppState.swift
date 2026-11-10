@@ -1721,6 +1721,24 @@ public final class AppState: ObservableObject {
                 source: "Gスカのブログ",
                 description: "女性1・速度80%・音程180"
             ),
+            VoiceTemplate(
+                name: "先代の巫女 (Gスカブログ)",
+                characterName: "先代の巫女",
+                voiceType: .f1,
+                speed: 130,
+                pitch: 115,
+                source: "Gスカのブログ",
+                description: "女性1・速度130%・音程115"
+            ),
+            VoiceTemplate(
+                name: "先代巫女 (Gスカブログ)",
+                characterName: "先代巫女",
+                voiceType: .f1,
+                speed: 130,
+                pitch: 115,
+                source: "Gスカのブログ",
+                description: "女性1・速度130%・音程115"
+            ),
 
             // 6. 追加キャラクター テンプレート（東方天空璋など）
             VoiceTemplate(

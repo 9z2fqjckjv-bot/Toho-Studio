@@ -180,7 +180,8 @@ public final class SlideVoiceBatchService: ObservableObject {
 
                     // 2. 話者に対応するVoiceTemplateを検索
                     let matchedTemplate = appState.voiceTemplates.first(where: {
-                        $0.characterName == spk || $0.name.contains(spk)
+                        $0.characterName == spk || $0.name.contains(spk) ||
+                        (spk.contains("先代") && ($0.characterName.contains("先代") || $0.name.contains("先代")))
                     })
 
                     let voiceType: VoiceType

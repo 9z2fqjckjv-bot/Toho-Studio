@@ -216,7 +216,7 @@ public struct DeveloperConsoleView: View {
 
             Text("コミュニティ・開発者向け掲示板:").font(.subheadline).bold()
             List {
-                Text("【お知らせ】Toho-Studio v2.9.1 がリリースされました。東方キャラ立絵スタジオ（CharacterStudio）のキャンバス枠およびビューポート表示フィット・はみ出し防止処理を強化した最新版です。")
+                Text("【お知らせ】Toho-Studio v2.9.1 がリリースされました。東方キャラ立絵スタジオ（CharacterStudio）のキャンバス枠およびビューポート表示フィット・はみ出し防止処理を強化し、先代の巫女（女性1・速度130%・音程115）の音声テンプレート・ボイス自動割当に対応した最新版です。")
                 Text("【機能改善】スライド認識プログラムの照合精度が99%に向上しました。")
             }
             .frame(height: 120)

@@ -524,6 +524,8 @@ public final class SoundMakerDictionaryManager: ObservableObject {
         add("メリー", "めりー", "メ'リー")
         add("宇佐見菫子", "うさみすみれこ", "ウサミスミ'レコ")
         add("菫子", "すみれこ", "スミ'レコ")
+        add("先代の巫女", "せんだいのみこ", "センダイノミ'コ")
+        add("先代巫女", "せんだい", "センダ'イ")
 
         // --- 東方用語・地名 ---
         add("幻想郷", "げんそうきょう", "ゲンソー'キョー", .tohoTerm)

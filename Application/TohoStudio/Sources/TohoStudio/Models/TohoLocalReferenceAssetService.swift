@@ -190,7 +190,8 @@ public final class TohoLocalReferenceAssetService {
             ("山城たかね", ["たかね"]),
             ("飯綱丸龍", ["飯縄丸龍", "龍"]),
             ("冴月麟", []),
-            ("SinGyoku", [])
+            ("SinGyoku", []),
+            ("先代の巫女", ["先代巫女", "先代"])
         ]
 
         // 1. 完全名一致を走査
