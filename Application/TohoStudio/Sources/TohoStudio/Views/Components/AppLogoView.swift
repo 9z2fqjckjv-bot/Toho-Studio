@@ -6,6 +6,7 @@ public struct AppLogoView: View {
     public let cornerRadius: CGFloat
 
     public static let logoPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/手作り素材/AI生成/image11.png"
+    public static let resourceLogoPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/logo.png"
 
     public init(size: CGFloat = 28, cornerRadius: CGFloat = 6) {
         self.size = size
@@ -40,7 +41,21 @@ public struct AppLogoView: View {
     }
 
     private var resizedImage: NSImage? {
-        guard let original = NSImage(contentsOfFile: AppLogoView.logoPath) else { return nil }
+        let candidates = [
+            AppLogoView.logoPath,
+            AppLogoView.resourceLogoPath,
+            Bundle.main.path(forResource: "app_logo", ofType: "png"),
+            Bundle.main.path(forResource: "AppIcon", ofType: "png")
+        ].compactMap { $0 }
+
+        var loadedImage: NSImage?
+        for path in candidates {
+            if FileManager.default.fileExists(atPath: path), let img = NSImage(contentsOfFile: path) {
+                loadedImage = img
+                break
+            }
+        }
+        guard let original = loadedImage else { return nil }
         let targetSize = NSSize(width: size, height: size)
         let newImg = NSImage(size: targetSize)
         newImg.lockFocus()

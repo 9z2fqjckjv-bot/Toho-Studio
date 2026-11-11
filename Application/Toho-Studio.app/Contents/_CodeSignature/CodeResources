@@ -6,7 +6,7 @@
 	<dict>
 		<key>Resources/AppIcon.png</key>
 		<data>
-		aDV0rbEk5tXZGlohqgj3kgoSMfk=
+		jQ11od6veppi3YrlmoIR06pSyW8=
 		</data>
 		<key>Resources/Documents/PSDTool.html</key>
 		<data>
@@ -72,17 +72,21 @@
 		<data>
 		rZpi1YXTCiksxxn8wOElSxs0oEY=
 		</data>
+		<key>Resources/app_logo.png</key>
+		<data>
+		jQ11od6veppi3YrlmoIR06pSyW8=
+		</data>
 		<key>Resources/keynote_extractor.py</key>
 		<data>
 		asF62TKEezi0brIDF6S+wsxNjbs=
 		</data>
 		<key>Resources/web_psd/app.js</key>
 		<data>
-		Aq6Lqi2igTLkDVFcHplVEb9o9Sc=
+		qpIvlSu619bQvQRb/xFpIFzR0Lw=
 		</data>
 		<key>Resources/web_psd/index.html</key>
 		<data>
-		FpyxcqCGc+zdjtvzl5EI9+OMFoU=
+		8UHDm+Zhxoq9pHYx4BP32no1nIQ=
 		</data>
 		<key>Resources/web_psd/style.css</key>
 		<data>
@@ -103,16 +107,16 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			4bEsv834CzyiKmQxP6zM2LVaZXw=
+			QMwBIvey98nR7Ssvq42wZTH6y28=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"e1b12cbfcdf80b3ca22a64313facccd8b55a657c"</string>
+			<string>cdhash H"40cc0122f7b2f7c9d1ed2b2fab8db06531facb6f"</string>
 		</dict>
 		<key>Resources/AppIcon.png</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			Vz19rXb/4oSzvF8tQn88+Zq8SMMwDiteqSip8qVfm+4=
+			GluZCvZPxS+FybQvd2iYS+Lr5y3S/fw+yocAEgQiI3U=
 			</data>
 		</dict>
 		<key>Resources/Documents/PSDTool.html</key>
@@ -227,6 +231,13 @@
 			7WdM1JpPM2V27cLZpVc7cFIRtwWtpsaw3y/1rF3gqa8=
 			</data>
 		</dict>
+		<key>Resources/app_logo.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			GluZCvZPxS+FybQvd2iYS+Lr5y3S/fw+yocAEgQiI3U=
+			</data>
+		</dict>
 		<key>Resources/keynote_extractor.py</key>
 		<dict>
 			<key>hash2</key>
@@ -238,14 +249,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			S+zqFCUwNC+KGPVhvzfaq9k8etJN6Yh+fcP5L8/dkqU=
+			fRLYcBKW33zCsIxmfoaJ/HkUITK9bnqRYE+SBhCHm/Y=
 			</data>
 		</dict>
 		<key>Resources/web_psd/index.html</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			JdjGVk8Zgbfu3z46C1pk8LUqJ1L2sn96jUFZo6iQmro=
+			pYNf94gwiQxB9UFuuQ/Sc6clIllappFvtAYVyDbX7XI=
 			</data>
 		</dict>
 		<key>Resources/web_psd/style.css</key>

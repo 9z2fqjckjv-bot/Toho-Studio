@@ -266,6 +266,7 @@
           <!-- 部位別カラー調整 -->
           <div class="pane-header" style="margin-top: 20px;">
             <h3>部位別・レイヤー別カラー調整</h3>
+            <button class="text-btn" id="btnResetPartColor">部位リセット</button>
           </div>
           <div class="part-color-box">
             <p class="desc-text">選択したパーツ・レイヤーのみの色を変更できます（例：服だけ青に、髪だけ金髪に、肌だけ日焼け等）。</p>
@@ -280,6 +281,22 @@
                   <span class="slider-val" id="valPartHue">0°</span>
                 </div>
                 <input type="range" id="sliderPartHue" min="-180" max="180" value="0" class="color-slider hue-track">
+              </div>
+
+              <div class="slider-item">
+                <div class="slider-label-row">
+                  <span>部位彩度 (Part Saturation)</span>
+                  <span class="slider-val" id="valPartSaturation">100%</span>
+                </div>
+                <input type="range" id="sliderPartSaturation" min="0" max="200" value="100">
+              </div>
+
+              <div class="slider-item">
+                <div class="slider-label-row">
+                  <span>部位明度 (Part Brightness)</span>
+                  <span class="slider-val" id="valPartBrightness">0%</span>
+                </div>
+                <input type="range" id="sliderPartBrightness" min="-100" max="100" value="0">
               </div>
             </div>
           </div>

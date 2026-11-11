@@ -86,8 +86,11 @@
       green: 0,
       blue: 0,
       partTarget: 'all',
-      partHue: 0
+      partHue: 0,
+      partSaturation: 100,
+      partBrightness: 0
     },
+    partColors: {}, // 部位・グループごとのカラー調整: { [targetKey]: { hue: 0, saturation: 100, brightness: 0 } }
 
     // 特定色置換 (カラーリプレイスメント)
     colorRules: [],
@@ -173,8 +176,13 @@
     valGreen: document.getElementById('valGreen'),
     valBlue: document.getElementById('valBlue'),
     partColorTargetSelect: document.getElementById('partColorTargetSelect'),
+    btnResetPartColor: document.getElementById('btnResetPartColor'),
     sliderPartHue: document.getElementById('sliderPartHue'),
     valPartHue: document.getElementById('valPartHue'),
+    sliderPartSaturation: document.getElementById('sliderPartSaturation'),
+    valPartSaturation: document.getElementById('valPartSaturation'),
+    sliderPartBrightness: document.getElementById('sliderPartBrightness'),
+    valPartBrightness: document.getElementById('valPartBrightness'),
 
     // 特定色置換 (カラーリプレイスメント)
     btnEyedropper: document.getElementById('btnEyedropper'),
@@ -370,9 +378,16 @@
     // 部位別スライダー
     elements.partColorTargetSelect.addEventListener('change', e => {
       state.color.partTarget = e.target.value;
+      syncPartSlidersUI();
       renderComposite();
     });
-    setupSlider(elements.sliderPartHue, elements.valPartHue, v => `${v}°`, v => state.color.partHue = parseInt(v));
+    setupPartSlider(elements.sliderPartHue, elements.valPartHue, v => `${v}°`, (s, v) => s.hue = parseInt(v));
+    setupPartSlider(elements.sliderPartSaturation, elements.valPartSaturation, v => `${v}%`, (s, v) => s.saturation = parseInt(v));
+    setupPartSlider(elements.sliderPartBrightness, elements.valPartBrightness, v => `${v}%`, (s, v) => s.brightness = parseInt(v));
+
+    if (elements.btnResetPartColor) {
+      elements.btnResetPartColor.addEventListener('click', resetPartColor);
+    }
 
     elements.btnResetFilter.addEventListener('click', () => applyFilterPreset('normal'));
     elements.btnResetColorSliders.addEventListener('click', resetColorSliders);
@@ -436,9 +451,23 @@
   }
 
   function setupSlider(slider, valDisplay, formatFn, updateStateFn) {
+    if (!slider) return;
     slider.addEventListener('input', e => {
-      valDisplay.textContent = formatFn(e.target.value);
+      if (valDisplay) valDisplay.textContent = formatFn(e.target.value);
       updateStateFn(e.target.value);
+      renderComposite();
+    });
+  }
+
+  function setupPartSlider(slider, valDisplay, formatFn, updateSettingFn) {
+    if (!slider) return;
+    slider.addEventListener('input', e => {
+      if (valDisplay) valDisplay.textContent = formatFn(e.target.value);
+      const target = state.color.partTarget || 'all';
+      if (!state.partColors[target]) {
+        state.partColors[target] = { hue: 0, saturation: 100, brightness: 0 };
+      }
+      updateSettingFn(state.partColors[target], e.target.value);
       renderComposite();
     });
   }
@@ -572,6 +601,8 @@
       updateDimsPreview();
 
       // レイヤーのフラット化とタグ構造解析
+      state.partColors = {};
+      state.faceBounds = detectFaceBounds(psd);
       analyzeLayerStructure(psd);
 
       // UIの構築
@@ -1057,26 +1088,585 @@
     buildLayerTreeUI();
   }
 
+  // ==================== 高速3x3カラーマトリクス & ピクセル変換エンジン ====================
+  function multiplyMatrix3x3(a, b) {
+    const out = new Float64Array(9);
+    out[0] = a[0]*b[0] + a[1]*b[3] + a[2]*b[6];
+    out[1] = a[0]*b[1] + a[1]*b[4] + a[2]*b[7];
+    out[2] = a[0]*b[2] + a[1]*b[5] + a[2]*b[8];
+
+    out[3] = a[3]*b[0] + a[4]*b[3] + a[5]*b[6];
+    out[4] = a[3]*b[1] + a[4]*b[4] + a[5]*b[7];
+    out[5] = a[3]*b[2] + a[4]*b[5] + a[5]*b[8];
+
+    out[6] = a[6]*b[0] + a[7]*b[3] + a[8]*b[6];
+    out[7] = a[6]*b[1] + a[7]*b[4] + a[8]*b[7];
+    out[8] = a[6]*b[2] + a[7]*b[5] + a[8]*b[8];
+    return out;
+  }
+
+  function identityMatrix3x3() {
+    return new Float64Array([
+      1, 0, 0,
+      0, 1, 0,
+      0, 0, 1
+    ]);
+  }
+
+  // W3C SVG Filter準拠 色相回転マトリクス
+  function getHueRotateMatrix(deg) {
+    const rad = (deg % 360) * (Math.PI / 180);
+    const cosA = Math.cos(rad);
+    const sinA = Math.sin(rad);
+    return new Float64Array([
+      0.213 + cosA * 0.787 - sinA * 0.213,
+      0.715 - cosA * 0.715 - sinA * 0.715,
+      0.072 - cosA * 0.072 + sinA * 0.928,
+
+      0.213 - cosA * 0.213 + sinA * 0.143,
+      0.715 + cosA * 0.285 + sinA * 0.140,
+      0.072 - cosA * 0.072 - sinA * 0.283,
+
+      0.213 - cosA * 0.213 - sinA * 0.787,
+      0.715 - cosA * 0.715 + sinA * 0.715,
+      0.072 + cosA * 0.928 + sinA * 0.072
+    ]);
+  }
+
+  // 彩度調整マトリクス (s: 0.0 ~ 2.0, 1.0 = 標準)
+  function getSaturateMatrix(s) {
+    return new Float64Array([
+      0.213 * (1 - s) + s, 0.715 * (1 - s),     0.072 * (1 - s),
+      0.213 * (1 - s),     0.715 * (1 - s) + s, 0.072 * (1 - s),
+      0.213 * (1 - s),     0.715 * (1 - s),     0.072 * (1 - s) + s
+    ]);
+  }
+
+  // セピアマトリクス (80%)
+  function getSepiaMatrix(amount = 0.8) {
+    const inv = 1 - amount;
+    return new Float64Array([
+      inv + amount * 0.393, amount * 0.769,       amount * 0.189,
+      amount * 0.349,       inv + amount * 0.686, amount * 0.168,
+      amount * 0.272,       amount * 0.534,       inv + amount * 0.131
+    ]);
+  }
+
+  // 主要部位の分類定数
+  const PART_ID_BODY = 0; // 体（服・衣装 ※顔と髪を除く）
+  const PART_ID_HAIR = 1; // 髪
+  const PART_ID_FACE = 2; // 顔・肌
+  const PART_ID_ACC  = 3; // 追加物（第3の目・コード・装飾など）
+
+  // 顔の位置（アンカーポイント）検出
+  function detectFaceBounds(psd) {
+    if (!psd) return { neckY: 300 };
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let found = false;
+
+    function scan(node) {
+      if (!node) return;
+      const name = node.name || '';
+      if (name.includes('表情') || name.includes('目') || name.includes('口') || name.includes('眉') || name.includes('顔色') || name.includes('赤面')) {
+        const left = node.left !== undefined ? node.left : 0;
+        const top = node.top !== undefined ? node.top : 0;
+        const width = node.canvas ? node.canvas.width : (node.imageData ? node.imageData.width : 0);
+        const height = node.canvas ? node.canvas.height : (node.imageData ? node.imageData.height : 0);
+        const right = node.right !== undefined ? node.right : (left + width);
+        const bottom = node.bottom !== undefined ? node.bottom : (top + height);
+
+        if (right > left && bottom > top && (right - left) < psd.width * 0.6 && (bottom - top) < psd.height * 0.6) {
+          minX = Math.min(minX, left);
+          minY = Math.min(minY, top);
+          maxX = Math.max(maxX, right);
+          maxY = Math.max(maxY, bottom);
+          found = true;
+        }
+      }
+      if (node.children) {
+        node.children.forEach(scan);
+      }
+    }
+
+    scan(psd);
+
+    if (found && maxX > minX && maxY > minY) {
+      return {
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
+        neckY: maxY + (maxY - minY) * 0.55
+      };
+    }
+
+    return {
+      x: psd.width * 0.35,
+      y: psd.height * 0.15,
+      width: psd.width * 0.3,
+      height: psd.height * 0.15,
+      neckY: psd.height * 0.32
+    };
+  }
+
+  // RGB から HSV への変換 (h: 0~360, s: 0~1, v: 0~1)
+  function rgbToHsv(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const diff = max - min;
+    let h = 0;
+    if (diff > 0) {
+      if (max === r) {
+        h = ((g - b) / diff) % 6;
+        if (h < 0) h += 6;
+      } else if (max === g) {
+        h = (b - r) / diff + 2;
+      } else {
+        h = (r - g) / diff + 4;
+      }
+      h *= 60;
+    }
+    const s = max === 0 ? 0 : diff / max;
+    const v = max;
+    return [h, s, v];
+  }
+
   // ==================== 部位別カラーセレクター ====================
   function populatePartColorSelect() {
-    elements.partColorTargetSelect.innerHTML = '<option value="all">（全体に適用）</option>';
-    
-    // 主なグループやレイヤーを追加
-    Object.keys(state.partGroups).forEach(name => {
-      const opt = document.createElement('option');
-      opt.value = `group_${name}`;
-      opt.textContent = `[グループ] ${name}`;
-      elements.partColorTargetSelect.appendChild(opt);
-    });
+    elements.partColorTargetSelect.innerHTML = '';
 
+    // 1. 全体適用
+    const optAll = document.createElement('option');
+    optAll.value = 'all';
+    optAll.textContent = '（全体に適用）';
+    elements.partColorTargetSelect.appendChild(optAll);
+
+    // 2. 🌟 キャラクター主要部位
+    const optGroupMajor = document.createElement('optgroup');
+    optGroupMajor.label = '🌟 キャラクター主要部位';
+
+    const majorParts = [
+      { id: 'part_body', name: '体（服・衣装 ※顔と髪を除く）' },
+      { id: 'part_hair', name: '髪' },
+      { id: 'part_face', name: '顔・肌' },
+      { id: 'part_accessory', name: '追加物（第3の目・装飾など）' }
+    ];
+
+    majorParts.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      optGroupMajor.appendChild(opt);
+    });
+    elements.partColorTargetSelect.appendChild(optGroupMajor);
+
+    // 3. 📂 レイヤーグループ
+    const grpNames = Object.keys(state.partGroups);
+    if (grpNames.length > 0) {
+      const optGroupGroups = document.createElement('optgroup');
+      optGroupGroups.label = '📂 レイヤーグループ';
+      grpNames.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = `group_${name}`;
+        opt.textContent = `[グループ] ${name}`;
+        optGroupGroups.appendChild(opt);
+      });
+      elements.partColorTargetSelect.appendChild(optGroupGroups);
+    }
+
+    // 4. 📄 個別レイヤー
+    const optGroupLayers = document.createElement('optgroup');
+    optGroupLayers.label = '📄 個別レイヤー';
     state.flatLayers.forEach(layer => {
       if (layer.name && !layer.name.startsWith('!')) {
         const opt = document.createElement('option');
-        opt.value = `layer_${layer._layerId}`;
+        opt.value = layer._layerId;
         opt.textContent = layer.name;
-        elements.partColorTargetSelect.appendChild(opt);
+        optGroupLayers.appendChild(opt);
       }
     });
+    if (optGroupLayers.children.length > 0) {
+      elements.partColorTargetSelect.appendChild(optGroupLayers);
+    }
+
+    // 初期選択：デフォルトを「体（服・衣装 ※顔と髪を除く）」に設定
+    state.color.partTarget = 'part_body';
+    elements.partColorTargetSelect.value = 'part_body';
+
+    syncPartSlidersUI();
+  }
+
+  // 調整マトリクスの準備
+  function prepareAdjMatrix(adj) {
+    if (!adj || (adj.hue === 0 && adj.saturation === 100 && adj.brightness === 0)) {
+      return { hasAdj: false, m00: 1, m01: 0, m02: 0, m10: 0, m11: 1, m12: 0, m20: 0, m21: 0, m22: 1, bOffset: 0 };
+    }
+
+    let mat = identityMatrix3x3();
+    if (adj.hue !== 0) {
+      mat = multiplyMatrix3x3(getHueRotateMatrix(adj.hue), mat);
+    }
+    if (adj.saturation !== 100) {
+      mat = multiplyMatrix3x3(getSaturateMatrix(adj.saturation / 100), mat);
+    }
+
+    return {
+      hasAdj: true,
+      m00: mat[0], m01: mat[1], m02: mat[2],
+      m10: mat[3], m11: mat[4], m12: mat[5],
+      m20: mat[6], m21: mat[7], m22: mat[8],
+      bOffset: (adj.brightness || 0) * 2.55
+    };
+  }
+
+  // ノードがベースとなる体レイヤーかチェック
+  function isMajorBaseLayer(node) {
+    if (!node) return false;
+    let curr = node;
+    while (curr) {
+      const n = (curr.name || '').replace(/^[!*]/, '').trim();
+      if (n === '体' || n === '素体' || n === 'ベース' || n === '衣装') return true;
+      curr = curr._parent;
+    }
+    const myName = (node.name || '');
+    return myName.includes('体') || myName.includes('第三の目');
+  }
+
+  // レイヤー内の各ピクセルを「体」「髪」「顔」「追加物」に分類してマスク（Uint8Array）を生成
+  function getOrCreateLayerPartMask(node, imgData) {
+    if (node._partMask && node._partMask.length === imgData.data.length / 4) {
+      return node._partMask;
+    }
+
+    const data = imgData.data;
+    const numPixels = data.length / 4;
+    const mask = new Uint8Array(numPixels);
+    const width = imgData.width;
+    const height = imgData.height;
+    const nodeLeft = node.left || 0;
+    const nodeTop = node.top || 0;
+
+    const faceBounds = state.faceBounds || (state.psdData ? detectFaceBounds(state.psdData) : { neckY: height * 0.32 });
+    const localNeckY = (faceBounds.neckY || height * 0.32) - nodeTop;
+
+    // 「第三の目無」など差分レイヤーがあれば探索
+    let noEyeImgData = null;
+    let dx = 0, dy = 0;
+    if (node._parent && node._parent.children) {
+      const noEyeNode = node._parent.children.find(c => {
+        const n = c.name || '';
+        return (n.includes('第三の目無') || n.includes('目無')) && c !== node;
+      });
+      if (noEyeNode) {
+        if (!noEyeNode.imageData && noEyeNode.canvas) {
+          noEyeNode.imageData = noEyeNode.canvas.getContext('2d').getImageData(0, 0, noEyeNode.canvas.width, noEyeNode.canvas.height);
+        }
+        noEyeImgData = noEyeNode.imageData;
+        if (noEyeImgData) {
+          dx = (noEyeNode.left || 0) - nodeLeft;
+          dy = (noEyeNode.top || 0) - nodeTop;
+        }
+      }
+    }
+
+    for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+      const a = data[i + 3];
+      if (a < 15) {
+        mask[p] = PART_ID_BODY;
+        continue;
+      }
+
+      const x = p % width;
+      const y = Math.floor(p / width);
+
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      const [hDeg, s, v] = rgbToHsv(r, g, b);
+      const isLine = (v < 0.15); // 黒い主線
+
+      // 1. 追加物 (第3の目・コード・装飾)
+      let isAcc = false;
+      if (noEyeImgData) {
+        const nx = x - dx;
+        const ny = y - dy;
+        if (nx >= 0 && nx < noEyeImgData.width && ny >= 0 && ny < noEyeImgData.height) {
+          const nIdx = (ny * noEyeImgData.width + nx) * 4;
+          const nA = noEyeImgData.data[nIdx + 3];
+          if (nA < 15) {
+            isAcc = true; // 目無には存在しないピクセル
+          } else {
+            const diff = Math.max(
+              Math.abs(r - noEyeImgData.data[nIdx]),
+              Math.abs(g - noEyeImgData.data[nIdx + 1]),
+              Math.abs(b - noEyeImgData.data[nIdx + 2])
+            );
+            if (diff > 30) isAcc = true;
+          }
+        } else {
+          isAcc = true;
+        }
+      }
+
+      // 色彩特徴による追加物（コードの青緑・シアン、紫ハートなど）フォールバック
+      if (!isAcc) {
+        const isCyanCord = (hDeg >= 150 && hDeg <= 205 && s > 0.30);
+        const isPurpleGem = (hDeg >= 265 && hDeg <= 325 && s > 0.35 && y > localNeckY * 0.7);
+        if (isCyanCord || isPurpleGem) {
+          isAcc = true;
+        }
+      }
+
+      if (isAcc) {
+        mask[p] = PART_ID_ACC;
+        continue;
+      }
+
+      // 2. 顔・肌 (Skin)
+      const isSkinColor = ((hDeg <= 52 || hDeg >= 345) && s >= 0.05 && s <= 0.65 && v >= 0.45);
+      const isHeadOrHand = (y <= localNeckY || (x < width * 0.25 && y < height * 0.65) || (x > width * 0.75 && y < height * 0.65));
+      if (isSkinColor && isHeadOrHand) {
+        mask[p] = PART_ID_FACE;
+        continue;
+      }
+
+      // 3. 髪 (Hair) - 頭部領域で肌色・追加物・主線でない部分
+      if (y <= localNeckY && !isSkinColor && !isLine) {
+        mask[p] = PART_ID_HAIR;
+        continue;
+      }
+
+      // 4. 体（服・衣装 ※顔と髪を除く）
+      mask[p] = PART_ID_BODY;
+    }
+
+    node._partMask = mask;
+    return mask;
+  }
+
+  // 主要ベースレイヤー（体・髪・顔・追加物）のセグメンテーションカラー調整
+  function applyMajorPartsColorAdjustment(node, srcCanvas) {
+    const adjBody = state.partColors['part_body'] || (state.partColors['group_体'] || null);
+    const adjHair = state.partColors['part_hair'];
+    const adjFace = state.partColors['part_face'];
+    const adjAcc  = state.partColors['part_accessory'];
+
+    const mBody = prepareAdjMatrix(adjBody);
+    const mHair = prepareAdjMatrix(adjHair);
+    const mFace = prepareAdjMatrix(adjFace);
+    const mAcc  = prepareAdjMatrix(adjAcc);
+
+    const hasAnyMajorAdj = mBody.hasAdj || mHair.hasAdj || mFace.hasAdj || mAcc.hasAdj;
+    if (!hasAnyMajorAdj) {
+      return srcCanvas;
+    }
+
+    const pCanvas = document.createElement('canvas');
+    pCanvas.width = srcCanvas.width;
+    pCanvas.height = srcCanvas.height;
+    const pCtx = pCanvas.getContext('2d');
+    pCtx.drawImage(srcCanvas, 0, 0);
+
+    const imgData = pCtx.getImageData(0, 0, pCanvas.width, pCanvas.height);
+    const data = imgData.data;
+    const mask = getOrCreateLayerPartMask(node, imgData);
+
+    const mats = [mBody, mHair, mFace, mAcc];
+
+    const len = data.length;
+    for (let i = 0, p = 0; i < len; i += 4, p++) {
+      if (data[i + 3] === 0) continue;
+
+      const partType = mask[p];
+      const m = mats[partType];
+      if (!m.hasAdj) continue; // 変更のない部位はスキップ
+
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      const nr = r * m.m00 + g * m.m01 + b * m.m02 + m.bOffset;
+      const ng = r * m.m10 + g * m.m11 + b * m.m12 + m.bOffset;
+      const nb = r * m.m20 + g * m.m21 + b * m.m22 + m.bOffset;
+
+      data[i]     = nr < 0 ? 0 : (nr > 255 ? 255 : nr);
+      data[i + 1] = ng < 0 ? 0 : (ng > 255 ? 255 : ng);
+      data[i + 2] = nb < 0 ? 0 : (nb > 255 ? 255 : nb);
+    }
+
+    pCtx.putImageData(imgData, 0, 0);
+    return pCanvas;
+  }
+
+  // ノードが対象となる部位設定を取得
+  function getLayerPartAdjustment(node) {
+    if (!state.partColors) return null;
+
+    // 1. レイヤー直接指定 (layer_*)
+    if (node._layerId && state.partColors[node._layerId]) {
+      const s = state.partColors[node._layerId];
+      if (s.hue !== 0 || s.saturation !== 100 || s.brightness !== 0) return s;
+    }
+
+    // 2. 親グループを上へ辿ってグループ指定を判定 (group_*)
+    let curr = node._parent;
+    while (curr) {
+      const gName = (curr.name || '').replace(/^[!*]/, '').trim();
+      if (gName && state.partColors[`group_${gName}`]) {
+        const s = state.partColors[`group_${gName}`];
+        if (s.hue !== 0 || s.saturation !== 100 || s.brightness !== 0) return s;
+      }
+      curr = curr._parent;
+    }
+
+    // 3. node._fullPath によるグループ名判定
+    if (node._fullPath) {
+      for (const key of Object.keys(state.partColors)) {
+        if (key.startsWith('group_')) {
+          const gName = key.replace('group_', '');
+          if (node._fullPath.includes(gName)) {
+            const s = state.partColors[key];
+            if (s.hue !== 0 || s.saturation !== 100 || s.brightness !== 0) return s;
+          }
+        }
+      }
+    }
+
+    // 4. 「全体に適用」(all)
+    if (state.partColors['all']) {
+      const s = state.partColors['all'];
+      if (s.hue !== 0 || s.saturation !== 100 || s.brightness !== 0) return s;
+    }
+
+    return null;
+  }
+
+  // 部位用ピクセル直接変換（WKWebViewでも100%確実に即座に動作）
+  function applyLayerColorAdjustment(srcCanvas, adj) {
+    const pCanvas = document.createElement('canvas');
+    pCanvas.width = srcCanvas.width;
+    pCanvas.height = srcCanvas.height;
+    const pCtx = pCanvas.getContext('2d');
+    pCtx.drawImage(srcCanvas, 0, 0);
+
+    const imgData = pCtx.getImageData(0, 0, pCanvas.width, pCanvas.height);
+    const data = imgData.data;
+
+    let mat = identityMatrix3x3();
+    if (adj.hue !== 0) {
+      mat = multiplyMatrix3x3(getHueRotateMatrix(adj.hue), mat);
+    }
+    if (adj.saturation !== 100) {
+      mat = multiplyMatrix3x3(getSaturateMatrix(adj.saturation / 100), mat);
+    }
+
+    const m00 = mat[0], m01 = mat[1], m02 = mat[2];
+    const m10 = mat[3], m11 = mat[4], m12 = mat[5];
+    const m20 = mat[6], m21 = mat[7], m22 = mat[8];
+    const bOffset = (adj.brightness || 0) * 2.55;
+
+    const len = data.length;
+    for (let i = 0; i < len; i += 4) {
+      if (data[i + 3] === 0) continue;
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      const nr = r * m00 + g * m01 + b * m02 + bOffset;
+      const ng = r * m10 + g * m11 + b * m12 + bOffset;
+      const nb = r * m20 + g * m21 + b * m22 + bOffset;
+
+      data[i]     = nr < 0 ? 0 : (nr > 255 ? 255 : nr);
+      data[i + 1] = ng < 0 ? 0 : (ng > 255 ? 255 : ng);
+      data[i + 2] = nb < 0 ? 0 : (nb > 255 ? 255 : nb);
+    }
+
+    pCtx.putImageData(imgData, 0, 0);
+    return pCanvas;
+  }
+
+  // 全体カラー調整があるか判定
+  function hasGlobalAdjustment() {
+    return (
+      state.color.hue !== 0 ||
+      state.color.saturation !== 100 ||
+      state.color.brightness !== 0 ||
+      state.color.contrast !== 0 ||
+      state.color.temperature !== 0 ||
+      state.color.red !== 0 ||
+      state.color.green !== 0 ||
+      state.color.blue !== 0 ||
+      (state.color.filter && state.color.filter !== 'normal')
+    );
+  }
+
+  // 全体カラー調整を1パスの高速ピクセルループで適用（WebKit対応）
+  function applyGlobalColorAdjustment(c, w, h) {
+    if (!hasGlobalAdjustment()) return;
+
+    const imgData = c.getImageData(0, 0, w, h);
+    const data = imgData.data;
+
+    // 1. カラーマトリクス合成
+    let mat = identityMatrix3x3();
+    if (state.color.hue !== 0) {
+      mat = multiplyMatrix3x3(getHueRotateMatrix(state.color.hue), mat);
+    }
+    if (state.color.saturation !== 100) {
+      mat = multiplyMatrix3x3(getSaturateMatrix(state.color.saturation / 100), mat);
+    }
+    if (state.color.filter === 'sepia') {
+      mat = multiplyMatrix3x3(getSepiaMatrix(0.8), mat);
+    } else if (state.color.filter === 'monochrome') {
+      mat = multiplyMatrix3x3(getSaturateMatrix(0), mat);
+    }
+
+    // 2. コントラスト係数 (標準コントラスト補正式)
+    let contrastFactor = 1.0;
+    if (state.color.contrast !== 0) {
+      contrastFactor = (259 * (state.color.contrast + 255)) / (255 * (259 - state.color.contrast));
+    }
+
+    // 3. マトリクスとコントラストの事前乗算
+    const m00 = mat[0] * contrastFactor;
+    const m01 = mat[1] * contrastFactor;
+    const m02 = mat[2] * contrastFactor;
+
+    const m10 = mat[3] * contrastFactor;
+    const m11 = mat[4] * contrastFactor;
+    const m12 = mat[5] * contrastFactor;
+
+    const m20 = mat[6] * contrastFactor;
+    const m21 = mat[7] * contrastFactor;
+    const m22 = mat[8] * contrastFactor;
+
+    // 4. 定数オフセット事前計算 (コントラスト中心点128、明度、色温度、RGBバランス)
+    const contrastOffset = 128 * (1 - contrastFactor);
+    const brightnessOffset = state.color.brightness * 2.55;
+
+    const rOffset = contrastOffset + brightnessOffset + state.color.red * 2.55 + (state.color.temperature > 0 ? state.color.temperature * 1.5 : 0);
+    const gOffset = contrastOffset + brightnessOffset + state.color.green * 2.55;
+    const bOffset = contrastOffset + brightnessOffset + state.color.blue * 2.55 + (state.color.temperature < 0 ? -state.color.temperature * 1.5 : 0);
+
+    const len = data.length;
+    for (let i = 0; i < len; i += 4) {
+      if (data[i + 3] === 0) continue; // 透明ピクセルはスキップ
+
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      const nr = r * m00 + g * m01 + b * m02 + rOffset;
+      const ng = r * m10 + g * m11 + b * m12 + gOffset;
+      const nb = r * m20 + g * m21 + b * m22 + bOffset;
+
+      data[i]     = nr < 0 ? 0 : (nr > 255 ? 255 : nr);
+      data[i + 1] = ng < 0 ? 0 : (ng > 255 ? 255 : ng);
+      data[i + 2] = nb < 0 ? 0 : (nb > 255 ? 255 : nb);
+    }
+
+    c.putImageData(imgData, 0, 0);
   }
 
   // ==================== リアルタイム合成 & 色彩変換 ====================
@@ -1124,21 +1714,20 @@
           const left = node.left || 0;
           const top = node.top || 0;
 
-          // 部位別色変えの適用対象かチェック
-          const isPartTarget = (state.color.partTarget === `layer_${node._layerId}`) ||
-                               (state.color.partTarget.startsWith('group_') && node._fullPath.includes(state.color.partTarget.replace('group_', '')));
-
-          if (isPartTarget && state.color.partHue !== 0) {
-            // 部位個別色相変換
-            const partCanvas = document.createElement('canvas');
-            partCanvas.width = layerCanvas.width;
-            partCanvas.height = layerCanvas.height;
-            const pCtx = partCanvas.getContext('2d');
-            pCtx.filter = `hue-rotate(${state.color.partHue}deg)`;
-            pCtx.drawImage(layerCanvas, 0, 0);
-            tempCtx.drawImage(partCanvas, left, top);
+          // 部位別色調整の適用対象かチェック
+          if (isMajorBaseLayer(node)) {
+            // 体（顔と髪を除く）、顔、髪、追加物（第3の目など）の主要部位カラー変換
+            const adjustedCanvas = applyMajorPartsColorAdjustment(node, layerCanvas);
+            tempCtx.drawImage(adjustedCanvas, left, top);
           } else {
-            tempCtx.drawImage(layerCanvas, left, top);
+            const partAdj = getLayerPartAdjustment(node);
+            if (partAdj) {
+              // 部位個別カラー変換 (ピクセル直接処理)
+              const adjustedCanvas = applyLayerColorAdjustment(layerCanvas, partAdj);
+              tempCtx.drawImage(adjustedCanvas, left, top);
+            } else {
+              tempCtx.drawImage(layerCanvas, left, top);
+            }
           }
 
           tempCtx.restore();
@@ -1153,36 +1742,18 @@
       }
     }
 
-    // グローバル色彩調整の適用
+    // メインキャンバスへ転写 (水平反転含む)
     ctx.save();
-    
-    // CSS filter の構築
-    const filters = [];
-    if (state.color.hue !== 0) filters.push(`hue-rotate(${state.color.hue}deg)`);
-    if (state.color.saturation !== 100) filters.push(`saturate(${state.color.saturation}%)`);
-    if (state.color.brightness !== 0) filters.push(`brightness(${100 + state.color.brightness}%)`);
-    if (state.color.contrast !== 0) filters.push(`contrast(${100 + state.color.contrast}%)`);
-    
-    // 雰囲気フィルターによる補正
-    if (state.color.filter === 'sepia') filters.push('sepia(80%)');
-    else if (state.color.filter === 'monochrome') filters.push('grayscale(100%)');
-
-    if (filters.length > 0) {
-      ctx.filter = filters.join(' ');
-    }
-
-    // 水平反転
     if (state.flipH) {
       ctx.translate(width, 0);
       ctx.scale(-1, 1);
     }
-
     ctx.drawImage(tempCanvas, 0, 0);
     ctx.restore();
 
-    // RGB / 色温度のピクセル補正（必要な場合）
-    if (state.color.red !== 0 || state.color.green !== 0 || state.color.blue !== 0 || state.color.temperature !== 0) {
-      applyColorBalancePixels(ctx, width, height);
+    // グローバル全体カラー調整 (色相、彩度、明度、コントラスト、色温度、RGB、雰囲気フィルター)
+    if (hasGlobalAdjustment()) {
+      applyGlobalColorAdjustment(ctx, width, height);
     }
 
     // 色置換前の純粋な合成キャンバスを保持（スポイトサンプリングの参照用）
@@ -1203,22 +1774,6 @@
     if (hasActiveRules || hasLiveHover) {
       applyColorReplacementPixels(ctx, width, height);
     }
-  }
-
-  function applyColorBalancePixels(c, w, h) {
-    const imgData = c.getImageData(0, 0, w, h);
-    const data = imgData.data;
-    const rAdj = state.color.red * 2.55 + (state.color.temperature > 0 ? state.color.temperature * 1.5 : 0);
-    const gAdj = state.color.green * 2.55;
-    const bAdj = state.color.blue * 2.55 + (state.color.temperature < 0 ? -state.color.temperature * 1.5 : 0);
-
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i + 3] === 0) continue; // 透明ピクセルはスキップ
-      data[i] = Math.min(255, Math.max(0, data[i] + rAdj));
-      data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + gAdj));
-      data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + bAdj));
-    }
-    c.putImageData(imgData, 0, 0);
   }
 
   // ==================== 特定色置換 (カラーリプレイスメント) ====================
@@ -1714,46 +2269,82 @@
     state.color.red = 0;
     state.color.green = 0;
     state.color.blue = 0;
-    state.color.partHue = 0;
   }
 
   function resetColorSliders() {
     resetColorSlidersQuiet();
     state.color.filter = 'normal';
     elements.filterChips.forEach(c => c.classList.remove('active'));
-    document.querySelector('.filter-chip[data-filter="normal"]').classList.add('active');
+    const normalChip = document.querySelector('.filter-chip[data-filter="normal"]');
+    if (normalChip) normalChip.classList.add('active');
     syncColorSlidersUI();
     renderComposite();
-    showToast('色彩設定をリセットしました', 'success');
+    showToast('全体カラー調整をリセットしました', 'success');
   }
 
   function syncColorSlidersUI() {
-    elements.sliderHue.value = state.color.hue;
-    elements.valHue.textContent = `${state.color.hue}°`;
+    if (elements.sliderHue) {
+      elements.sliderHue.value = state.color.hue;
+      elements.valHue.textContent = `${state.color.hue}°`;
+    }
+    if (elements.sliderSaturation) {
+      elements.sliderSaturation.value = state.color.saturation;
+      elements.valSaturation.textContent = `${state.color.saturation}%`;
+    }
+    if (elements.sliderBrightness) {
+      elements.sliderBrightness.value = state.color.brightness;
+      elements.valBrightness.textContent = `${state.color.brightness}%`;
+    }
+    if (elements.sliderContrast) {
+      elements.sliderContrast.value = state.color.contrast;
+      elements.valContrast.textContent = `${state.color.contrast}%`;
+    }
+    if (elements.sliderTemperature) {
+      elements.sliderTemperature.value = state.color.temperature;
+      elements.valTemperature.textContent = state.color.temperature;
+    }
+    if (elements.sliderRed) {
+      elements.sliderRed.value = state.color.red;
+      elements.valRed.textContent = state.color.red;
+    }
+    if (elements.sliderGreen) {
+      elements.sliderGreen.value = state.color.green;
+      elements.valGreen.textContent = state.color.green;
+    }
+    if (elements.sliderBlue) {
+      elements.sliderBlue.value = state.color.blue;
+      elements.valBlue.textContent = state.color.blue;
+    }
+  }
 
-    elements.sliderSaturation.value = state.color.saturation;
-    elements.valSaturation.textContent = `${state.color.saturation}%`;
+  function syncPartSlidersUI() {
+    const target = state.color.partTarget || 'all';
+    const s = state.partColors[target] || { hue: 0, saturation: 100, brightness: 0 };
+    
+    if (elements.sliderPartHue) {
+      elements.sliderPartHue.value = s.hue;
+      elements.valPartHue.textContent = `${s.hue}°`;
+    }
+    if (elements.sliderPartSaturation) {
+      elements.sliderPartSaturation.value = s.saturation;
+      elements.valPartSaturation.textContent = `${s.saturation}%`;
+    }
+    if (elements.sliderPartBrightness) {
+      elements.sliderPartBrightness.value = s.brightness;
+      elements.valPartBrightness.textContent = `${s.brightness}%`;
+    }
+  }
 
-    elements.sliderBrightness.value = state.color.brightness;
-    elements.valBrightness.textContent = `${state.color.brightness}%`;
-
-    elements.sliderContrast.value = state.color.contrast;
-    elements.valContrast.textContent = `${state.color.contrast}%`;
-
-    elements.sliderTemperature.value = state.color.temperature;
-    elements.valTemperature.textContent = state.color.temperature;
-
-    elements.sliderRed.value = state.color.red;
-    elements.valRed.textContent = state.color.red;
-
-    elements.sliderGreen.value = state.color.green;
-    elements.valGreen.textContent = state.color.green;
-
-    elements.sliderBlue.value = state.color.blue;
-    elements.valBlue.textContent = state.color.blue;
-
-    elements.sliderPartHue.value = state.color.partHue;
-    elements.valPartHue.textContent = `${state.color.partHue}°`;
+  function resetPartColor() {
+    const target = state.color.partTarget || 'all';
+    if (target === 'all') {
+      state.partColors = {};
+    } else {
+      delete state.partColors[target];
+    }
+    syncPartSlidersUI();
+    renderComposite();
+    showToast('部位カラー調整をリセットしました', 'success');
   }
 
   // ==================== ズーム & ビューポート ====================

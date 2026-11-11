@@ -676,7 +676,7 @@ public enum MovieExporter {
 
         let ymmpPayload: [String: Any] = [
             "AppName": "Toho-Studio",
-            "Version": "2.9.1",
+            "Version": "2.9.2",
             "ExportDate": ISO8601DateFormatter().string(from: Date()),
             "FPS": fps,
             "TotalFrames": currentFrame,
@@ -706,7 +706,7 @@ public enum MovieExporter {
 
         let container = ProjectExportContainer(
             appName: "TohoStudio",
-            version: "2.9.1",
+            version: "2.9.2",
             format: formatName,
             exportTimestamp: Date(),
             totalScenes: scenes.count,

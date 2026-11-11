@@ -127,7 +127,7 @@ public struct DeveloperConsoleView: View {
                 let recentLogs = appState.logs.prefix(5).map({ "[\($0.level)] \($0.message)" }).joined(separator: "\n")
                 generatedBugfixPrompt = """
                 【Toho-Studio エラー修正プロンプト】
-                現在のバージョン: v2.9.1
+                現在のバージョン: v2.9.2
                 OS: macOS (Swift 6.0 / Native)
                 直近のシステムログ:
                 \(recentLogs)
@@ -152,12 +152,12 @@ public struct DeveloperConsoleView: View {
 
             GroupBox(label: Text("公開リソース作成 (AquesTalkライセンスキー自動除外)")) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("仕様書補足事項に則り、安全に公開できるようにAquesTalkのライセンスキーを削除（サニタイズ）した状態で、/Volumes/ZSSD/GitHub/repository/TohoStudio 配下に新配布パッケージ (v2.9.1.dmg / v2.9.1.zip) を書き出します。")
+                    Text("仕様書補足事項に則り、安全に公開できるようにAquesTalkのライセンスキーを削除（サニタイズ）した状態で、/Volumes/ZSSD/GitHub/repository/TohoStudio 配下に新配布パッケージ (v2.9.2.dmg / v2.9.2.zip) を書き出します。")
                         .font(.caption).foregroundColor(.secondary)
 
                     HStack {
                         Button(action: {
-                            appState.log("新バージョン公開リソース (v2.9.1) を生成しました")
+                            appState.log("新バージョン公開リソース (v2.9.2) を生成しました")
                         }) {
                             Label("新バージョンをリソースとして書き出し", systemImage: "shippingbox.fill")
                         }
@@ -216,6 +216,7 @@ public struct DeveloperConsoleView: View {
 
             Text("コミュニティ・開発者向け掲示板:").font(.subheadline).bold()
             List {
+                Text("【お知らせ】Toho-Studio v2.9.2 がリリースされました。新デザインの公式ロゴ（里山と清流と満開の花畑）を全面適用し、東方キャラ立絵スタジオ（CharacterStudio）の安定性向上および最新リソースパッケージ (v2.9.2) を公開した最新版です。")
                 Text("【お知らせ】Toho-Studio v2.9.1 がリリースされました。東方キャラ立絵スタジオ（CharacterStudio）のキャンバス枠およびビューポート表示フィット・はみ出し防止処理を強化し、先代の巫女（女性1・速度130%・音程115）の音声テンプレート・ボイス自動割当に対応した最新版です。")
                 Text("【機能改善】スライド認識プログラムの照合精度が99%に向上しました。")
             }
