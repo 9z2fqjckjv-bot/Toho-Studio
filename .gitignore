@@ -1,4 +1,7 @@
-# OS generated files
+# Local tools & extensions (not pushed to repository)
+/extensions/
+keynote-editor/
+keynote-editor-extension/
 .DS_Store
 .DS_Store?
 ._*
