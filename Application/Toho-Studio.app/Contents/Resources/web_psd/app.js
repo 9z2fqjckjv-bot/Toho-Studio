@@ -38,9 +38,14 @@
       const canvas = document.getElementById("previewCanvas");
       if (canvas && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tohoStudio) {
         const dataUrl = canvas.toDataURL("image/png");
+        const exportInput = document.getElementById("exportFilenameInput");
+        const exportFilename = (exportInput && exportInput.value ? exportInput.value.trim() : "") || (state.currentCharName ? `${state.currentCharName}_立ち絵` : "東方キャラ_立ち絵");
+        const fileName = state.currentFileName || `${state.currentCharName || "キャラ"}.psd`;
         window.webkit.messageHandlers.tohoStudio.postMessage({
           action: "applyToProject",
           characterName: state.currentCharName || "東方キャラ",
+          exportFilename: exportFilename,
+          fileName: fileName,
           dataUrl: dataUrl,
           width: canvas.width,
           height: canvas.height
@@ -49,6 +54,35 @@
       }
     } catch(e) {
       console.error("tohoStudioApplyToProject error:", e);
+    }
+  };
+
+  window.tohoStudioExportComposite = function(target) {
+    if (target === "characterMaker" || !target) {
+      window.tohoStudioApplyToProject();
+    } else {
+      try {
+        const canvas = document.getElementById("previewCanvas");
+        if (canvas && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tohoStudio) {
+          const dataUrl = canvas.toDataURL("image/png");
+          const exportInput = document.getElementById("exportFilenameInput");
+          const exportFilename = (exportInput && exportInput.value ? exportInput.value.trim() : "") || (state.currentCharName ? `${state.currentCharName}_立ち絵` : "東方キャラ_立ち絵");
+          const fileName = state.currentFileName || `${state.currentCharName || "キャラ"}.psd`;
+          window.webkit.messageHandlers.tohoStudio.postMessage({
+            action: "exportComposite",
+            target: target,
+            characterName: state.currentCharName || "東方キャラ",
+            exportFilename: exportFilename,
+            fileName: fileName,
+            dataUrl: dataUrl,
+            width: canvas.width,
+            height: canvas.height
+          });
+          showToast(`${target} にエクスポートしました`, "success");
+        }
+      } catch(e) {
+        console.error("tohoStudioExportComposite error:", e);
+      }
     }
   };
 
@@ -543,7 +577,20 @@
       
       state.currentCharName = char.name;
       state.currentFileName = char.filename;
-      elements.exportFilenameInput.value = `${char.name}_${char.variation.replace(/[\/\s]/g, '_')}`;
+      const exportName = `${char.name}_${char.variation.replace(/[\/\s]/g, '_')}`;
+      elements.exportFilenameInput.value = exportName;
+
+      // ネイティブ Swift 側へ現在のキャラクターとファイル名を即座に同期
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tohoStudio) {
+        window.webkit.messageHandlers.tohoStudio.postMessage({
+          action: "characterChanged",
+          characterName: char.name,
+          variation: char.variation || "",
+          fileName: char.filename || `${char.name}.psd`,
+          displayName: `${char.name} - ${char.variation}`,
+          exportFilename: exportName
+        });
+      }
 
       parseAndLoadPsd(buffer, `${char.name} - ${char.variation}`);
       renderCharacterList();
@@ -567,6 +614,18 @@
       state.currentCharName = file.name.replace(/\.[^/.]+$/, '');
       state.currentFileName = file.name;
       elements.exportFilenameInput.value = state.currentCharName;
+
+      // ネイティブ Swift 側へ同期
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tohoStudio) {
+        window.webkit.messageHandlers.tohoStudio.postMessage({
+          action: "characterChanged",
+          characterName: state.currentCharName,
+          fileName: file.name,
+          displayName: file.name,
+          exportFilename: state.currentCharName
+        });
+      }
+
       parseAndLoadPsd(buffer, file.name);
     };
     reader.readAsArrayBuffer(file);
@@ -622,6 +681,17 @@
 
       setStatus(`読み込み完了: ${displayName}`);
       showToast(`${displayName} を読み込みました (${psd.width}×${psd.height})`, 'success');
+
+      // ネイティブ Swift 側へ読み込み完了を通知
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tohoStudio) {
+        window.webkit.messageHandlers.tohoStudio.postMessage({
+          action: "characterLoaded",
+          characterName: state.currentCharName,
+          fileName: state.currentFileName,
+          displayName: displayName,
+          exportFilename: elements.exportFilenameInput ? elements.exportFilenameInput.value : ""
+        });
+      }
 
     } catch (e) {
       console.error(e);

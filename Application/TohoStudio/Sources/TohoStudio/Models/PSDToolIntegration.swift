@@ -484,10 +484,37 @@ public class PSDToolService: NSObject, ObservableObject {
                 self?.openLocalPSDFileDialog()
             }
 
+        case "characterChanged", "characterLoaded":
+            let charName = dict["characterName"] as? String ?? ""
+            let fileName = dict["fileName"] as? String ?? ""
+            let displayName = dict["displayName"] as? String ?? charName
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                if !fileName.isEmpty {
+                    self.currentPsdName = fileName
+                } else if !charName.isEmpty {
+                    self.currentPsdName = "\(charName).psd"
+                }
+                if !charName.isEmpty {
+                    AppState.shared.currentCharacter.name = charName
+                }
+                if !displayName.isEmpty {
+                    self.statusMessage = "読み込み完了: \(displayName)"
+                }
+            }
+
         case "applyToProject":
             guard let dataUrl = dict["dataUrl"] as? String else { return }
             let charName = dict["characterName"] as? String ?? "東方キャラ"
-            handleExportedComposite(dataUrl: dataUrl, target: "characterMaker")
+            let exportFilename = dict["exportFilename"] as? String
+            let fileName = dict["fileName"] as? String
+            handleExportedComposite(
+                dataUrl: dataUrl,
+                target: "characterMaker",
+                characterName: charName,
+                exportFilename: exportFilename,
+                fileName: fileName
+            )
             DispatchQueue.main.async {
                 AppState.shared.currentCharacter.name = charName
                 self.statusMessage = "「\(charName)」の立ち絵をTohoStudioプロジェクトに適用しました"
@@ -502,7 +529,16 @@ public class PSDToolService: NSObject, ObservableObject {
         case "exportComposite":
             guard let dataUrl = dict["dataUrl"] as? String,
                   let target = dict["target"] as? String else { return }
-            handleExportedComposite(dataUrl: dataUrl, target: target)
+            let charName = dict["characterName"] as? String
+            let exportFilename = dict["exportFilename"] as? String
+            let fileName = dict["fileName"] as? String
+            handleExportedComposite(
+                dataUrl: dataUrl,
+                target: target,
+                characterName: charName,
+                exportFilename: exportFilename,
+                fileName: fileName
+            )
 
         case "status":
             if let msg = dict["message"] as? String {
@@ -515,7 +551,13 @@ public class PSDToolService: NSObject, ObservableObject {
     }
 
     // MARK: - エクスポート画像処理
-    private func handleExportedComposite(dataUrl: String, target: String) {
+    private func handleExportedComposite(
+        dataUrl: String,
+        target: String,
+        characterName: String? = nil,
+        exportFilename: String? = nil,
+        fileName: String? = nil
+    ) {
         guard let commaIndex = dataUrl.firstIndex(of: ",") else { return }
         let base64String = String(dataUrl[dataUrl.index(after: commaIndex)...])
         guard let imageData = Data(base64Encoded: base64String),
@@ -524,11 +566,36 @@ public class PSDToolService: NSObject, ObservableObject {
             return
         }
 
+        // キャラ名 / ファイル名 / レイヤー表示名の決定
+        let effectiveCharName = (characterName?.isEmpty == false ? characterName : nil)
+            ?? (!self.currentPsdName.isEmpty ? self.currentPsdName.replacingOccurrences(of: ".psd", with: "").replacingOccurrences(of: ".psb", with: "") : nil)
+            ?? AppState.shared.currentCharacter.name
+
+        let rawBaseName = (exportFilename?.isEmpty == false ? exportFilename : nil)
+            ?? (fileName?.isEmpty == false ? fileName?.replacingOccurrences(of: ".psd", with: "").replacingOccurrences(of: ".psb", with: "") : nil)
+            ?? effectiveCharName
+
+        let cleanBaseName = rawBaseName
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: ":", with: "_")
+            .replacingOccurrences(of: " ", with: "_")
+
+        let partDisplayName = (exportFilename?.isEmpty == false ? exportFilename : nil)
+            ?? (fileName?.isEmpty == false ? fileName?.replacingOccurrences(of: ".psd", with: "").replacingOccurrences(of: ".psb", with: "") : nil)
+            ?? effectiveCharName
+
+        // currentPsdName も最新化
+        if let fn = fileName, !fn.isEmpty {
+            self.currentPsdName = fn
+        } else if !cleanBaseName.isEmpty {
+            self.currentPsdName = "\(cleanBaseName).psd"
+        }
+
         // 保存用ディレクトリ (キャッシュ or プロジェクト)
         let outputDir = "/tmp/TohoStudio/PSDToolExports"
         try? FileManager.default.createDirectory(atPath: outputDir, withIntermediateDirectories: true)
-        let filename = "psd_\(currentPsdName.replacingOccurrences(of: ".psd", with: "").replacingOccurrences(of: ".psb", with: ""))_\(Int(Date().timeIntervalSince1970)).png"
-        let savedPath = "\(outputDir)/\(filename)"
+        let savedFilename = "psd_\(cleanBaseName)_\(Int(Date().timeIntervalSince1970)).png"
+        let savedPath = "\(outputDir)/\(savedFilename)"
         try? imageData.write(to: URL(fileURLWithPath: savedPath))
 
         DispatchQueue.main.async { [weak self] in
@@ -537,36 +604,55 @@ public class PSDToolService: NSObject, ObservableObject {
 
             switch target {
             case "characterMaker":
-                // 1. キャラクターメーカーのベース立ち絵または新規パーツとして適用
+                appState.saveUndoSnapshot()
+
+                // キャラクター名の更新
+                if !effectiveCharName.isEmpty {
+                    appState.currentCharacter.name = effectiveCharName
+                }
+
+                // 1. キャラクターメーカーのベース立ち絵として適用
                 appState.currentCharacter.baseImagePath = savedPath
 
-                // レイヤーパーツとしても自動登録
+                // 2. レイヤーパーツの更新または追加
+                let layerName = "PSD立ち絵 (\(partDisplayName))"
                 let newPart = CharacterPart(
-                    name: "PSD立ち絵 (\(self.currentPsdName.isEmpty ? "合成" : self.currentPsdName))",
+                    name: layerName,
                     assetPath: savedPath
                 )
-                appState.currentCharacter.parts.append(newPart)
-                self.statusMessage = "立ち絵をキャラクターメーカーに適用しました (レイヤー追加完了)"
+
+                if let existingIndex = appState.currentCharacter.parts.firstIndex(where: { $0.name.hasPrefix("PSD立ち絵") }) {
+                    var updated = appState.currentCharacter.parts[existingIndex]
+                    updated.name = layerName
+                    updated.assetPath = savedPath
+                    appState.currentCharacter.parts[existingIndex] = updated
+                } else if appState.currentCharacter.parts.isEmpty {
+                    appState.currentCharacter.parts = [newPart]
+                } else {
+                    appState.currentCharacter.parts.append(newPart)
+                }
+
+                self.statusMessage = "立ち絵をキャラクターメーカーに適用しました (『\(layerName)』を反映)"
 
             case "timeline":
                 // 2. タイムラインに立ち絵シーンとして配置
                 let scene = MovieScene(
-                    title: "立ち絵シーン: \(self.currentPsdName.isEmpty ? "PSD差分" : self.currentPsdName)",
+                    title: "立ち絵シーン: \(partDisplayName)",
                     duration: 5.0,
                     slideTitle: "PSD立ち絵演出",
                     backgroundName: "透過背景",
-                    characterName: self.currentPsdName,
+                    characterName: effectiveCharName,
                     telop: "",
                     characterImagePath: savedPath
                 )
                 appState.movieScenes.append(scene)
-                self.statusMessage = "タイムラインに立ち絵シーンを追加しました"
+                self.statusMessage = "タイムラインに立ち絵シーンを追加しました: \(partDisplayName)"
 
             case "materialStudio":
                 // 3. 素材スタジオに登録
                 let item = MaterialItem(
                     id: UUID(),
-                    title: "PSD立ち絵: \(self.currentPsdName)",
+                    title: "PSD立ち絵: \(partDisplayName)",
                     type: "画像",
                     category: "キャラクター",
                     filePath: savedPath,
@@ -634,14 +720,17 @@ public struct PSDToolWebView: NSViewRepresentable {
 
         window.tohoStudioExportComposite = function(target) {
             try {
-                var canvas = document.getElementById('preview');
+                var canvas = document.getElementById('preview') || document.getElementById('previewCanvas');
                 if (canvas) {
                     var dataUrl = canvas.toDataURL('image/png');
+                    var exportInput = document.getElementById('exportFilenameInput');
+                    var exportFilename = exportInput ? exportInput.value.trim() : '';
                     if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tohoStudio) {
                         window.webkit.messageHandlers.tohoStudio.postMessage({
                             action: 'exportComposite',
                             target: target || 'characterMaker',
                             dataUrl: dataUrl,
+                            exportFilename: exportFilename,
                             width: canvas.width,
                             height: canvas.height
                         });
