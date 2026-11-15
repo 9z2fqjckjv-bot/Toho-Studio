@@ -478,7 +478,7 @@ def is_ignored_asset(name):
 def extract_embedded_keynote_assets(filepath, project_name):
     """
     Keynoteファイル内の Data/ 配下のアセットを .cache/keynote_extracted/<project_name>/ に展開し、
-    インデックスに登録する。
+    インデックスに登録する。Metadata.iwa に記録された画像元ファイル名（画像タブのファイル情報）とも紐付けて展開。
     """
     if not filepath or not os.path.exists(filepath):
         return {}
@@ -487,6 +487,57 @@ def extract_embedded_keynote_assets(filepath, project_name):
     os.makedirs(dest_dir, exist_ok=True)
 
     extracted_map = {}
+    file_to_orig_map = {}
+
+    # Metadata.iwa から元ファイル名マッピングを取得
+    meta_raw = None
+    if zipfile.is_zipfile(filepath):
+        try:
+            with zipfile.ZipFile(filepath, "r") as z:
+                if "Index/Metadata.iwa" in z.namelist():
+                    meta_raw = z.read("Index/Metadata.iwa")
+        except Exception:
+            pass
+    elif os.path.isdir(filepath):
+        meta_p = os.path.join(filepath, "Index/Metadata.iwa")
+        if os.path.exists(meta_p):
+            try:
+                with open(meta_p, "rb") as f:
+                    meta_raw = f.read()
+            except Exception:
+                pass
+
+    if meta_raw:
+        meta_decomp = decompress_iwa(meta_raw)
+        _, file_to_orig_map = parse_metadata_images(meta_decomp)
+
+    def save_asset(name_dec, data):
+        cname = clean_image_name(name_dec)
+        p1 = os.path.join(dest_dir, name_dec)
+        if not os.path.exists(p1) or os.path.getsize(p1) < len(data):
+            with open(p1, "wb") as f:
+                f.write(data)
+        extracted_map[name_dec] = p1
+
+        if cname and cname != name_dec:
+            p2 = os.path.join(dest_dir, cname)
+            if not os.path.exists(p2) or os.path.getsize(p2) < len(data):
+                with open(p2, "wb") as f:
+                    f.write(data)
+            extracted_map[cname] = p2
+
+        # 元ファイル名（Keynoteの「ファイル情報」に表示される名前）でも保存
+        orig = file_to_orig_map.get(name_dec) or file_to_orig_map.get(cname)
+        if orig:
+            c_orig = clean_image_name(orig)
+            for oname in [orig, c_orig]:
+                if oname and oname != name_dec and oname != cname:
+                    po = os.path.join(dest_dir, oname)
+                    if not os.path.exists(po) or os.path.getsize(po) < len(data):
+                        with open(po, "wb") as f:
+                            f.write(data)
+                    extracted_map[oname] = po
+
     if zipfile.is_zipfile(filepath):
         try:
             with zipfile.ZipFile(filepath, "r") as z:
@@ -499,18 +550,7 @@ def extract_embedded_keynote_assets(filepath, project_name):
                         data = z.read(name)
                         if not data:
                             continue
-                        cname = clean_image_name(dec)
-                        p1 = os.path.join(dest_dir, dec)
-                        if not os.path.exists(p1) or os.path.getsize(p1) < len(data):
-                            with open(p1, "wb") as f:
-                                f.write(data)
-                        extracted_map[dec] = p1
-                        if cname and cname != dec:
-                            p2 = os.path.join(dest_dir, cname)
-                            if not os.path.exists(p2) or os.path.getsize(p2) < len(data):
-                                with open(p2, "wb") as f:
-                                    f.write(data)
-                            extracted_map[cname] = p2
+                        save_asset(dec, data)
         except Exception as e:
             sys.stderr.write(f"Embedded assets extraction warning: {e}\n")
     elif os.path.isdir(filepath):
@@ -523,16 +563,10 @@ def extract_embedded_keynote_assets(filepath, project_name):
                         dec = decode_zip_name(f)
                         if is_ignored_asset(dec):
                             continue
-                        cname = clean_image_name(dec)
-                        p1 = os.path.join(dest_dir, dec)
-                        if not os.path.exists(p1) or os.path.getsize(p1) < os.path.getsize(src):
-                            shutil.copy2(src, p1)
-                        extracted_map[dec] = p1
-                        if cname and cname != dec:
-                            p2 = os.path.join(dest_dir, cname)
-                            if not os.path.exists(p2) or os.path.getsize(p2) < os.path.getsize(src):
-                                shutil.copy2(src, p2)
-                            extracted_map[cname] = p2
+                        with open(src, "rb") as rf:
+                            data = rf.read()
+                        if data:
+                            save_asset(dec, data)
             except Exception as e:
                 sys.stderr.write(f"Embedded directory assets copy warning: {e}\n")
     return extracted_map
@@ -799,6 +833,94 @@ def parse_varint(data, pos):
             break
         shift += 7
     return res, pos
+
+def parse_metadata_images(meta_decomp):
+    """
+    Keynote Metadata.iwa (Protobuf TSP.DataMetadata) を高精度に解析し、
+    画像アセットIDからファイル名への対応マップ(image_id_map)と
+    保存ファイル名から元ファイル名(画像タブのファイル情報)への対応マップ(file_to_orig_map)を生成する。
+    """
+    image_id_map = {}
+    file_to_orig_map = {}
+    if not meta_decomp:
+        return image_id_map, file_to_orig_map
+
+    pos = 0
+    l_meta = len(meta_decomp)
+    while pos < l_meta - 4:
+        if meta_decomp[pos] == 0x08:
+            val, next_pos = parse_varint(meta_decomp, pos + 1)
+            if 1 <= val <= 20000000:
+                if next_pos < l_meta - 22 and meta_decomp[next_pos] == 0x12 and meta_decomp[next_pos+1] == 0x14:
+                    sub_pos = next_pos + 22
+                    orig_name = ""
+                    file_name = ""
+                    end_scan = min(l_meta, sub_pos + 300)
+                    while sub_pos < end_scan:
+                        tag_wire, sub_pos = parse_varint(meta_decomp, sub_pos)
+                        tag = tag_wire >> 3
+                        wire = tag_wire & 0x07
+                        if wire == 0:
+                            _, sub_pos = parse_varint(meta_decomp, sub_pos)
+                        elif wire == 2:
+                            length, sub_pos = parse_varint(meta_decomp, sub_pos)
+                            if sub_pos + length > l_meta:
+                                break
+                            fd = meta_decomp[sub_pos:sub_pos+length]
+                            sub_pos += length
+                            try:
+                                s = fd.decode("utf-8")
+                                if tag == 5:
+                                    orig_name = s
+                                elif tag == 4:
+                                    file_name = s
+                                elif tag == 3 and not orig_name and ('.' in s):
+                                    orig_name = s
+                            except Exception:
+                                pass
+                        elif wire == 5:
+                            sub_pos += 4
+                        elif wire == 1:
+                            sub_pos += 8
+                        else:
+                            break
+                        if tag == 0 or tag > 10:
+                            break
+
+                    chosen = orig_name or file_name
+                    if chosen:
+                        c_orig = clean_image_name(orig_name) if orig_name else ""
+                        c_file = clean_image_name(file_name) if file_name else ""
+                        c_chosen = c_orig or c_file or clean_image_name(chosen)
+                        if c_chosen:
+                            image_id_map[val] = c_chosen
+                        if file_name and orig_name:
+                            file_to_orig_map[file_name] = orig_name
+                            file_to_orig_map[c_file] = c_orig
+                            file_to_orig_map[decode_zip_name(file_name)] = orig_name
+                            file_to_orig_map[decode_zip_name(c_file)] = c_orig
+        pos += 1
+
+    # フォールバック: 正規表現による補助検出（UTF-8エラー耐性あり）
+    for m in re.finditer(rb"\x08([\x80-\xff]*[\x00-\x7f])\x12\x14(.{20})", meta_decomp):
+        vb = m.group(1); v = 0; s = 0
+        for b in vb:
+            v |= (b & 0x7f) << s; s += 7
+        if v not in image_id_map:
+            chunk = meta_decomp[m.end():m.end()+250]
+            chunk_str = chunk.decode("utf-8", errors="ignore")
+            m_fn = re.findall(r'([\w\u3040-\u30ff\u4e00-\u9fff\(\)（）\-\.【】_＋]+?\.(?:jpg|png|jpeg|pxd|gif|tiff|webp))', chunk_str, re.IGNORECASE)
+            if m_fn:
+                best = m_fn[0]
+                for fn in m_fn:
+                    if not re.search(r'-\d+\.[a-zA-Z0-9]+$', fn) and not fn.endswith('-small.jpeg'):
+                        best = fn
+                        break
+                c_best = clean_image_name(best)
+                if c_best:
+                    image_id_map[v] = c_best
+
+    return image_id_map, file_to_orig_map
 
 def extract_slide_texts_and_note(decomp):
     """
@@ -1821,21 +1943,9 @@ def extract_via_direct_iwa(filepath, project_name):
 
         meta_raw = read_bytes("Index/Metadata.iwa")
         meta_decomp = decompress_iwa(meta_raw) if meta_raw else b""
-        image_id_map = {}
+        image_id_map, _ = parse_metadata_images(meta_decomp)
         obj_to_img = {}
         if meta_decomp:
-            for m in re.finditer(rb"\x08([\x80-\xff]*[\x00-\x7f])\x12\x14([^\x1a]*)\x1a([^\"]*)\"", meta_decomp):
-                vb = m.group(1); v = 0; s = 0
-                for b in vb:
-                    v |= (b & 0x7f) << s; s += 7
-                try:
-                    raw_n = m.group(3).decode("utf-8")
-                    cleaned_n = clean_image_name(raw_n)
-                    if cleaned_n:
-                        image_id_map[v] = cleaned_n
-                except Exception:
-                    pass
-
             for m in re.finditer(rb":[\x05-\x20]\x08([\x80-\xff]*[\x00-\x7f])\x12[\x05-\x10]\x08([\x80-\xff]*[\x00-\x7f])", meta_decomp):
                 img_id, _ = parse_varint(m.group(1), 0)
                 obj_id, _ = parse_varint(m.group(2), 0)

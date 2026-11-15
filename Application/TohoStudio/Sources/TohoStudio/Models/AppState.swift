@@ -2407,7 +2407,18 @@ public final class AppState: ObservableObject {
     /// スライドから背景画像・立ち絵・動画等のアセット情報のみを MovieScene に安全補完（音声割り当ては保護）
     public func supplementSlideAssetsToMovieScenes(_ slides: [SlideItem]) {
         for slide in slides {
-            if let idx = movieScenes.firstIndex(where: { $0.title == slide.title || $0.slideTitle == "スライド #\(slide.slideIndex)" || $0.slideTitle == "第\(slide.slideIndex)スライド" }) {
+            let matchedIdx: Int? = {
+                if let i = movieScenes.firstIndex(where: { $0.title == slide.title || $0.slideTitle == "スライド #\(slide.slideIndex)" || $0.slideTitle == "第\(slide.slideIndex)スライド" }) {
+                    return i
+                }
+                let fallbackIdx = slide.slideIndex - 1
+                if fallbackIdx >= 0 && fallbackIdx < movieScenes.count {
+                    return fallbackIdx
+                }
+                return nil
+            }()
+
+            if let idx = matchedIdx {
                 var sc = movieScenes[idx]
                 if let newSlideImg = slide.slideImagePath, !newSlideImg.isEmpty {
                     sc.slideImagePath = newSlideImg
@@ -2420,6 +2431,18 @@ public final class AppState: ObservableObject {
                 }
                 if let newChar = slide.characterImagePath, !newChar.isEmpty {
                     sc.characterImagePath = newChar
+                }
+                // 背景名が未設定または単色背景の場合、スライドの背景名で補完
+                if !slide.backgroundName.isEmpty && slide.backgroundName != "単色背景" {
+                    if sc.backgroundName.isEmpty || sc.backgroundName == "単色背景" || sc.backgroundName == "背景" {
+                        sc.backgroundName = slide.backgroundName
+                    }
+                }
+                // 立ち絵名が未設定の場合、スライドから補完
+                if !slide.characterName.isEmpty && slide.characterName != "キャラクター" {
+                    if sc.characterName.isEmpty || sc.characterName == "キャラクター" {
+                        sc.characterName = slide.characterName
+                    }
                 }
                 movieScenes[idx] = sc
             }
@@ -3105,6 +3128,18 @@ public final class AppState: ObservableObject {
                 }
                 if let newChar = slide.characterImagePath, !newChar.isEmpty {
                     movieScenes[idx].characterImagePath = newChar
+                }
+                // 背景名が未設定または単色背景の場合、スライドから補完
+                if !slide.backgroundName.isEmpty && slide.backgroundName != "単色背景" {
+                    if movieScenes[idx].backgroundName.isEmpty || movieScenes[idx].backgroundName == "単色背景" || movieScenes[idx].backgroundName == "背景" {
+                        movieScenes[idx].backgroundName = slide.backgroundName
+                    }
+                }
+                // 立ち絵名が未設定の場合、スライドから補完
+                if !slide.characterName.isEmpty && slide.characterName != "キャラクター" {
+                    if movieScenes[idx].characterName.isEmpty || movieScenes[idx].characterName == "キャラクター" {
+                        movieScenes[idx].characterName = slide.characterName
+                    }
                 }
             }
 

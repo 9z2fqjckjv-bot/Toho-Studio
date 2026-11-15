@@ -26,6 +26,19 @@ public struct SlideScenarioMakerView: View {
     @State private var syncMaterialStudio: Bool = true
     @State private var autoSaveProject: Bool = true
     @State private var loadSuccessMessage: String? = nil
+    @State private var copiedTarget: String? = nil
+
+    private func copyToClipboard(_ text: String, targetKey: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        copiedTarget = targetKey
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            if copiedTarget == targetKey {
+                copiedTarget = nil
+            }
+        }
+    }
 
     public var body: some View {
         Group {
@@ -1215,6 +1228,145 @@ public struct SlideScenarioMakerView: View {
                                 Text("秒").font(.caption2)
                             }
                         }
+                    }
+
+                    Divider()
+
+                    // MARK: - 素材・ファイル情報設定（選択・コピー対応）
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Label("素材・ファイル情報", systemImage: "doc.text.image")
+                                .font(.caption).bold()
+                            Spacer()
+                        }
+
+                        // 背景ファイル情報カード
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "photo.artframe")
+                                    .foregroundColor(.blue)
+                                    .font(.system(size: 11))
+                                Text("背景:")
+                                    .font(.caption2).bold()
+                                Spacer()
+                                if !slide.backgroundName.isEmpty && slide.backgroundName != "単色背景" {
+                                    Button(action: {
+                                        copyToClipboard(slide.backgroundName, targetKey: "bg")
+                                    }) {
+                                        HStack(spacing: 3) {
+                                            Image(systemName: copiedTarget == "bg" ? "checkmark.circle.fill" : "doc.on.doc")
+                                            Text(copiedTarget == "bg" ? "コピー済" : "コピー")
+                                        }
+                                        .font(.system(size: 9.5))
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .foregroundColor(copiedTarget == "bg" ? .green : .blue)
+                                    .help("背景ファイル名をクリップボードにコピー")
+                                }
+                            }
+
+                            HStack {
+                                Text(slide.backgroundName.isEmpty ? "単色背景" : slide.backgroundName)
+                                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                    .foregroundColor(slide.backgroundName == "単色背景" || slide.backgroundName.isEmpty ? .secondary : .primary)
+                                    .lineLimit(2)
+                                    .textSelection(.enabled)
+                                Spacer()
+                            }
+                            .padding(5)
+                            .background(Color.secondary.opacity(0.08))
+                            .cornerRadius(4)
+
+                            if let p = slide.backgroundImagePath, !p.isEmpty {
+                                HStack(spacing: 4) {
+                                    Text("パス: \((p as NSString).lastPathComponent)")
+                                        .font(.system(size: 8.5))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                        .textSelection(.enabled)
+                                    Spacer()
+                                    if FileManager.default.fileExists(atPath: p) {
+                                        Button(action: {
+                                            NSWorkspace.shared.selectFile(p, inFileViewerRootedAtPath: "")
+                                        }) {
+                                            Image(systemName: "folder")
+                                                .font(.system(size: 9))
+                                                .foregroundColor(.secondary)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .help("Finderで表示")
+                                    }
+                                }
+                            }
+                        }
+                        .padding(6)
+                        .background(Color.blue.opacity(0.05))
+                        .cornerRadius(6)
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.blue.opacity(0.2), lineWidth: 0.8))
+
+                        // 立ち絵ファイル情報カード
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "person.crop.artframe")
+                                    .foregroundColor(.orange)
+                                    .font(.system(size: 11))
+                                Text("立ち絵:")
+                                    .font(.caption2).bold()
+                                Spacer()
+                                if !slide.characterName.isEmpty && slide.characterName != "キャラクター" {
+                                    Button(action: {
+                                        copyToClipboard(slide.characterName, targetKey: "char")
+                                    }) {
+                                        HStack(spacing: 3) {
+                                            Image(systemName: copiedTarget == "char" ? "checkmark.circle.fill" : "doc.on.doc")
+                                            Text(copiedTarget == "char" ? "コピー済" : "コピー")
+                                        }
+                                        .font(.system(size: 9.5))
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .foregroundColor(copiedTarget == "char" ? .green : .orange)
+                                    .help("キャラクター・立ち絵名をクリップボードにコピー")
+                                }
+                            }
+
+                            HStack {
+                                Text(slide.characterName.isEmpty ? "なし" : slide.characterName)
+                                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                    .foregroundColor(slide.characterName.isEmpty || slide.characterName == "なし" ? .secondary : .primary)
+                                    .lineLimit(2)
+                                    .textSelection(.enabled)
+                                Spacer()
+                            }
+                            .padding(5)
+                            .background(Color.secondary.opacity(0.08))
+                            .cornerRadius(4)
+
+                            if let cp = slide.characterImagePath, !cp.isEmpty {
+                                HStack(spacing: 4) {
+                                    Text("パス: \((cp as NSString).lastPathComponent)")
+                                        .font(.system(size: 8.5))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                        .textSelection(.enabled)
+                                    Spacer()
+                                    if FileManager.default.fileExists(atPath: cp) {
+                                        Button(action: {
+                                            NSWorkspace.shared.selectFile(cp, inFileViewerRootedAtPath: "")
+                                        }) {
+                                            Image(systemName: "folder")
+                                                .font(.system(size: 9))
+                                                .foregroundColor(.secondary)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .help("Finderで表示")
+                                    }
+                                }
+                            }
+                        }
+                        .padding(6)
+                        .background(Color.orange.opacity(0.05))
+                        .cornerRadius(6)
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.orange.opacity(0.2), lineWidth: 0.8))
                     }
 
                     Divider()
