@@ -621,7 +621,13 @@ public final class SlideRecognitionService: ObservableObject {
             }
 
             let rawNote = slide.rawPresenterNote ?? slide.presenterNote
-            let sourceText = !rawNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? rawNote : slide.telop
+            let trimmedRawNote = rawNote.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedRawNote.isEmpty &&
+               SlideItem.cleanDialogueText(from: trimmedRawNote).isEmpty &&
+               SlideItem.extractSpeakerFromBrackets(from: trimmedRawNote) == nil {
+                continue
+            }
+            let sourceText = !trimmedRawNote.isEmpty ? rawNote : slide.telop
             let fallbackSpk = slide.characterName.isEmpty || slide.characterName == "なし" ? "操夢" : slide.characterName
 
             // ノートまたはテロップを行ごとに解析（話者、セリフ、音量指定を完全分離）

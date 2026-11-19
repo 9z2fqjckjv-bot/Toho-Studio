@@ -20,6 +20,12 @@ import hashlib
 import glob
 
 try:
+    from PIL import Image as _PILImage
+    _PILImage.MAX_IMAGE_PIXELS = None
+except Exception:
+    pass
+
+try:
     import snappy
     HAVE_SNAPPY = True
 except ImportError:
@@ -192,11 +198,14 @@ def get_keynote_app_name():
 def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s)]
 
-def export_slide_images_if_needed(filepath, expected_count=0):
+def export_slide_images_if_needed(filepath, expected_count=0, has_transparent_bg=False):
     """
     Keynoteファイルからスライド画面そのもの(高解像度1920x1080 JPEG)を一括エクスポートし、
     スライド順の画像ファイルパスのリストを返す。
     すでにキャッシュが存在し、枚数がexpected_countを満たしていればキャッシュを再利用する。
+    ※Keynoteで「塗りつぶしなし(透明背景)」が設定されたスライドがある場合、JPEG直接出力では白背景に化けて
+      白文字や暗闇演出が消失するため、PNG(RGBA)でエクスポートした上でKeynote標準キャンバス色(#000000 黒)に
+      アルファ合成してから高品質JPEGとして保存する。
     """
     if not filepath or not os.path.exists(filepath):
         return []
@@ -209,7 +218,8 @@ def export_slide_images_if_needed(filepath, expected_count=0):
         base_name = unicodedata.normalize("NFC", os.path.splitext(os.path.basename(filepath))[0])
         # Preserve () and （） in safe_slug
         safe_slug = re.sub(r'[^a-zA-Z0-9_\-\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uffef\u4e00-\u9faf\(\)（）]', '_', base_name)
-        hash_str = hashlib.md5(f"{filepath}:{mtime}:{size}".encode("utf-8")).hexdigest()[:10]
+        hash_seed = f"v2_blackbg:{filepath}:{mtime}:{size}" if has_transparent_bg else f"{filepath}:{mtime}:{size}"
+        hash_str = hashlib.md5(hash_seed.encode("utf-8")).hexdigest()[:10]
         cache_dir = os.path.join(CACHE_SLIDES_ROOT, f"{safe_slug}_{hash_str}")
 
         # 1. 完全一致ハッシュディレクトリの検証（現在のファイル更新日時・サイズと一致する場合のみキャッシュ再利用）
@@ -228,9 +238,15 @@ def export_slide_images_if_needed(filepath, expected_count=0):
         subprocess.run(["open", "-g", "-a", keynote_app], capture_output=True)
         time.sleep(0.5)
 
+        img_fmt = "PNG" if has_transparent_bg else "JPEG"
+        export_out_dir = os.path.join(cache_dir, "_png_tmp") if has_transparent_bg else cache_dir
+        if has_transparent_bg:
+            shutil.rmtree(export_out_dir, ignore_errors=True)
+            os.makedirs(export_out_dir, exist_ok=True)
+
         script = f'''
 set theFile to (POSIX file "{filepath}") as alias
-set outFolder to (POSIX file "{cache_dir}") as alias
+set outFolder to (POSIX file "{export_out_dir}") as alias
 tell application id "com.apple.Keynote"
     set wasOpen to false
     set theDoc to missing value
@@ -261,14 +277,52 @@ tell application id "com.apple.Keynote"
     if theDoc is missing value then
         set theDoc to open theFile
     end if
-    export theDoc to outFolder as slide images with properties {{image format:JPEG}}
+    export theDoc to outFolder as slide images with properties {{image format:{img_fmt}}}
     if not wasOpen then
         close theDoc saving no
     end if
 end tell
 '''
-        subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=30)
-        
+        export_timeout = max(90, int(max(expected_count, 30) * 1.5)) if has_transparent_bg else max(45, int(max(expected_count, 30) * 0.5))
+        try:
+            subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=export_timeout)
+        except subprocess.TimeoutExpired:
+            # タイムアウト直前まで書き出されている可能性があるため後続のフラッシュ待機へ進む
+            pass
+
+        if has_transparent_bg:
+            png_files = []
+            for _ in range(20):
+                png_files = sorted(glob.glob(os.path.join(export_out_dir, "*.png")), key=natural_sort_key)
+                if png_files and (expected_count <= 0 or len(png_files) >= expected_count):
+                    break
+                time.sleep(0.5)
+
+            if png_files:
+                from PIL import Image
+                for idx, png_path in enumerate(png_files, start=1):
+                    try:
+                        with Image.open(png_path) as im:
+                            rgba = im.convert("RGBA")
+                            black_bg = Image.new("RGBA", rgba.size, (0, 0, 0, 255))
+                            composited = Image.alpha_composite(black_bg, rgba).convert("RGB")
+                            out_jpg = os.path.join(cache_dir, f"{safe_slug}_{hash_str}.{idx:03d}.jpeg")
+                            composited.save(out_jpg, format="JPEG", quality=94)
+                    except Exception as conv_err:
+                        sys.stderr.write(f"PNG->JPEG black composite error on slide #{idx}: {conv_err}\n")
+                shutil.rmtree(export_out_dir, ignore_errors=True)
+
+                # 旧バージョンの白背景化キャッシュディレクトリが残っていればクリーンアップして誤参照を防止
+                norm_slug_clean = re.sub(r'[\(\)（）\s_\-\.]', '', unicodedata.normalize("NFKC", base_name)).lower()
+                for cand in os.listdir(CACHE_SLIDES_ROOT):
+                    cand_full = os.path.join(CACHE_SLIDES_ROOT, cand)
+                    if cand_full == cache_dir or not os.path.isdir(cand_full):
+                        continue
+                    cand_base = re.sub(r'_[a-f0-9]{8,12}$', '', cand)
+                    cand_norm = re.sub(r'[\(\)（）\s_\-\.]', '', unicodedata.normalize("NFKC", cand_base)).lower()
+                    if cand_norm == norm_slug_clean:
+                        shutil.rmtree(cand_full, ignore_errors=True)
+
         # エクスポート完了を少し待機（非同期ファイルフラッシュ対策）
         exported_images = []
         for _ in range(8):
@@ -473,7 +527,11 @@ def is_ignored_asset(name):
     if not name:
         return True
     low = name.lower()
-    return any(low.startswith(p) for p in ["tile_paper_", "tile_", "paper_", "st-", "mt-", "arrow_", "bullet_"]) or "-small" in low
+    base_low = os.path.basename(low)
+    return (
+        any(low.startswith(p) or base_low.startswith(p) for p in ["tile_paper_", "tile_", "paper_", "st-", "mt-", "arrow_", "bullet_"])
+        or "-small" in low
+    )
 
 def extract_embedded_keynote_assets(filepath, project_name):
     """
@@ -1040,10 +1098,11 @@ def extract_slide_texts_and_note(decomp):
 
 def detect_slide_type(slide_idx, texts, slide_name, note_text=""):
     combined = "\n".join(texts)
-    note_speaker, _, _ = extract_speaker_and_clean_note(note_text) if note_text else ("", "", "")
+    note_speaker, cleaned_note, _ = extract_speaker_and_clean_note(note_text) if note_text else ("", "", "")
 
     # Check End Credits / Ending (クレジット・エンドロールスライドはセクション見出し扱いにして音声を自動スキップ)
-    if any(k in combined for k in ["ご視聴ありがとうございました", "出典", "立ち絵：", "立ち絵:", "製作者：", "製作者:"]):
+    # ※冒頭ダイジェスト等でノートに話者セリフ(note_speaker)が存在しながら背景に「画像出典」等を表示するシーンは通常コンテンツとして保持！
+    if any(k in combined for k in ["ご視聴ありがとうございました", "出典", "立ち絵：", "立ち絵:", "製作者：", "製作者:"]) and not note_speaker:
         return "sectionHeader"
 
     # Check Next Episode Preview (次回予告見出し)
@@ -1054,6 +1113,7 @@ def detect_slide_type(slide_idx, texts, slide_name, note_text=""):
     # 例: "その頃フランたちは…", "その頃、操夢は…", "霊夢の列車が駅に止まると…", "一方、その頃"
     is_section_phrase = (
         combined.startswith("その頃") or "その頃" in combined or
+        combined.startswith("そのころ") or "そのころ" in combined or
         combined.startswith("一方") or "一方、" in combined or
         (combined.endswith("…") and any(k in combined for k in ["たちは", "止まると", "着くと", "なると", "すると"]))
     )
@@ -1068,6 +1128,11 @@ def detect_slide_type(slide_idx, texts, slide_name, note_text=""):
 
     if slide_idx == 1 and not note_speaker and not any(k in combined for k in ["「", "」", "迷シーン", "シーン"]):
         return "title"
+
+    # ノートに表示時間・アニメーション指定（例: "（5秒）", "（表示時間：3秒）"）のみが記載され、
+    # 話者もセリフ本文も存在しないスライド（人物紹介アイキャッチ・告知・無音中扉カード）は音声スキップ対象(sectionHeader)とする
+    if note_text and note_text.strip() and not note_speaker and not cleaned_note:
+        return "sectionHeader"
 
     return "content"
 
@@ -1952,6 +2017,150 @@ def extract_via_direct_iwa(filepath, project_name):
                 if img_id in image_id_map:
                     obj_to_img[obj_id] = image_id_map[img_id]
 
+        # DocumentStylesheet.iwa 内の SlideStyleArchive (mtype=9) を解析し、
+        # スライド背景設定（塗りつぶしなし no_fill / 画像塗りつぶし image / 単色塗りつぶし color）を完全特定
+        style_fill_map = {}
+        ss_raw = read_bytes("Index/DocumentStylesheet.iwa")
+        if ss_raw:
+            ss_decomp = decompress_iwa(ss_raw)
+            scp = 0
+            l_ss = len(ss_decomp)
+            while scp < l_ss:
+                sh_len, scp = parse_varint(ss_decomp, scp)
+                if sh_len <= 0 or scp + sh_len > l_ss:
+                    break
+                sh_bytes = ss_decomp[scp:scp+sh_len]
+                scp += sh_len
+                shp = 0
+                said = 0
+                smsgs = []
+                while shp < len(sh_bytes):
+                    stw, shp = parse_varint(sh_bytes, shp)
+                    if (stw >> 3) == 1 and (stw & 7) == 0:
+                        said, shp = parse_varint(sh_bytes, shp)
+                    elif (stw >> 3) == 2 and (stw & 7) == 2:
+                        sl, shp = parse_varint(sh_bytes, shp)
+                        if shp + sl > len(sh_bytes):
+                            break
+                        svb = sh_bytes[shp:shp+sl]
+                        shp += sl
+                        smp = 0; smt = 0; sml = 0
+                        while smp < len(svb):
+                            smtw, smp = parse_varint(svb, smp)
+                            if (smtw >> 3) == 1 and (smtw & 7) == 0:
+                                smt, smp = parse_varint(svb, smp)
+                            elif (smtw >> 3) == 3 and (smtw & 7) == 0:
+                                sml, smp = parse_varint(svb, smp)
+                            elif (smtw & 7) == 2:
+                                sll, smp = parse_varint(svb, smp)
+                                smp += sll
+                        smsgs.append((smt, sml))
+                for smt, sml in smsgs:
+                    if scp + sml > l_ss:
+                        break
+                    sbody = ss_decomp[scp:scp+sml]
+                    scp += sml
+                    if smt == 9:  # KN.SlideStyleArchive
+                        sbp = 0
+                        f_kind = "unknown"
+                        f_img = None
+                        while sbp < len(sbody):
+                            stw, sbp = parse_varint(sbody, sbp)
+                            st = stw >> 3; sw = stw & 7
+                            if sw == 0:
+                                _, sbp = parse_varint(sbody, sbp)
+                            elif sw == 2:
+                                sl, sbp = parse_varint(sbody, sbp)
+                                if sbp + sl > len(sbody):
+                                    break
+                                ssub = sbody[sbp:sbp+sl]
+                                sbp += sl
+                                if st == 11:  # SlideStylePropertiesArchive
+                                    if ssub == b"\x0a\x00" or len(ssub) == 0:
+                                        f_kind = "no_fill"
+                                    else:
+                                        m_im = re.search(rb"\x32[\x02-\x08]\x08([\x80-\xff]*[\x00-\x7f])", ssub)
+                                        if m_im:
+                                            iid, _ = parse_varint(m_im.group(1), 0)
+                                            if iid in image_id_map:
+                                                f_kind = "image"
+                                                f_img = re.sub(r"-small", "", image_id_map[iid])
+                                            else:
+                                                f_kind = "color"
+                                        else:
+                                            f_kind = "color"
+                            elif sw == 5:
+                                sbp += 4
+                            elif sw == 1:
+                                sbp += 8
+                            else:
+                                break
+                        style_fill_map[said] = (f_kind, f_img)
+
+        def get_slide_style_fill(s_decomp):
+            """SlideArchive (mtype=5) の field 1 (style reference) から背景塗りつぶし種別と画像名を取得"""
+            dcp = 0
+            ld = len(s_decomp)
+            while dcp < ld:
+                dhl, dcp = parse_varint(s_decomp, dcp)
+                if dhl <= 0 or dcp + dhl > ld:
+                    break
+                dhb = s_decomp[dcp:dcp+dhl]
+                dcp += dhl
+                dhp = 0; dmsgs = []
+                while dhp < len(dhb):
+                    dtw, dhp = parse_varint(dhb, dhp)
+                    if (dtw >> 3) == 1 and (dtw & 7) == 0:
+                        _, dhp = parse_varint(dhb, dhp)
+                    elif (dtw >> 3) == 2 and (dtw & 7) == 2:
+                        dl, dhp = parse_varint(dhb, dhp)
+                        if dhp + dl > len(dhb):
+                            break
+                        dvb = dhb[dhp:dhp+dl]
+                        dhp += dl
+                        dmp = 0; dmt = 0; dml = 0
+                        while dmp < len(dvb):
+                            dmtw, dmp = parse_varint(dvb, dmp)
+                            if (dmtw >> 3) == 1 and (dmtw & 7) == 0:
+                                dmt, dmp = parse_varint(dvb, dmp)
+                            elif (dmtw >> 3) == 3 and (dmtw & 7) == 0:
+                                dml, dmp = parse_varint(dvb, dmp)
+                            elif (dmtw & 7) == 2:
+                                dll, dmp = parse_varint(dvb, dmp)
+                                dmp += dll
+                        dmsgs.append((dmt, dml))
+                for dmt, dml in dmsgs:
+                    if dcp + dml > ld:
+                        break
+                    dbody = s_decomp[dcp:dcp+dml]
+                    dcp += dml
+                    if dmt == 5:
+                        dbp = 0
+                        while dbp < len(dbody):
+                            dtw, dbp = parse_varint(dbody, dbp)
+                            dt = dtw >> 3; dw = dtw & 7
+                            if dw == 0:
+                                _, dbp = parse_varint(dbody, dbp)
+                            elif dw == 2:
+                                dl, dbp = parse_varint(dbody, dbp)
+                                if dbp + dl > len(dbody):
+                                    break
+                                dsub = dbody[dbp:dbp+dl]
+                                dbp += dl
+                                if dt == 1 and len(dsub) >= 2 and dsub[0] == 0x08:
+                                    ref_style_id, _ = parse_varint(dsub[1:], 0)
+                                    if ref_style_id in style_fill_map:
+                                        return style_fill_map[ref_style_id]
+                            elif dw == 5:
+                                dbp += 4
+                            elif dw == 1:
+                                dbp += 8
+                            else:
+                                break
+            return ("unknown", None)
+
+        has_transparent_bg = any(v[0] == "no_fill" for v in style_fill_map.values())
+
         parsed_slides = []
         for idx, sid in enumerate(ordered_sids):
             s_idx = idx + 1
@@ -1964,6 +2173,9 @@ def extract_via_direct_iwa(filepath, project_name):
                 txts = telop_texts
 
             stype = detect_slide_type(s_idx, txts if txts else ([note_text] if note_text else []), fname, note_text=note_text)
+            slide_fill_kind, slide_fill_img = get_slide_style_fill(decomp)
+            if slide_fill_kind == "no_fill":
+                has_transparent_bg = True
 
             slide_images = []
             for v, iname in image_id_map.items():
@@ -1979,9 +2191,16 @@ def extract_via_direct_iwa(filepath, project_name):
 
             bg_name = ""
             bg_path = None
+            if slide_fill_kind == "image" and slide_fill_img and not is_ignored_asset(slide_fill_img):
+                bg_info = find_asset_info(slide_fill_img)
+                bg_name = slide_fill_img
+                bg_path = bg_info["path"] if bg_info else find_asset(slide_fill_img)
+
             characters = []
             objects = []
             detected_names = []
+            if bg_name:
+                detected_names.append("背景: " + bg_name)
 
             for iname in slide_images:
                 if is_ignored_asset(iname):
@@ -2128,12 +2347,25 @@ def extract_via_direct_iwa(filepath, project_name):
             elif stype == "sectionHeader":
                 if telop_texts:
                     title = telop_texts[0]
+                    if title == "?" and len(telop_texts) >= 2:
+                        title = f"? ({telop_texts[1][:18]}…)"
                 elif txts:
                     title = txts[0]
                 telop = ""
             else:
                 if telop_texts:
-                    telop = "\n".join(telop_texts)
+                    # スライド上に複数のテキストボックス（例: セリフ枠＋オープニングクレジット枠「東方Project二次創作作品」「作成者：zuyasi」等）
+                    # が混在する場合、ノートのセリフ本文と一致するテキスト枠のみをテロップとして採用しクレジット混入を防止
+                    if len(telop_texts) > 1 and cleaned_note:
+                        note_norm = re.sub(r'\s+', '', cleaned_note)
+                        matched_boxes = []
+                        for tb in telop_texts:
+                            tb_norm = re.sub(r'\s+', '', clean_dialogue_text(tb))
+                            if tb_norm and (tb_norm == note_norm or (len(tb_norm) >= 4 and (tb_norm in note_norm or note_norm in tb_norm))):
+                                matched_boxes.append(tb)
+                        telop = "\n".join(matched_boxes) if matched_boxes else "\n".join(telop_texts)
+                    else:
+                        telop = "\n".join(telop_texts)
                 elif txts:
                     telop = "\n".join(txts)
 
@@ -2153,7 +2385,7 @@ def extract_via_direct_iwa(filepath, project_name):
                     if not char_name:
                         char_name = note_speaker
 
-            if not char_name:
+            if not char_name and stype not in ["title", "sectionHeader"]:
                 speaker_match = re.match(r"^([^\s「]{1,10})[「『](.*)[」』]$", telop)
                 if speaker_match:
                     spk = speaker_match.group(1)
@@ -2178,7 +2410,7 @@ def extract_via_direct_iwa(filepath, project_name):
                         break
             if not primary_char and characters:
                 primary_char = characters[0]
-                if not char_name:
+                if not char_name and stype not in ["title", "sectionHeader"]:
                     char_name = primary_char["name"]
 
             if primary_char:
@@ -2238,7 +2470,13 @@ def extract_via_direct_iwa(filepath, project_name):
                     duration = parse_duration_from_note(raw_note, default_duration=base_duration, anim_duration=total_anim_dur)
 
             if not bg_name:
-                if stype == "content" and parsed_slides and parsed_slides[-1].get("backgroundImagePath") and parsed_slides[-1].get("backgroundName") != "単色背景":
+                if (
+                    stype == "content"
+                    and slide_fill_kind not in ("no_fill", "color")
+                    and parsed_slides
+                    and parsed_slides[-1].get("backgroundImagePath")
+                    and parsed_slides[-1].get("backgroundName") != "単色背景"
+                ):
                     bg_name = parsed_slides[-1]["backgroundName"]
                     bg_path = parsed_slides[-1]["backgroundImagePath"]
                 else:
@@ -2276,7 +2514,7 @@ def extract_via_direct_iwa(filepath, project_name):
                 "telopX": 0.0,
                 "telopY": 855.0,
                 "telopWidth": doc_w,
-                "telopHeight": 225.0,
+                "telopHeight": doc_h * (225.0 / 1080.0) if doc_h > 0 else 225.0,
                 "objects": objects,
                 "detectedObjects": detected_names if detected_names else ["演出枠"],
                 "animationTag": anims[0]["effect"] if anims else "なし",
@@ -2291,6 +2529,7 @@ def extract_via_direct_iwa(filepath, project_name):
             "fileName": os.path.basename(filepath),
             "docWidth": doc_w,
             "docHeight": doc_h,
+            "hasTransparentBg": has_transparent_bg,
             "parserEngine": "DirectNativeIWA_UltraFast"
         }
 
@@ -2657,7 +2896,8 @@ def extract_keynote_slides(filepath):
     # スライド画面そのものの高解像度レンダリング画像(1920x1080 JPEG)を一括エクスポート＆キャッシュからマッピング
     try:
         slide_count = len(res["slides"]) if res and "slides" in res else 0
-        slide_images = export_slide_images_if_needed(filepath, expected_count=slide_count)
+        has_trans_bg = bool(res.get("hasTransparentBg", False)) if res else False
+        slide_images = export_slide_images_if_needed(filepath, expected_count=slide_count, has_transparent_bg=has_trans_bg)
         if res and "slides" in res:
             for idx, slide in enumerate(res["slides"]):
                 s_idx = slide.get("slideIndex", idx + 1)

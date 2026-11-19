@@ -143,14 +143,22 @@ public final class SlideVoiceBatchService: ObservableObject {
         let appState = AppState.shared
 
         for slide in slides {
-            // セクション見出しとタイトルスライドは音声を必ずスキップ
-            let isHeaderOrTitle = slide.isTitleOrSectionHeader
-            let skipReason: String? = isHeaderOrTitle ? (slide.slideType == "title" ? "タイトルスライド (音声スキップ)" : "セクション見出し・クレジット (音声スキップ)") : nil
+            let rawNote = slide.rawPresenterNote ?? slide.presenterNote
+            let trimmedRawNote = rawNote.trimmingCharacters(in: .whitespacesAndNewlines)
+            let isSilentTimingOnly = !trimmedRawNote.isEmpty &&
+                SlideItem.cleanDialogueText(from: trimmedRawNote).isEmpty &&
+                SlideItem.extractSpeakerFromBrackets(from: trimmedRawNote) == nil
+
+            // セクション見出し・タイトルスライド、および表示時間指定のみの無音カードは音声を必ずスキップ
+            let isHeaderOrTitle = slide.isTitleOrSectionHeader || isSilentTimingOnly
+            let skipReason: String? = isHeaderOrTitle ? (
+                slide.slideType == "title" ? "タイトルスライド (音声スキップ)" :
+                (isSilentTimingOnly ? "表示時間指定のみ・無音カード (音声スキップ)" : "セクション見出し・クレジット (音声スキップ)")
+            ) : nil
             let animDur = slide.animationTimingDuration
             let animNote = slide.animationTimingNote
 
-            let rawNote = slide.rawPresenterNote ?? slide.presenterNote
-            let sourceText = !rawNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? rawNote : slide.telop
+            let sourceText = !trimmedRawNote.isEmpty ? rawNote : slide.telop
             let fallbackSpk = slide.characterName.isEmpty || slide.characterName == "なし" ? "操夢" : slide.characterName
 
             // 1. ノートまたはテロップを行ごとに解析（話者、セリフ、音量指定を完全分離）

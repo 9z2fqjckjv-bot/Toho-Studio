@@ -548,8 +548,10 @@ public struct SlideScenarioMakerView: View {
                                         .frame(width: canvasW, height: canvasH)
                                         .clipped()
 
-                                    // 編集された最新テロップ・台本セリフの画面オーバーレイ（編集内容をキャンバス上にも即座に反映）
-                                    if !slide.telop.isEmpty && slide.slideType != "sectionHeader" {
+                                    // Keynote原画自体にテロップ枠が描画されているためデフォルトでは二重表示を防止し、
+                                    // ムービーメーカー側で明示的に字幕オーバーレイがONにされた場合のみ重ねて表示する
+                                    let shouldOverlayTelop = (selectedSlideIdx < appState.movieScenes.count) ? appState.movieScenes[selectedSlideIdx].shouldRenderTelopOverlay : false
+                                    if shouldOverlayTelop && !slide.telop.isEmpty && slide.slideType != "sectionHeader" {
                                         VStack {
                                             Spacer()
                                             HStack(alignment: .center, spacing: 6) {
