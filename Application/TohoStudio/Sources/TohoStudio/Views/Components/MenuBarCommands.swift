@@ -218,7 +218,8 @@ public struct MenuBarCommands: Commands {
                                 appState.movieScenes = scenes
                                 appState.totalDuration = scenes.reduce(0.0) { $0 + $1.duration }
                                 appState.currentProjectPath = url.path
-                                appState.currentProjectName = url.deletingPathExtension().lastPathComponent
+                                let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: url.lastPathComponent)
+                                appState.currentProjectName = cleanBase.isEmpty ? url.deletingPathExtension().lastPathComponent : cleanBase
                                 appState.log("ムービーメーカープロジェクトを読み込みました: \(scenes.count)シーン")
                             }
                         } else if ext == "tssm" {
@@ -240,7 +241,8 @@ public struct MenuBarCommands: Commands {
                                let cmds = try? JSONDecoder().decode([GameCommand].self, from: data) {
                                 appState.gameCommands = cmds
                                 appState.currentProjectPath = url.path
-                                appState.currentProjectName = url.deletingPathExtension().lastPathComponent
+                                let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: url.lastPathComponent)
+                                appState.currentProjectName = cleanBase.isEmpty ? url.deletingPathExtension().lastPathComponent : cleanBase
                                 appState.log("ゲームメーカープロジェクトを読み込みました: \(cmds.count)コマンド")
                             }
                         } else {
@@ -297,13 +299,19 @@ public struct MenuBarCommands: Commands {
             Button("ファイル保存 (cmd+f+shift+s)") {
                 let panel = NSSavePanel()
                 let ext = appState.currentModule.projectExtension
+                let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: appState.currentProjectName)
+                let defaultBase = cleanBase.isEmpty ? "新規プロジェクト" : cleanBase
                 panel.title = "\(appState.currentModule.rawValue)ファイルを保存 (\(ext))"
-                panel.nameFieldStringValue = "\(appState.currentProjectName).\(ext)"
-                if let uti = UTType(filenameExtension: ext) {
-                    panel.allowedContentTypes = [uti]
-                }
+                panel.canCreateDirectories = true
+                panel.isExtensionHidden = false
+                panel.directoryURL = StorageManager.shared.projectDirectoryURL(for: appState.currentModule)
+                panel.nameFieldStringValue = "\(defaultBase).\(ext)"
                 if panel.runModal() == .OK, let url = panel.url {
-                    appState.performSaveAs(fileName: url.deletingPathExtension().lastPathComponent)
+                    let savedBase = SlideRecognitionService.cleanProjectBaseName(from: url.lastPathComponent)
+                    appState.performSaveAs(
+                        fileName: savedBase.isEmpty ? defaultBase : savedBase,
+                        destinationURL: url
+                    )
                 }
             }
             .keyboardShortcut("s", modifiers: [.command, .shift])

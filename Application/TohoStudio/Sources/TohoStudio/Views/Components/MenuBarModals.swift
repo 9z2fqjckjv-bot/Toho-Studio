@@ -86,10 +86,12 @@ public struct NewProjectModalView: View {
 
                 Button("プロジェクトを作成") {
                     let ext = selectedModule.projectExtension
-                    let cleanName = projectName.hasSuffix(".\(ext)") ? String(projectName.dropLast(ext.count + 1)) : projectName
+                    let rawClean = SlideRecognitionService.cleanProjectBaseName(from: projectName)
+                    let cleanName = rawClean.isEmpty ? "新規プロジェクト" : rawClean
                     appState.currentProjectName = cleanName
                     appState.currentModule = selectedModule
-                    appState.currentProjectPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/\(selectedModule.rawValue)/\(cleanName).\(ext)"
+                    appState.currentProjectPath = StorageManager.shared.projectDirectoryURL(for: selectedModule)
+                        .appendingPathComponent("\(cleanName).\(ext)").path
                     appState.saveUndoSnapshot()
                     appState.log("新規プロジェクト『\(cleanName).\(ext)』を[\(selectedModule.rawValue)]で作成しました")
                     appState.addHistory("ファイル: 新規作成 (ソフト: \(selectedModule.rawValue), ファイル: \(cleanName).\(ext))")
@@ -201,7 +203,10 @@ public struct FileExportModalView: View {
                             return "json"
                         }
                     }()
-                    panel.nameFieldStringValue = "\(appState.currentProjectName).\(ext)"
+                    let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: appState.currentProjectName)
+                    let defaultBase = cleanBase.isEmpty ? "TohoProject" : cleanBase
+                    panel.isExtensionHidden = false
+                    panel.nameFieldStringValue = "\(defaultBase).\(ext)"
                     if panel.runModal() == .OK, let url = panel.url {
                         isExporting = true
                         exportProgress = 0.0

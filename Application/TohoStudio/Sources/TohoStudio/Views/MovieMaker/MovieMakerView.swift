@@ -80,7 +80,17 @@ public struct MovieMakerView: View {
                             specLoadingStatus = "既存ファイルを展開中…"
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                                 appState.currentProjectPath = url.path
-                                appState.importSlideScenarioFile(from: url, targetModule: .movieMaker)
+                                if url.pathExtension.lowercased() == "tsvm",
+                                   let data = try? Data(contentsOf: url),
+                                   let scenes = try? JSONDecoder().decode([MovieScene].self, from: data) {
+                                    appState.movieScenes = scenes
+                                    appState.totalDuration = scenes.reduce(0.0) { $0 + $1.duration }
+                                    let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: url.lastPathComponent)
+                                    appState.currentProjectName = cleanBase.isEmpty ? url.deletingPathExtension().lastPathComponent : cleanBase
+                                    appState.log("ムービーメーカープロジェクトを読み込みました: \(scenes.count)シーン")
+                                } else {
+                                    appState.importSlideScenarioFile(from: url, targetModule: .movieMaker)
+                                }
                                 appState.resolveMovieScenesMedia()
                                 isLoadingSpec = false
                                 showHomeScreen = false
@@ -1571,8 +1581,11 @@ public struct MovieMakerView: View {
         }()
 
         let panel = NSSavePanel()
+        let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: appState.currentProjectName)
+        let defaultBase = cleanBase.isEmpty ? "新規ムービー" : cleanBase
         panel.title = "書き出し先の指定"
-        panel.nameFieldStringValue = "\(appState.currentProjectName).\(ext)"
+        panel.isExtensionHidden = false
+        panel.nameFieldStringValue = "\(defaultBase).\(ext)"
         panel.canCreateDirectories = true
 
         if panel.runModal() == .OK, let targetURL = panel.url {

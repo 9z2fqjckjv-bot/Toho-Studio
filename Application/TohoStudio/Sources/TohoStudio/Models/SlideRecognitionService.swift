@@ -81,15 +81,49 @@ public final class SlideRecognitionService: ObservableObject {
 
     // MARK: - Path & Project Resolution Utilities
 
+    /// パス入力時の前後空白やシングルクォート・ダブルクォートを除去して正規化
+    public static func sanitizeFilePath(_ rawPath: String) -> String {
+        var s = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        let quoteChars = CharacterSet(charactersIn: "'\"")
+        while let first = s.unicodeScalars.first, quoteChars.contains(first) {
+            s.removeFirst()
+            s = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        while let last = s.unicodeScalars.last, quoteChars.contains(last) {
+            s.removeLast()
+            s = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return s
+    }
+
     public static func cleanProjectBaseName(from pathOrName: String) -> String {
-        var name = URL(fileURLWithPath: pathOrName).lastPathComponent
-        let exts = [".tspm", ".key", ".tsvm", ".tssm", ".tscm", ".tsgm", ".json", ".txt", ".pptx", ".keynote", ".gslide"]
+        let sanitizedPath = sanitizeFilePath(pathOrName)
+        var name = URL(fileURLWithPath: sanitizedPath).lastPathComponent
+        let exts = [
+            ".tspm", ".key", ".tsvm", ".tssm", ".tscm", ".tsgm",
+            ".tohoproj", ".tsai", ".ymmp", ".json", ".txt",
+            ".pptx", ".keynote", ".gslide"
+        ]
+        let syncSuffixes = ["_movie_sync", "_sync"]
+        let trimChars = CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "'\""))
+
         var changed = true
         while changed {
             changed = false
+            let trimmed = name.trimmingCharacters(in: trimChars)
+            if trimmed != name {
+                name = trimmed
+                changed = true
+            }
             for ext in exts {
                 if name.lowercased().hasSuffix(ext) {
                     name = String(name.dropLast(ext.count))
+                    changed = true
+                }
+            }
+            for suffix in syncSuffixes {
+                if name.lowercased().hasSuffix(suffix) {
+                    name = String(name.dropLast(suffix.count))
                     changed = true
                 }
             }
@@ -296,6 +330,8 @@ public final class SlideRecognitionService: ObservableObject {
             reason: "Toho-Studio Unified Slide Loading & Recognition Pipeline"
         )
 
+        let cleanFilePath = Self.sanitizeFilePath(filePath)
+
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else {
                 ProcessInfo.processInfo.endActivity(activity)
@@ -303,14 +339,14 @@ public final class SlideRecognitionService: ObservableObject {
             }
 
             var logEntries: [RecognitionLogEntry] = []
-            let fileName = URL(fileURLWithPath: filePath).lastPathComponent
+            let fileName = URL(fileURLWithPath: cleanFilePath).lastPathComponent
 
             // Step 1: スライドの読み込みプログラム起動
             self.appendLog(&logEntries, slide: 0, step: "スライド読み込み", status: "SUCCESS", details: "Keynote解析パイプライン開始: \(fileName)")
             self.updateProgress(0.15)
 
             // Extract slides via ultra-fast Python native IWA parser (forceReloadFromSource to ensure fresh slides and images)
-            let recognizedSlides = self.extractSlidesFromPath(filePath: filePath, forceReloadFromSource: true)
+            let recognizedSlides = self.extractSlidesFromPath(filePath: cleanFilePath, forceReloadFromSource: true)
             let slideCount = recognizedSlides.count
 
             let renderedImageCount = recognizedSlides.filter { $0.slideImagePath != nil }.count
@@ -395,7 +431,7 @@ public final class SlideRecognitionService: ObservableObject {
                 let app = AppState.shared
                 app.slides = recognizedSlides
                 let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: fileName)
-                app.currentProjectPath = filePath
+                app.currentProjectPath = cleanFilePath
                 app.currentProjectName = cleanBase
                 self.loadedProjectName = cleanBase
 
@@ -929,7 +965,8 @@ public final class SlideRecognitionService: ObservableObject {
     }
 
     /// Resolves Keynote file path across known slide directories if moved or relative
-    public func resolveKeynotePath(_ path: String) -> String {
+    public func resolveKeynotePath(_ rawPath: String) -> String {
+        let path = Self.sanitizeFilePath(rawPath)
         let fm = FileManager.default
         if fm.fileExists(atPath: path) { return path }
 
@@ -968,7 +1005,8 @@ public final class SlideRecognitionService: ObservableObject {
 
     // MARK: - Core Extraction Logic
 
-    public func extractSlidesFromPath(filePath: String, forceReloadFromSource: Bool = false) -> [SlideItem] {
+    public func extractSlidesFromPath(filePath rawFilePath: String, forceReloadFromSource: Bool = false) -> [SlideItem] {
+        let filePath = Self.sanitizeFilePath(rawFilePath)
         let fileManager = FileManager.default
         let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: filePath)
 

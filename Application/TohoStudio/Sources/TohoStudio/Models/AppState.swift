@@ -614,37 +614,14 @@ public final class AppState: ObservableObject {
         return count
     }
 
-    public func performSave() {
-        saveUndoSnapshot()
-        lastSavedSnapshot = movieScenes
-
-        let ext = currentModule.projectExtension
-        let cleanName = SlideRecognitionService.cleanProjectBaseName(from: currentProjectName)
-        let fileNameWithExt = "\(cleanName).\(ext)"
-
-        // モジュールに応じたデータシリアライズと保存
-        let success: Bool
+    private func encodeCurrentModuleProjectData() -> Data? {
         switch currentModule {
         case .slideScenarioMaker:
-            if let data = try? JSONEncoder().encode(slides) {
-                success = StorageManager.shared.saveProjectFile(module: .slideScenarioMaker, fileName: fileNameWithExt, data: data)
-                _ = StorageManager.shared.saveProjectFile(module: .slideScenarioMaker, fileName: "\(cleanName).key.tspm", data: data)
-                _ = StorageManager.shared.saveProjectFile(module: .slideScenarioMaker, fileName: "\(cleanName)_sync.json", data: data)
-            } else {
-                success = false
-            }
+            return try? JSONEncoder().encode(slides)
         case .movieMaker:
-            if let data = try? JSONEncoder().encode(movieScenes) {
-                success = StorageManager.shared.saveProjectFile(module: .movieMaker, fileName: fileNameWithExt, data: data)
-            } else {
-                success = false
-            }
+            return try? JSONEncoder().encode(movieScenes)
         case .characterMaker:
-            if let data = try? JSONEncoder().encode(currentCharacter) {
-                success = StorageManager.shared.saveProjectFile(module: .characterMaker, fileName: fileNameWithExt, data: data)
-            } else {
-                success = false
-            }
+            return try? JSONEncoder().encode(currentCharacter)
         case .soundMaker:
             syncClipsToMovieScenes(soundClips)
             let doc = SoundMakerProjectDocument(
@@ -657,27 +634,40 @@ public final class AppState: ObservableObject {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted]
             if let data = try? encoder.encode(doc) {
-                success = StorageManager.shared.saveProjectFile(module: .soundMaker, fileName: fileNameWithExt, data: data)
-            } else if let fallbackData = try? encoder.encode(soundClips) {
-                success = StorageManager.shared.saveProjectFile(module: .soundMaker, fileName: fileNameWithExt, data: fallbackData)
-            } else {
-                success = false
+                return data
             }
+            return try? encoder.encode(soundClips)
         case .gameMaker:
-            if let data = try? JSONEncoder().encode(gameCommands) {
-                success = StorageManager.shared.saveProjectFile(module: .gameMaker, fileName: fileNameWithExt, data: data)
-            } else {
-                success = false
-            }
+            return try? JSONEncoder().encode(gameCommands)
         case .materialStudio:
-            if let data = try? JSONEncoder().encode(materials) {
-                success = StorageManager.shared.saveProjectFile(module: .materialStudio, fileName: fileNameWithExt, data: data)
-            } else {
-                success = false
-            }
+            return try? JSONEncoder().encode(materials)
         case .tohoAIStudio:
-            let chatData = (try? JSONEncoder().encode(TohoAIService.shared.chatMessages)) ?? Data()
-            success = StorageManager.shared.saveProjectFile(module: .tohoAIStudio, fileName: fileNameWithExt, data: chatData)
+            return (try? JSONEncoder().encode(TohoAIService.shared.chatMessages)) ?? Data()
+        }
+    }
+
+    public func performSave() {
+        saveUndoSnapshot()
+        lastSavedSnapshot = movieScenes
+
+        let ext = currentModule.projectExtension
+        let rawClean = SlideRecognitionService.cleanProjectBaseName(from: currentProjectName)
+        let cleanName = rawClean.isEmpty ? "新規プロジェクト" : rawClean
+        if currentProjectName != cleanName {
+            currentProjectName = cleanName
+        }
+        let fileNameWithExt = "\(cleanName).\(ext)"
+
+        // モジュールに応じたデータシリアライズと保存
+        let success: Bool
+        if let data = encodeCurrentModuleProjectData() {
+            success = StorageManager.shared.saveProjectFile(module: currentModule, fileName: fileNameWithExt, data: data)
+            if currentModule == .slideScenarioMaker {
+                _ = StorageManager.shared.saveProjectFile(module: .slideScenarioMaker, fileName: "\(cleanName).key.tspm", data: data)
+                _ = StorageManager.shared.saveProjectFile(module: .slideScenarioMaker, fileName: "\(cleanName)_sync.json", data: data)
+            }
+        } else {
+            success = false
         }
 
         if !success {
@@ -689,18 +679,39 @@ public final class AppState: ObservableObject {
         addHistory("ファイル: 上書き保存 (成功: \(fileNameWithExt))")
     }
 
-    public func performSaveAs(fileName: String) {
+    public func performSaveAs(fileName: String, destinationURL: URL? = nil) {
         let ext = currentModule.projectExtension
-        let cleanName = fileName.hasSuffix(".\(ext)") ? String(fileName.dropLast(ext.count + 1)) : fileName
+        let rawClean = SlideRecognitionService.cleanProjectBaseName(from: fileName)
+        let cleanName = rawClean.isEmpty ? "新規プロジェクト" : rawClean
         currentProjectName = cleanName
-        currentProjectPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/\(currentModule.rawValue)/\(cleanName).\(ext)"
+
+        let defaultFileURL = StorageManager.shared.projectDirectoryURL(for: currentModule)
+            .appendingPathComponent("\(cleanName).\(ext)")
+        currentProjectPath = defaultFileURL.path
+
         performSave()
+
+        if let destURL = destinationURL {
+            let normalizedDestURL = destURL.deletingLastPathComponent()
+                .appendingPathComponent("\(cleanName).\(ext)")
+            if normalizedDestURL.standardizedFileURL.path != defaultFileURL.standardizedFileURL.path,
+               let data = encodeCurrentModuleProjectData() {
+                try? FileManager.default.createDirectory(
+                    at: normalizedDestURL.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
+                try? data.write(to: normalizedDestURL)
+                currentProjectPath = normalizedDestURL.path
+            }
+        }
+
         log("『\(cleanName).\(ext)』として名前をつけて保存しました")
         addHistory("ファイル: 名前をつけて保存 (\(cleanName).\(ext))")
     }
 
     public func performDuplicate() {
-        let duplicateName = "\(currentProjectName)_コピー"
+        let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: currentProjectName)
+        let duplicateName = "\(cleanBase.isEmpty ? currentProjectName : cleanBase)_コピー"
         _ = StorageManager.shared.createBackup(fileName: duplicateName, content: "Duplicate of \(currentProjectName)")
         log("現在の編集プロジェクトを『\(duplicateName)』として複製しました")
         addHistory("ファイル: 複製 (\(duplicateName))")
@@ -951,6 +962,11 @@ public final class AppState: ObservableObject {
         }
         saveUndoSnapshot()
         currentCharacter = model
+        currentProjectPath = url.path
+        let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: url.lastPathComponent)
+        if !cleanBase.isEmpty {
+            currentProjectName = cleanBase
+        }
         log("キャラクターメーカー: 編集ファイル『\(url.lastPathComponent)』を読み込みました")
         addHistory("読込: キャラクターファイル (.tscm)")
     }
@@ -1004,10 +1020,13 @@ public final class AppState: ObservableObject {
 
     public func performExportMaterials() {
         let panel = NSSavePanel()
+        let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: currentProjectName)
+        let baseName = cleanBase.isEmpty ? "TohoProject" : cleanBase
         panel.title = "素材スタジオからエクスポート"
-        panel.nameFieldStringValue = "\(currentProjectName)_Export.zip"
+        panel.isExtensionHidden = false
+        panel.nameFieldStringValue = "\(baseName)_Export.zip"
         if panel.runModal() == .OK, let url = panel.url {
-            let sampleContent = "Toho-Studio Export Package\nProject: \(currentProjectName)\nDate: \(Date())\nMaterials: \(materials.count)\n"
+            let sampleContent = "Toho-Studio Export Package\nProject: \(baseName)\nDate: \(Date())\nMaterials: \(materials.count)\n"
             try? sampleContent.write(to: url, atomically: true, encoding: .utf8)
             log("素材スタジオのデータをエクスポートしました: \(url.lastPathComponent)")
             addHistory("編集: エクスポート (\(url.lastPathComponent))")
@@ -1964,7 +1983,8 @@ public final class AppState: ObservableObject {
         // 各シーンへの音声ファイル割り当て (Voice, SE, BGM) を確実に同期反映
         syncClipsToMovieScenes(repairedClips)
 
-        let cleanName = url.deletingPathExtension().lastPathComponent
+        let rawClean = SlideRecognitionService.cleanProjectBaseName(from: url.lastPathComponent)
+        let cleanName = rawClean.isEmpty ? url.deletingPathExtension().lastPathComponent : rawClean
         self.currentProjectPath = url.path
         self.currentProjectName = cleanName
 
@@ -3108,11 +3128,7 @@ public final class AppState: ObservableObject {
         let slideMap = Dictionary(uniqueKeysWithValues: slides.map { ($0.slideIndex, $0) })
         let slidesCacheBase = "/Volumes/ZSSD/GitHub/repository/TohoStudio/.cache/keynote_slides"
 
-        let cleanProject = currentProjectName
-            .replacingOccurrences(of: ".key", with: "")
-            .replacingOccurrences(of: ".tspm", with: "")
-            .replacingOccurrences(of: ".tssm", with: "")
-            .replacingOccurrences(of: ".tsvm", with: "")
+        let cleanProject = SlideRecognitionService.cleanProjectBaseName(from: currentProjectName)
 
         for idx in 0..<movieScenes.count {
             let sceneNum = idx + 1

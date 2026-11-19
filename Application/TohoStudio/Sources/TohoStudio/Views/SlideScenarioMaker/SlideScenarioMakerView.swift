@@ -1539,8 +1539,10 @@ public struct SlideScenarioMakerView: View {
                 }
 
                 Button(action: {
+                    let cleanPath = SlideRecognitionService.sanitizeFilePath(selectedFilePath)
+                    selectedFilePath = cleanPath
                     recognitionService.loadAndRecognizeSlides(
-                        filePath: selectedFilePath,
+                        filePath: cleanPath,
                         syncMovieMaker: syncMovieMaker,
                         syncGameMaker: syncGameMaker,
                         syncSoundMaker: syncSoundMaker,
@@ -1548,7 +1550,7 @@ public struct SlideScenarioMakerView: View {
                         autoSave: autoSaveProject
                     ) { result in
                         selectedSlideIdx = 0
-                        let fName = URL(fileURLWithPath: selectedFilePath).lastPathComponent
+                        let fName = URL(fileURLWithPath: cleanPath).lastPathComponent
                         let vidNote = result.animationVideoCount > 0 ? "・動画記録: \(result.animationVideoCount)件" : ""
                         loadSuccessMessage = "「\(fName)」から \(result.totalSlides) 枚のスライド・アニメーション\(vidNote)・ビルド順を解析・各メーカーへ完全反映しました (認識精度: \(result.accuracyRate)%)。"
                         showUnifiedModal = false

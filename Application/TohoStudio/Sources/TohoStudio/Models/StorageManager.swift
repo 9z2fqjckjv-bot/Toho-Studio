@@ -93,8 +93,8 @@ public final class StorageManager: ObservableObject {
         return info
     }
 
-    /// Save file according to active StorageLocation
-    public func saveProjectFile(module: SoftwareModule, fileName: String, data: Data) -> Bool {
+    /// Returns the default directory URL for storing project files of the specified module
+    public func projectDirectoryURL(for module: SoftwareModule) -> URL {
         let moduleDirName: String
         switch module {
         case .movieMaker: moduleDirName = "MovieMarker"
@@ -107,12 +107,16 @@ public final class StorageManager: ObservableObject {
         }
 
         let targetDir = "\(localBaseDirectory)/\(moduleDirName)"
-        let fm = FileManager.default
-        try? fm.createDirectory(atPath: targetDir, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(atPath: targetDir, withIntermediateDirectories: true)
+        return URL(fileURLWithPath: targetDir, isDirectory: true)
+    }
 
-        let targetFile = "\(targetDir)/\(fileName)"
+    /// Save file according to active StorageLocation
+    public func saveProjectFile(module: SoftwareModule, fileName: String, data: Data) -> Bool {
+        let targetDirURL = projectDirectoryURL(for: module)
+        let targetFileURL = targetDirURL.appendingPathComponent(fileName)
         do {
-            try data.write(to: URL(fileURLWithPath: targetFile))
+            try data.write(to: targetFileURL)
             lastSavedTime = Date()
             return true
         } catch {

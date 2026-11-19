@@ -5188,8 +5188,11 @@ public struct SoundMakerView: View {
         }()
 
         let panel = NSSavePanel()
+        let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: appState.currentProjectName)
+        let defaultBase = cleanBase.isEmpty ? "新規サウンド" : cleanBase
         panel.title = "音声ファイルの書き出し先を指定"
-        panel.nameFieldStringValue = "\(appState.currentProjectName)_audio.\(ext)"
+        panel.isExtensionHidden = false
+        panel.nameFieldStringValue = "\(defaultBase)_audio.\(ext)"
         panel.canCreateDirectories = true
 
         if panel.runModal() == .OK, let targetURL = panel.url {
