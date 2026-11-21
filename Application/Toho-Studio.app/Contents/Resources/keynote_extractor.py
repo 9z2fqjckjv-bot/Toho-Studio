@@ -68,9 +68,12 @@ CHAR_MAP = {
     "慧音": "上白沢慧音",
     "鈴仙": "鈴仙・優曇華院・イナバ",
     "うどんげ": "鈴仙・優曇華院・イナバ",
+    "優曇華": "鈴仙・優曇華院・イナバ",
+    "イナバ": "鈴仙・優曇華院・イナバ",
     "てゐ": "因幡てゐ",
     "永琳": "八意永琳",
     "輝夜": "蓬莱山輝夜",
+    "にとり": "河城にとり",
     "操夢": "操夢",
     "サブ": "サブ",
     "ナレ1": "ナレ1",
@@ -92,7 +95,7 @@ def clean_dialogue_text(text):
     label_re = re.compile(r'今回の(?:迷|名)?シーン\s*\d+', re.IGNORECASE)
     cleaned = label_re.sub("", raw)
     # 1. アニメーション表記・時間指定・演出カッコ書きの除去
-    anim_re = re.compile(r'[（\(\[［][^）\)\]］]*(?:アニメーション|アニメ|表示時間|時間|\d+(?:\.\d+)?\s*秒|フェード|ズーム|タイプライター|スライド|アクション|イン|アウト|カット)[^）\)\]］]*[）\)\]］]', re.IGNORECASE)
+    anim_re = re.compile(r'[（\(\[［][^）\)\]］]*(?:アニメーション|アニメ|表示時間|表示|時間|\d+(?:\.\d+)?\s*秒|フェード|ズーム|タイプライター|スライド|アクション|イン|アウト|カット)[^）\)\]］]*[）\)\]］]', re.IGNORECASE)
     cleaned = anim_re.sub("", cleaned)
     # 2. 話者指定カッコ書きの除去
     bracket_re = re.compile(r'[（\(\[［][^）\)\]］]{1,40}[）\)\]］]')
@@ -112,25 +115,50 @@ def clean_dialogue_text(text):
 def normalize_duo_speaker(raw_spk):
     if not raw_spk:
         return ""
-    trimmed = str(raw_spk).strip()
+    trimmed = re.sub(r'[:：]?(?:音量|volume)[=：:]?\s*\d+[%％]?', '', str(raw_spk), flags=re.IGNORECASE).strip()
+    if not trimmed:
+        return ""
+
+    clean_single = trimmed.replace(" ", "").replace("　", "")
+    # 単一キャラクター名（"さとり", "にとり", "みとり" 等「と」を含む名前）を誤分割しないよう最優先照合
+    protected_singles = {
+        "さとり", "古明地さとり", "にとり", "河城にとり", "みとり", "河城みとり",
+        "屠自古", "蘇我屠自古", "寅丸", "寅丸星", "豊聡耳", "豊聡耳神子", "黒いさとり"
+    }
+    if clean_single in CHAR_MAP:
+        return CHAR_MAP[clean_single].replace(" ", "").replace("　", "")
+    if clean_single in CHAR_MAP.values() or clean_single in protected_singles:
+        return clean_single
+
     # ※「・」はカタカナ人名（例: フランドール・スカーレット、レミリア・スカーレット）の姓名区切りのため含めない
     delims = ["&", "＆", "、"]
     for delim in delims:
         if delim in trimmed:
             parts = [p.strip() for p in trimmed.split(delim) if p.strip()]
             if len(parts) >= 2:
-                n0 = CHAR_MAP.get(parts[0], parts[0])
-                n1 = CHAR_MAP.get(parts[1], parts[1])
-                c0 = n0.replace(" ", "").replace("　", "")
-                c1 = n1.replace(" ", "").replace("　", "")
+                c0 = normalize_duo_speaker(parts[0])
+                c1 = normalize_duo_speaker(parts[1])
                 return f"{c0}&{c1}"
-    if "と" in trimmed and not any(k in trimmed for k in ["こと", "ひと"]) and len(trimmed) <= 15:
-        parts = [p.strip() for p in trimmed.split("と") if p.strip()]
-        if len(parts) == 2:
-            n0 = CHAR_MAP.get(parts[0], parts[0])
-            n1 = CHAR_MAP.get(parts[1], parts[1])
-            c0 = n0.replace(" ", "").replace("　", "")
-            c1 = n1.replace(" ", "").replace("　", "")
+    if "と" in trimmed and not any(k in trimmed for k in ["こと", "ひと"]) and len(trimmed) <= 25:
+        # 文字列中の「と」の位置を走査し、両辺が有効な話者名になる分割点を探索
+        idxs = [m.start() for m in re.finditer("と", trimmed)]
+        best_pair = None
+        for idx in idxs:
+            left = trimmed[:idx].strip()
+            right = trimmed[idx+1:].strip()
+            if not left or not right:
+                continue
+            l_known = (left in CHAR_MAP or left in CHAR_MAP.values() or left in protected_singles)
+            r_known = (right in CHAR_MAP or right in CHAR_MAP.values() or right in protected_singles)
+            if (len(left) >= 2 or l_known) and (len(right) >= 2 or r_known) and (l_known or r_known):
+                if l_known and r_known:
+                    best_pair = (left, right)
+                    break
+                elif best_pair is None:
+                    best_pair = (left, right)
+        if best_pair:
+            c0 = normalize_duo_speaker(best_pair[0])
+            c1 = normalize_duo_speaker(best_pair[1])
             return f"{c0}&{c1}"
     n = CHAR_MAP.get(trimmed, trimmed)
     return n.replace(" ", "").replace("　", "")
@@ -149,14 +177,14 @@ def extract_speaker_and_clean_note(raw_text):
 
     # 全角丸カッコ（）、半角丸カッコ()、半角角カッコ[]、全角角カッコ［］に囲まれた話者表記
     bracket_re = re.compile(r'[（\(\[［]([^）\)\]］]{1,40})[）\)\]］]')
-    non_speaker_kws = ["アニメ", "表示時間", "時間", "秒", "イン", "アクション", "アウト", "フェード", "ズーム", "カット"]
+    non_speaker_kws = ["アニメ", "表示時間", "表示", "時間", "秒", "イン", "アクション", "アウト", "フェード", "ズーム", "カット", "敬称略", "参照"]
     cands = []
     for m in bracket_re.finditer(raw_note):
         cand = m.group(1).strip()
         if any(k in cand for k in non_speaker_kws):
             continue
-        # 音量指定タグの除去（例: "レミリア:音量50%" -> "レミリア"）
-        cand_clean = re.sub(r'[:：]?(?:音量|volume)[=：:]?\s*\d+%?', '', cand, flags=re.IGNORECASE).strip()
+        # 音量指定タグの除去（例: "レミリア:音量50%", "こいし：音量50％" -> "レミリア", "こいし"）
+        cand_clean = re.sub(r'[:：]?(?:音量|volume)[=：:]?\s*\d+[%％]?', '', cand, flags=re.IGNORECASE).strip()
         if cand_clean:
             cands.append(cand_clean)
 
@@ -291,25 +319,31 @@ end tell
             pass
 
         if has_transparent_bg:
+            from concurrent.futures import ThreadPoolExecutor
+            from PIL import Image
+
+            def _convert_one_png(args):
+                idx, png_path = args
+                try:
+                    with Image.open(png_path) as im:
+                        rgba = im.convert("RGBA")
+                        black_bg = Image.new("RGBA", rgba.size, (0, 0, 0, 255))
+                        composited = Image.alpha_composite(black_bg, rgba).convert("RGB")
+                        out_jpg = os.path.join(cache_dir, f"{safe_slug}_{hash_str}.{idx:03d}.jpeg")
+                        composited.save(out_jpg, format="JPEG", quality=94)
+                except Exception as conv_err:
+                    sys.stderr.write(f"PNG->JPEG black composite error on slide #{idx}: {conv_err}\n")
+
             png_files = []
-            for _ in range(20):
+            for _ in range(30):
                 png_files = sorted(glob.glob(os.path.join(export_out_dir, "*.png")), key=natural_sort_key)
                 if png_files and (expected_count <= 0 or len(png_files) >= expected_count):
                     break
                 time.sleep(0.5)
 
             if png_files:
-                from PIL import Image
-                for idx, png_path in enumerate(png_files, start=1):
-                    try:
-                        with Image.open(png_path) as im:
-                            rgba = im.convert("RGBA")
-                            black_bg = Image.new("RGBA", rgba.size, (0, 0, 0, 255))
-                            composited = Image.alpha_composite(black_bg, rgba).convert("RGB")
-                            out_jpg = os.path.join(cache_dir, f"{safe_slug}_{hash_str}.{idx:03d}.jpeg")
-                            composited.save(out_jpg, format="JPEG", quality=94)
-                    except Exception as conv_err:
-                        sys.stderr.write(f"PNG->JPEG black composite error on slide #{idx}: {conv_err}\n")
+                with ThreadPoolExecutor(max_workers=min(8, os.cpu_count() or 4)) as pool:
+                    list(pool.map(_convert_one_png, enumerate(png_files, start=1)))
                 shutil.rmtree(export_out_dir, ignore_errors=True)
 
                 # 旧バージョンの白背景化キャッシュディレクトリが残っていればクリーンアップして誤参照を防止
@@ -337,7 +371,7 @@ end tell
         if exported_images:
             return exported_images
 
-        # 3. エクスポートが空または失敗した場合の最終フォールバック（最新の過去キャッシュディレクトリを探索）
+        # 3. エクスポートが空または失敗した場合の最終フォールバック（同一プロジェクト完全一致の最新キャッシュのみ探索）
         best_candidate_dir = None
         best_mtime = 0
         norm_slug = re.sub(r'[\(\)（）\s_\-\.]', '', unicodedata.normalize("NFKC", base_name)).lower()
@@ -345,7 +379,7 @@ end tell
             for candidate in os.listdir(CACHE_SLIDES_ROOT):
                 cand_clean = re.sub(r'_[a-f0-9]{8,12}$', '', candidate)
                 cand_norm = re.sub(r'[\(\)（）\s_\-\.]', '', unicodedata.normalize("NFKC", cand_clean)).lower()
-                if cand_norm == norm_slug or (len(norm_slug) >= 2 and norm_slug in cand_norm):
+                if cand_norm == norm_slug:
                     cand_dir = os.path.join(CACHE_SLIDES_ROOT, candidate)
                     if os.path.isdir(cand_dir):
                         c_mtime = os.path.getmtime(cand_dir)
@@ -416,9 +450,9 @@ def export_slide_animation_videos_if_needed(filepath, slides):
         matched_count = sum(1 for s in target_slides if s.get("animationVideoPath"))
         needed_slides = [s for s in target_slides if not s.get("animationVideoPath")]
 
-        if not needed_slides or len(target_slides) > 20:
-            # アニメーションスライドが大量にある場合や、主要なものがマッピングできた場合は
-            # スライド読み込み処理の高速性を優先してKeynoteでの長大動画レンダリングはスキップ
+        if not needed_slides or len(target_slides) > 20 or len(slides) > 300:
+            # 総集編などスライド総数が膨大な場合やアニメーションスライドが大量にある場合は
+            # Keynote上での全スライド走査によるブロッキングや状態変更を防止して即座に返却
             return matched_count
 
         # 少数の未生成スライド（最大3件まで）についてのみ、短いタイムアウト（15秒）で安全にエクスポート試行
@@ -1110,27 +1144,37 @@ def detect_slide_type(slide_idx, texts, slide_name, note_text=""):
         return "sectionHeader"
 
     # Check Section Header (中扉)
-    # 例: "その頃フランたちは…", "その頃、操夢は…", "霊夢の列車が駅に止まると…", "一方、その頃"
+    # 例: "その頃フランたちは…", "その頃、操夢は…", "霊夢の列車が駅に止まると…", "霊夢がお風呂を澄ますと…", "一方、その頃"
     is_section_phrase = (
         combined.startswith("その頃") or "その頃" in combined or
         combined.startswith("そのころ") or "そのころ" in combined or
         combined.startswith("一方") or "一方、" in combined or
-        (combined.endswith("…") and any(k in combined for k in ["たちは", "止まると", "着くと", "なると", "すると"]))
+        (
+            "「" not in combined and "『" not in combined and
+            combined.endswith("…") and
+            (
+                any(k in combined for k in ["たちは", "止まると", "着くと", "なると", "すると", "戻ると", "終えると", "終わると", "澄ますと", "済ますと"])
+                or (len(texts) == 1 and len(combined) <= 30 and combined.endswith("と…"))
+            )
+        )
     )
     if is_section_phrase and len(texts) <= 3 and len(combined) <= 60 and not note_speaker:
+        return "sectionHeader"
+
+    # スライド2以降でノートに表示時間・アニメーション指定（例: "（5秒）", "（表示時間：3秒）"）のみが記載され、
+    # 話者もセリフ本文も存在しないスライド（人物紹介アイキャッチ・告知・無音中扉カード）は音声スキップ対象(sectionHeader)とする
+    if slide_idx > 1 and note_text and note_text.strip() and not note_speaker and not cleaned_note:
         return "sectionHeader"
 
     # Check Title Slide
     # スライド1でも、ノートに明確なセリフ（話者カッコ）がある場合や、ダイジェスト会話の場合は通常コンテンツ扱い！
     if any(k in combined for k in ["東方Project二次創作", "第21話", "第22話", "第23話", "第24話", "第1話", "第2話", "交換夫婦", "目次", "サブタイトル"]):
-        if len(texts) <= 4 and ("東方" in combined or "話" in combined) and not note_speaker:
+        if len(texts) <= 4 and ("東方" in combined or "話" in combined) and not note_speaker and len(combined) <= 80:
             return "title"
 
     if slide_idx == 1 and not note_speaker and not any(k in combined for k in ["「", "」", "迷シーン", "シーン"]):
         return "title"
 
-    # ノートに表示時間・アニメーション指定（例: "（5秒）", "（表示時間：3秒）"）のみが記載され、
-    # 話者もセリフ本文も存在しないスライド（人物紹介アイキャッチ・告知・無音中扉カード）は音声スキップ対象(sectionHeader)とする
     if note_text and note_text.strip() and not note_speaker and not cleaned_note:
         return "sectionHeader"
 
@@ -1153,8 +1197,8 @@ def parse_duration_from_note(note, default_duration=3.0, anim_duration=None):
             return round(anim_duration + 0.5, 1)
         return 4.0
 
-    # (アニメーション: 15秒) or （アニメーション: 15秒） or (表示時間: 5秒) or (時間: 5秒)
-    m = re.search(r"[\(（](?:アニメーション|表示時間|時間)[\s:：]*(\d+(?:\.\d+)?)\s*秒?[\)）]", raw)
+    # (アニメーション: 15秒) or （アニメーション: 15秒） or (表示時間: 5秒) or (表示: 1.5秒) or (時間: 5秒)
+    m = re.search(r"[\(（](?:アニメーション|表示時間|表示|時間)[\s:：]*(\d+(?:\.\d+)?)\s*秒?[\)）]", raw)
     if m:
         try:
             return float(m.group(1))
@@ -2159,6 +2203,150 @@ def extract_via_direct_iwa(filepath, project_name):
                                 break
             return ("unknown", None)
 
+        def parse_drawable_geometry(drawable_bytes):
+            """TSD.DrawableArchive の field 1 (TSD.GeometryArchive) から (x, y, w, h) を抽出"""
+            p = 0
+            ld = len(drawable_bytes)
+            while p < ld:
+                tw, p = parse_varint(drawable_bytes, p)
+                t = tw >> 3; w = tw & 7
+                if w == 2:
+                    l, p = parse_varint(drawable_bytes, p)
+                    if p + l > ld:
+                        break
+                    sub = drawable_bytes[p:p+l]; p += l
+                    if t == 1:  # GeometryArchive
+                        gp = 0; gx = None; gy = None; gw = None; gh = None
+                        while gp < len(sub):
+                            gtw, gp = parse_varint(sub, gp)
+                            gt = gtw >> 3; gwt = gtw & 7
+                            if gwt == 2:
+                                gl, gp = parse_varint(sub, gp)
+                                if gp + gl > len(sub):
+                                    break
+                                gsub = sub[gp:gp+gl]; gp += gl
+                                if gt in (1, 2):  # 1: position (Point), 2: size (Size)
+                                    sp = 0; v1 = 0.0; v2 = 0.0
+                                    while sp < len(gsub):
+                                        stw, sp = parse_varint(gsub, sp)
+                                        st = stw >> 3; sw = stw & 7
+                                        if sw == 5 and sp + 4 <= len(gsub):
+                                            fv = struct.unpack("<f", gsub[sp:sp+4])[0]; sp += 4
+                                            if st == 1:
+                                                v1 = float(fv)
+                                            elif st == 2:
+                                                v2 = float(fv)
+                                        elif sw == 0:
+                                            _, sp = parse_varint(gsub, sp)
+                                        elif sw == 2:
+                                            sl, sp = parse_varint(gsub, sp); sp += sl
+                                        elif sw == 1:
+                                            sp += 8
+                                        else:
+                                            break
+                                    if gt == 1:
+                                        gx, gy = v1, v2
+                                    elif gt == 2:
+                                        gw, gh = v1, v2
+                            elif gwt == 0:
+                                _, gp = parse_varint(sub, gp)
+                            elif gwt == 5:
+                                gp += 4
+                            elif gwt == 1:
+                                gp += 8
+                            else:
+                                break
+                        if gw is not None and gh is not None:
+                            return (round(gx or 0.0, 2), round(gy or 0.0, 2), round(gw, 2), round(gh, 2))
+                elif w == 0:
+                    _, p = parse_varint(drawable_bytes, p)
+                elif w == 5:
+                    p += 4
+                elif w == 1:
+                    p += 8
+                else:
+                    break
+            return None
+
+        def extract_slide_image_drawables(s_decomp):
+            """
+            Slide.iwa 内の TSD.ImageArchive (mtype=3005) を直接解析し、
+            実際にスライド上に配置されている画像名・座標サイズ・オブジェクトID対応を誤検出ゼロで抽出する。
+            """
+            drawables = []
+            local_obj_to_img = {}
+            dcp = 0
+            ld = len(s_decomp)
+            while dcp < ld:
+                dhl, dcp = parse_varint(s_decomp, dcp)
+                if dhl <= 0 or dcp + dhl > ld:
+                    break
+                dhb = s_decomp[dcp:dcp+dhl]; dcp += dhl
+                dhp = 0; daid = 0; dmsgs = []
+                while dhp < len(dhb):
+                    dtw, dhp = parse_varint(dhb, dhp)
+                    if (dtw >> 3) == 1 and (dtw & 7) == 0:
+                        daid, dhp = parse_varint(dhb, dhp)
+                    elif (dtw >> 3) == 2 and (dtw & 7) == 2:
+                        dl, dhp = parse_varint(dhb, dhp)
+                        if dhp + dl > len(dhb):
+                            break
+                        dvb = dhb[dhp:dhp+dl]; dhp += dl
+                        dmp = 0; dmt = 0; dml = 0
+                        while dmp < len(dvb):
+                            dmtw, dmp = parse_varint(dvb, dmp)
+                            if (dmtw >> 3) == 1 and (dmtw & 7) == 0:
+                                dmt, dmp = parse_varint(dvb, dmp)
+                            elif (dmtw >> 3) == 3 and (dmtw & 7) == 0:
+                                dml, dmp = parse_varint(dvb, dmp)
+                            elif (dmtw & 7) == 2:
+                                dll, dmp = parse_varint(dvb, dmp); dmp += dll
+                        dmsgs.append((dmt, dml))
+                for dmt, dml in dmsgs:
+                    if dcp + dml > ld:
+                        break
+                    dbody = s_decomp[dcp:dcp+dml]; dcp += dml
+                    if dmt == 3005:  # TSD.ImageArchive
+                        p = 0
+                        ref11 = None; ref12 = None; ref15 = None
+                        geom = None
+                        while p < len(dbody):
+                            tw, p = parse_varint(dbody, p)
+                            t = tw >> 3; w = tw & 7
+                            if w == 0:
+                                _, p = parse_varint(dbody, p)
+                            elif w == 2:
+                                l, p = parse_varint(dbody, p)
+                                if p + l > len(dbody):
+                                    break
+                                sub = dbody[p:p+l]; p += l
+                                if t == 1:
+                                    geom = parse_drawable_geometry(sub)
+                                elif t in (11, 12, 15) and len(sub) >= 2 and sub[0] == 0x08:
+                                    rv, _ = parse_varint(sub, 1)
+                                    if t == 11:
+                                        ref11 = rv
+                                    elif t == 12:
+                                        ref12 = rv
+                                    elif t == 15:
+                                        ref15 = rv
+                            elif w == 5:
+                                p += 4
+                            elif w == 1:
+                                p += 8
+                            else:
+                                break
+                        chosen_id = (
+                            ref15 if (ref15 and ref15 in image_id_map)
+                            else (ref11 if (ref11 and ref11 in image_id_map) else ref12)
+                        )
+                        if chosen_id and chosen_id in image_id_map:
+                            clean_img = re.sub(r"-small", "", image_id_map[chosen_id])
+                            if not is_ignored_asset(clean_img):
+                                local_obj_to_img[daid] = clean_img
+                                drawables.append((clean_img, geom))
+            return drawables, local_obj_to_img
+
         has_transparent_bg = any(v[0] == "no_fill" for v in style_fill_map.values())
 
         parsed_slides = []
@@ -2177,20 +2365,37 @@ def extract_via_direct_iwa(filepath, project_name):
             if slide_fill_kind == "no_fill":
                 has_transparent_bg = True
 
-            slide_images = []
-            for v, iname in image_id_map.items():
-                b = []; n = v
-                while n > 0x7f:
-                    b.append((n & 0x7f) | 0x80); n >>= 7
-                b.append(n & 0x7f)
-                vb = bytes(b)
-                if vb in decomp:
-                    clean_img = re.sub(r"-small", "", iname)
-                    if not is_ignored_asset(clean_img) and clean_img not in slide_images:
-                        slide_images.append(clean_img)
+            slide_drawables, slide_obj_to_img = extract_slide_image_drawables(decomp)
+            merged_obj_to_img = dict(obj_to_img)
+            merged_obj_to_img.update(slide_obj_to_img)
+
+            slide_image_entries = []
+            seen_img_keys = set()
+            for clean_img, geom in slide_drawables:
+                dedup_k = (clean_img, geom)
+                if dedup_k not in seen_img_keys:
+                    seen_img_keys.add(dedup_k)
+                    slide_image_entries.append((clean_img, geom))
+
+            # フォールバック: TSD.ImageArchive が存在しない旧式スライドのみ（誤爆防止のため3バイト以上のvarint IDに限定）
+            if not slide_image_entries:
+                for v, iname in image_id_map.items():
+                    if v < 16384:
+                        continue
+                    b = []; n = v
+                    while n > 0x7f:
+                        b.append((n & 0x7f) | 0x80); n >>= 7
+                    b.append(n & 0x7f)
+                    vb = bytes(b)
+                    if vb in decomp:
+                        clean_img = re.sub(r"-small", "", iname)
+                        if not is_ignored_asset(clean_img) and (clean_img, None) not in seen_img_keys:
+                            seen_img_keys.add((clean_img, None))
+                            slide_image_entries.append((clean_img, None))
 
             bg_name = ""
             bg_path = None
+            bg_geom = None
             if slide_fill_kind == "image" and slide_fill_img and not is_ignored_asset(slide_fill_img):
                 bg_info = find_asset_info(slide_fill_img)
                 bg_name = slide_fill_img
@@ -2202,7 +2407,7 @@ def extract_via_direct_iwa(filepath, project_name):
             if bg_name:
                 detected_names.append("背景: " + bg_name)
 
-            for iname in slide_images:
+            for iname, geom in slide_image_entries:
                 if is_ignored_asset(iname):
                     continue
 
@@ -2220,10 +2425,14 @@ def extract_via_direct_iwa(filepath, project_name):
                 if category == "ignore":
                     continue
 
+                gx, gy, gw, gh = geom if geom else (100.0, 100.0, 300.0, 300.0)
+                is_fullscreen_geom = bool(geom and gw >= doc_w * 0.85 and gh >= doc_h * 0.85)
+
                 # 指示書 Slide 15-33: キャラクターと背景画像の識別
-                if category == "background" and not bg_name:
+                if (category == "background" or (is_fullscreen_geom and category != "character")) and not bg_name:
                     bg_name = iname
                     bg_path = asset_path
+                    bg_geom = geom
                     detected_names.append("背景: " + iname)
                     continue
 
@@ -2240,7 +2449,8 @@ def extract_via_direct_iwa(filepath, project_name):
                     characters.append({
                         "name": c_display,
                         "imageName": iname,
-                        "imagePath": asset_path
+                        "imagePath": asset_path,
+                        "geom": geom
                     })
                     detected_names.append("キャラクター: " + iname)
                     continue
@@ -2249,10 +2459,10 @@ def extract_via_direct_iwa(filepath, project_name):
                     objects.append({
                         "name": iname,
                         "objectType": "handmade_material",
-                        "x": 100.0,
-                        "y": 100.0,
-                        "width": 300.0,
-                        "height": 300.0,
+                        "x": gx,
+                        "y": gy,
+                        "width": gw,
+                        "height": gh,
                         "imagePath": asset_path
                     })
                     detected_names.append("手作り素材: " + iname)
@@ -2266,6 +2476,7 @@ def extract_via_direct_iwa(filepath, project_name):
                 if has_bg_keyword and not bg_name:
                     bg_name = iname
                     bg_path = asset_path
+                    bg_geom = geom
                     detected_names.append("背景:" + iname)
                     continue
 
@@ -2284,7 +2495,8 @@ def extract_via_direct_iwa(filepath, project_name):
                     characters.append({
                         "name": c_display,
                         "imageName": iname,
-                        "imagePath": asset_path
+                        "imagePath": asset_path,
+                        "geom": geom
                     })
                     detected_names.append("キャラクター:" + iname)
                     continue
@@ -2299,13 +2511,15 @@ def extract_via_direct_iwa(filepath, project_name):
                             if not a_trans and aw >= 600 and (aw / max(ah, 1) >= 1.2) and not bg_name:
                                 bg_name = iname
                                 bg_path = asset_path
+                                bg_geom = geom
                                 detected_names.append("背景:" + iname)
                                 continue
                             elif a_trans or ah > aw:
                                 characters.append({
                                     "name": "キャラクター",
                                     "imageName": iname,
-                                    "imagePath": asset_path
+                                    "imagePath": asset_path,
+                                    "geom": geom
                                 })
                                 detected_names.append("キャラクター:" + iname)
                                 continue
@@ -2315,10 +2529,10 @@ def extract_via_direct_iwa(filepath, project_name):
                 objects.append({
                     "name": iname,
                     "objectType": "image",
-                    "x": 100.0,
-                    "y": 100.0,
-                    "width": 300.0,
-                    "height": 300.0,
+                    "x": gx,
+                    "y": gy,
+                    "width": gw,
+                    "height": gh,
                     "imagePath": asset_path
                 })
                 detected_names.append("オブジェクト:" + iname)
@@ -2333,22 +2547,33 @@ def extract_via_direct_iwa(filepath, project_name):
 
             if stype == "title":
                 if not note_speaker:
-                    if telop_texts:
-                        title = telop_texts[0]
-                        if len(telop_texts) >= 2:
-                            telop = telop_texts[1]
-                    elif txts:
-                        title = txts[0]
-                        if len(txts) >= 2:
-                            telop = txts[1]
+                    src_boxes = telop_texts if telop_texts else txts
+                    if src_boxes:
+                        non_credit = [b for b in src_boxes if "二次創作" not in b and "Powerd by" not in b and "Powered by" not in b]
+                        credit_boxes = [b for b in src_boxes if b not in non_credit]
+                        if non_credit:
+                            title = "　".join(non_credit[:2])
+                            telop = "\n".join(non_credit[2:] + credit_boxes)
+                        else:
+                            title = src_boxes[0]
+                            telop = "\n".join(src_boxes[1:]) if len(src_boxes) >= 2 else ""
                 else:
                     title = f"シーン {s_idx}"
                     telop = clean_dialogue_text("\n".join(telop_texts if telop_texts else txts))
             elif stype == "sectionHeader":
                 if telop_texts:
-                    title = telop_texts[0]
-                    if title == "?" and len(telop_texts) >= 2:
-                        title = f"? ({telop_texts[1][:18]}…)"
+                    # 3枠構成の登場人物紹介カード（[肩書き, 紹介文, キャラ名]）は見出しタイトルを分かりやすく整形
+                    if len(telop_texts) == 3 and len(telop_texts[1]) >= 35 and len(telop_texts[0]) <= 25 and len(telop_texts[2]) <= 25:
+                        c_label = telop_texts[2].strip()
+                        r_label = telop_texts[0].strip()
+                        if c_label and c_label != r_label:
+                            title = f"{c_label}（{r_label}）"
+                        else:
+                            title = f"{c_label or r_label}（{telop_texts[1][:18]}…）"
+                    else:
+                        title = telop_texts[0]
+                        if title in ("?", "？") and len(telop_texts) >= 2:
+                            title = f"{title} ({telop_texts[1][:18]}…)"
                 elif txts:
                     title = txts[0]
                 telop = ""
@@ -2372,16 +2597,19 @@ def extract_via_direct_iwa(filepath, project_name):
             char_name = ""
             char_img_name = ""
             char_img_path = None
+            char_geom = None
 
             # ノート内のカッコ書き"（）,(),[]"から話者を最優先認識
             if note_speaker:
                 if "&" in note_speaker:
                     char_name = note_speaker
                 else:
-                    for k, full_n in CHAR_MAP.items():
-                        if k in note_speaker:
-                            char_name = full_n
-                            break
+                    char_name = CHAR_MAP.get(note_speaker, "")
+                    if not char_name:
+                        for k, full_n in CHAR_MAP.items():
+                            if k in note_speaker:
+                                char_name = full_n
+                                break
                     if not char_name:
                         char_name = note_speaker
 
@@ -2395,6 +2623,8 @@ def extract_via_direct_iwa(filepath, project_name):
                             break
                     if not char_name:
                         char_name = spk
+                elif "「" not in telop and "『" not in telop and ("僕は" in telop or "僕が" in telop or "僕の" in telop):
+                    char_name = "操夢"
                 else:
                     for k, full_n in CHAR_MAP.items():
                         if k in telop or k in title:
@@ -2416,22 +2646,23 @@ def extract_via_direct_iwa(filepath, project_name):
             if primary_char:
                 char_img_name = primary_char["imageName"]
                 char_img_path = primary_char["imagePath"]
+                char_geom = primary_char.get("geom")
 
             # スライドに複数キャラクターが存在する場合:
-            # 主キャラ以外のキャラクターも objects に objectType: "character" として配置する（左側配置）
+            # 主キャラ以外のキャラクターも objects に objectType: "character" として配置する
             char_idx = 0
             for c in characters:
                 if c != primary_char:
-                    # 2人目以降のキャラは画面左側〜中央（重ならない配置）
-                    pos_x = 180.0 + (char_idx * 300.0)
+                    c_geom = c.get("geom")
+                    cx_o, cy_o, cw_o, ch_o = c_geom if c_geom else (180.0 + (char_idx * 300.0), 30.0, 480.0, 850.0)
                     objects.append({
                         "name": c["imageName"],
                         "objectType": "character",
                         "characterName": c["name"],
-                        "x": pos_x,
-                        "y": 30.0,
-                        "width": 480.0,
-                        "height": 850.0,
+                        "x": cx_o,
+                        "y": cy_o,
+                        "width": cw_o,
+                        "height": ch_o,
                         "imagePath": c["imagePath"]
                     })
                     char_idx += 1
@@ -2439,17 +2670,18 @@ def extract_via_direct_iwa(filepath, project_name):
             if not char_name:
                 char_name = "ナレーション" if stype == "content" else ""
 
-            anims, builds = extract_animations_from_decomp(decomp, objects, txts, stype, char_name=char_name, obj_to_img=obj_to_img)
+            anims, builds = extract_animations_from_decomp(decomp, objects, txts, stype, char_name=char_name, obj_to_img=merged_obj_to_img)
             total_anim_dur = sum(a.get("duration", 1.0) for a in anims) if anims else 0.0
 
             # Slide 3 & 7 Rule: Presenter Note MUST BE BLANK for Title and Section Header slides!
+            # ただし元の生ノート(rawPresenterNote)に「（表示時間:1.5秒）」等の時間指定がある場合はタイミング同期のため保持する
             if stype in ["title", "sectionHeader"]:
                 if note_speaker:
                     presenter_note = cleaned_note
                     raw_presenter_note = orig_raw_note
                 else:
                     presenter_note = ""
-                    raw_presenter_note = ""
+                    raw_presenter_note = orig_raw_note if raw_note else ""
                 duration = parse_duration_from_note(raw_note, default_duration=3.0, anim_duration=total_anim_dur)
             else:
                 # 通常シーン: ノートにセリフが記載されている場合はノートのセリフのみを記録・表示！
@@ -2483,6 +2715,11 @@ def extract_via_direct_iwa(filepath, project_name):
                     bg_name = "単色背景"
                     bg_path = None
 
+            bx, by, bw, bh = bg_geom if bg_geom else (0.0, 0.0, doc_w, doc_h)
+            cx_p, cy_p, cw_p, ch_p = char_geom if (char_img_path and char_geom) else (
+                (720.0, 30.0, 480.0, 850.0) if char_img_path else (None, None, None, None)
+            )
+
             parsed_slides.append({
                 "slideIndex": s_idx,
                 "slideType": stype,
@@ -2498,19 +2735,19 @@ def extract_via_direct_iwa(filepath, project_name):
                 "backgroundName": bg_name,
                 "characterName": char_name,
                 "characterNames": [c["name"] for c in characters],
-                "characters": characters,
+                "characters": [{k: v for k, v in c.items() if k != "geom"} for c in characters],
                 "slideWidth": doc_w,
                 "slideHeight": doc_h,
                 "backgroundImagePath": bg_path,
-                "backgroundX": 0.0,
-                "backgroundY": 0.0,
-                "backgroundWidth": doc_w,
-                "backgroundHeight": doc_h,
+                "backgroundX": bx,
+                "backgroundY": by,
+                "backgroundWidth": bw,
+                "backgroundHeight": bh,
                 "characterImagePath": char_img_path,
-                "characterX": 720.0 if char_img_path else None,
-                "characterY": 30.0 if char_img_path else None,
-                "characterWidth": 480.0 if char_img_path else None,
-                "characterHeight": 850.0 if char_img_path else None,
+                "characterX": cx_p,
+                "characterY": cy_p,
+                "characterWidth": cw_p,
+                "characterHeight": ch_p,
                 "telopX": 0.0,
                 "telopY": 855.0,
                 "telopWidth": doc_w,

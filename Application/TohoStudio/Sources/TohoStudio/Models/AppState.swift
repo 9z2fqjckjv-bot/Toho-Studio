@@ -261,20 +261,15 @@ public final class AppState: ObservableObject {
         let clean = SlideRecognitionService.cleanProjectBaseName(from: project)
         let normClean = normalizeProjectKey(clean)
         let idx3 = String(format: "%03d", slideIndex)
-        let idxPatterns = [".\(idx3).jpeg", ".\(idx3).jpg", ".\(slideIndex).jpeg", ".\(slideIndex).jpg", "_\(idx3).jpeg", "_\(slideIndex).jpeg"]
+        let idx4 = String(format: "%04d", slideIndex)
+        let idxPatterns = [".\(idx3).jpeg", ".\(idx3).jpg", ".\(idx4).jpeg", ".\(idx4).jpg", ".\(slideIndex).jpeg", ".\(slideIndex).jpg", "_\(idx3).jpeg", "_\(idx4).jpeg", "_\(slideIndex).jpeg"]
 
         guard let subdirs = try? fm.contentsOfDirectory(atPath: slidesCacheBase) else { return nil }
 
         let matchedDirs = subdirs.filter { dir in
-            if clean.isEmpty { return true }
+            if clean.isEmpty { return false }
             let normDir = normalizeProjectKey(dir)
-            if normDir == normClean { return true }
-            if normClean.count >= 2 && normDir.contains(normClean) { return true }
-            if dir.contains(clean) || clean.contains(dir) { return true }
-            let dirClean = SlideRecognitionService.cleanProjectBaseName(from: dir)
-            let rawNormDir = dir.replacingOccurrences(of: "_", with: "").replacingOccurrences(of: " ", with: "")
-            let rawNormClean = clean.replacingOccurrences(of: "_", with: "").replacingOccurrences(of: " ", with: "")
-            return dirClean.contains(clean) || clean.contains(dirClean) || rawNormDir.contains(rawNormClean) || rawNormClean.contains(rawNormDir)
+            return normDir == normClean
         }
 
         let sortedDirs = matchedDirs.sorted { d1, d2 in
@@ -2315,11 +2310,15 @@ public final class AppState: ObservableObject {
                         scene.duration = totalVoiceDur
                     } else if let animDur = scene.animationDuration, animDur > 0 {
                         scene.duration = max(0.1, animDur)
+                    } else if idx < slides.count, let sAnimDur = slides[idx].animationTimingDuration, sAnimDur > 0 {
+                        scene.duration = max(0.1, sAnimDur)
                     } else {
                         scene.duration = max(2.5, scene.duration)
                     }
                 } else if let animDur = scene.animationDuration, animDur > 0 {
                     scene.duration = max(0.1, animDur)
+                } else if idx < slides.count, let sAnimDur = slides[idx].animationTimingDuration, sAnimDur > 0 {
+                    scene.duration = max(0.1, sAnimDur)
                 } else {
                     scene.duration = max(2.5, scene.duration)
                 }

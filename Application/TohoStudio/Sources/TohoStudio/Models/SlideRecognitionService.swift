@@ -536,7 +536,10 @@ public final class SlideRecognitionService: ObservableObject {
             let hasActualAnimation = !slide.animations.isEmpty && slide.animationTag != "なし" && !slide.animationTag.isEmpty
             let actualAnimName = hasActualAnimation ? slide.animationTag : "なし"
 
-            // シーンの長さ: 音声が存在する場合は音声の長さに完全一致
+            let explicitTiming = slide.animationTimingDuration
+            let explicitNote = slide.animationTimingNote
+
+            // シーンの長さ: 音声が存在する場合は音声の長さに完全一致、明示的な表示時間指定がある場合はその秒数を維持
             let sceneDur: Double
             if !matchedVoices.isEmpty {
                 let isDuoUnison = matchedVoices.count >= 2 && matchedVoices[0].text == matchedVoices[1].text
@@ -545,12 +548,14 @@ public final class SlideRecognitionService: ObservableObject {
                 } else {
                     sceneDur = matchedVoices.reduce(0.0) { $0 + $1.duration }
                 }
+            } else if let expDur = explicitTiming, expDur > 0 {
+                sceneDur = expDur
             } else {
                 let animTotal = slide.animations.reduce(0.0) { $0 + $1.duration }
                 if animTotal > 0 {
                     sceneDur = animTotal
                 } else {
-                    sceneDur = max(slide.duration, 2.0)
+                    sceneDur = max(slide.duration, 1.0)
                 }
             }
 
@@ -567,6 +572,8 @@ public final class SlideRecognitionService: ObservableObject {
                 audioTrack: matchedVoice != nil ? (matchedVoice?.trackId ?? "track_voice") : nil,
                 animationName: actualAnimName,
                 transitionName: slide.transitionEffect,
+                animationDuration: explicitTiming,
+                animationNote: explicitNote,
                 slideImagePath: slide.slideImagePath,
                 videoPath: slide.animationVideoPath,
                 backgroundImagePath: slide.backgroundImagePath,
@@ -649,8 +656,8 @@ public final class SlideRecognitionService: ObservableObject {
         // 既存 SE もそのまま復元
         clips.append(contentsOf: existingSEs)
 
-        // 音声セリフ枠
-        for slide in slides.prefix(200) {
+        // 音声セリフ枠（長編・総集編スライドでも全スライドを漏れなく同期）
+        for slide in slides {
             // 指示書準拠: セクション見出しとタイトルスライドは音声を必ずスキップ
             if slide.isTitleOrSectionHeader {
                 continue

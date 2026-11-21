@@ -1099,8 +1099,8 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         }
 
         // 1. アニメーション表記・時間指定・演出カッコ書きの除去
-        // （アニメーション）、(アニメーション: 15秒)、(アニメーションに合わせる)、(アニメ)、(表示時間: 5秒)、(時間: 3秒)、(3秒)、(フェードイン)など
-        let animPattern = "[（\\(\\[［][^）\\)\\]］]*(?:アニメーション|アニメ|表示時間|時間|\\d+(?:\\.\\d+)?\\s*秒|フェード|ズーム|タイプライター|スライド|アクション|イン|アウト|カット)[^）\\)\\]］]*[）\\)\\]］]"
+        // （アニメーション）、(アニメーション: 15秒)、(アニメーションに合わせる)、(アニメ)、(表示時間: 5秒)、(表示: 1.5秒)、(時間: 3秒)、(3秒)、(フェードイン)など
+        let animPattern = "[（\\(\\[［][^）\\)\\]］]*(?:アニメーション|アニメ|表示時間|表示|時間|\\d+(?:\\.\\d+)?\\s*秒|フェード|ズーム|タイプライター|スライド|アクション|イン|アウト|カット)[^）\\)\\]］]*[）\\)\\]］]"
         if let regexAnim = try? NSRegularExpression(pattern: animPattern, options: .caseInsensitive) {
             let range = NSRange(result.startIndex..., in: result)
             result = regexAnim.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "")
@@ -1131,7 +1131,7 @@ public struct SlideItem: Identifiable, Codable, Equatable {
 
     /// アニメーション・時間指定カッコ書きのみを除去する共通ユーティリティ
     public static func stripAnimationBrackets(from text: String) -> String {
-        let animPattern = "[（\\(\\[［][^）\\)\\]］]*(?:アニメーション|アニメ|表示時間|時間|\\d+(?:\\.\\d+)?\\s*秒|フェード|ズーム|タイプライター|スライド|アクション|イン|アウト|カット)[^）\\)\\]］]*[）\\)\\]］]"
+        let animPattern = "[（\\(\\[［][^）\\)\\]］]*(?:アニメーション|アニメ|表示時間|表示|時間|\\d+(?:\\.\\d+)?\\s*秒|フェード|ズーム|タイプライター|スライド|アクション|イン|アウト|カット)[^）\\)\\]］]*[）\\)\\]］]"
         guard let regex = try? NSRegularExpression(pattern: animPattern, options: .caseInsensitive) else { return text }
         let range = NSRange(text.startIndex..., in: text)
         let cleaned = regex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "")
@@ -1166,8 +1166,10 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         "チルノ": "チルノ",
         "文": "射命丸文", "射命丸文": "射命丸文",
         "妹紅": "藤原妹紅", "藤原妹紅": "藤原妹紅",
+        "永琳": "八意永琳", "八意永琳": "八意永琳",
         "輝夜": "蓬莱山輝夜", "蓬莱山輝夜": "蓬莱山輝夜",
-        "うどんげ": "鈴仙・優曇華院・イナバ", "優曇華": "鈴仙・優曇華院・イナバ", "鈴仙": "鈴仙・優曇華院・イナバ",
+        "てゐ": "因幡てゐ", "因幡てゐ": "因幡てゐ",
+        "うどんげ": "鈴仙・優曇華院・イナバ", "優曇華": "鈴仙・優曇華院・イナバ", "鈴仙": "鈴仙・優曇華院・イナバ", "イナバ": "鈴仙・優曇華院・イナバ", "鈴仙・優曇華院・イナバ": "鈴仙・優曇華院・イナバ",
         "ナレーション": "ナレーション"
     ]
 
@@ -1191,9 +1193,9 @@ public struct SlideItem: Identifiable, Codable, Equatable {
 
         let bracketPattern = "[（\\(\\[［]([^）\\)\\]］]{1,40})[）\\)\\]］]"
         guard let bracketRegex = try? NSRegularExpression(pattern: bracketPattern, options: []) else { return [] }
-        let volPattern = "[:：]?(?:音量|volume)[=：:]?\\s*(\\d+)%?"
+        let volPattern = "[:：]?(?:音量|volume)[=：:]?\\s*(\\d+)[%％]?"
         let volRegex = try? NSRegularExpression(pattern: volPattern, options: .caseInsensitive)
-        let nonSpeakerKeywords = ["アニメーション", "アニメ", "表示時間", "時間", "秒", "フェード", "ズーム", "イン", "アクション", "アウト", "カット", "スライド"]
+        let nonSpeakerKeywords = ["アニメーション", "アニメ", "表示時間", "表示", "時間", "秒", "フェード", "ズーム", "イン", "アクション", "アウト", "カット", "スライド", "敬称略", "参照"]
 
         for line in lines {
             let nsLine = line as NSString
@@ -1236,8 +1238,8 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         var trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
 
-        // 音量指定の除外 (例: "レミリア:音量50%", "レミリア：音量50%", "レミリア:volume50%")
-        let volPattern = "[:：](?:音量|volume)\\s*\\d+%?"
+        // 音量指定の除外 (例: "レミリア:音量50%", "こいし：音量50％", "レミリア:volume50%")
+        let volPattern = "[:：]?(?:音量|volume)[=：:]?\\s*\\d+[%％]?"
         if let regex = try? NSRegularExpression(pattern: volPattern, options: .caseInsensitive) {
             trimmed = regex.stringByReplacingMatches(in: trimmed, options: [], range: NSRange(trimmed.startIndex..., in: trimmed), withTemplate: "").trimmingCharacters(in: .whitespacesAndNewlines)
         }
@@ -1328,9 +1330,9 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         return mapped.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "　", with: "")
     }
 
-    /// ノートまたはカッコ書きから音量指定（例: "音量50%", "volume=50%"）を解析して 0.0〜1.0 の倍率を返す
+    /// ノートまたはカッコ書きから音量指定（例: "音量50%", "こいし：音量50％", "volume=50%"）を解析して 0.0〜1.0 の倍率を返す
     public static func extractVolumeRatioFromBrackets(from text: String) -> Double? {
-        let pattern = "[:：]?(?:音量|volume)[=：:]?\\s*(\\d+)%?"
+        let pattern = "[:：]?(?:音量|volume)[=：:]?\\s*(\\d+)[%％]?"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return nil }
         let nsStr = text as NSString
         let range = NSRange(text.startIndex..., in: text)
@@ -1352,7 +1354,7 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         let range = NSRange(text.startIndex..., in: text)
         let matches = regex.matches(in: text, options: [], range: range)
 
-        let nonSpeakerKeywords = ["アニメーション", "アニメ", "表示時間", "時間", "秒", "フェード", "ズーム", "イン", "アクション", "アウト", "カット", "スライド"]
+        let nonSpeakerKeywords = ["アニメーション", "アニメ", "表示時間", "表示", "時間", "秒", "フェード", "ズーム", "イン", "アクション", "アウト", "カット", "スライド", "敬称略", "参照"]
 
         var candidateSpeakers: [String] = []
 
@@ -1393,7 +1395,7 @@ public struct SlideItem: Identifiable, Codable, Equatable {
     /// 例:
     /// - "（アニメーション: 15秒）" -> 15.0
     /// - "[アニメーション：10秒]" -> 10.0
-    /// - "（アニメーション:12.35秒）" -> 12.35
+    /// - "（表示時間:1.5秒）", "（表示：1.5秒）" -> 1.5
     /// - "（アニメーションに合わせる）" -> スライドのアニメーション動画またはアニメーション合計時間
     public static func extractAnimationDuration(from text: String, slide: SlideItem? = nil) -> Double? {
         // 1. "アニメーションに合わせる" 表記の判定
@@ -1424,8 +1426,8 @@ public struct SlideItem: Identifiable, Codable, Equatable {
             }
         }
 
-        // 2. 秒数指定パターンの判定 (例: （アニメーション: 15秒）, [アニメーション：10秒], (15秒), (表示時間: 5秒))
-        let secPattern = "[（\\(\\[［]\\s*(?:アニメ(?:ーション)?|表示時間|時間)?\\s*[:：]?\\s*(\\d+(?:\\.\\d+)?)\\s*秒\\s*[）\\)\\]］]"
+        // 2. 秒数指定パターンの判定 (例: （アニメーション: 15秒）, [アニメーション：10秒], (15秒), (表示時間: 1.5秒), (表示：1.5秒))
+        let secPattern = "[（\\(\\[［]\\s*(?:アニメ(?:ーション)?|表示時間|表示|時間)?\\s*[:：]?\\s*(\\d+(?:\\.\\d+)?)\\s*秒\\s*[）\\)\\]］]"
         if let regexSec = try? NSRegularExpression(pattern: secPattern, options: .caseInsensitive) {
             let nsStr = text as NSString
             let range = NSRange(text.startIndex..., in: text)
@@ -1440,9 +1442,9 @@ public struct SlideItem: Identifiable, Codable, Equatable {
         return nil
     }
 
-    /// スライドテキストからアニメーションの注記テキストを抽出 (例: "アニメーション: 15秒", "アニメーションに合わせる")
+    /// スライドテキストからアニメーションの注記テキストを抽出 (例: "アニメーション: 15秒", "表示時間: 1.5秒", "アニメーションに合わせる")
     public static func extractAnimationNote(from text: String) -> String? {
-        let pattern = "[（\\(\\[［]\\s*(アニメ(?:ーション)?(?:\\s*[:：]?\\s*\\d+(?:\\.\\d+)?\\s*秒|に合わせる)?|\\d+(?:\\.\\d+)?\\s*秒|表示時間\\s*[:：]\\s*\\d+(?:\\.\\d+)?\\s*秒)\\s*[）\\)\\]］]"
+        let pattern = "[（\\(\\[［]\\s*(アニメ(?:ーション)?(?:\\s*[:：]?\\s*\\d+(?:\\.\\d+)?\\s*秒|に合わせる)?|\\d+(?:\\.\\d+)?\\s*秒|(?:表示時間|表示|時間)\\s*[:：]\\s*\\d+(?:\\.\\d+)?\\s*秒)\\s*[）\\)\\]］]"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return nil }
         let nsStr = text as NSString
         let range = NSRange(text.startIndex..., in: text)
