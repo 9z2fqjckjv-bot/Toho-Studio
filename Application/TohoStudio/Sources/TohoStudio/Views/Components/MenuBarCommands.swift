@@ -10,8 +10,14 @@ public struct MenuBarCommands: Commands {
     }
 
     public var body: some Commands {
-        // MARK: - Toho-Studio (cmd+t)
-        CommandMenu("Toho-Studio") {
+        primaryCommands
+        secondaryCommands
+    }
+
+    @CommandsBuilder
+    private var primaryCommands: some Commands {
+        // MARK: - Toho-Studio (システム標準アプリメニューへ統合し二重表示を防止)
+        CommandGroup(replacing: .appInfo) {
             Button("アプリトップ (cmd+0)") {
                 withAnimation { appState.isShowingAppTop = true }
                 appState.addHistory("メニュー: アプリトップを表示")
@@ -26,7 +32,9 @@ public struct MenuBarCommands: Commands {
                 appState.addHistory("メニュー: アプリ情報を表示")
             }
             .keyboardShortcut("i", modifiers: [.command, .control])
+        }
 
+        CommandGroup(replacing: .appSettings) {
             Button("設定画面 (cmd+t+s)") {
                 appState.activeModal = .settings
                 appState.addHistory("メニュー: 設定画面を表示")
@@ -189,8 +197,8 @@ public struct MenuBarCommands: Commands {
             }
         }
 
-        // MARK: - ファイル (cmd+f)
-        CommandMenu("ファイル") {
+        // MARK: - ファイル (標準「ファイル」メニューへ統合し二重表示を防止)
+        CommandGroup(replacing: .newItem) {
             Button("新規作成 (cmd+f+n)") {
                 appState.activeModal = .newProject
                 appState.addHistory("ファイル: 新規作成ダイアログ表示")
@@ -288,9 +296,9 @@ public struct MenuBarCommands: Commands {
                 appState.performRollback()
             }
             .keyboardShortcut("b", modifiers: [.command, .option])
+        }
 
-            Divider()
-
+        CommandGroup(replacing: .saveItem) {
             Button("上書き保存 (cmd+f+s)") {
                 appState.performSave()
             }
@@ -334,8 +342,14 @@ public struct MenuBarCommands: Commands {
             .keyboardShortcut("i", modifiers: [.command, .option])
         }
 
-        // MARK: - 編集 (cmd+e)
-        CommandMenu("編集") {
+        CommandGroup(replacing: .importExport) {}
+        CommandGroup(replacing: .printItem) {}
+    }
+
+    @CommandsBuilder
+    private var secondaryCommands: some Commands {
+        // MARK: - 編集 (標準「編集」メニューへ統合し二重表示を防止)
+        CommandGroup(replacing: .undoRedo) {
             Button("やり直す (cmd+z)") {
                 appState.performUndo()
             }
@@ -345,7 +359,9 @@ public struct MenuBarCommands: Commands {
                 appState.performRedo()
             }
             .keyboardShortcut("z", modifiers: [.command, .shift])
+        }
 
+        CommandGroup(after: .pasteboard) {
             Divider()
 
             // トリミング: ゲームメーカー以外で表示 (仕様書 78行目)
@@ -439,8 +455,8 @@ public struct MenuBarCommands: Commands {
             .keyboardShortcut("n", modifiers: [.command, .control])
         }
 
-        // MARK: - 表示 (cmd+d)
-        CommandMenu("表示") {
+        // MARK: - 表示 (標準「表示」メニューへ統合し二重表示を防止)
+        CommandGroup(replacing: .toolbar) {
             Button(appState.isControlBarVisible ? "コントロールバーを消す" : "コントロールバーを表示") {
                 withAnimation { appState.isControlBarVisible.toggle() }
             }
@@ -531,6 +547,8 @@ public struct MenuBarCommands: Commands {
                 appState.addHistory("表示: 縮小 (\(Int(appState.zoomScale * 100))%)")
             }
         }
+
+        CommandGroup(replacing: .sidebar) {}
 
         // MARK: - 再生 (cmd+p) - ムービーメーカー専用 (仕様書 193行目)
         if appState.currentModule == .movieMaker {
@@ -625,8 +643,10 @@ public struct MenuBarCommands: Commands {
             }
         }
 
-        // MARK: - ウィンドウ (cmd+w)
-        CommandMenu("ウィンドウ") {
+        // MARK: - ウインドウ (標準「ウインドウ」メニューへ統合し「ウィンドウ / ウインドウ」二重表示を防止)
+        CommandGroup(before: .windowList) {
+            Divider()
+
             Button("レイアウト切り替え (cmd+w+l)") {
                 appState.cycleLayout()
             }
@@ -683,10 +703,12 @@ public struct MenuBarCommands: Commands {
                 appState.activeModal = .windowOptions
                 appState.addHistory("ウィンドウ: オプション設定を表示")
             }
+
+            Divider()
         }
 
-        // MARK: - ヘルプ (cmd+h)
-        CommandMenu("ヘルプ") {
+        // MARK: - ヘルプ (標準「ヘルプ」メニューへ統合し二重表示を防止)
+        CommandGroup(replacing: .help) {
             Button("取扱説明書 (cmd+h+d)") {
                 appState.activeModal = .manual
                 appState.addHistory("ヘルプ: 取扱説明書を表示")

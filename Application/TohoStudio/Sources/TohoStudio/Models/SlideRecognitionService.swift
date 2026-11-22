@@ -628,9 +628,20 @@ public final class SlideRecognitionService: ObservableObject {
         let existingClips = AppState.shared.soundClips
         var clips: [SoundClip] = []
 
-        // 既存の BGM クリップおよび SE クリップを優先保持
-        let existingBGMs = existingClips.filter { $0.type == "BGM" }
-        let existingSEs = existingClips.filter { $0.type == "SE" }
+        // 既存の BGM クリップおよび SE クリップのうち、現在のスライド数範囲内のもののみ保持（別プロジェクトの残留クリップを除外）
+        let maxSlideCount = max(1, slides.count)
+        let existingBGMs = existingClips.filter { clip in
+            guard clip.type == "BGM" else { return false }
+            if let s = clip.spanStartSceneIndex, (s < 1 || s > maxSlideCount) { return false }
+            if let cIdx = clip.sceneIndex, (cIdx < 1 || cIdx > maxSlideCount) { return false }
+            return true
+        }
+        let existingSEs = existingClips.filter { clip in
+            guard clip.type == "SE" else { return false }
+            if let s = clip.spanStartSceneIndex, (s < 1 || s > maxSlideCount) { return false }
+            if let cIdx = clip.sceneIndex, (cIdx < 1 || cIdx > maxSlideCount) { return false }
+            return true
+        }
         let existingVoices = existingClips.filter { $0.type == "Voice" }
 
         // BGM クリップ枠の確保

@@ -915,13 +915,30 @@ public struct BatchVoiceGenerationSheet: View {
 
         if panel.runModal() == .OK, let url = panel.url {
             loadedFileName = url.lastPathComponent
-            batchService.extractBatchItemsFromFile(
-                url: url,
-                defaultEffect: globalEffect,
-                defaultQuality: globalQuality
-            ) { items in
-                self.batchItems = items
-                self.appState.log("外部ファイル \(url.lastPathComponent) から \(items.count) 件のセリフを抽出しました")
+            let newCleanBase = SlideRecognitionService.cleanProjectBaseName(from: url.lastPathComponent)
+            let prevCleanBase = SlideRecognitionService.cleanProjectBaseName(from: appState.currentProjectName)
+            DispatchQueue.global(qos: .userInitiated).async {
+                let loadedSlides = SlideRecognitionService.shared.extractSlidesFromPath(filePath: url.path)
+                let items = batchService.extractBatchItems(
+                    from: loadedSlides,
+                    defaultEffect: globalEffect,
+                    defaultQuality: globalQuality
+                )
+                DispatchQueue.main.async {
+                    if !loadedSlides.isEmpty {
+                        if !newCleanBase.isEmpty && newCleanBase != prevCleanBase {
+                            self.appState.soundClips.removeAll()
+                            self.appState.movieScenes.removeAll()
+                        }
+                        self.appState.slides = loadedSlides
+                        self.appState.currentProjectPath = url.path
+                        if !newCleanBase.isEmpty {
+                            self.appState.currentProjectName = newCleanBase
+                        }
+                    }
+                    self.batchItems = items
+                    self.appState.log("外部ファイル \(url.lastPathComponent) から \(items.count) 件のセリフを抽出しました")
+                }
             }
         }
     }

@@ -92,8 +92,44 @@ public struct SoundMakerView: View {
     private var totalTimelineDuration: Double {
         let scenes = activeSceneList()
         let scenesTotal = scenes.reduce(0.0) { $0 + $1.duration }
-        let maxClipEnd = appState.soundClips.map { $0.startTime + $0.duration }.max() ?? 0.0
+        let maxClipEnd = appState.soundClips.compactMap { clip -> Double? in
+            if let sIdx = clip.spanStartSceneIndex ?? clip.sceneIndex, !scenes.isEmpty, sIdx > scenes.count {
+                return nil
+            }
+            let start = resolvedClipDisplayStartTime(clip, scenes: scenes)
+            let dur = resolvedClipDisplayDuration(clip, displayStartTime: start, scenes: scenes)
+            return start + dur
+        }.max() ?? 0.0
         return max(120.0, max(scenesTotal, maxClipEnd) + 15.0)
+    }
+
+    private func resolvedClipDisplayStartTime(_ clip: SoundClip, scenes: [MovieScene]) -> Double {
+        if draggingClipId == clip.id {
+            return clip.startTime
+        }
+        if let sIdx = clip.spanStartSceneIndex ?? clip.sceneIndex,
+           sIdx >= 1 && sIdx <= scenes.count,
+           let rel = clip.sceneRelativeStartTime {
+            let sRange = sceneTimeRange(index: sIdx - 1)
+            return sRange.start + rel
+        }
+        return clip.startTime
+    }
+
+    private func resolvedClipDisplayDuration(_ clip: SoundClip, displayStartTime: Double, scenes: [MovieScene]) -> Double {
+        let baseDur = clip.duration
+        guard (clip.type == "SE" || clip.type == "BGM"),
+              clip.isCutOffOnSceneEnd,
+              let targetCutIdx = clip.spanEndSceneIndex ?? clip.sceneIndex,
+              targetCutIdx >= 1 && targetCutIdx <= scenes.count else {
+            return baseDur
+        }
+        let sRange = sceneTimeRange(index: targetCutIdx - 1)
+        let evaluatedDur = clip.isLooping ? max(clip.duration, clip.effectiveDuration) : clip.effectiveDuration
+        if (displayStartTime + evaluatedDur) > sRange.end {
+            return max(0.1, sRange.end - displayStartTime)
+        }
+        return baseDur
     }
 
     private var inspectorWidthForLayout: CGFloat {
@@ -222,6 +258,7 @@ public struct SoundMakerView: View {
         .onAppear {
             ensureDefaultTracksAndClips()
             if !appState.soundClips.isEmpty {
+                appState.purgeOrphanSoundClips()
                 let repaired = appState.resolveAndRepairAudioPaths(for: appState.soundClips)
                 appState.soundClips = repaired
                 appState.ensureTracksForClips(repaired)
@@ -3292,14 +3329,21 @@ public struct SoundMakerView: View {
 
     // MARK: - Track Waveform Lane View
     private func trackLaneContentView(track: AudioTrack, width: CGFloat) -> some View {
-        ZStack(alignment: .leading) {
+        let scenes = activeSceneList()
+        return ZStack(alignment: .leading) {
             // Background Track Lane
             Rectangle()
                 .fill(DAWTheme.timelineBackground)
                 .frame(width: width, height: 68)
 
-            // Clips on this Track
-            let clipsOnTrack = appState.soundClips.filter { $0.trackId == track.id }
+            // Clips on this Track (シーン範囲外の孤立クリップは描画除外)
+            let clipsOnTrack = appState.soundClips.filter { clip in
+                guard clip.trackId == track.id else { return false }
+                if !scenes.isEmpty, let sIdx = clip.spanStartSceneIndex ?? clip.sceneIndex, sIdx > scenes.count {
+                    return false
+                }
+                return true
+            }
             ForEach(clipsOnTrack) { clip in
                 clipWaveformRegionView(clip: clip, track: track)
             }
@@ -3410,18 +3454,10 @@ public struct SoundMakerView: View {
     // MARK: - Waveform Region View (波の形で表示する機能)
     private func clipWaveformRegionView(clip: SoundClip, track: AudioTrack) -> some View {
         let scenes = activeSceneList()
-        let displayStartTime: Double = {
-            if draggingClipId == clip.id {
-                return clip.startTime
-            }
-            if let sIdx = clip.spanStartSceneIndex ?? clip.sceneIndex, sIdx >= 1 && sIdx <= scenes.count, let rel = clip.sceneRelativeStartTime {
-                let sRange = sceneTimeRange(index: sIdx - 1)
-                return sRange.start + rel
-            }
-            return clip.startTime
-        }()
+        let displayStartTime = resolvedClipDisplayStartTime(clip, scenes: scenes)
+        let displayDuration = resolvedClipDisplayDuration(clip, displayStartTime: displayStartTime, scenes: scenes)
         let clipX = CGFloat(displayStartTime) * CGFloat(zoomScale)
-        let clipWidth = max(35, CGFloat(clip.duration) * CGFloat(zoomScale))
+        let clipWidth = max(35, CGFloat(displayDuration) * CGFloat(zoomScale))
         let isSelected = selectedClipId == clip.id
         let clipColor = Color(hex: clip.colorHex ?? track.colorHex)
         let isSpanning = clip.isSpanningScenes || (clip.spanStartSceneIndex != nil && clip.spanEndSceneIndex != nil)
@@ -3436,9 +3472,9 @@ public struct SoundMakerView: View {
             let sRange = sceneTimeRange(index: sIdx - 1)
             let sceneEndT = sRange.end
             let evaluatedDuration = clip.isLooping ? max(clip.duration, clip.effectiveDuration) : clip.effectiveDuration
-            if (clip.startTime + evaluatedDuration) > sceneEndT {
+            if (displayStartTime + evaluatedDuration) > sceneEndT {
                 isCutOffApplicable = true
-                let cutSeconds = max(0, sceneEndT - clip.startTime)
+                let cutSeconds = max(0, sceneEndT - displayStartTime)
                 sceneEndOffsetInClip = CGFloat(cutSeconds) * CGFloat(zoomScale)
             }
         }
@@ -3572,7 +3608,7 @@ public struct SoundMakerView: View {
 
                     Spacer()
 
-                    Text(String(format: "%.1fs", clip.duration))
+                    Text(String(format: "%.1fs", displayDuration))
                         .font(.system(size: 8))
                         .opacity(0.8)
                 }
@@ -4232,8 +4268,11 @@ public struct SoundMakerView: View {
         if selectedClipId == clip.id {
             selectedClipId = nil
         }
-        // シーン時間・タイムライン配置を完全再同期
+        // シーン時間・タイムライン配置を完全再同期（最後の1件を削除した場合もムービーシーン側をクリア）
         appState.syncSceneAndClipTimings(autoFitDuration: false)
+        if appState.soundClips.isEmpty {
+            appState.syncClipsToMovieScenes([])
+        }
     }
 
     // 特定のシーンに属する、またはそのシーンをカバーしているBGM
@@ -4246,14 +4285,34 @@ public struct SoundMakerView: View {
             if clip.type != "BGM" { return false }
             // 複数シーン跨ぎの場合
             if let start = clip.spanStartSceneIndex, let end = clip.spanEndSceneIndex {
-                return sceneIdx >= start && sceneIdx <= end
+                guard start >= 1 && start <= scenes.count else { return false }
+                let clampedEnd = min(scenes.count, end)
+                if sceneIdx >= start && sceneIdx <= clampedEnd {
+                    return true
+                }
+                if clip.isCutOffOnSceneEnd {
+                    return false
+                }
+                let clipStart = resolvedClipDisplayStartTime(clip, scenes: scenes)
+                let clipEnd = clipStart + clip.effectiveDuration
+                return clipStart < sEnd && clipEnd > sStart
             }
-            if let cIdx = clip.sceneIndex, cIdx == sceneIdx {
-                return true
+            // 単一シーン所属の場合: 即切りONならそのシーンのみで終了し後続シーンに重複表示しない
+            if let cIdx = clip.sceneIndex {
+                guard cIdx >= 1 && cIdx <= scenes.count else { return false }
+                if cIdx == sceneIdx {
+                    return true
+                }
+                if clip.isCutOffOnSceneEnd {
+                    return false
+                }
+                let clipStart = resolvedClipDisplayStartTime(clip, scenes: scenes)
+                let clipEnd = clipStart + clip.effectiveDuration
+                return clipStart < sEnd && clipEnd > sStart
             }
-            // 時間重複判定
+            // シーン番号未指定クリップの時間重複判定
             let clipStart = clip.startTime
-            let clipEnd = clip.startTime + clip.duration
+            let clipEnd = clip.startTime + clip.effectiveDuration
             return (clipStart < sEnd && clipEnd > sStart)
         }
     }
@@ -4267,10 +4326,29 @@ public struct SoundMakerView: View {
         return appState.soundClips.filter { clip in
             if clip.type != "SE" { return false }
             if let start = clip.spanStartSceneIndex, let end = clip.spanEndSceneIndex {
-                return sceneIdx >= start && sceneIdx <= end
+                guard start >= 1 && start <= scenes.count else { return false }
+                let clampedEnd = min(scenes.count, end)
+                if sceneIdx >= start && sceneIdx <= clampedEnd {
+                    return true
+                }
+                if clip.isCutOffOnSceneEnd {
+                    return false
+                }
+                let clipStart = resolvedClipDisplayStartTime(clip, scenes: scenes)
+                let clipEnd = clipStart + clip.effectiveDuration
+                return clipStart < sEnd && clipEnd > sStart
             }
-            if let cIdx = clip.sceneIndex, cIdx == sceneIdx {
-                return true
+            if let cIdx = clip.sceneIndex {
+                guard cIdx >= 1 && cIdx <= scenes.count else { return false }
+                if cIdx == sceneIdx {
+                    return true
+                }
+                if clip.isCutOffOnSceneEnd {
+                    return false
+                }
+                let clipStart = resolvedClipDisplayStartTime(clip, scenes: scenes)
+                let clipEnd = clipStart + clip.effectiveDuration
+                return clipStart < sEnd && clipEnd > sStart
             }
             let clipMid = clip.startTime + (clip.duration * 0.5)
             return clipMid >= sStart && clipMid < sEnd

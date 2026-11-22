@@ -558,9 +558,15 @@ public final class SoundMakerExporter {
         let soloTracks = activeTracks.filter { $0.isSolo }
         let effectiveTracks = !soloTracks.isEmpty ? soloTracks : activeTracks.filter { !$0.isMuted }
 
-        // 総再生時間の算出
-        let maxClipEnd = clips.map { $0.startTime + $0.effectiveDuration }.max() ?? 0.0
+        // 総再生時間の算出（即切りONクリップはシーン終了境界を上限とする）
         let scenesTotal = scenes.reduce(0.0) { $0 + $1.duration }
+        let maxClipEnd = clips.map { clip -> Double in
+            var dur = clip.isLooping ? max(clip.duration, clip.effectiveDuration) : clip.effectiveDuration
+            if clip.isCutOffOnSceneEnd, let limit = resolveSceneCutoffDuration(clip: clip, scenes: scenes), limit > 0 {
+                dur = min(dur, limit)
+            }
+            return clip.startTime + dur
+        }.max() ?? 0.0
         let totalDuration = max(1.0, max(scenesTotal, maxClipEnd))
 
         let totalFrames = Int(ceil(totalDuration * Double(options.sampleRate)))
@@ -614,8 +620,14 @@ public final class SoundMakerExporter {
         scenes: [MovieScene],
         options: ExportOptions
     ) async throws -> (left: [Float], right: [Float]) {
-        let maxClipEnd = clips.map { $0.startTime + max($0.duration, $0.effectiveDuration) }.max() ?? 0.0
         let scenesTotal = scenes.reduce(0.0) { $0 + $1.duration }
+        let maxClipEnd = clips.map { clip -> Double in
+            var dur = clip.isLooping ? max(clip.duration, clip.effectiveDuration) : max(clip.duration, clip.effectiveDuration)
+            if clip.isCutOffOnSceneEnd, let limit = resolveSceneCutoffDuration(clip: clip, scenes: scenes), limit > 0 {
+                dur = min(dur, limit)
+            }
+            return clip.startTime + dur
+        }.max() ?? 0.0
         let totalDuration = max(1.0, max(scenesTotal, maxClipEnd))
         let totalFrames = Int(ceil(totalDuration * Double(options.sampleRate)))
 

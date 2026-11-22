@@ -535,6 +535,7 @@ public final class SlideVoiceBatchService: ObservableObject {
 
         if !updatedScenes.isEmpty {
             appState.movieScenes = updatedScenes
+            appState.purgeOrphanSoundClips(maxSceneCount: updatedScenes.count)
         }
 
         // BGMトラックがなければデフォルトBGMクリップも用意（未設定の場合）
@@ -549,7 +550,7 @@ public final class SlideVoiceBatchService: ObservableObject {
                 colorHex: "#9B59B6",
                 waveformPoints: [0.5, 0.6, 0.7, 0.55, 0.8, 0.65, 0.7, 0.6, 0.75, 0.6],
                 spanStartSceneIndex: 1,
-                spanEndSceneIndex: items.count,
+                spanEndSceneIndex: max(1, updatedScenes.count),
                 fadeInDuration: 1.5,
                 fadeOutDuration: 2.0,
                 isLooping: true
@@ -557,13 +558,13 @@ public final class SlideVoiceBatchService: ObservableObject {
             appState.soundClips.append(bgmClip)
         }
 
-        if let movieIdx = appState.soundClips.firstIndex(where: { $0.type == "Movie" }) {
-            appState.soundClips[movieIdx].duration = max(currentPosition, appState.soundClips[movieIdx].duration)
+        if let movieIdx = appState.soundClips.firstIndex(where: { $0.type == "Movie" }), currentPosition > 0 {
+            appState.soundClips[movieIdx].duration = currentPosition
         }
 
         appState.totalDuration = max(currentPosition, 1.0)
-        appState.syncClipsToMovieScenes(appState.soundClips)
-        appState.log("全スライド (\(items.count) 件) の音声をシーンごとにタイムラインへ配置しました (総尺: \(String(format: "%.1f", currentPosition))秒)")
+        appState.syncSceneAndClipTimings(autoFitDuration: true)
+        appState.log("全スライド (\(updatedScenes.count) シーン) の音声をシーンごとにタイムラインへ配置しました (総尺: \(String(format: "%.1f", currentPosition))秒)")
     }
 
     // MARK: - Helpers

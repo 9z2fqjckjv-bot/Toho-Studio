@@ -40,10 +40,35 @@ struct TohoStudioApp: App {
             runAIImagePromptSelfTest()
             exit(0)
         }
+        if let idx = CommandLine.arguments.firstIndex(of: "--sync-project-headless"),
+           idx + 1 < CommandLine.arguments.count {
+            let baseName = CommandLine.arguments[idx + 1]
+            AppState.shared.loadUnifiedProjectForBothMakers(baseName: baseName, initialModule: .soundMaker, saveSyncedFiles: true)
+            print("HEADLESS_SYNC_OK: scenes=\(AppState.shared.movieScenes.count), clips=\(AppState.shared.soundClips.count)")
+            exit(0)
+        }
     }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("jp.nanndemoya.TohoStudio.ReloadUnifiedProject"),
+            object: nil,
+            queue: .main
+        ) { note in
+            let baseName = (note.object as? String) ?? "元女子校の日常総集編"
+            AppState.shared.loadUnifiedProjectForBothMakers(baseName: baseName, initialModule: AppState.shared.currentModule, saveSyncedFiles: false)
+        }
+
+        if let idx = CommandLine.arguments.firstIndex(of: "--open-unified-project"),
+           idx + 1 < CommandLine.arguments.count {
+            let baseName = CommandLine.arguments[idx + 1]
+            let modArg: SoftwareModule = CommandLine.arguments.contains("--movie-maker") ? .movieMaker : .soundMaker
+            DispatchQueue.main.async {
+                AppState.shared.loadUnifiedProjectForBothMakers(baseName: baseName, initialModule: modArg, saveSyncedFiles: false)
+            }
+        }
+
         NSApp.activate(ignoringOtherApps: true)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             if NSApp.windows.filter({ $0.isVisible && !$0.isMiniaturized }).isEmpty {
@@ -52,6 +77,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     win.makeKeyAndOrderFront(nil)
                 }
             }
+        }
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard let url = urls.first else { return }
+        let ext = url.pathExtension.lowercased()
+        let baseName = SlideRecognitionService.cleanProjectBaseName(from: url.lastPathComponent)
+        if ext == "tssm" {
+            AppState.shared.loadUnifiedProjectForBothMakers(baseName: baseName, initialModule: .soundMaker, saveSyncedFiles: false)
+        } else if ext == "tsvm" {
+            AppState.shared.loadUnifiedProjectForBothMakers(baseName: baseName, initialModule: .movieMaker, saveSyncedFiles: false)
         }
     }
 

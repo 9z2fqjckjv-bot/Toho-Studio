@@ -539,10 +539,17 @@ public final class AppState: ObservableObject {
                     return
                 }
 
+                // 別プロジェクトへの切り替え時は旧プロジェクトの残留クリップ・シーンをクリアして混入を防止
+                let prevClean = SlideRecognitionService.cleanProjectBaseName(from: self.currentProjectName)
+                let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: fileName)
+                if !cleanBase.isEmpty && !prevClean.isEmpty && cleanBase != prevClean {
+                    self.soundClips.removeAll()
+                    self.movieScenes.removeAll()
+                }
+
                 // スライド＆シナリオの生データも保持
                 self.slides = loadedSlides
                 self.currentProjectPath = path
-                let cleanBase = SlideRecognitionService.cleanProjectBaseName(from: fileName)
                 self.currentProjectName = cleanBase
 
                 let count = self.applySlidesToModule(slides: loadedSlides, module: dest)
@@ -1928,6 +1935,95 @@ public final class AppState: ObservableObject {
         ]
     }
 
+    // MARK: - SoundMaker & MovieMaker Unified Project Loading
+    public func loadUnifiedProjectForBothMakers(baseName: String, initialModule: SoftwareModule = .soundMaker, saveSyncedFiles: Bool = false) {
+        let fm = FileManager.default
+        let resRoot = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource"
+        let tspmPath = "\(resRoot)/Slide&ScenarioMarker/\(baseName).tspm"
+        let tsvmPath = "\(resRoot)/MovieMarker/\(baseName).tsvm"
+        let tssmPath = "\(resRoot)/SoundMarker/\(baseName).tssm"
+
+        let decoder = JSONDecoder()
+        if fm.fileExists(atPath: tspmPath),
+           let sData = try? Data(contentsOf: URL(fileURLWithPath: tspmPath)),
+           let loadedSlides = try? decoder.decode([SlideItem].self, from: sData),
+           !loadedSlides.isEmpty {
+            self.slides = loadedSlides
+        }
+
+        if fm.fileExists(atPath: tsvmPath),
+           let mData = try? Data(contentsOf: URL(fileURLWithPath: tsvmPath)),
+           let loadedScenes = try? decoder.decode([MovieScene].self, from: mData),
+           !loadedScenes.isEmpty {
+            self.movieScenes = loadedScenes
+            self.totalDuration = loadedScenes.reduce(0.0) { $0 + $1.duration }
+        }
+
+        if fm.fileExists(atPath: tssmPath),
+           let smData = try? Data(contentsOf: URL(fileURLWithPath: tssmPath)),
+           let doc = try? decoder.decode(SoundMakerProjectDocument.self, from: smData) {
+            let repaired = resolveAndRepairAudioPaths(for: doc.clips)
+            self.soundClips = repaired
+            if let tr = doc.tracks, !tr.isEmpty {
+                self.audioTracks = tr
+            }
+            ensureTracksForClips(repaired)
+            if self.movieScenes.isEmpty, let sc = doc.scenes, !sc.isEmpty {
+                self.movieScenes = sc
+            }
+        }
+
+        self.currentProjectName = baseName
+        self.currentProjectPath = initialModule == .movieMaker ? tsvmPath : tssmPath
+
+        // Re-align character-triggered SE/BGM with exact WAV waveform segments and sync both modules
+        self.purgeOrphanSoundClips()
+        self.syncSceneAndClipTimings(autoFitDuration: true)
+        self.syncClipsToMovieScenes(self.soundClips)
+        self.resolveMovieScenesMedia()
+
+        if saveSyncedFiles {
+            if let mOut = try? JSONEncoder().encode(self.movieScenes) {
+                try? mOut.write(to: URL(fileURLWithPath: tsvmPath), options: .atomic)
+                let syncPath = "\(resRoot)/MovieMarker/\(baseName)_movie_sync.json"
+                if fm.fileExists(atPath: syncPath) {
+                    try? mOut.write(to: URL(fileURLWithPath: syncPath), options: .atomic)
+                }
+                let altTsvm = "\(resRoot)/MovieMarker/総集編.tsvm"
+                if baseName.contains("総集編") && fm.fileExists(atPath: altTsvm) {
+                    try? mOut.write(to: URL(fileURLWithPath: altTsvm), options: .atomic)
+                }
+                let altSync = "\(resRoot)/MovieMarker/総集編_movie_sync.json"
+                if baseName.contains("総集編") && fm.fileExists(atPath: altSync) {
+                    try? mOut.write(to: URL(fileURLWithPath: altSync), options: .atomic)
+                }
+            }
+            let docOut = SoundMakerProjectDocument(
+                version: "2.0",
+                clips: self.soundClips,
+                tracks: self.audioTracks,
+                scenes: self.movieScenes,
+                totalDuration: self.totalDuration
+            )
+            let enc = JSONEncoder()
+            enc.outputFormatting = [.prettyPrinted]
+            if let smOut = try? enc.encode(docOut) {
+                try? smOut.write(to: URL(fileURLWithPath: tssmPath), options: .atomic)
+            }
+        }
+
+        self.currentModule = initialModule
+        self.isShowingAppTop = false
+        self.selectedSceneIndex = 0
+        self.soundMakerSelectedSceneIndex = 1
+        self.saveUndoSnapshot()
+        let seCount = self.soundClips.filter { $0.type == "SE" }.count
+        let bgmCount = self.soundClips.filter { $0.type == "BGM" }.count
+        let voiceCount = self.soundClips.filter { $0.type == "Voice" }.count
+        self.log("『\(baseName)』をサウンドメーカー＆ムービーメーカーに反映しました (全\(self.movieScenes.count)シーン / Voice:\(voiceCount) / SE:\(seCount) / BGM:\(bgmCount))")
+        self.addHistory("統合反映: \(baseName) (SE:\(seCount)件, BGM:\(bgmCount)件)")
+    }
+
     // MARK: - SoundMaker Project Loading & Path Repair
     public func loadSoundMakerProject(from url: URL) {
         guard let data = try? Data(contentsOf: url) else {
@@ -1970,13 +2066,14 @@ public final class AppState: ObservableObject {
         if let sc = loadedScenes, !sc.isEmpty {
             self.movieScenes = sc
             self.totalDuration = sc.reduce(0.0) { $0 + $1.duration }
+            self.purgeOrphanSoundClips(maxSceneCount: sc.count)
         } else {
             // クリップ情報（全シーン）から確実に再構築
             rebuildScenesFromClips(repairedClips)
         }
 
         // 各シーンへの音声ファイル割り当て (Voice, SE, BGM) を確実に同期反映
-        syncClipsToMovieScenes(repairedClips)
+        syncClipsToMovieScenes(self.soundClips)
 
         let rawClean = SlideRecognitionService.cleanProjectBaseName(from: url.lastPathComponent)
         let cleanName = rawClean.isEmpty ? url.deletingPathExtension().lastPathComponent : rawClean
@@ -2219,6 +2316,35 @@ public final class AppState: ObservableObject {
         syncClipsToMovieScenes(soundClips)
     }
 
+    /// 現在の総シーン数を超える別プロジェクト由来の孤立クリップ（例: 総集編のS1800等）を安全に除去・補正
+    public func purgeOrphanSoundClips(maxSceneCount: Int? = nil) {
+        let limit = maxSceneCount ?? max(movieScenes.count, slides.count)
+        guard limit > 0 else { return }
+        var cleaned: [SoundClip] = []
+        cleaned.reserveCapacity(soundClips.count)
+        for var clip in soundClips {
+            if let s = clip.spanStartSceneIndex {
+                if s < 1 || s > limit {
+                    continue
+                }
+                if let e = clip.spanEndSceneIndex, e > limit {
+                    clip.spanEndSceneIndex = limit
+                }
+            }
+            if let cIdx = clip.sceneIndex, (cIdx < 1 || cIdx > limit) {
+                continue
+            }
+            cleaned.append(clip)
+        }
+        if cleaned.count != soundClips.count {
+            let removed = soundClips.count - cleaned.count
+            soundClips = cleaned
+            log("シーン範囲外（1〜\(limit)以外）の孤立オーディオクリップ \(removed) 件をクリーンアップしました")
+        } else {
+            soundClips = cleaned
+        }
+    }
+
     /// サウンドメーカーおよびムービーメーカー間で、シーン表示時間と実際の音声再生時間を完全に連動同期
     /// 音声再生成・追加・削除時に画面上部のシーン時間と実際の音声再生時間がずれ込む現象を完全に解消
     public func syncSceneAndClipTimings(autoFitDuration: Bool = true) {
@@ -2235,6 +2361,9 @@ public final class AppState: ObservableObject {
             }
         }
         guard !movieScenes.isEmpty else { return }
+
+        // 別プロジェクトのシーン範囲外クリップが末尾シーンへクランプ重畳されるのを防止
+        purgeOrphanSoundClips(maxSceneCount: max(movieScenes.count, slides.count))
 
         var accumulatedTime: Double = 0.0
 
@@ -2393,7 +2522,8 @@ public final class AppState: ObservableObject {
         for cIdx in 0..<soundClips.count {
             if let s = soundClips[cIdx].spanStartSceneIndex,
                let e = soundClips[cIdx].spanEndSceneIndex {
-                let startSceneIdx = max(1, min(movieScenes.count, s))
+                guard s >= 1 && s <= movieScenes.count else { continue }
+                let startSceneIdx = s
                 let endSceneIdx = max(startSceneIdx, min(movieScenes.count, e))
                 let sStart = movieScenes.prefix(startSceneIdx - 1).reduce(0.0) { $0 + $1.duration }
                 let sDur = movieScenes[(startSceneIdx - 1)..<endSceneIdx].reduce(0.0) { $0 + $1.duration }
@@ -2416,11 +2546,15 @@ public final class AppState: ObservableObject {
                 }
                 soundClips[cIdx].startTime = finalStart
                 soundClips[cIdx].duration = sDur
+            } else if soundClips[cIdx].type == "Movie" && accumulatedTime > 0 {
+                soundClips[cIdx].duration = accumulatedTime
             }
         }
 
         totalDuration = max(120.0, accumulatedTime + 15.0)
-        syncClipsToMovieScenes(soundClips)
+        if !soundClips.isEmpty {
+            syncClipsToMovieScenes(soundClips)
+        }
     }
 
     /// スライドから背景画像・立ち絵・動画等のアセット情報のみを MovieScene に安全補完（音声割り当ては保護）
@@ -2511,6 +2645,10 @@ public final class AppState: ObservableObject {
 
             // すでにファイルが存在する場合の検証
             if let p = path, fm.fileExists(atPath: p) {
+                if clips.count > 300 && clip.duration > 0.5 {
+                    result.append(clip)
+                    continue
+                }
                 if let player = try? AVAudioPlayer(contentsOf: URL(fileURLWithPath: p)) {
                     // Voice の場合、他プロジェクトの同名短縮ファイル等との衝突（durationの乖離）を検証
                     if clip.type == "Voice" {
