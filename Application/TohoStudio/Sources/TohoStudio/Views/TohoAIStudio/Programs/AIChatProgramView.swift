@@ -102,13 +102,19 @@ public struct AIChatProgramView: View {
 
             Spacer()
 
-            // プロンプト残数バッジ
+            // プロンプト残数・API種別バッジ
             HStack(spacing: 6) {
-                Image(systemName: "sparkles")
-                    .foregroundColor(.yellow)
-                Text("残プロンプト: \(cloudLinuxService.remainingPrompts) / \(cloudLinuxService.totalPromptsMonthly)")
-                    .font(.caption)
-                    .bold()
+                Image(systemName: tohoAIService.activeProvider.consumesFlatRateQuota ? "sparkles" : "key.fill")
+                    .foregroundColor(tohoAIService.activeProvider.consumesFlatRateQuota ? .yellow : .orange)
+                if tohoAIService.activeProvider.consumesFlatRateQuota {
+                    Text("定額残: \(cloudLinuxService.remainingPrompts)回 (5h残:\(cloudLinuxService.quotaStatus.windows.remaining_5hour))")
+                        .font(.caption)
+                        .bold()
+                } else {
+                    Text("API利用 (定額枠消費なし)")
+                        .font(.caption)
+                        .bold()
+                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
@@ -314,7 +320,7 @@ public struct AIChatProgramView: View {
     private func presetChip(title: String, prompt: String) -> some View {
         Button(action: {
             inputText = prompt
-            tohoAIService.sendMessage(content: prompt)
+            tohoAIService.sendMessage(content: prompt, persona: selectedChatPersona)
             inputText = ""
         }) {
             Text(title)
@@ -353,7 +359,7 @@ public struct AIChatProgramView: View {
     private func sendMessage() {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        tohoAIService.sendMessage(content: text)
+        tohoAIService.sendMessage(content: text, persona: selectedChatPersona)
         inputText = ""
     }
 

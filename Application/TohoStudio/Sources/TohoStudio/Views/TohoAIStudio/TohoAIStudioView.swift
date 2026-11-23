@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// 仕様書「TohoAIStudio」内蔵ソフトメイン画面
+/// 仕様書「TohoAIStudio」内蔵ソフトメイン画面 (V3.0 一般配布・外部公開対応版)
 public struct TohoAIStudioView: View {
     @ObservedObject var appState = AppState.shared
     @ObservedObject var tohoAIService = TohoAIService.shared
@@ -11,16 +11,16 @@ public struct TohoAIStudioView: View {
     public init() {}
 
     public var body: some View {
-        UnavailableFeatureView(onBack: {
-            withAnimation {
-                appState.isShowingAppTop = true
-            }
-        })
+        if isShowingHomeWithAds {
+            tohoAIStudioHomeWithAdsView
+        } else {
+            tohoAIStudioWorkspaceView
+        }
     }
 
     // MARK: - ホーム画面 (仕様書準拠 左右Google広告枠あり)
     private var tohoAIStudioHomeWithAdsView: some View {
-        SpecScreenWithAds(screenTitle: "ホーム画面 (TohoAIStudio)") {
+        SpecScreenWithAds(screenTitle: "ホーム画面 (TohoAIStudio V3.0)") {
             VStack(spacing: 24) {
                 Spacer()
 
@@ -32,7 +32,7 @@ public struct TohoAIStudioView: View {
                     Text("TohoAIStudio")
                         .font(.system(size: 32, weight: .bold))
 
-                    Text("仮想LinuxVM (Qwen 2.5) & 外部API (Gemini/ChatGPT/Claude) 統合環境")
+                    Text("定額プラン内蔵LLMゲートウェイ ・ Nanndemoya独自API ・ 5大外部API 統合環境")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -69,12 +69,24 @@ public struct TohoAIStudioView: View {
     // MARK: - ワークスペース画面 (スライド246方針: 編集画面上には一切広告なし)
     private var tohoAIStudioWorkspaceView: some View {
         VStack(spacing: 0) {
-            // 上部プログラムタブバー
             programNavigationBar
+
+            // NanndemoyaCloud未ログイン時の案内バー (仕様書: 未認証時は外部APIのみ利用可能)
+            if !appState.isLoggedIn || appState.currentAccountType != "NanndemoyaCloud" {
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundColor(.orange)
+                    Text("現在 NanndemoyaCloud 以外のアカウントでログイン中です。定額プラン・Nanndemoya独自APIのご利用には NanndemoyaCloud 認証を推奨します（ご自身の外部APIキーはそのまま利用可能です）。")
+                        .font(.caption)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .background(Color.orange.opacity(0.12))
+            }
 
             Divider()
 
-            // アクティブなプログラム画面
             switch tohoAIService.activeProgramTab {
             case .virtualLinuxVM:
                 VirtualLinuxVMProgramView()
@@ -100,8 +112,7 @@ public struct TohoAIStudioView: View {
 
     // MARK: - Program Navigation Bar
     private var programNavigationBar: some View {
-        HStack(spacing: 12) {
-            // タイトル
+        HStack(spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
                     .font(.headline)
@@ -111,44 +122,42 @@ public struct TohoAIStudioView: View {
                     .bold()
             }
 
-            Spacer()
-
-            // 6大プログラム切り替えセグメント
-            HStack(spacing: 4) {
-                ForEach(TohoAIProgramTab.allCases) { tab in
-                    let isSelected = tohoAIService.activeProgramTab == tab
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            tohoAIService.activeProgramTab = tab
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 4) {
+                    ForEach(TohoAIProgramTab.allCases) { tab in
+                        let isSelected = tohoAIService.activeProgramTab == tab
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                tohoAIService.activeProgramTab = tab
+                            }
+                        }) {
+                            HStack(spacing: 5) {
+                                Image(systemName: tab.iconName)
+                                    .font(.caption)
+                                Text(tab.rawValue)
+                                    .font(.caption)
+                                    .bold()
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(isSelected ? Color.blue : Color.secondary.opacity(0.1))
+                            .foregroundColor(isSelected ? .white : .primary)
+                            .cornerRadius(8)
+                            .contentShape(Rectangle())
                         }
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: tab.iconName)
-                                .font(.caption)
-                            Text(tab.rawValue)
-                                .font(.caption)
-                                .bold()
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(isSelected ? Color.blue : Color.secondary.opacity(0.1))
-                        .foregroundColor(isSelected ? .white : .primary)
-                        .cornerRadius(8)
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
 
-            Spacer()
+            Spacer(minLength: 4)
 
-            // ホーム画面（広告枠）切り替え
             Button(action: {
                 withAnimation { isShowingHomeWithAds = true }
             }) {
                 HStack(spacing: 4) {
                     Image(systemName: "house")
-                    Text("ホーム画面")
+                    Text("ホーム")
                 }
                 .font(.caption)
             }

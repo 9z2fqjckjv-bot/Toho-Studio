@@ -1,33 +1,31 @@
 import SwiftUI
 import AppKit
 
-/// 仕様書「LLM入り仮想LinuxVMとの通信確認」プログラム
+/// 仕様書「LLM入り仮想LinuxVM / 公開ゲートウェイとの通信確認」プログラム (V3.0対応版)
 public struct VirtualLinuxVMProgramView: View {
     @ObservedObject var cloudLinuxService = CloudVirtualLinuxService.shared
     @ObservedObject var tohoAIService = TohoAIService.shared
     @State private var isRunningPingTest: Bool = false
     @State private var pingTestLogs: [String] = []
+    @State private var editableServerURL: String = ""
 
     public init() {}
 
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // ヘッダー概要
                 headerSection
-
-                // 通信ステータス & Ping診断
+                endpointConfigCard
                 connectionStatusCard
-
-                // 仮想マシン仕様 & 稼働モニター
                 vmSpecsCard
-
-                // 通信確認アクション & 診断コンソール
                 diagnosticsCard
             }
             .padding(24)
         }
         .background(Color(NSColor.windowBackgroundColor))
+        .onAppear {
+            editableServerURL = cloudLinuxService.serverBaseURL
+        }
     }
 
     // MARK: - Header
@@ -38,17 +36,16 @@ public struct VirtualLinuxVMProgramView: View {
                     Image(systemName: "server.rack")
                         .font(.title2)
                         .foregroundColor(.blue)
-                    Text("LLM入りXserver VPS & Colab GPU ブリッジ運用モニター")
+                    Text("TohoAIStudio 公開LLMゲートウェイ & Colab GPU 運用モニター")
                         .font(.title2)
                         .bold()
                 }
-                Text("Xserver VPS環境（Ubuntu 24.04, 4vCPU / 4GB RAM + 4GB Swap / Qwen 2.5 3B）およびGoogle Colab（NVIDIA L4 GPU）と連携し、テキスト対話・シナリオ編集・クォータ管理・メディア生成を実施します。")
+                Text("Debian 13 ゲートウェイサーバ（MacMini / Cloudflare Tunnel 外部公開対応）と常時通信し、定額プランの3段階レート制御・NanndemoyaAPI中継・Colab GPU連携を管理します。")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
             Spacer()
 
-            // 接続状態バッジ
             HStack(spacing: 8) {
                 Circle()
                     .fill(statusColor)
@@ -65,43 +62,101 @@ public struct VirtualLinuxVMProgramView: View {
         }
     }
 
+    // MARK: - Endpoint Configuration Card (LAN開発 & 一般配布外部公開切替)
+    private var endpointConfigCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "globe.asia.australia.fill")
+                    .foregroundColor(.blue)
+                Text("接続先ゲートウェイURL設定（LAN内開発 / 一般配布HTTPS公開エンドポイント）")
+                    .font(.headline)
+                Spacer()
+            }
+
+            HStack(spacing: 10) {
+                TextField("例: https://ai.nanndemoya.net または http://debian.local:8095", text: $editableServerURL)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+
+                Button("適用して再接続") {
+                    var cleaned = editableServerURL.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if cleaned.hasSuffix("/") { cleaned.removeLast() }
+                    if !cleaned.isEmpty {
+                        cloudLinuxService.serverBaseURL = cleaned
+                        cloudLinuxService.fetchServerPlans()
+                        cloudLinuxService.syncUserStatusFromServer()
+                        runDiagnosticPing()
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+            }
+
+            HStack(spacing: 8) {
+                Text("クイック切替:")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                presetURLButton(label: "MacMini LAN (debian.local)", url: "http://debian.local:8095")
+                presetURLButton(label: "MacMini IP (192.168.3.184)", url: "http://192.168.3.184:8095")
+                presetURLButton(label: "外部公開ドメイン例 (HTTPS)", url: "https://ai.nanndemoya.net")
+            }
+        }
+        .padding(16)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
+    }
+
+    private func presetURLButton(label: String, url: String) -> some View {
+        Button(label) {
+            editableServerURL = url
+            cloudLinuxService.serverBaseURL = url
+            cloudLinuxService.fetchServerPlans()
+            cloudLinuxService.syncUserStatusFromServer()
+            runDiagnosticPing()
+        }
+        .font(.caption)
+        .buttonStyle(.bordered)
+    }
+
     // MARK: - Connection Status Card
     private var connectionStatusCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("リアルタイム通信ステータス")
+        let q = cloudLinuxService.quotaStatus
+        return VStack(alignment: .leading, spacing: 14) {
+            Text("リアルタイム通信・レート枠ステータス")
                 .font(.headline)
 
             HStack(spacing: 16) {
                 statTile(
                     title: "レイテンシ (Ping)",
                     value: "\(cloudLinuxService.latencyMs) ms",
-                    subtext: "高速常時接続中",
+                    subtext: cloudLinuxService.isConnected ? "ゲートウェイ応答正常" : "未接続",
                     icon: "antenna.radiowaves.left.and.right",
-                    color: .green
+                    color: cloudLinuxService.isConnected ? .green : .gray
+                )
+
+                statTile(
+                    title: "契約中定額プラン",
+                    value: q.plan_name,
+                    subtext: "月額 ¥\(q.price_jpy)",
+                    icon: "crown.fill",
+                    color: .blue
+                )
+
+                statTile(
+                    title: "総利用可能プロンプト",
+                    value: "\(cloudLinuxService.remainingPrompts) 回",
+                    subtext: "5時間残: \(q.windows.remaining_5hour) / 週残: \(q.windows.remaining_weekly)",
+                    icon: "sparkles",
+                    color: cloudLinuxService.remainingPrompts < 20 ? .orange : .green
                 )
 
                 statTile(
                     title: "最終ハートビート",
                     value: DateFormatter.localizedString(from: cloudLinuxService.lastHeartbeatAt, dateStyle: .none, timeStyle: .medium),
-                    subtext: "5秒間隔自動更新",
+                    subtext: "5秒間隔自動同期",
                     icon: "heart.fill",
                     color: .red
-                )
-
-                statTile(
-                    title: "プロンプト残数",
-                    value: "\(cloudLinuxService.remainingPrompts) 回",
-                    subtext: "月間枠: \(cloudLinuxService.totalPromptsMonthly) 回",
-                    icon: "sparkles",
-                    color: cloudLinuxService.remainingPrompts < 500 ? .orange : .blue
-                )
-
-                statTile(
-                    title: "稼働時間 (Uptime)",
-                    value: "\(Int(cloudLinuxService.machineStatus.uptimeHours)) 時間",
-                    subtext: "連続稼働 (停止なし)",
-                    icon: "clock.arrow.circlepath",
-                    color: .purple
                 )
             }
         }
@@ -114,23 +169,23 @@ public struct VirtualLinuxVMProgramView: View {
     // MARK: - VM Specs Card
     private var vmSpecsCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("仮想LinuxVM (Google Cloud Platform) システムスペック")
+            Text("Linuxゲートウェイ & 推論ルーター仕様")
                 .font(.headline)
 
             Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 12) {
                 GridRow {
-                    Text("ホストIPアドレス:").foregroundColor(.secondary)
-                    Text(cloudLinuxService.machineStatus.hostIP).bold()
+                    Text("接続先エンドポイント:").foregroundColor(.secondary)
+                    Text(cloudLinuxService.serverBaseURL).bold()
 
-                    Text("GCP ゾーン:").foregroundColor(.secondary)
+                    Text("リージョン/ゾーン:").foregroundColor(.secondary)
                     Text(cloudLinuxService.machineStatus.gcpZone).bold()
                 }
 
                 GridRow {
-                    Text("マシンタイプ:").foregroundColor(.secondary)
+                    Text("システム構成:").foregroundColor(.secondary)
                     Text(cloudLinuxService.machineStatus.machineType)
 
-                    Text("内蔵LLMモデル:").foregroundColor(.secondary)
+                    Text("稼働推論エンジン:").foregroundColor(.secondary)
                     Text(cloudLinuxService.machineStatus.llmModel).bold().foregroundColor(.blue)
                 }
             }
@@ -138,14 +193,10 @@ public struct VirtualLinuxVMProgramView: View {
 
             Divider()
 
-            Text("リソース使用率")
-                .font(.subheadline)
-                .bold()
-
             HStack(spacing: 24) {
                 resourceBar(label: "CPU 使用率", percent: cloudLinuxService.machineStatus.cpuUsagePercent, color: .blue)
                 resourceBar(label: "メモリ 使用率", percent: cloudLinuxService.machineStatus.memoryUsagePercent, color: .orange)
-                resourceBar(label: "GPU 使用率", percent: cloudLinuxService.machineStatus.gpuUsagePercent, color: .green)
+                resourceBar(label: "Colab GPU ブリッジ", percent: cloudLinuxService.colabBridge.isOnline ? 100.0 : 0.0, color: .green)
             }
         }
         .padding(16)
@@ -158,7 +209,7 @@ public struct VirtualLinuxVMProgramView: View {
     private var diagnosticsCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("通信確認・診断テスト")
+                Text("通信確認・クォータ同期テスト")
                     .font(.headline)
                 Spacer()
 
@@ -176,17 +227,16 @@ public struct VirtualLinuxVMProgramView: View {
                 .disabled(isRunningPingTest)
             }
 
-            // 診断コンソールログ
             VStack(alignment: .leading, spacing: 6) {
                 if pingTestLogs.isEmpty {
-                    Text("※「通信疎通テストを実行」をクリックすると、LinuxVMへのPing測定、SSHトンネル検証、LLM推論エンドポイントの疎通確認を行います。")
+                    Text("※「通信疎通テストを実行」をクリックすると、ゲートウェイへのヘルスチェック、新料金プランカタログ取得、およびプロンプト残数同期を実行します。")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 } else {
                     ForEach(pingTestLogs, id: \.self) { log in
                         Text(log)
                             .font(.system(.caption, design: .monospaced))
-                            .foregroundColor(log.contains("SUCCESS") ? .green : .primary)
+                            .foregroundColor(log.contains("SUCCESS") ? .green : (log.contains("ERROR") ? .red : .white))
                     }
                 }
             }
@@ -202,7 +252,6 @@ public struct VirtualLinuxVMProgramView: View {
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
     }
 
-    // MARK: - Helpers
     private var statusColor: Color {
         switch cloudLinuxService.connectionStatus {
         case .connected, .lowLatency: return .green
@@ -222,11 +271,13 @@ public struct VirtualLinuxVMProgramView: View {
                     .foregroundColor(.secondary)
             }
             Text(value)
-                .font(.title3)
+                .font(.headline)
                 .bold()
+                .lineLimit(1)
             Text(subtext)
                 .font(.caption2)
                 .foregroundColor(.secondary)
+                .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
@@ -241,7 +292,7 @@ public struct VirtualLinuxVMProgramView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Spacer()
-                Text("\(String(format: "%.1f", percent))%")
+                Text("\(String(format: "%.0f", percent))%")
                     .font(.caption)
                     .bold()
             }
@@ -251,7 +302,7 @@ public struct VirtualLinuxVMProgramView: View {
                         .fill(Color.secondary.opacity(0.2))
                     RoundedRectangle(cornerRadius: 4)
                         .fill(color)
-                        .frame(width: geo.size.width * CGFloat(percent / 100.0))
+                        .frame(width: geo.size.width * CGFloat(min(1.0, max(0.0, percent / 100.0))))
                 }
             }
             .frame(height: 8)
@@ -260,25 +311,23 @@ public struct VirtualLinuxVMProgramView: View {
 
     private func runDiagnosticPing() {
         isRunningPingTest = true
-        pingTestLogs = ["[\(DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium))] Xserver VPS 疎通テストを開始しています..."]
+        pingTestLogs = ["[\(DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium))] ゲートウェイ (\(cloudLinuxService.serverBaseURL)) 疎通テストを開始..."]
 
         cloudLinuxService.checkHealth { success in
             if success {
-                pingTestLogs.append("PING \(cloudLinuxService.machineStatus.hostIP) (Xserver VPS): HTTP /health 200 OK, latency=\(cloudLinuxService.latencyMs) ms")
-                pingTestLogs.append("Backend LLM [\(cloudLinuxService.machineStatus.llmModel)]: OPERATIONAL (FastAPI :8080 / Nginx :80)")
-
-                // プロンプト残数同期
-                cloudLinuxService.syncUserPromptsFromServer { rem in
-                    if let rem = rem {
-                        pingTestLogs.append("Prompt Quota: \(rem) 回利用可能")
+                pingTestLogs.append("GET /health -> 200 OK (latency=\(cloudLinuxService.latencyMs) ms)")
+                pingTestLogs.append("Engine: \(cloudLinuxService.machineStatus.llmModel)")
+                cloudLinuxService.syncUserStatusFromServer { status in
+                    if let st = status {
+                        pingTestLogs.append("Active Plan: \(st.plan_name) | 残プロンプト合計: \(st.remaining_prompts)回 (5h残:\(st.windows.remaining_5hour) / 週残:\(st.windows.remaining_weekly))")
                     }
-                    let colabOnline = cloudLinuxService.colabBridge.isOnline ? "ONLINE (GPU: \(cloudLinuxService.colabBridge.gpuName))" : "STANDBY (Notebook Ready)"
+                    let colabOnline = cloudLinuxService.colabBridge.isOnline ? "ONLINE (\(cloudLinuxService.colabBridge.gpuName))" : "STANDBY"
                     pingTestLogs.append("Colab GPU Bridge: \(colabOnline)")
-                    pingTestLogs.append(">>> SUCCESS: Xserver VPSおよびColab GPUブリッジの疎通確認は全て正常です。")
+                    pingTestLogs.append(">>> SUCCESS: 公開ゲートウェイおよびクォータ管理DBとの通信は全て正常です。")
                     isRunningPingTest = false
                 }
             } else {
-                pingTestLogs.append(">>> ERROR: Xserver VPS (\(cloudLinuxService.machineStatus.hostIP)) へのヘルスチェックに失敗しました。")
+                pingTestLogs.append(">>> ERROR: ゲートウェイ (\(cloudLinuxService.serverBaseURL)) に接続できませんでした。URLまたはサーバ稼働状態を確認してください。")
                 isRunningPingTest = false
             }
         }

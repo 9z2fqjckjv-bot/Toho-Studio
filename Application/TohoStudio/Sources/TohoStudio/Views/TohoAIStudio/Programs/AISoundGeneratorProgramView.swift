@@ -133,6 +133,9 @@ public struct AISoundGeneratorProgramView: View {
         let labelText: String
 
         switch provider {
+        case .nanndemoya:
+            isConfigured = !tohoAIService.nanndemoyaConfig.apiKey.isEmpty
+            labelText = isConfigured ? "Nanndemoyaライセンス連携中" : "ライセンスキー未設定"
         case .chatGPT:
             isConfigured = !tohoAIService.chatGPTConfig.apiKey.isEmpty
             labelText = isConfigured ? "OpenAI連携中" : "ChatGPT音響推論"
@@ -142,13 +145,19 @@ public struct AISoundGeneratorProgramView: View {
         case .claude:
             isConfigured = !tohoAIService.claudeConfig.apiKey.isEmpty
             labelText = isConfigured ? "Claude連携中" : "Claude音響推論"
+        case .grok:
+            isConfigured = !tohoAIService.grokConfig.apiKey.isEmpty
+            labelText = isConfigured ? "Grok連携中" : "Grok音響推論"
+        case .mistral:
+            isConfigured = !tohoAIService.mistralConfig.apiKey.isEmpty
+            labelText = isConfigured ? "Mistral連携中" : "Mistral音響推論"
         case .virtualLinuxVM:
             if cloudLinuxService.colabBridge.isOnline && !cloudLinuxService.colabBridge.endpoint.isEmpty {
                 isConfigured = true
                 labelText = "⚡️ Colab GPU ブリッジ (MusicGen/SE / \(cloudLinuxService.colabBridge.gpuName))"
             } else {
                 isConfigured = (cloudLinuxService.connectionStatus == .connected || cloudLinuxService.connectionStatus == .lowLatency)
-                labelText = isConfigured ? "仮想LinuxVM (ローカルLLM/シンセ波形合成)" : "スタンドアロン音響合成"
+                labelText = isConfigured ? "ゲートウェイ接続中 (シンセ波形合成)" : "スタンドアロン音響合成"
             }
         }
 

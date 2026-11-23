@@ -96,6 +96,9 @@ public struct AIImageGeneratorProgramView: View {
         let labelText: String
 
         switch provider {
+        case .nanndemoya:
+            isConfigured = !tohoAIService.nanndemoyaConfig.apiKey.isEmpty
+            labelText = isConfigured ? "Nanndemoyaライセンス連携中" : "ライセンスキー未設定"
         case .chatGPT:
             isConfigured = !tohoAIService.chatGPTConfig.apiKey.isEmpty
             labelText = isConfigured ? "OpenAI連携中 (DALL-E 3)" : "ChatGPT推論＋高精細拡散"
@@ -105,13 +108,19 @@ public struct AIImageGeneratorProgramView: View {
         case .claude:
             isConfigured = !tohoAIService.claudeConfig.apiKey.isEmpty
             labelText = isConfigured ? "Claude連携中" : "Claude推論＋高精細拡散"
+        case .grok:
+            isConfigured = !tohoAIService.grokConfig.apiKey.isEmpty
+            labelText = isConfigured ? "Grok連携中" : "Grok推論＋高精細拡散"
+        case .mistral:
+            isConfigured = !tohoAIService.mistralConfig.apiKey.isEmpty
+            labelText = isConfigured ? "Mistral連携中" : "Mistral推論＋高精細拡散"
         case .virtualLinuxVM:
             if cloudLinuxService.colabBridge.isOnline && !cloudLinuxService.colabBridge.endpoint.isEmpty {
                 isConfigured = true
                 labelText = "⚡️ Colab GPU ブリッジ接続中 (\(cloudLinuxService.colabBridge.gpuName))"
             } else {
                 isConfigured = (cloudLinuxService.connectionStatus == .connected || cloudLinuxService.connectionStatus == .lowLatency)
-                labelText = isConfigured ? "仮想LinuxVM接続中 (Qwen 2.5)" : "スタンドアロン推論"
+                labelText = isConfigured ? "ゲートウェイ接続中" : "スタンドアロン推論"
             }
         }
 

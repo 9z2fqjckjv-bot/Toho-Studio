@@ -117,10 +117,11 @@ public struct InAppBillingBrowserProgramView: View {
                 .foregroundColor(.secondary)
 
             portalButton(title: "Google AI Studio", urlString: "https://aistudio.google.com/", icon: "sparkles", color: .blue)
-            portalButton(title: "Google Cloud Billing", urlString: "https://console.cloud.google.com/billing", icon: "cloud.fill", color: .blue)
-            portalButton(title: "OpenAI Usage & Billing", urlString: "https://platform.openai.com/usage", icon: "brain", color: .green)
-            portalButton(title: "Anthropic Plans & Cost", urlString: "https://console.anthropic.com/settings/plans", icon: "cpu", color: .purple)
-            portalButton(title: "何でも屋クラウド請求", urlString: "https://nanndemoya.online/billing", icon: "server.rack", color: .orange)
+            portalButton(title: "OpenAI Billing", urlString: "https://platform.openai.com/usage", icon: "brain", color: .green)
+            portalButton(title: "Anthropic Billing", urlString: "https://console.anthropic.com/settings/plans", icon: "cpu", color: .purple)
+            portalButton(title: "xAI Grok Console", urlString: "https://console.x.ai/", icon: "bolt.horizontal.circle.fill", color: .orange)
+            portalButton(title: "Mistral Billing", urlString: "https://console.mistral.ai/billing/", icon: "wind", color: .teal)
+            portalButton(title: "何でも屋 公式ポータル", urlString: "https://www.nanndemoya.net/top", icon: "server.rack", color: .orange)
 
             Spacer()
         }
