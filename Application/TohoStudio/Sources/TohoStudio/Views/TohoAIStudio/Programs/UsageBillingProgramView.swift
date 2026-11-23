@@ -65,11 +65,11 @@ public struct UsageBillingProgramView: View {
                     Image(systemName: "creditcard.fill")
                         .font(.title2)
                         .foregroundColor(.blue)
-                    Text("TohoAIStudio 定額プラン・プロンプト残数管理 (V3.0 新料金体系)")
+                    Text("TohoAIStudio 定額プラン・残数管理 (利益0円・実費原価回収モデル)")
                         .font(.title2)
                         .bold()
                 }
-                Text("5時間枠・週次枠・月次枠の3段階バースト保護、未使用分の自動繰越（無料半年・有料1年）、およびお試し広告チャージを管理します。")
+                Text("運営利益を一切乗せず、APIトークン原価・サーバー待機電力・為替変動バッファ（赤字防止の最低実費）のみで構成された定額プランです。")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -242,7 +242,7 @@ public struct UsageBillingProgramView: View {
                                 Text("¥\(pack.price_jpy)")
                                     .font(.caption)
                                     .foregroundColor(.blue)
-                                Text("(¥\(String(format: "%.1f", pack.unit_price_jpy))/回)")
+                                Text("(実費 ¥\(String(format: "%.2f", pack.unit_price_jpy))/回)")
                                     .font(.system(size: 10))
                                     .foregroundColor(.secondary)
                             }
@@ -290,10 +290,10 @@ public struct UsageBillingProgramView: View {
         let currentPlanId = cloudLinuxService.quotaStatus.plan_id
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("新・定額プラン料金一覧（一般配布・持続運用モデル）")
+                Text("定額プラン料金一覧（利益完全排除・赤字防止の最低実費料金）")
                     .font(.headline)
                 Spacer()
-                Text("※未使用の基本枠・広告枠は自動繰越（無料:半年 / 有料:1年）")
+                Text("※月間最大枠を100%使い切った場合のAPI＋電力実費のみで算出（未使用分は自動繰越）")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
@@ -307,7 +307,7 @@ public struct UsageBillingProgramView: View {
                                 Text(plan.name)
                                     .font(.subheadline)
                                     .bold()
-                                if plan.plan_id == "standard_1980" {
+                                if plan.plan_id == "standard_380" {
                                     Text("おすすめ")
                                         .font(.system(size: 10, weight: .bold))
                                         .padding(.horizontal, 6)

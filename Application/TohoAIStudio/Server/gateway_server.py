@@ -210,6 +210,17 @@ def ensure_and_refresh_user(conn: sqlite3.Connection, user_id: str, account_type
         row = conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
         return row
 
+    # 旧プランIDで保存されている場合は新・実費プランIDへ自動移行
+    mapped_plan_id = LEGACY_PLAN_MAPPING.get(row["plan_id"], row["plan_id"])
+    if mapped_plan_id not in FLAT_RATE_PLANS:
+        mapped_plan_id = "free"
+    if mapped_plan_id != row["plan_id"]:
+        conn.execute(
+            "UPDATE users SET plan_id = ?, updated_at = ? WHERE user_id = ?",
+            (mapped_plan_id, now_str, user_id),
+        )
+        row = conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
+
     # 繰越期限切れチェック
     rollover_rem = row["rollover_remaining"]
     rollover_exp = parse_iso(row["rollover_expires_at"])

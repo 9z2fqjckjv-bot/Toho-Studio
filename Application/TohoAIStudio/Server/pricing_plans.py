@@ -7,7 +7,15 @@ TohoAIStudio V3.0 - 一般配布・外部公開向け 新定額プラン料金�
 from typing import Dict, Any, List, Optional
 
 # ==============================================================================
-# 1. 新・定額プラン料金体系 (原価割れ防止・3段階バースト制御・繰越対応)
+# 1. 新・定額プラン料金体系 (利益完全排除・実費回収のみ・赤字防止最低金額モデル)
+# ------------------------------------------------------------------------------
+# 【原価算出根拠 (1プロンプト平均 1,500〜2,500 tokens / 為替 1USD=160JPY 安全レート想定)】
+# - 標準推論層 (Gemini 2.5 Flash-Lite / DeepSeek-V3 / Qwen3-14B + Local Ollama併用):
+#     API実費 約¥0.09〜¥0.13/回 + MacMini電力・通信按分 約¥0.02/回 = 最大実費 ¥0.15/回
+# - 高位・思考推論層 (Gemini 2.5 Flash / DeepSeek-R1 <think>トークン込み):
+#     API実費 約¥0.17〜¥0.18/回 + 電力・為替変動バッファ 約¥0.02/回 = 最大実費 ¥0.20/回
+# - 追加パック (バースト制限免除・全量長文ピーク利用時の最大実費): ¥0.25/回 (10円単位切上げ)
+# ※運営利益マージン 0%。月間最大枠（基本枠＋広告ボーナス枠）を100%使い切っても赤字にならない最低金額。
 # ==============================================================================
 FLAT_RATE_PLANS: Dict[str, Dict[str, Any]] = {
     "free": {
@@ -23,12 +31,12 @@ FLAT_RATE_PLANS: Dict[str, Dict[str, Any]] = {
         "model_tier": "economy",
         "requires_trial_ad": True,
         "trial_ad_seconds_per_prompt": 15,
-        "description": "初回・毎月30回＋お試し広告視聴で最大月300回まで無料利用可能（軽量高速モデル中心）",
+        "description": "毎月基本30回＋お試し広告視聴で最大月300回まで無料（ローカル推論＆広告枠で実費カバー）",
     },
-    "lite_980": {
-        "plan_id": "lite_980",
-        "name": "ライトプラン",
-        "price_jpy": 980,
+    "lite_150": {
+        "plan_id": "lite_150",
+        "name": "ライトプラン (実費枠)",
+        "price_jpy": 150,
         "base_monthly_prompts": 800,
         "ad_bonus_monthly_cap": 200,
         "max_monthly_total": 1000,
@@ -38,12 +46,12 @@ FLAT_RATE_PLANS: Dict[str, Dict[str, Any]] = {
         "model_tier": "standard",
         "requires_trial_ad": False,
         "trial_ad_seconds_per_prompt": 10,
-        "description": "日常のセリフ推敲・キャラ口調変換に最適（基本800回＋広告ボーナス200回＝月最大1,000回）",
+        "description": "利益0円の実費回収プラン（基本800回＋広告200回＝最大1,000回 / 1回あたり実費¥0.15換算）",
     },
-    "standard_1980": {
-        "plan_id": "standard_1980",
-        "name": "スタンダードプラン",
-        "price_jpy": 1980,
+    "standard_380": {
+        "plan_id": "standard_380",
+        "name": "スタンダードプラン (実費枠)",
+        "price_jpy": 380,
         "base_monthly_prompts": 2000,
         "ad_bonus_monthly_cap": 500,
         "max_monthly_total": 2500,
@@ -53,12 +61,12 @@ FLAT_RATE_PLANS: Dict[str, Dict[str, Any]] = {
         "model_tier": "standard",
         "requires_trial_ad": False,
         "trial_ad_seconds_per_prompt": 10,
-        "description": "【推奨】週1〜2本の動画・スライド制作向け主力プラン（基本2,000回＋広告500回＝月最大2,500回）",
+        "description": "【推奨】週1〜2本の動画・台本制作向け実費プラン（基本2,000回＋広告500回＝最大2,500回 / ¥0.15/回）",
     },
-    "creator_2980": {
-        "plan_id": "creator_2980",
-        "name": "クリエイタープラン",
-        "price_jpy": 2980,
+    "creator_900": {
+        "plan_id": "creator_900",
+        "name": "クリエイタープラン (実費枠)",
+        "price_jpy": 900,
         "base_monthly_prompts": 3500,
         "ad_bonus_monthly_cap": 1000,
         "max_monthly_total": 4500,
@@ -68,12 +76,12 @@ FLAT_RATE_PLANS: Dict[str, Dict[str, Any]] = {
         "model_tier": "high",
         "requires_trial_ad": False,
         "trial_ad_seconds_per_prompt": 10,
-        "description": "長編シリーズ・絵コンテ自動生成・ゲームスクリプト制作向け（基本3,500回＋広告1,000回）",
+        "description": "長編構成・思考モデル併用向け実費プラン（基本3,500回＋広告1,000回＝最大4,500回 / ¥0.20/回）",
     },
-    "pro_4980": {
-        "plan_id": "pro_4980",
-        "name": "プロスタジオプラン",
-        "price_jpy": 4980,
+    "pro_1600": {
+        "plan_id": "pro_1600",
+        "name": "プロスタジオプラン (実費枠)",
+        "price_jpy": 1600,
         "base_monthly_prompts": 6500,
         "ad_bonus_monthly_cap": 1500,
         "max_monthly_total": 8000,
@@ -83,12 +91,12 @@ FLAT_RATE_PLANS: Dict[str, Dict[str, Any]] = {
         "model_tier": "high",
         "requires_trial_ad": False,
         "trial_ad_seconds_per_prompt": 10,
-        "description": "高頻度投稿者・複数プロジェクト並行制作・思考モード優先（基本6,500回＋広告1,500回）",
+        "description": "高頻度投稿・複数作品並行向け実費プラン（基本6,500回＋広告1,500回＝最大8,000回 / ¥0.20/回）",
     },
-    "ultra_9800": {
-        "plan_id": "ultra_9800",
-        "name": "アルティメットプラン",
-        "price_jpy": 9800,
+    "ultra_3600": {
+        "plan_id": "ultra_3600",
+        "name": "アルティメットプラン (実費枠)",
+        "price_jpy": 3600,
         "base_monthly_prompts": 15000,
         "ad_bonus_monthly_cap": 3000,
         "max_monthly_total": 18000,
@@ -98,50 +106,55 @@ FLAT_RATE_PLANS: Dict[str, Dict[str, Any]] = {
         "model_tier": "ultra",
         "requires_trial_ad": False,
         "trial_ad_seconds_per_prompt": 5,
-        "description": "サークル共同制作・大規模開発向け最上位プラン（基本15,000回＋広告3,000回＝月最大18,000回）",
+        "description": "サークル共同・大規模制作向け最上位実費プラン（基本15,000回＋広告3,000回＝最大18,000回 / ¥0.20/回）",
     },
 }
 
-# 旧プラン名(CSV等)からの互換マッピング
+# 旧プラン名からの互換マッピング
 LEGACY_PLAN_MAPPING: Dict[str, str] = {
     "0": "free",
     "free": "free",
-    "1000": "lite_980",
-    "2000": "standard_1980",
-    "3000": "creator_2980",
-    "5000": "pro_4980",
-    "10000": "ultra_9800",
+    "1000": "lite_150",
+    "lite_980": "lite_150",
+    "2000": "standard_380",
+    "standard_1980": "standard_380",
+    "3000": "creator_900",
+    "creator_2980": "creator_900",
+    "5000": "pro_1600",
+    "pro_4980": "pro_1600",
+    "10000": "ultra_3600",
+    "ultra_9800": "ultra_3600",
 }
 
-# 追加プロンプトパック (逆ザヤを解消した健全単価・有効期限1年)
+# 追加プロンプトパック (利益完全排除・バースト免除ピーク時最大原価 ¥0.25/回 の実費回収最低額)
 ADDON_PROMPT_PACKS: Dict[str, Dict[str, Any]] = {
     "pack_10": {
         "pack_id": "pack_10",
-        "name": "追加 10 プロンプト",
+        "name": "追加 10 プロンプト (実費)",
         "prompts": 10,
-        "price_jpy": 100,
-        "unit_price_jpy": 10.0,
+        "price_jpy": 10,
+        "unit_price_jpy": 1.0,
     },
     "pack_100": {
         "pack_id": "pack_100",
-        "name": "追加 100 プロンプト",
+        "name": "追加 100 プロンプト (実費)",
         "prompts": 100,
-        "price_jpy": 500,
-        "unit_price_jpy": 5.0,
+        "price_jpy": 30,
+        "unit_price_jpy": 0.3,
     },
     "pack_500": {
         "pack_id": "pack_500",
-        "name": "追加 500 プロンプト",
+        "name": "追加 500 プロンプト (実費)",
         "prompts": 500,
-        "price_jpy": 1800,
-        "unit_price_jpy": 3.6,
+        "price_jpy": 130,
+        "unit_price_jpy": 0.26,
     },
     "pack_1000": {
         "pack_id": "pack_1000",
-        "name": "追加 1,000 プロンプト",
+        "name": "追加 1,000 プロンプト (実費)",
         "prompts": 1000,
-        "price_jpy": 3000,
-        "unit_price_jpy": 3.0,
+        "price_jpy": 250,
+        "unit_price_jpy": 0.25,
     },
 }
 

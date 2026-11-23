@@ -69,7 +69,10 @@ SVCEOF
 sudo systemctl daemon-reload
 sudo systemctl enable tohostudio-llm-gateway.service
 sudo systemctl restart tohostudio-llm-gateway.service
-sleep 2
+for i in {1..10}; do
+    curl -fsS http://127.0.0.1:8095/health >/dev/null 2>&1 && break
+    sleep 1
+done
 sudo systemctl status tohostudio-llm-gateway.service --no-pager | head -n 15
 EOF
 

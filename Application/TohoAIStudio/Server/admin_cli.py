@@ -93,7 +93,7 @@ def main():
 
     p_plan = sub.add_parser("set-plan", help="利用者の定額プランを設定・制限解除")
     p_plan.add_argument("--user", required=True, help="利用者ID")
-    p_plan.add_argument("--plan", required=True, help="プランID (free, lite_980, standard_1980, creator_2980, pro_4980, ultra_9800)")
+    p_plan.add_argument("--plan", required=True, help="プランID (free, lite_150, standard_380, creator_900, pro_1600, ultra_3600)")
     p_plan.set_defaults(func=cmd_set_plan)
 
     args = parser.parse_args()
