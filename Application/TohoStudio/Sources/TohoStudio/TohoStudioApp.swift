@@ -51,6 +51,10 @@ struct TohoStudioApp: App {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if let appIcon = AppLogoView.loadOfficialLogoImage() {
+            NSApplication.shared.applicationIconImage = appIcon
+        }
+
         DistributedNotificationCenter.default().addObserver(
             forName: Notification.Name("jp.nanndemoya.TohoStudio.ReloadUnifiedProject"),
             object: nil,

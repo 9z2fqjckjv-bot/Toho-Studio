@@ -4,9 +4,13 @@
 <dict>
 	<key>files</key>
 	<dict>
+		<key>Resources/AppIcon.icns</key>
+		<data>
+		2o3HPuXaTfJ8AESozjgJpUn18vw=
+		</data>
 		<key>Resources/AppIcon.png</key>
 		<data>
-		jQ11od6veppi3YrlmoIR06pSyW8=
+		aDV0rbEk5tXZGlohqgj3kgoSMfk=
 		</data>
 		<key>Resources/Documents/PSDTool.html</key>
 		<data>
@@ -74,7 +78,7 @@
 		</data>
 		<key>Resources/app_logo.png</key>
 		<data>
-		jQ11od6veppi3YrlmoIR06pSyW8=
+		aDV0rbEk5tXZGlohqgj3kgoSMfk=
 		</data>
 		<key>Resources/keynote_extractor.py</key>
 		<data>
@@ -107,16 +111,23 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			j5a2u17USan5nFaYpwuNooKsPaw=
+			1n0L6hSWgHXOZ1OFOSrrX7YwpJM=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"8f96b6bb5ed449a9f99c5698a70b8da282ac3dac"</string>
+			<string>cdhash H"d67d0bea14968075ce675385392aeb5fb630a493"</string>
+		</dict>
+		<key>Resources/AppIcon.icns</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			0PhNtXgFrRRthT0WuAMt5i6M/oFgbUAo5zwCpSrCjrY=
+			</data>
 		</dict>
 		<key>Resources/AppIcon.png</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			GluZCvZPxS+FybQvd2iYS+Lr5y3S/fw+yocAEgQiI3U=
+			Vz19rXb/4oSzvF8tQn88+Zq8SMMwDiteqSip8qVfm+4=
 			</data>
 		</dict>
 		<key>Resources/Documents/PSDTool.html</key>
@@ -235,7 +246,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			GluZCvZPxS+FybQvd2iYS+Lr5y3S/fw+yocAEgQiI3U=
+			Vz19rXb/4oSzvF8tQn88+Zq8SMMwDiteqSip8qVfm+4=
 			</data>
 		</dict>
 		<key>Resources/keynote_extractor.py</key>

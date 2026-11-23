@@ -6,6 +6,8 @@
     <string>ja_JP</string>
     <key>CFBundleExecutable</key>
     <string>TohoStudio</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>jp.nanndemoya.TohoStudio</string>
     <key>CFBundleInfoDictionaryVersion</key>

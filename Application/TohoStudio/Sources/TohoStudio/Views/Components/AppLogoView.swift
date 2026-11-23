@@ -5,8 +5,25 @@ public struct AppLogoView: View {
     public let size: CGFloat
     public let cornerRadius: CGFloat
 
-    public static let logoPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Documents/動画用/手作り素材/AI生成/image11.png"
+    public static let logoPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/New/Application/Documents/アプリケーションロゴ.png"
     public static let resourceLogoPath = "/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/Resource/logo.png"
+
+    public static func loadOfficialLogoImage() -> NSImage? {
+        let candidates = [
+            Bundle.main.path(forResource: "app_logo", ofType: "png"),
+            Bundle.main.path(forResource: "AppIcon", ofType: "png"),
+            Bundle.main.path(forResource: "AppIcon", ofType: "icns"),
+            AppLogoView.logoPath,
+            AppLogoView.resourceLogoPath
+        ].compactMap { $0 }
+
+        for path in candidates {
+            if FileManager.default.fileExists(atPath: path), let img = NSImage(contentsOfFile: path) {
+                return img
+            }
+        }
+        return nil
+    }
 
     public init(size: CGFloat = 28, cornerRadius: CGFloat = 6) {
         self.size = size
@@ -41,21 +58,7 @@ public struct AppLogoView: View {
     }
 
     private var resizedImage: NSImage? {
-        let candidates = [
-            AppLogoView.logoPath,
-            AppLogoView.resourceLogoPath,
-            Bundle.main.path(forResource: "app_logo", ofType: "png"),
-            Bundle.main.path(forResource: "AppIcon", ofType: "png")
-        ].compactMap { $0 }
-
-        var loadedImage: NSImage?
-        for path in candidates {
-            if FileManager.default.fileExists(atPath: path), let img = NSImage(contentsOfFile: path) {
-                loadedImage = img
-                break
-            }
-        }
-        guard let original = loadedImage else { return nil }
+        guard let original = AppLogoView.loadOfficialLogoImage() else { return nil }
         let targetSize = NSSize(width: size, height: size)
         let newImg = NSImage(size: targetSize)
         newImg.lockFocus()
