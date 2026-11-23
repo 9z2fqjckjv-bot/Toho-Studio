@@ -76,7 +76,7 @@ Toho-Studio は、東方Projectの二次創作活動を総合的に支援する�
 - `Application/Toho-Studio.app`: macOS ネイティブアプリケーション（すぐに実行可能）
 - `Application/TohoStudio/`: Swift Package ソースコード一式
 - `Application/AquesTalk/`: AquesTalk 音声ライブラリおよび辞書
-- `DMG&ZIP/v2.9.2.dmg`: GitHub リリース公開用 macOS インストーラーイメージ（v2.9.2 アップデート版：新公式ロゴ全面適用、里山と花畑のアートワークアイコン、立絵スタジオ・スライド認識・サウンド管理最適化完全版）
+- `DMG&ZIP/v2.9.2.dmg`: GitHub リリース公開用 macOS インストーラーイメージ（v2.9.2 アップデート版：新公式ロゴ・AppIcon.icns全面適用、CharacterStudio高度色調補正＆ネイティブ合成同期、Keynote元画像ファイル名抽出・話者解析最適化、サウンドメーカー音声タイミング解決・プロジェクト同期強化完全版）
 - `DMG&ZIP/v2.9.2.zip`: GitHub リリース公開用アーカイブ（AquesTalkライセンスキーを除去したサニタイズ済み完全版）
 - `DMG&ZIP/v2.9.1.dmg`: GitHub リリース公開用 macOS インストーラーイメージ（v2.9.1 アップデート版：東方キャラ立絵スタジオのキャンバス枠およびビューポート表示フィット・画面枠はみ出し防止機能強化、先代の巫女の音声テンプレート＆ボイス自動割当対応版）
 - `DMG&ZIP/v2.9.1.zip`: GitHub リリース公開用アーカイブ（AquesTalkライセンスキーを除去したサニタイズ済み完全版）

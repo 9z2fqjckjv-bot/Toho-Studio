@@ -86,7 +86,7 @@
 		</data>
 		<key>Resources/web_psd/app.js</key>
 		<data>
-		JNLQ15TyDWw78cmr5lHQ9iZCAfU=
+		h26TGJnR5+qhxqeCp4j+R0PB9rM=
 		</data>
 		<key>Resources/web_psd/index.html</key>
 		<data>
@@ -111,10 +111,10 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			1n0L6hSWgHXOZ1OFOSrrX7YwpJM=
+			ZrtSoFDf7rVD8zgb5EdbI/7Snqc=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"d67d0bea14968075ce675385392aeb5fb630a493"</string>
+			<string>cdhash H"66bb52a050dfeeb543f3381be4475b23fed29ea7"</string>
 		</dict>
 		<key>Resources/AppIcon.icns</key>
 		<dict>
@@ -260,7 +260,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			g7f+vT0a9QEV3lin0LDwT1YqS6o/2HC/Warh1x8ZHqY=
+			HnAjqcn+VIucd9jCBDJmMzxMpZD7XPqcZrOEM937CVY=
 			</data>
 		</dict>
 		<key>Resources/web_psd/index.html</key>

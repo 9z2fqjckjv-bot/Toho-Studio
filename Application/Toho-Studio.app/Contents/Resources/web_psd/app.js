@@ -9,7 +9,7 @@
 
 (function () {
   // ネイティブ Swift からの直接呼び出し用グローバル API
-  window.tohoStudioSetCharacters = function(charList) {
+  window.tohoStudioSetCharacters = function (charList) {
     if (Array.isArray(charList)) {
       state.characterList = charList;
       if (elements.charCount) elements.charCount.textContent = charList.length;
@@ -18,7 +18,7 @@
     }
   };
 
-  window.tohoStudioLoadPSDFromNative = function(base64Data, filename) {
+  window.tohoStudioLoadPSDFromNative = function (base64Data, filename) {
     try {
       const binaryString = atob(base64Data);
       const len = binaryString.length;
@@ -33,7 +33,7 @@
     }
   };
 
-  window.tohoStudioApplyToProject = function() {
+  window.tohoStudioApplyToProject = function () {
     try {
       const canvas = document.getElementById("previewCanvas");
       if (canvas && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tohoStudio) {
@@ -52,12 +52,12 @@
         });
         showToast("TohoStudioプロジェクトに適用しました", "success");
       }
-    } catch(e) {
+    } catch (e) {
       console.error("tohoStudioApplyToProject error:", e);
     }
   };
 
-  window.tohoStudioExportComposite = function(target) {
+  window.tohoStudioExportComposite = function (target) {
     if (target === "characterMaker" || !target) {
       window.tohoStudioApplyToProject();
     } else {
@@ -80,7 +80,7 @@
           });
           showToast(`${target} にエクスポートしました`, "success");
         }
-      } catch(e) {
+      } catch (e) {
         console.error("tohoStudioExportComposite error:", e);
       }
     }
@@ -97,7 +97,7 @@
     characterList: [],      // 内蔵東方キャラリスト
     currentCharName: '',    // 現在読み込み中のキャラ名
     currentFileName: '',    // 現在のファイル名
-    
+
     // ビューポート状態
     zoom: 1.0,
     panX: 0,
@@ -265,7 +265,7 @@
       btn.addEventListener('click', () => {
         const targetTab = btn.getAttribute('data-tab');
         const parentSidebar = btn.closest('.sidebar');
-        
+
         parentSidebar.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         parentSidebar.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
 
@@ -432,7 +432,7 @@
         state.export.format = radio.value;
         elements.formatCards.forEach(c => c.classList.remove('active'));
         radio.closest('.format-card').classList.add('active');
-        
+
         elements.jpgOptionsBox.style.display = radio.value === 'jpg' ? 'flex' : 'none';
         elements.exportExtBadge.textContent = `.${radio.value}`;
         updateDimsPreview();
@@ -529,9 +529,9 @@
     const query = elements.charSearchInput.value.trim().toLowerCase();
     const filtered = state.characterList.filter(c => {
       if (!query) return true;
-      return (c.name && c.name.toLowerCase().includes(query)) || 
-             (c.variation && c.variation.toLowerCase().includes(query)) ||
-             (c.category && c.category.toLowerCase().includes(query));
+      return (c.name && c.name.toLowerCase().includes(query)) ||
+        (c.variation && c.variation.toLowerCase().includes(query)) ||
+        (c.category && c.category.toLowerCase().includes(query));
     });
 
     if (filtered.length === 0) {
@@ -547,8 +547,8 @@
         item.classList.add('active');
       }
 
-      const catBadge = (char.category && char.category !== '東方Project' && char.category !== 'その他') 
-        ? `<span style="font-size: 9px; background: rgba(255, 71, 133, 0.2); color: var(--accent-color); padding: 1px 5px; border-radius: 4px; margin-right: 4px;">${escapeHtml(char.category)}</span>` 
+      const catBadge = (char.category && char.category !== '東方Project' && char.category !== 'その他')
+        ? `<span style="font-size: 9px; background: rgba(255, 71, 133, 0.2); color: var(--accent-color); padding: 1px 5px; border-radius: 4px; margin-right: 4px;">${escapeHtml(char.category)}</span>`
         : '';
 
       item.innerHTML = `
@@ -574,7 +574,7 @@
       const res = await fetch(`/api/psd_file?path=${encodeURIComponent(char.rel_path)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const buffer = await res.arrayBuffer();
-      
+
       state.currentCharName = char.name;
       state.currentFileName = char.filename;
       const exportName = `${char.name}_${char.variation.replace(/[\/\s]/g, '_')}`;
@@ -752,7 +752,7 @@
         // 排他パーツグループの判定:
         // 子要素にグループを持たず直接描画レイヤーを持ち、かつ名前が ! で始まる、または目・口・眉・体・服・ポーズ等
         const isPartGroup = !hasChildGroups && !isSampleGroup && (
-          groupName.startsWith('!') || 
+          groupName.startsWith('!') ||
           /^(目|口|眉|体|服|衣装|ポーズ|前髪|後ろ髪|羽|腕|装飾|頭)/.test(cleanGroupName)
         );
 
@@ -926,7 +926,7 @@
         if (!item.node.hidden) row.classList.add('active');
 
         const isDummy = (item.node.imageData && item.node.imageData.width <= 1 && item.node.imageData.height <= 1) ||
-                        (item.node.right !== undefined && (item.node.right - item.node.left <= 1) && (item.node.bottom - item.node.top <= 1));
+          (item.node.right !== undefined && (item.node.right - item.node.left <= 1) && (item.node.bottom - item.node.top <= 1));
 
         row.innerHTML = `
           <div style="display: flex; align-items: center;">
@@ -966,7 +966,7 @@
 
   function resetPartsToInitial() {
     if (!state.psdData) return;
-    
+
     function resetNode(node) {
       if (!node) return;
       if (node._initialVisible !== undefined) {
@@ -1161,17 +1161,17 @@
   // ==================== 高速3x3カラーマトリクス & ピクセル変換エンジン ====================
   function multiplyMatrix3x3(a, b) {
     const out = new Float64Array(9);
-    out[0] = a[0]*b[0] + a[1]*b[3] + a[2]*b[6];
-    out[1] = a[0]*b[1] + a[1]*b[4] + a[2]*b[7];
-    out[2] = a[0]*b[2] + a[1]*b[5] + a[2]*b[8];
+    out[0] = a[0] * b[0] + a[1] * b[3] + a[2] * b[6];
+    out[1] = a[0] * b[1] + a[1] * b[4] + a[2] * b[7];
+    out[2] = a[0] * b[2] + a[1] * b[5] + a[2] * b[8];
 
-    out[3] = a[3]*b[0] + a[4]*b[3] + a[5]*b[6];
-    out[4] = a[3]*b[1] + a[4]*b[4] + a[5]*b[7];
-    out[5] = a[3]*b[2] + a[4]*b[5] + a[5]*b[8];
+    out[3] = a[3] * b[0] + a[4] * b[3] + a[5] * b[6];
+    out[4] = a[3] * b[1] + a[4] * b[4] + a[5] * b[7];
+    out[5] = a[3] * b[2] + a[4] * b[5] + a[5] * b[8];
 
-    out[6] = a[6]*b[0] + a[7]*b[3] + a[8]*b[6];
-    out[7] = a[6]*b[1] + a[7]*b[4] + a[8]*b[7];
-    out[8] = a[6]*b[2] + a[7]*b[5] + a[8]*b[8];
+    out[6] = a[6] * b[0] + a[7] * b[3] + a[8] * b[6];
+    out[7] = a[6] * b[1] + a[7] * b[4] + a[8] * b[7];
+    out[8] = a[6] * b[2] + a[7] * b[5] + a[8] * b[8];
     return out;
   }
 
@@ -1206,9 +1206,9 @@
   // 彩度調整マトリクス (s: 0.0 ~ 2.0, 1.0 = 標準)
   function getSaturateMatrix(s) {
     return new Float64Array([
-      0.213 * (1 - s) + s, 0.715 * (1 - s),     0.072 * (1 - s),
-      0.213 * (1 - s),     0.715 * (1 - s) + s, 0.072 * (1 - s),
-      0.213 * (1 - s),     0.715 * (1 - s),     0.072 * (1 - s) + s
+      0.213 * (1 - s) + s, 0.715 * (1 - s), 0.072 * (1 - s),
+      0.213 * (1 - s), 0.715 * (1 - s) + s, 0.072 * (1 - s),
+      0.213 * (1 - s), 0.715 * (1 - s), 0.072 * (1 - s) + s
     ]);
   }
 
@@ -1216,9 +1216,9 @@
   function getSepiaMatrix(amount = 0.8) {
     const inv = 1 - amount;
     return new Float64Array([
-      inv + amount * 0.393, amount * 0.769,       amount * 0.189,
-      amount * 0.349,       inv + amount * 0.686, amount * 0.168,
-      amount * 0.272,       amount * 0.534,       inv + amount * 0.131
+      inv + amount * 0.393, amount * 0.769, amount * 0.189,
+      amount * 0.349, inv + amount * 0.686, amount * 0.168,
+      amount * 0.272, amount * 0.534, inv + amount * 0.131
     ]);
   }
 
@@ -1226,7 +1226,7 @@
   const PART_ID_BODY = 0; // 体（服・衣装 ※顔と髪を除く）
   const PART_ID_HAIR = 1; // 髪
   const PART_ID_FACE = 2; // 顔・肌
-  const PART_ID_ACC  = 3; // 追加物（第3の目・コード・装飾など）
+  const PART_ID_ACC = 3; // 追加物（第3の目・コード・装飾など）
 
   // 顔の位置（アンカーポイント）検出
   function detectFaceBounds(psd) {
@@ -1520,12 +1520,12 @@
     const adjBody = state.partColors['part_body'] || (state.partColors['group_体'] || null);
     const adjHair = state.partColors['part_hair'];
     const adjFace = state.partColors['part_face'];
-    const adjAcc  = state.partColors['part_accessory'];
+    const adjAcc = state.partColors['part_accessory'];
 
     const mBody = prepareAdjMatrix(adjBody);
     const mHair = prepareAdjMatrix(adjHair);
     const mFace = prepareAdjMatrix(adjFace);
-    const mAcc  = prepareAdjMatrix(adjAcc);
+    const mAcc = prepareAdjMatrix(adjAcc);
 
     const hasAnyMajorAdj = mBody.hasAdj || mHair.hasAdj || mFace.hasAdj || mAcc.hasAdj;
     if (!hasAnyMajorAdj) {
@@ -1560,7 +1560,7 @@
       const ng = r * m.m10 + g * m.m11 + b * m.m12 + m.bOffset;
       const nb = r * m.m20 + g * m.m21 + b * m.m22 + m.bOffset;
 
-      data[i]     = nr < 0 ? 0 : (nr > 255 ? 255 : nr);
+      data[i] = nr < 0 ? 0 : (nr > 255 ? 255 : nr);
       data[i + 1] = ng < 0 ? 0 : (ng > 255 ? 255 : ng);
       data[i + 2] = nb < 0 ? 0 : (nb > 255 ? 255 : nb);
     }
@@ -1647,7 +1647,7 @@
       const ng = r * m10 + g * m11 + b * m12 + bOffset;
       const nb = r * m20 + g * m21 + b * m22 + bOffset;
 
-      data[i]     = nr < 0 ? 0 : (nr > 255 ? 255 : nr);
+      data[i] = nr < 0 ? 0 : (nr > 255 ? 255 : nr);
       data[i + 1] = ng < 0 ? 0 : (ng > 255 ? 255 : ng);
       data[i + 2] = nb < 0 ? 0 : (nb > 255 ? 255 : nb);
     }
@@ -1731,7 +1731,7 @@
       const ng = r * m10 + g * m11 + b * m12 + gOffset;
       const nb = r * m20 + g * m21 + b * m22 + bOffset;
 
-      data[i]     = nr < 0 ? 0 : (nr > 255 ? 255 : nr);
+      data[i] = nr < 0 ? 0 : (nr > 255 ? 255 : nr);
       data[i + 1] = ng < 0 ? 0 : (ng > 255 ? 255 : ng);
       data[i + 2] = nb < 0 ? 0 : (nb > 255 ? 255 : nb);
     }
@@ -1780,7 +1780,7 @@
         if (layerCanvas) {
           tempCtx.save();
           tempCtx.globalAlpha = node.opacity !== undefined ? node.opacity : 1.0;
-          
+
           const left = node.left || 0;
           const top = node.top || 0;
 
@@ -2186,7 +2186,7 @@
 
         if (dist < pr.tol) {
           const weight = Math.cos((dist / pr.tol) * (Math.PI / 2));
-          
+
           // 明度 pl を 100% 保持（陰影・立体感を完全に維持）
           const newH = pr.th;
           const newS = Math.min(1.0, pr.ts * (ps / Math.max(0.1, pr.fs)));
@@ -2246,17 +2246,17 @@
       const hue2rgb = (p, q, t) => {
         if (t < 0) t += 1;
         if (t > 1) t -= 1;
-        if (t < 1/6) return p + (q - p) * 6 * t;
-        if (t < 1/2) return q;
-        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
         return p;
       };
       const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
       const p = 2 * l - q;
       const hk = h / 360;
-      r = hue2rgb(p, q, hk + 1/3);
+      r = hue2rgb(p, q, hk + 1 / 3);
       g = hue2rgb(p, q, hk);
-      b = hue2rgb(p, q, hk - 1/3);
+      b = hue2rgb(p, q, hk - 1 / 3);
     }
     return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
   }
@@ -2390,7 +2390,7 @@
   function syncPartSlidersUI() {
     const target = state.color.partTarget || 'all';
     const s = state.partColors[target] || { hue: 0, saturation: 100, brightness: 0 };
-    
+
     if (elements.sliderPartHue) {
       elements.sliderPartHue.value = s.hue;
       elements.valPartHue.textContent = `${s.hue}°`;
@@ -2437,15 +2437,15 @@
     const padX = 60; // 左右各 30px
     const padTop = 30; // 上部 30px
     const padBottom = 80; // 下部 80px (フローティングバー 56px + 24px)
-    
+
     const availableWidth = Math.max(50, vpRect.width - padX);
     const availableHeight = Math.max(50, vpRect.height - (padTop + padBottom));
-    
+
     const scaleX = availableWidth / elements.previewCanvas.width;
     const scaleY = availableHeight / elements.previewCanvas.height;
     // 画面枠から絶対にはみ出さないよう、縦横比を維持したまま最小の縮尺を採用
     const fitScale = Math.min(scaleX, scaleY, 1.0);
-    
+
     // 上下余白の差分 (padBottom - padTop) を考慮して、キャンバスの垂直中央を微調整
     state.panX = 0;
     state.panY = Math.round((padTop - padBottom) / 2);
@@ -2506,12 +2506,12 @@
               subfolder: state.currentCharName || "東方キャラ"
             });
           }
-        } catch(e) {}
+        } catch (e) { }
 
         // ローカルサーバー（動画用/手作り素材/psdtool/エクスポート）に直接保存
         base64Data = await blobToBase64(blob);
         const subfolder = state.currentCharName || '東方キャラ';
-        
+
         const res = await fetch('/api/save_export', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2555,7 +2555,7 @@
     return new Promise(resolve => {
       const scale = state.export.scale;
       const srcCanvas = elements.previewCanvas;
-      
+
       if (scale === 1.0) {
         srcCanvas.toBlob(blob => resolve(blob), 'image/png');
       } else {
