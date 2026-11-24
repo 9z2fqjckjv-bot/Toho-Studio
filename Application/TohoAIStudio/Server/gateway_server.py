@@ -15,6 +15,7 @@ import time
 import uuid
 import sqlite3
 import secrets
+import threading
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List, Tuple
 
@@ -370,29 +371,51 @@ def split_think_tag(text: str) -> Tuple[str, Optional[str]]:
 
 
 def call_gemini_api(api_key: str, system_prompt: str, user_prompt: str, model_hint: str, temperature: float) -> Tuple[str, str, int, int]:
-    model_id = "gemini-2.5-flash"
-    low = model_hint.lower()
+    low = (model_hint or "").lower()
     if "pro" in low:
-        model_id = "gemini-2.5-pro"
+        candidates = ["gemini-pro-latest", "gemini-2.5-pro", "gemini-flash-latest"]
     elif "lite" in low:
-        model_id = "gemini-2.5-flash-lite"
+        candidates = ["gemini-2.5-flash-lite", "gemini-flash-latest"]
     elif "2.0" in low:
-        model_id = "gemini-2.0-flash"
+        candidates = ["gemini-2.0-flash", "gemini-flash-latest"]
+    else:
+        candidates = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite"]
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={api_key}"
-    payload = {
-        "systemInstruction": {"parts": [{"text": system_prompt}]},
-        "contents": [{"parts": [{"text": user_prompt}]}],
-        "generationConfig": {"temperature": temperature, "maxOutputTokens": 3072},
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": api_key.strip(),
     }
-    res = requests.post(url, json=payload, timeout=90)
-    res.raise_for_status()
-    data = res.json()
-    text = data["candidates"][0]["content"]["parts"][0]["text"]
-    usage = data.get("usageMetadata", {})
-    p_tok = usage.get("promptTokenCount", max(1, len(user_prompt) // 2))
-    c_tok = usage.get("candidatesTokenCount", max(1, len(text) // 2))
-    return text, f"Google Gemini ({model_id})", p_tok, c_tok
+    payload = {
+        "system_instruction": {"parts": [{"text": system_prompt}]},
+        "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+        "generationConfig": {"temperature": temperature, "maxOutputTokens": 8192},
+    }
+
+    last_err: Optional[Exception] = None
+    for model_id in candidates:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent"
+        try:
+            res = requests.post(url, headers=headers, json=payload, timeout=90)
+            if res.status_code in (404, 400):
+                last_err = RuntimeError(f"HTTP {res.status_code} on {model_id}: {res.text[:200]}")
+                continue
+            res.raise_for_status()
+            data = res.json()
+            parts = data["candidates"][0]["content"].get("parts", [])
+            thought_texts = [p["text"] for p in parts if p.get("thought") and p.get("text")]
+            answer_texts = [p["text"] for p in parts if not p.get("thought") and p.get("text")]
+            text = "\n".join(answer_texts).strip() or "\n".join(thought_texts).strip()
+            if thought_texts and answer_texts:
+                text = f"<think>{chr(10).join(thought_texts)}</think>\n{text}"
+            usage = data.get("usageMetadata", {})
+            p_tok = usage.get("promptTokenCount", max(1, len(user_prompt) // 2))
+            c_tok = usage.get("candidatesTokenCount", max(1, len(text) // 2))
+            return text, f"Google Gemini ({model_id})", p_tok, c_tok
+        except Exception as exc:
+            last_err = exc
+            continue
+
+    raise last_err or RuntimeError("Gemini API call failed across all candidate models")
 
 
 def call_openai_compatible(
@@ -486,7 +509,13 @@ def call_local_ollama(system_prompt: str, user_prompt: str, requested_model: str
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        "options": {"temperature": temperature},
+        "keep_alive": "24h",
+        "options": {
+            "temperature": temperature,
+            "num_ctx": 2048,
+            "num_predict": 512,
+            "num_thread": max(2, os.cpu_count() or 4),
+        },
         "stream": False,
     }
     res = requests.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload, timeout=240)
@@ -496,6 +525,30 @@ def call_local_ollama(system_prompt: str, user_prompt: str, requested_model: str
     p_tok = data.get("prompt_eval_count") or max(1, len(user_prompt) // 2)
     c_tok = data.get("eval_count") or max(1, len(text) // 2)
     return text, f"Local Ollama ({chosen})", p_tok, c_tok
+
+
+def _warmup_local_ollama_bg():
+    """サービス起動時にデフォルトモデルをメモリへ事前ロードし、初回コールドスタート遅延を防ぐ"""
+    try:
+        installed = get_installed_ollama_models()
+        if not installed:
+            return
+        chosen = DEFAULT_LOCAL_MODEL if DEFAULT_LOCAL_MODEL in installed else installed[0]
+        requests.post(
+            f"{OLLAMA_BASE_URL}/api/chat",
+            json={
+                "model": chosen,
+                "messages": [],
+                "keep_alive": "24h",
+                "options": {"num_ctx": 2048, "num_thread": max(2, os.cpu_count() or 4)},
+            },
+            timeout=180,
+        )
+    except Exception as exc:
+        print(f"[Gateway Warmup] Ollama preload skipped: {exc}")
+
+
+threading.Thread(target=_warmup_local_ollama_bg, daemon=True).start()
 
 
 def route_inference(
@@ -669,10 +722,39 @@ class ColabEndpointSyncRequest(BaseModel):
 # ==============================================================================
 # エンドポイント実装
 # ==============================================================================
+def get_system_metrics() -> Tuple[float, float]:
+    cpu_pct = 14.0
+    mem_pct = 48.0
+    try:
+        cores = max(1, os.cpu_count() or 1)
+        load1 = os.getloadavg()[0]
+        cpu_pct = round(min(100.0, max(1.0, (load1 / cores) * 100.0)), 1)
+    except Exception:
+        pass
+    try:
+        if os.path.exists("/proc/meminfo"):
+            info: Dict[str, int] = {}
+            with open("/proc/meminfo", "r", encoding="utf-8") as f:
+                for line in f:
+                    parts = line.split(":")
+                    if len(parts) == 2:
+                        val_parts = parts[1].strip().split()
+                        if val_parts and val_parts[0].isdigit():
+                            info[parts[0].strip()] = int(val_parts[0])
+            total = info.get("MemTotal", 0)
+            avail = info.get("MemAvailable", 0)
+            if total > 0:
+                mem_pct = round(min(100.0, max(1.0, ((total - avail) / total) * 100.0)), 1)
+    except Exception:
+        pass
+    return cpu_pct, mem_pct
+
+
 @app.get("/health")
 def health():
     ollama_models = get_installed_ollama_models()
     configured_upstreams = [k for k, v in MASTER_KEYS.items() if v]
+    cpu_pct, mem_pct = get_system_metrics()
     with get_db() as conn:
         user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         colab_row = conn.execute("SELECT value FROM runtime_state WHERE key = 'colab_url'").fetchone()
@@ -689,6 +771,8 @@ def health():
         "configured_cloud_upstreams": configured_upstreams,
         "colab_endpoint": colab_url,
         "active_local_users": user_count,
+        "cpu_percent": cpu_pct,
+        "memory_percent": mem_pct,
         "pricing_version": "v3.0-public-flat-rate",
         "features": [
             "chat",

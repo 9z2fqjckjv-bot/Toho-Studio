@@ -279,6 +279,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
         }
 
         startContinuousHeartbeat()
+        checkHealth { _ in }
         fetchServerPlans()
         syncUserStatusFromServer()
     }
@@ -302,7 +303,9 @@ public final class CloudVirtualLinuxService: ObservableObject {
                     self.latencyMs = max(1, elapsed)
                     self.lastHeartbeatAt = Date()
                     self.isConnected = true
-                    self.connectionStatus = .connected
+                    if self.connectionStatus != .suspendedPromptZero {
+                        self.connectionStatus = .connected
+                    }
 
                     if let data = data,
                        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
@@ -317,6 +320,12 @@ public final class CloudVirtualLinuxService: ObservableObject {
                         }
                         if let users = json["active_local_users"] as? Int {
                             self.machineStatus.activeLocalAccountsCount = users
+                        }
+                        if let cpu = json["cpu_percent"] as? Double {
+                            self.machineStatus.cpuUsagePercent = cpu
+                        }
+                        if let mem = json["memory_percent"] as? Double {
+                            self.machineStatus.memoryUsagePercent = mem
                         }
                     }
                     completion(true)

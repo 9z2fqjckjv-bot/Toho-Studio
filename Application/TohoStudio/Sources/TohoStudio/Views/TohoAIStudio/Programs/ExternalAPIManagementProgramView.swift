@@ -311,6 +311,16 @@ public struct ExternalAPIManagementProgramView: View {
 
                     Spacer()
 
+                    if !config.wrappedValue.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button("AIチャットでこのAPIを使う") {
+                            tohoAIService.activeProvider = provider
+                            tohoAIService.selectedModel = config.wrappedValue.selectedModel
+                            tohoAIService.activeProgramTab = .aiChat
+                        }
+                        .font(.caption)
+                        .buttonStyle(.bordered)
+                    }
+
                     Button(action: {
                         if let url = URL(string: config.wrappedValue.billingURLString) {
                             AppState.shared.openInAppBrowser(url: url, title: "\(title) 請求・使用量確認")

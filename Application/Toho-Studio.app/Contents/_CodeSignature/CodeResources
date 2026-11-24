@@ -111,10 +111,10 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			AYbq/u+mmbAy/agIiMmi8B5y7A4=
+			Zc2Q8lmGllngybuLCfyaykTqTdI=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"0186eafeefa699b032fda80888c9a2f01e72ec0e"</string>
+			<string>cdhash H"65cd90f259869659e0c9bb8b09fc9aca44ea4dd2"</string>
 		</dict>
 		<key>Resources/AppIcon.icns</key>
 		<dict>

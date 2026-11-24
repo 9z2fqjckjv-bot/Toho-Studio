@@ -198,17 +198,36 @@ public final class TohoAIService: ObservableObject {
     public static let shared = TohoAIService()
 
     private static let nanndemoyaKeyStorage = "TohoAIStudio.NanndemoyaLicenseKey"
+    private static let providerStorageKey = "TohoAIStudio.ActiveProvider"
+    private static let selectedModelStorageKey = "TohoAIStudio.SelectedModel"
+    private static func externalConfigStorageKey(for provider: AIProviderType) -> String {
+        return "TohoAIStudio.ExternalConfig.\(provider.rawValue)"
+    }
+    private var isRestoringSettings: Bool = false
+    private var discoveredGeminiModels: [String] = []
+    private var discoveredClaudeModels: [String] = []
 
     // MARK: - Selected Configuration
     @Published public var activeProgramTab: TohoAIProgramTab = .aiChat
     @Published public var activeProvider: AIProviderType = .virtualLinuxVM {
         didSet {
-            if !activeProvider.availableModels.contains(selectedModel) {
+            guard !isRestoringSettings else { return }
+            UserDefaults.standard.set(activeProvider.rawValue, forKey: Self.providerStorageKey)
+            let preferred = preferredModel(for: activeProvider)
+            if activeProvider.availableModels.contains(preferred) {
+                selectedModel = preferred
+            } else if !activeProvider.availableModels.contains(selectedModel) {
                 selectedModel = activeProvider.defaultModel
             }
         }
     }
-    @Published public var selectedModel: String = "Auto (東方最適ルーティング)"
+    @Published public var selectedModel: String = "Auto (東方最適ルーティング)" {
+        didSet {
+            guard !isRestoringSettings else { return }
+            UserDefaults.standard.set(selectedModel, forKey: Self.selectedModelStorageKey)
+            syncSelectedModelToProviderConfig(model: selectedModel, provider: activeProvider)
+        }
+    }
     @Published public var temperature: Double = 0.7
     @Published public var isGenerating: Bool = false
 
@@ -226,7 +245,12 @@ public final class TohoAIService: ObservableObject {
         billingURLString: "https://www.nanndemoya.net/top"
     ) {
         didSet {
+            guard !isRestoringSettings else { return }
             UserDefaults.standard.set(nanndemoyaConfig.apiKey, forKey: Self.nanndemoyaKeyStorage)
+            saveExternalConfig(nanndemoyaConfig, for: .nanndemoya)
+            if activeProvider == .nanndemoya && selectedModel != nanndemoyaConfig.selectedModel {
+                selectedModel = nanndemoyaConfig.selectedModel
+            }
         }
     }
     @Published public var nanndemoyaLicenseInfo: NanndemoyaLicenseVerification? = nil
@@ -241,7 +265,18 @@ public final class TohoAIService: ObservableObject {
         lastTestedAt: nil,
         latencyMs: 0,
         billingURLString: "https://aistudio.google.com/"
-    )
+    ) {
+        didSet {
+            guard !isRestoringSettings else { return }
+            if oldValue.apiKey != geminiConfig.apiKey {
+                discoveredGeminiModels = []
+            }
+            saveExternalConfig(geminiConfig, for: .gemini)
+            if activeProvider == .gemini && selectedModel != geminiConfig.selectedModel {
+                selectedModel = geminiConfig.selectedModel
+            }
+        }
+    }
     @Published public var chatGPTConfig: ExternalAPIConfig = ExternalAPIConfig(
         apiKey: "",
         isEnabled: false,
@@ -250,7 +285,15 @@ public final class TohoAIService: ObservableObject {
         lastTestedAt: nil,
         latencyMs: 0,
         billingURLString: "https://platform.openai.com/usage"
-    )
+    ) {
+        didSet {
+            guard !isRestoringSettings else { return }
+            saveExternalConfig(chatGPTConfig, for: .chatGPT)
+            if activeProvider == .chatGPT && selectedModel != chatGPTConfig.selectedModel {
+                selectedModel = chatGPTConfig.selectedModel
+            }
+        }
+    }
     @Published public var claudeConfig: ExternalAPIConfig = ExternalAPIConfig(
         apiKey: "",
         isEnabled: false,
@@ -259,7 +302,18 @@ public final class TohoAIService: ObservableObject {
         lastTestedAt: nil,
         latencyMs: 0,
         billingURLString: "https://console.anthropic.com/settings/plans"
-    )
+    ) {
+        didSet {
+            guard !isRestoringSettings else { return }
+            if oldValue.apiKey != claudeConfig.apiKey {
+                discoveredClaudeModels = []
+            }
+            saveExternalConfig(claudeConfig, for: .claude)
+            if activeProvider == .claude && selectedModel != claudeConfig.selectedModel {
+                selectedModel = claudeConfig.selectedModel
+            }
+        }
+    }
     @Published public var grokConfig: ExternalAPIConfig = ExternalAPIConfig(
         apiKey: "",
         isEnabled: false,
@@ -268,7 +322,15 @@ public final class TohoAIService: ObservableObject {
         lastTestedAt: nil,
         latencyMs: 0,
         billingURLString: "https://console.x.ai/"
-    )
+    ) {
+        didSet {
+            guard !isRestoringSettings else { return }
+            saveExternalConfig(grokConfig, for: .grok)
+            if activeProvider == .grok && selectedModel != grokConfig.selectedModel {
+                selectedModel = grokConfig.selectedModel
+            }
+        }
+    }
     @Published public var mistralConfig: ExternalAPIConfig = ExternalAPIConfig(
         apiKey: "",
         isEnabled: false,
@@ -277,7 +339,15 @@ public final class TohoAIService: ObservableObject {
         lastTestedAt: nil,
         latencyMs: 0,
         billingURLString: "https://console.mistral.ai/billing/"
-    )
+    ) {
+        didSet {
+            guard !isRestoringSettings else { return }
+            saveExternalConfig(mistralConfig, for: .mistral)
+            if activeProvider == .mistral && selectedModel != mistralConfig.selectedModel {
+                selectedModel = mistralConfig.selectedModel
+            }
+        }
+    }
 
     // MARK: - AI Editing & Proofreading Workspace State
     @Published public var selectedEditMode: AIEditMode = .proofreadPolish
@@ -309,11 +379,97 @@ public final class TohoAIService: ObservableObject {
     ]
 
     private init() {
-        if let savedKey = UserDefaults.standard.string(forKey: Self.nanndemoyaKeyStorage), !savedKey.isEmpty {
-            self.nanndemoyaConfig.apiKey = savedKey
-            self.nanndemoyaConfig.isEnabled = true
+        isRestoringSettings = true
+        nanndemoyaConfig = loadExternalConfig(for: .nanndemoya, fallback: nanndemoyaConfig)
+        if nanndemoyaConfig.apiKey.isEmpty,
+           let savedKey = UserDefaults.standard.string(forKey: Self.nanndemoyaKeyStorage),
+           !savedKey.isEmpty {
+            nanndemoyaConfig.apiKey = savedKey
+            nanndemoyaConfig.isEnabled = true
         }
+        geminiConfig = loadExternalConfig(for: .gemini, fallback: geminiConfig)
+        chatGPTConfig = loadExternalConfig(for: .chatGPT, fallback: chatGPTConfig)
+        claudeConfig = loadExternalConfig(for: .claude, fallback: claudeConfig)
+        grokConfig = loadExternalConfig(for: .grok, fallback: grokConfig)
+        mistralConfig = loadExternalConfig(for: .mistral, fallback: mistralConfig)
+
+        if let savedProvRaw = UserDefaults.standard.string(forKey: Self.providerStorageKey),
+           let savedProv = AIProviderType(rawValue: savedProvRaw) {
+            activeProvider = savedProv
+        }
+        if let savedModel = UserDefaults.standard.string(forKey: Self.selectedModelStorageKey),
+           activeProvider.availableModels.contains(savedModel) {
+            selectedModel = savedModel
+        } else {
+            let pref = preferredModel(for: activeProvider)
+            selectedModel = activeProvider.availableModels.contains(pref) ? pref : activeProvider.defaultModel
+        }
+        isRestoringSettings = false
+
         seedInitialMessages()
+    }
+
+    private func saveExternalConfig(_ config: ExternalAPIConfig, for provider: AIProviderType) {
+        if let encoded = try? JSONEncoder().encode(config) {
+            UserDefaults.standard.set(encoded, forKey: Self.externalConfigStorageKey(for: provider))
+        }
+    }
+
+    private func loadExternalConfig(for provider: AIProviderType, fallback: ExternalAPIConfig) -> ExternalAPIConfig {
+        guard let data = UserDefaults.standard.data(forKey: Self.externalConfigStorageKey(for: provider)),
+              var decoded = try? JSONDecoder().decode(ExternalAPIConfig.self, from: data) else {
+            return fallback
+        }
+        if decoded.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            decoded.isConnected = false
+        }
+        if !provider.availableModels.contains(decoded.selectedModel) {
+            decoded.selectedModel = provider.defaultModel
+        }
+        return decoded
+    }
+
+    private func preferredModel(for provider: AIProviderType) -> String {
+        switch provider {
+        case .virtualLinuxVM: return provider.defaultModel
+        case .nanndemoya: return nanndemoyaConfig.selectedModel
+        case .gemini: return geminiConfig.selectedModel
+        case .chatGPT: return chatGPTConfig.selectedModel
+        case .claude: return claudeConfig.selectedModel
+        case .grok: return grokConfig.selectedModel
+        case .mistral: return mistralConfig.selectedModel
+        }
+    }
+
+    private func syncSelectedModelToProviderConfig(model: String, provider: AIProviderType) {
+        guard provider.availableModels.contains(model) else { return }
+        switch provider {
+        case .virtualLinuxVM: break
+        case .nanndemoya:
+            if nanndemoyaConfig.selectedModel != model { nanndemoyaConfig.selectedModel = model }
+        case .gemini:
+            if geminiConfig.selectedModel != model { geminiConfig.selectedModel = model }
+        case .chatGPT:
+            if chatGPTConfig.selectedModel != model { chatGPTConfig.selectedModel = model }
+        case .claude:
+            if claudeConfig.selectedModel != model { claudeConfig.selectedModel = model }
+        case .grok:
+            if grokConfig.selectedModel != model { grokConfig.selectedModel = model }
+        case .mistral:
+            if mistralConfig.selectedModel != model { mistralConfig.selectedModel = model }
+        }
+    }
+
+    public func isProviderEnabled(_ provider: AIProviderType) -> Bool {
+        switch provider {
+        case .virtualLinuxVM: return true
+        case .nanndemoya: return nanndemoyaConfig.isEnabled
+        case .gemini: return geminiConfig.isEnabled
+        case .chatGPT: return chatGPTConfig.isEnabled
+        case .claude: return claudeConfig.isEnabled
+        case .grok: return grokConfig.isEnabled
+        case .mistral: return mistralConfig.isEnabled
+        }
     }
 
     public func hasAnyExternalAPIEnabled() -> Bool {
@@ -378,26 +534,35 @@ public final class TohoAIService: ObservableObject {
         chatMessages.append(userMsg)
         isGenerating = true
 
+        let activeProv = activeProvider
+        let activeMod = selectedModel
+        let historySnapshot = Array(chatMessages.dropLast())
+
         callAPIOrGenerateSmart(
             prompt: trimmed,
-            provider: activeProvider,
-            model: selectedModel,
-            persona: persona
+            provider: activeProv,
+            model: activeMod,
+            persona: persona,
+            chatHistory: historySnapshot
         ) { [weak self] responseContent, thinkingLog in
             guard let self = self else { return }
             let aiMsg = AIChatMessage(
                 role: "assistant",
                 content: responseContent,
                 thinkingContent: thinkingLog,
-                provider: self.activeProvider,
-                modelName: self.selectedModel,
+                provider: activeProv,
+                modelName: activeMod,
                 timestamp: Date(),
                 promptTokens: max(1, trimmed.count / 2),
                 completionTokens: max(1, responseContent.count / 2)
             )
             self.chatMessages.append(aiMsg)
             self.isGenerating = false
-            AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: [\(self.activeProvider.rawValue)] から応答を受信しました。")
+            if responseContent.hasPrefix("⚠️") || responseContent.contains("オフライン応答モード") {
+                AppState.shared.addSystemLog(level: "WARN", message: "TohoAIStudio: [\(activeProv.rawValue)] 応答警告 — \(responseContent.prefix(60))")
+            } else {
+                AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: [\(activeProv.rawValue)] から応答を受信しました。")
+            }
         }
     }
 
@@ -440,7 +605,7 @@ public final class TohoAIService: ObservableObject {
             return
         }
 
-        var req = URLRequest(url: url, timeoutInterval: 120.0)
+        var req = URLRequest(url: url, timeoutInterval: 240.0)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
@@ -459,14 +624,13 @@ public final class TohoAIService: ObservableObject {
         }
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: req) { [weak self] data, response, _ in
+        URLSession.shared.dataTask(with: req) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                if let http = response as? HTTPURLResponse,
-                   (http.statusCode == 401 || http.statusCode == 403 || http.statusCode == 429) {
-                    let msg = CloudVirtualLinuxService.extractErrorDetail(from: data) ?? "利用上限または認証エラーが発生しました。"
+                if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                    let msg = CloudVirtualLinuxService.extractErrorDetail(from: data) ?? "ゲートウェイ応答エラー (HTTP \(http.statusCode))"
                     self.editorOutputText = "⚠️ \(msg)"
-                    self.editorThinkingText = "サーバー制限応答 (HTTP \(http.statusCode))"
+                    self.editorThinkingText = "サーバーエラー応答 (HTTP \(http.statusCode))"
                     self.isEditorProcessing = false
                     return
                 }
@@ -484,6 +648,10 @@ public final class TohoAIService: ObservableObject {
                     let combinedThink = rawThink != nil ? "【\(engineName)】\n\(rawThink!)" : "【\(engineName) 実LLM推論完了】"
                     let serverScenes = json["scenes"] as? [[String: Any]]
                     self.applyEditorResult(rawText: text, thinking: combinedThink, serverScenes: serverScenes, mode: mode, input: input)
+                } else if let urlErr = error as? URLError, urlErr.code == .timedOut {
+                    self.editorOutputText = "⚠️ ゲートウェイサーバでのLLM推論がタイムアウトしました。再度お試しいただくか、外部APIをご利用ください。"
+                    self.editorThinkingText = "タイムアウト (URLError.timedOut)"
+                    self.isEditorProcessing = false
                 } else {
                     self.runOfflineEditorFallback(input: input, mode: mode, tone: tone)
                 }
@@ -616,6 +784,7 @@ public final class TohoAIService: ObservableObject {
         provider: AIProviderType,
         model: String,
         persona: String? = nil,
+        chatHistory: [AIChatMessage] = [],
         completion: @escaping (String, String?) -> Void
     ) {
         switch provider {
@@ -628,15 +797,31 @@ public final class TohoAIService: ObservableObject {
                 completion("⚠️ Nanndemoya独自APIのライセンスキーが未設定です。「外部API・Nanndemoya認証」タブからライセンスキーを入力して認証してください。", nil)
                 return
             }
+            guard nanndemoyaConfig.isEnabled else {
+                completion("⚠️ Nanndemoya独自APIの「ライセンスを有効化」がオフになっています。「外部API・Nanndemoya認証」タブで有効化してください。", nil)
+                return
+            }
             executeGatewayChatRequest(prompt: prompt, model: model, persona: persona, licenseKey: licKey, completion: completion)
             return
         case .gemini, .chatGPT, .claude, .grok, .mistral:
             let key = apiKey(for: provider).trimmingCharacters(in: .whitespacesAndNewlines)
-            if !key.isEmpty {
-                executeRealRESTRequest(prompt: prompt, provider: provider, apiKey: key, model: model, persona: persona, completion: completion)
-            } else {
+            guard !key.isEmpty else {
                 completion("⚠️ [\(provider.rawValue)] のAPIキーが設定されていません。「外部API・Nanndemoya認証」タブでAPIキーを入力するか、エンジンを「定額プラン内蔵LLM」に切り替えてください。", nil)
+                return
             }
+            guard isProviderEnabled(provider) else {
+                completion("⚠️ [\(provider.rawValue)] の「APIを有効化」がオフになっています。「外部API・Nanndemoya認証」タブでスイッチをオンにするか、エンジンを切り替えてください。", nil)
+                return
+            }
+            executeRealRESTRequest(
+                prompt: prompt,
+                provider: provider,
+                apiKey: key,
+                model: model,
+                persona: persona,
+                chatHistory: chatHistory,
+                completion: completion
+            )
         }
     }
 
@@ -659,6 +844,7 @@ public final class TohoAIService: ObservableObject {
         apiKey: String,
         model: String,
         persona: String?,
+        chatHistory: [AIChatMessage],
         completion: @escaping (String, String?) -> Void
     ) {
         var systemPrompt = "あなたは東方Projectの同人制作支援AIアシスタントです。幻想郷の世界観、各キャラクターの公式口調・性格・能力・人間関係、二次創作ガイドラインに精通しています。具体的・魅力的・詳細に回答してください。"
@@ -666,132 +852,626 @@ public final class TohoAIService: ObservableObject {
             systemPrompt += "\n現在は『\(p)』として振る舞い、その口調で対話してください。"
         }
 
+        let cleanTurns = sanitizeConversationHistory(chatHistory)
+
         switch provider {
         case .gemini:
-            let lower = model.lowercased()
-            let modelId = lower.contains("pro") ? "gemini-2.5-pro" : (lower.contains("2.0") ? "gemini-2.0-flash" : "gemini-2.5-flash")
-            guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(modelId):generateContent?key=\(apiKey)") else {
-                fallbackDynamic(prompt: prompt, provider: provider, model: model, completion: completion)
-                return
-            }
-
-            var req = URLRequest(url: url, timeoutInterval: 90)
-            req.httpMethod = "POST"
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            let bodyDict: [String: Any] = [
-                "systemInstruction": ["parts": [["text": systemPrompt]]],
-                "contents": [["parts": [["text": prompt]]]],
-                "generationConfig": ["temperature": temperature, "maxOutputTokens": 3072]
-            ]
-            req.httpBody = try? JSONSerialization.data(withJSONObject: bodyDict)
-
-            URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
-                if let data = data,
-                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let candidates = json["candidates"] as? [[String: Any]],
-                   let contentObj = candidates.first?["content"] as? [String: Any],
-                   let parts = contentObj["parts"] as? [[String: Any]],
-                   let text = parts.first?["text"] as? String {
-                    DispatchQueue.main.async {
-                        completion(text, "【Google Gemini API (\(modelId)) 直接推論完了（定額枠消費なし）】")
-                    }
-                    return
-                }
-                DispatchQueue.main.async {
-                    self?.fallbackDynamic(prompt: prompt, provider: provider, model: model, completion: completion)
-                }
-            }.resume()
+            executeGeminiRESTRequest(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                apiKey: apiKey,
+                selectedModel: model,
+                history: cleanTurns,
+                completion: completion
+            )
 
         case .chatGPT, .grok, .mistral:
             let endpoint: String
-            let modelId: String
+            let candidates: [String]
             let label: String
+            let low = model.lowercased()
             switch provider {
             case .chatGPT:
                 endpoint = "https://api.openai.com/v1/chat/completions"
-                modelId = model.lowercased().contains("mini") ? (model.lowercased().contains("o3") ? "o3-mini" : "gpt-4o-mini") : "gpt-4o"
+                if low.contains("o3") {
+                    candidates = ["o3-mini", "gpt-4o-mini", "gpt-4o"]
+                } else if low.contains("mini") {
+                    candidates = ["gpt-4o-mini", "gpt-4o"]
+                } else {
+                    candidates = ["gpt-4o", "gpt-4o-mini"]
+                }
                 label = "OpenAI ChatGPT"
             case .grok:
                 endpoint = "https://api.x.ai/v1/chat/completions"
-                modelId = model.lowercased().contains("mini") ? "grok-3-mini" : "grok-3"
+                candidates = low.contains("mini") ? ["grok-3-mini", "grok-3"] : ["grok-3", "grok-3-mini"]
                 label = "xAI Grok"
             default:
                 endpoint = "https://api.mistral.ai/v1/chat/completions"
-                modelId = model.lowercased().contains("small") ? "mistral-small-latest" : "mistral-large-latest"
+                candidates = low.contains("small") ? ["mistral-small-latest", "mistral-large-latest"] : ["mistral-large-latest", "mistral-small-latest"]
                 label = "Mistral AI"
             }
 
-            guard let url = URL(string: endpoint) else {
-                fallbackDynamic(prompt: prompt, provider: provider, model: model, completion: completion)
-                return
-            }
-
-            var req = URLRequest(url: url, timeoutInterval: 90)
-            req.httpMethod = "POST"
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-            let bodyDict: [String: Any] = [
-                "model": modelId,
-                "messages": [
-                    ["role": "system", "content": systemPrompt],
-                    ["role": "user", "content": prompt]
-                ],
-                "temperature": temperature
-            ]
-            req.httpBody = try? JSONSerialization.data(withJSONObject: bodyDict)
-
-            URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
-                if let data = data,
-                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let choices = json["choices"] as? [[String: Any]],
-                   let msg = choices.first?["message"] as? [String: Any],
-                   let text = msg["content"] as? String {
-                    DispatchQueue.main.async {
-                        completion(text, "【\(label) (\(modelId)) 直接推論完了（定額枠消費なし）】")
-                    }
-                    return
-                }
-                DispatchQueue.main.async {
-                    self?.fallbackDynamic(prompt: prompt, provider: provider, model: model, completion: completion)
-                }
-            }.resume()
+            tryOpenAICompatibleCandidates(
+                endpoint: endpoint,
+                candidates: candidates,
+                label: label,
+                provider: provider,
+                apiKey: apiKey,
+                systemPrompt: systemPrompt,
+                prompt: prompt,
+                history: cleanTurns,
+                completion: completion
+            )
 
         case .claude:
-            guard let url = URL(string: "https://api.anthropic.com/v1/messages") else {
-                fallbackDynamic(prompt: prompt, provider: provider, model: model, completion: completion)
-                return
-            }
-            let modelId = model.contains("Haiku") ? "claude-3-5-haiku-latest" : "claude-3-7-sonnet-latest"
-            var req = URLRequest(url: url, timeoutInterval: 90)
-            req.httpMethod = "POST"
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-            req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-            let bodyDict: [String: Any] = [
-                "model": modelId,
-                "system": systemPrompt,
-                "max_tokens": 3072,
-                "messages": [["role": "user", "content": prompt]]
-            ]
-            req.httpBody = try? JSONSerialization.data(withJSONObject: bodyDict)
-
-            URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
-                if let data = data,
-                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let contents = json["content"] as? [[String: Any]],
-                   let text = contents.first?["text"] as? String {
-                    DispatchQueue.main.async {
-                        completion(text, "【Anthropic Claude (\(modelId)) 直接推論完了（定額枠消費なし）】")
-                    }
-                    return
-                }
-                DispatchQueue.main.async {
-                    self?.fallbackDynamic(prompt: prompt, provider: provider, model: model, completion: completion)
-                }
-            }.resume()
+            executeClaudeRESTRequest(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                apiKey: apiKey,
+                selectedModel: model,
+                history: cleanTurns,
+                completion: completion
+            )
 
         case .virtualLinuxVM, .nanndemoya:
             executeGatewayChatRequest(prompt: prompt, model: model, persona: persona, licenseKey: apiKey, completion: completion)
+        }
+    }
+
+    private func sanitizeConversationHistory(_ raw: [AIChatMessage]) -> [(role: String, content: String)] {
+        var filtered: [(role: String, content: String)] = []
+        for msg in raw.suffix(10) {
+            guard msg.role == "user" || msg.role == "assistant" else { continue }
+            let text = msg.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { continue }
+            if msg.role == "assistant" {
+                if text.hasPrefix("⚠️") ||
+                   text.contains("現在ゲートウェイサーバへ未接続") ||
+                   text.contains("こんにちは！東方Project二次創作総合AIアシスタントです。") {
+                    continue
+                }
+            }
+            if let last = filtered.last, last.role == msg.role {
+                filtered[filtered.count - 1] = (role: msg.role, content: text)
+            } else {
+                filtered.append((role: msg.role, content: text))
+            }
+        }
+        while let first = filtered.first, first.role != "user" {
+            filtered.removeFirst()
+        }
+        while let last = filtered.last, last.role == "user" {
+            filtered.removeLast()
+        }
+        return Array(filtered.suffix(6))
+    }
+
+    // MARK: - Google Gemini 動的モデル解決 & 直接推論
+    private static func parseGeminiGenerateModels(from data: Data) -> [String] {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let models = json["models"] as? [[String: Any]] else {
+            return []
+        }
+        let excludedKeywords = [
+            "tts", "image", "vision", "audio", "embedding", "aqa",
+            "computer-use", "robotics", "live", "thinking-exp", "learnlm", "bisheng"
+        ]
+        var result: [String] = []
+        for item in models {
+            let methods = (item["supportedGenerationMethods"] as? [String]) ?? []
+            guard methods.contains("generateContent") else { continue }
+            guard let rawName = item["name"] as? String else { continue }
+            let modelId = rawName.hasPrefix("models/") ? String(rawName.dropFirst("models/".count)) : rawName
+            let low = modelId.lowercased()
+            guard low.hasPrefix("gemini-") else { continue }
+            if excludedKeywords.contains(where: { low.contains($0) }) { continue }
+            if !result.contains(modelId) {
+                result.append(modelId)
+            }
+        }
+        return result
+    }
+
+    private static func geminiModelPriorityScore(_ modelId: String) -> Double {
+        let low = modelId.lowercased()
+        var score = 0.0
+        if let regex = try? NSRegularExpression(pattern: "gemini-(\\d+(?:\\.\\d+)?)"),
+           let match = regex.firstMatch(in: low, range: NSRange(low.startIndex..., in: low)),
+           let range = Range(match.range(at: 1), in: low),
+           let ver = Double(low[range]) {
+            score += ver * 100.0
+        }
+        if low == "gemini-flash-latest" || low == "gemini-pro-latest" {
+            score += 320.0
+        }
+        if !low.contains("preview") && !low.contains("exp") {
+            score += 15.0
+        }
+        if low.contains("lite") {
+            score -= 20.0
+        }
+        return score
+    }
+
+    private static func buildGeminiModelCandidates(selectedModel: String, discovered: [String]) -> [String] {
+        let low = selectedModel.lowercased()
+        let wantsPro = low.contains("pro")
+        let wants20 = low.contains("2.0")
+
+        var ordered: [String] = []
+        func appendUnique(_ id: String) {
+            if !id.isEmpty && !ordered.contains(id) {
+                ordered.append(id)
+            }
+        }
+
+        if !discovered.isEmpty {
+            let sorted = discovered.sorted { geminiModelPriorityScore($0) > geminiModelPriorityScore($1) }
+            let proModels = sorted.filter { $0.lowercased().contains("pro") }
+            let flashStandard = sorted.filter { $0.lowercased().contains("flash") && !$0.lowercased().contains("lite") }
+            let flashLite = sorted.filter { $0.lowercased().contains("flash") && $0.lowercased().contains("lite") }
+
+            if wantsPro {
+                if discovered.contains("gemini-2.5-pro") { appendUnique("gemini-2.5-pro") }
+                if discovered.contains("gemini-pro-latest") { appendUnique("gemini-pro-latest") }
+                proModels.forEach { appendUnique($0) }
+                if discovered.contains("gemini-flash-latest") { appendUnique("gemini-flash-latest") }
+                flashStandard.prefix(2).forEach { appendUnique($0) }
+            } else {
+                if wants20 && discovered.contains("gemini-2.0-flash") {
+                    appendUnique("gemini-2.0-flash")
+                } else if !wants20 && discovered.contains("gemini-2.5-flash") {
+                    appendUnique("gemini-2.5-flash")
+                }
+                if discovered.contains("gemini-flash-latest") { appendUnique("gemini-flash-latest") }
+                flashStandard.forEach { appendUnique($0) }
+                flashLite.forEach { appendUnique($0) }
+                proModels.prefix(1).forEach { appendUnique($0) }
+            }
+        } else {
+            if wantsPro {
+                ["gemini-pro-latest", "gemini-2.5-pro", "gemini-flash-latest", "gemini-2.5-flash"].forEach { appendUnique($0) }
+            } else if wants20 {
+                ["gemini-2.0-flash", "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite"].forEach { appendUnique($0) }
+            } else {
+                ["gemini-flash-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"].forEach { appendUnique($0) }
+            }
+        }
+        return Array(ordered.prefix(5))
+    }
+
+    private func executeGeminiRESTRequest(
+        prompt: String,
+        systemPrompt: String,
+        apiKey: String,
+        selectedModel: String,
+        history: [(role: String, content: String)],
+        completion: @escaping (String, String?) -> Void
+    ) {
+        let cleanKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !discoveredGeminiModels.isEmpty {
+            let candidates = Self.buildGeminiModelCandidates(selectedModel: selectedModel, discovered: discoveredGeminiModels)
+            tryGeminiCandidates(
+                candidates: candidates,
+                apiKey: cleanKey,
+                systemPrompt: systemPrompt,
+                prompt: prompt,
+                history: history,
+                lastError: nil,
+                completion: completion
+            )
+            return
+        }
+
+        // 初回は利用可能なモデル一覧を取得してキーに適合する最新モデルを自動解決
+        guard let listURL = URL(string: "https://generativelanguage.googleapis.com/v1beta/models") else {
+            let fallbackCandidates = Self.buildGeminiModelCandidates(selectedModel: selectedModel, discovered: [])
+            tryGeminiCandidates(candidates: fallbackCandidates, apiKey: cleanKey, systemPrompt: systemPrompt, prompt: prompt, history: history, lastError: nil, completion: completion)
+            return
+        }
+
+        var listReq = URLRequest(url: listURL, timeoutInterval: 10)
+        listReq.setValue(cleanKey, forHTTPHeaderField: "x-goog-api-key")
+        URLSession.shared.dataTask(with: listReq) { [weak self] data, res, err in
+            guard let self = self else { return }
+            if let http = res as? HTTPURLResponse, (http.statusCode == 400 || http.statusCode == 401 || http.statusCode == 403) {
+                let detail = Self.extractProviderAPIError(from: data, statusCode: http.statusCode, fallbackError: err)
+                DispatchQueue.main.async {
+                    completion("⚠️ [Google Gemini] API認証エラー (HTTP \(http.statusCode)): \(detail)", "Google Gemini API HTTP \(http.statusCode)")
+                }
+                return
+            }
+
+            var discovered: [String] = []
+            if let data = data {
+                discovered = Self.parseGeminiGenerateModels(from: data)
+            }
+            DispatchQueue.main.async {
+                if !discovered.isEmpty {
+                    self.discoveredGeminiModels = discovered
+                }
+                let candidates = Self.buildGeminiModelCandidates(selectedModel: selectedModel, discovered: discovered)
+                self.tryGeminiCandidates(
+                    candidates: candidates,
+                    apiKey: cleanKey,
+                    systemPrompt: systemPrompt,
+                    prompt: prompt,
+                    history: history,
+                    lastError: nil,
+                    completion: completion
+                )
+            }
+        }.resume()
+    }
+
+    private func tryGeminiCandidates(
+        candidates: [String],
+        apiKey: String,
+        systemPrompt: String,
+        prompt: String,
+        history: [(role: String, content: String)],
+        lastError: String?,
+        completion: @escaping (String, String?) -> Void
+    ) {
+        guard let modelId = candidates.first,
+              let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(modelId):generateContent") else {
+            let errMsg = lastError ?? "利用可能なGeminiモデルへの接続に失敗しました。APIキーとネットワーク接続をご確認ください。"
+            DispatchQueue.main.async {
+                completion("⚠️ [Google Gemini] \(errMsg)", "Google Gemini API エラー")
+            }
+            return
+        }
+
+        var req = URLRequest(url: url, timeoutInterval: 90)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
+
+        var contents: [[String: Any]] = history.map { turn in
+            [
+                "role": turn.role == "assistant" ? "model" : "user",
+                "parts": [["text": turn.content]]
+            ]
+        }
+        contents.append([
+            "role": "user",
+            "parts": [["text": prompt]]
+        ])
+
+        let bodyDict: [String: Any] = [
+            "system_instruction": ["parts": [["text": systemPrompt]]],
+            "contents": contents,
+            "generationConfig": [
+                "temperature": temperature,
+                "maxOutputTokens": 8192
+            ]
+        ]
+        req.httpBody = try? JSONSerialization.data(withJSONObject: bodyDict)
+
+        URLSession.shared.dataTask(with: req) { [weak self] data, response, error in
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+
+            if statusCode == 200,
+               let data = data,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let candidatesArr = json["candidates"] as? [[String: Any]],
+                   let firstCandidate = candidatesArr.first {
+                    if let contentObj = firstCandidate["content"] as? [String: Any],
+                       let parts = contentObj["parts"] as? [[String: Any]] {
+                        var answerParts: [String] = []
+                        var thoughtParts: [String] = []
+                        for part in parts {
+                            guard let t = part["text"] as? String else { continue }
+                            if (part["thought"] as? Bool) == true {
+                                thoughtParts.append(t)
+                            } else {
+                                answerParts.append(t)
+                            }
+                        }
+                        let answer = answerParts.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+                        let fallbackThought = thoughtParts.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+                        let finalText = !answer.isEmpty ? answer : fallbackThought
+                        if !finalText.isEmpty {
+                            var thinkHeader = "【Google Gemini API (\(modelId)) 直接推論完了（定額枠消費なし）】"
+                            if !thoughtParts.isEmpty && !answer.isEmpty {
+                                thinkHeader += "\n" + thoughtParts.joined(separator: "\n")
+                            }
+                            DispatchQueue.main.async {
+                                completion(finalText, thinkHeader)
+                            }
+                            return
+                        }
+                    }
+
+                    let finishReason = (firstCandidate["finishReason"] as? String) ?? "UNKNOWN"
+                    let blockDetail = "応答テキストが空でした (finishReason: \(finishReason))"
+                    let next = Array(candidates.dropFirst())
+                    if !next.isEmpty {
+                        self?.tryGeminiCandidates(candidates: next, apiKey: apiKey, systemPrompt: systemPrompt, prompt: prompt, history: history, lastError: blockDetail, completion: completion)
+                    } else {
+                        DispatchQueue.main.async {
+                            completion("⚠️ [Google Gemini] \(blockDetail)", "Google Gemini (\(modelId))")
+                        }
+                    }
+                    return
+                }
+
+                if let feedback = json["promptFeedback"] as? [String: Any],
+                   let blockReason = feedback["blockReason"] as? String {
+                    DispatchQueue.main.async {
+                        completion("⚠️ [Google Gemini] セーフティフィルタにより応答がブロックされました (reason: \(blockReason))。", "Google Gemini (\(modelId))")
+                    }
+                    return
+                }
+            }
+
+            let errDetail = Self.extractProviderAPIError(from: data, statusCode: statusCode, fallbackError: error)
+            let formattedErr = statusCode > 0 ? "APIエラー (HTTP \(statusCode) / \(modelId)): \(errDetail)" : "通信エラー (\(modelId)): \(errDetail)"
+
+            // 認証エラー(401/403)以外は代替モデル候補へ自動フェイルオーバー
+            let remaining = Array(candidates.dropFirst())
+            if !remaining.isEmpty && statusCode != 401 && statusCode != 403 {
+                self?.tryGeminiCandidates(
+                    candidates: remaining,
+                    apiKey: apiKey,
+                    systemPrompt: systemPrompt,
+                    prompt: prompt,
+                    history: history,
+                    lastError: formattedErr,
+                    completion: completion
+                )
+            } else {
+                DispatchQueue.main.async {
+                    completion("⚠️ [Google Gemini] \(formattedErr)", "Google Gemini API エラー")
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - OpenAI / xAI Grok / Mistral 共通リクエスト処理
+    private func tryOpenAICompatibleCandidates(
+        endpoint: String,
+        candidates: [String],
+        label: String,
+        provider: AIProviderType,
+        apiKey: String,
+        systemPrompt: String,
+        prompt: String,
+        history: [(role: String, content: String)],
+        lastError: String? = nil,
+        completion: @escaping (String, String?) -> Void
+    ) {
+        guard let modelId = candidates.first, let url = URL(string: endpoint) else {
+            let msg = lastError ?? "APIエンドポイントへの接続に失敗しました。"
+            DispatchQueue.main.async {
+                completion("⚠️ [\(provider.rawValue)] \(msg)", "\(label) エラー")
+            }
+            return
+        }
+
+        var req = URLRequest(url: url, timeoutInterval: 90)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+        var messages: [[String: String]] = [["role": "system", "content": systemPrompt]]
+        for turn in history {
+            messages.append(["role": turn.role, "content": turn.content])
+        }
+        messages.append(["role": "user", "content": prompt])
+
+        var bodyDict: [String: Any] = [
+            "model": modelId,
+            "messages": messages
+        ]
+        // o1 / o3 系推論モデルは temperature 指定非対応のため除外
+        let lowModel = modelId.lowercased()
+        if !lowModel.hasPrefix("o1") && !lowModel.hasPrefix("o3") && !lowModel.hasPrefix("o4") {
+            bodyDict["temperature"] = temperature
+        }
+        req.httpBody = try? JSONSerialization.data(withJSONObject: bodyDict)
+
+        URLSession.shared.dataTask(with: req) { [weak self] data, response, error in
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if statusCode == 200,
+               let data = data,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let choices = json["choices"] as? [[String: Any]],
+               let msg = choices.first?["message"] as? [String: Any],
+               let text = msg["content"] as? String,
+               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                var thinkHeader = "【\(label) (\(modelId)) 直接推論完了（定額枠消費なし）】"
+                if let reasoning = msg["reasoning_content"] as? String, !reasoning.isEmpty {
+                    thinkHeader += "\n\(reasoning)"
+                }
+                DispatchQueue.main.async {
+                    completion(text, thinkHeader)
+                }
+                return
+            }
+
+            let errDetail = Self.extractProviderAPIError(from: data, statusCode: statusCode, fallbackError: error)
+            let formattedErr = statusCode > 0 ? "APIエラー (HTTP \(statusCode) / \(modelId)): \(errDetail)" : "通信エラー: \(errDetail)"
+            let remaining = Array(candidates.dropFirst())
+            if !remaining.isEmpty && (statusCode == 404 || statusCode == 400) {
+                self?.tryOpenAICompatibleCandidates(
+                    endpoint: endpoint,
+                    candidates: remaining,
+                    label: label,
+                    provider: provider,
+                    apiKey: apiKey,
+                    systemPrompt: systemPrompt,
+                    prompt: prompt,
+                    history: history,
+                    lastError: formattedErr,
+                    completion: completion
+                )
+            } else {
+                DispatchQueue.main.async {
+                    completion("⚠️ [\(provider.rawValue)] \(formattedErr)", "\(label) API エラー")
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Anthropic Claude 動的モデル解決 & 直接推論
+    private func executeClaudeRESTRequest(
+        prompt: String,
+        systemPrompt: String,
+        apiKey: String,
+        selectedModel: String,
+        history: [(role: String, content: String)],
+        completion: @escaping (String, String?) -> Void
+    ) {
+        let wantsHaiku = selectedModel.lowercased().contains("haiku")
+        var candidates: [String] = []
+        if !discoveredClaudeModels.isEmpty {
+            let matching = discoveredClaudeModels.filter {
+                wantsHaiku ? $0.lowercased().contains("haiku") : $0.lowercased().contains("sonnet")
+            }
+            candidates.append(contentsOf: matching)
+            candidates.append(contentsOf: discoveredClaudeModels.filter { !candidates.contains($0) })
+        }
+        let defaults = wantsHaiku
+            ? ["claude-3-5-haiku-latest", "claude-haiku-4-5", "claude-3-7-sonnet-latest"]
+            : ["claude-3-7-sonnet-latest", "claude-sonnet-4-5", "claude-3-5-haiku-latest"]
+        for d in defaults where !candidates.contains(d) {
+            candidates.append(d)
+        }
+
+        tryClaudeCandidates(
+            candidates: Array(candidates.prefix(4)),
+            apiKey: apiKey,
+            systemPrompt: systemPrompt,
+            prompt: prompt,
+            history: history,
+            didRefreshModels: !discoveredClaudeModels.isEmpty,
+            lastError: nil,
+            completion: completion
+        )
+    }
+
+    private func tryClaudeCandidates(
+        candidates: [String],
+        apiKey: String,
+        systemPrompt: String,
+        prompt: String,
+        history: [(role: String, content: String)],
+        didRefreshModels: Bool,
+        lastError: String?,
+        completion: @escaping (String, String?) -> Void
+    ) {
+        guard let modelId = candidates.first,
+              let url = URL(string: "https://api.anthropic.com/v1/messages") else {
+            let errMsg = lastError ?? "Anthropic APIへの接続に失敗しました。"
+            DispatchQueue.main.async {
+                completion("⚠️ [Anthropic Claude] \(errMsg)", "Anthropic Claude エラー")
+            }
+            return
+        }
+
+        var req = URLRequest(url: url, timeoutInterval: 90)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+
+        var messages: [[String: String]] = history.map { ["role": $0.role, "content": $0.content] }
+        messages.append(["role": "user", "content": prompt])
+
+        let bodyDict: [String: Any] = [
+            "model": modelId,
+            "system": systemPrompt,
+            "max_tokens": 4096,
+            "messages": messages
+        ]
+        req.httpBody = try? JSONSerialization.data(withJSONObject: bodyDict)
+
+        URLSession.shared.dataTask(with: req) { [weak self] data, response, error in
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if statusCode == 200,
+               let data = data,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let contents = json["content"] as? [[String: Any]] {
+                let texts = contents.compactMap { $0["text"] as? String }
+                let combined = texts.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+                if !combined.isEmpty {
+                    DispatchQueue.main.async {
+                        completion(combined, "【Anthropic Claude (\(modelId)) 直接推論完了（定額枠消費なし）】")
+                    }
+                    return
+                }
+            }
+
+            let errDetail = Self.extractProviderAPIError(from: data, statusCode: statusCode, fallbackError: error)
+            let formattedErr = statusCode > 0 ? "APIエラー (HTTP \(statusCode) / \(modelId)): \(errDetail)" : "通信エラー: \(errDetail)"
+
+            if statusCode == 404 && !didRefreshModels,
+               let modelsURL = URL(string: "https://api.anthropic.com/v1/models") {
+                var mReq = URLRequest(url: modelsURL, timeoutInterval: 10)
+                mReq.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+                mReq.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+                URLSession.shared.dataTask(with: mReq) { [weak self] mData, _, _ in
+                    var ids: [String] = []
+                    if let mData = mData,
+                       let mJson = try? JSONSerialization.jsonObject(with: mData) as? [String: Any],
+                       let dataArr = mJson["data"] as? [[String: Any]] {
+                        ids = dataArr.compactMap { $0["id"] as? String }
+                    }
+                    DispatchQueue.main.async {
+                        guard let self = self else { return }
+                        if !ids.isEmpty {
+                            self.discoveredClaudeModels = ids
+                            self.tryClaudeCandidates(candidates: Array(ids.prefix(3)), apiKey: apiKey, systemPrompt: systemPrompt, prompt: prompt, history: history, didRefreshModels: true, lastError: formattedErr, completion: completion)
+                        } else {
+                            self.tryClaudeCandidates(candidates: Array(candidates.dropFirst()), apiKey: apiKey, systemPrompt: systemPrompt, prompt: prompt, history: history, didRefreshModels: true, lastError: formattedErr, completion: completion)
+                        }
+                    }
+                }.resume()
+                return
+            }
+
+            let remaining = Array(candidates.dropFirst())
+            if !remaining.isEmpty && statusCode == 404 {
+                self?.tryClaudeCandidates(candidates: remaining, apiKey: apiKey, systemPrompt: systemPrompt, prompt: prompt, history: history, didRefreshModels: didRefreshModels, lastError: formattedErr, completion: completion)
+            } else {
+                DispatchQueue.main.async {
+                    completion("⚠️ [Anthropic Claude] \(formattedErr)", "Anthropic Claude API エラー")
+                }
+            }
+        }.resume()
+    }
+
+    private static func extractProviderAPIError(from data: Data?, statusCode: Int, fallbackError: Error?) -> String {
+        if let data = data {
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let errObj = json["error"] as? [String: Any],
+                   let message = errObj["message"] as? String, !message.isEmpty {
+                    return String(message.prefix(280))
+                }
+                if let errStr = json["error"] as? String, !errStr.isEmpty {
+                    return String(errStr.prefix(280))
+                }
+                if let msg = json["message"] as? String, !msg.isEmpty {
+                    return String(msg.prefix(280))
+                }
+                if let detail = json["detail"] as? String, !detail.isEmpty {
+                    return String(detail.prefix(280))
+                }
+            }
+            if let rawText = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !rawText.isEmpty, !rawText.hasPrefix("<") {
+                return String(rawText.prefix(200))
+            }
+        }
+        if let fallbackError = fallbackError {
+            return fallbackError.localizedDescription
+        }
+        switch statusCode {
+        case 401, 403: return "APIキーが無効、または権限がありません。"
+        case 404: return "指定されたモデルが見つかりません。"
+        case 429: return "APIの利用上限（レート制限または無料枠クォータ）に達しました。"
+        default: return statusCode > 0 ? "HTTPステータス \(statusCode)" : "ネットワーク通信エラー"
         }
     }
 
@@ -813,7 +1493,7 @@ public final class TohoAIService: ObservableObject {
                 "http://127.0.0.1:11434/api/chat"
             ]
         }
-        tryNextEndpoint(endpoints: endpoints, prompt: prompt, model: model, persona: persona, licenseKey: licenseKey, completion: completion)
+        tryNextEndpoint(endpoints: endpoints, prompt: prompt, model: model, persona: persona, licenseKey: licenseKey, gatewayFailureReason: nil, completion: completion)
     }
 
     private func tryNextEndpoint(
@@ -822,18 +1502,24 @@ public final class TohoAIService: ObservableObject {
         model: String,
         persona: String?,
         licenseKey: String?,
+        gatewayFailureReason: String?,
         completion: @escaping (String, String?) -> Void
     ) {
         guard let urlStr = endpoints.first, let url = URL(string: urlStr) else {
-            fallbackDynamic(prompt: prompt, provider: .virtualLinuxVM, model: model, completion: completion)
+            if let reason = gatewayFailureReason {
+                completion("⚠️ \(reason)", "ゲートウェイ通信タイムアウト / 推論エラー")
+            } else {
+                fallbackDynamic(prompt: prompt, provider: .virtualLinuxVM, model: model, completion: completion)
+            }
             return
         }
 
-        var req = URLRequest(url: url, timeoutInterval: 120.0)
+        let isGatewayEndpoint = urlStr.contains("/v1/chat/completions")
+        var req = URLRequest(url: url, timeoutInterval: isGatewayEndpoint ? 240.0 : 15.0)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        if urlStr.contains("/v1/chat/completions") {
+        if isGatewayEndpoint {
             var body: [String: Any] = [
                 "user_id": CloudVirtualLinuxService.shared.currentUserId,
                 "account_type": AppState.shared.currentAccountType,
@@ -862,10 +1548,9 @@ public final class TohoAIService: ObservableObject {
             req.httpBody = try? JSONSerialization.data(withJSONObject: body)
         }
 
-        URLSession.shared.dataTask(with: req) { [weak self] data, response, _ in
-            if let http = response as? HTTPURLResponse,
-               (http.statusCode == 401 || http.statusCode == 403 || http.statusCode == 429) {
-                let detail = CloudVirtualLinuxService.extractErrorDetail(from: data) ?? "プロンプト上限またはライセンス認証エラーです。"
+        URLSession.shared.dataTask(with: req) { [weak self] data, response, error in
+            if let http = response as? HTTPURLResponse, isGatewayEndpoint, http.statusCode != 200 {
+                let detail = CloudVirtualLinuxService.extractErrorDetail(from: data) ?? "ゲートウェイサーバエラー (HTTP \(http.statusCode))"
                 DispatchQueue.main.async {
                     completion("⚠️ \(detail)", "ゲートウェイ応答 HTTP \(http.statusCode)")
                 }
@@ -904,12 +1589,33 @@ public final class TohoAIService: ObservableObject {
                 }
             }
 
+            var updatedReason = gatewayFailureReason
+            if isGatewayEndpoint {
+                if let urlErr = error as? URLError, urlErr.code == .timedOut {
+                    updatedReason = "ゲートウェイサーバ (\(CloudVirtualLinuxService.shared.serverBaseURL)) でのLLM推論がタイムアウトしました。ローカルCPU推論が高負荷の可能性があります。しばらく待って再試行するか、外部APIをご利用ください。"
+                } else if CloudVirtualLinuxService.shared.isConnected, let error = error {
+                    updatedReason = "ゲートウェイ推論通信中にエラーが発生しました: \(error.localizedDescription)"
+                }
+            }
+
             let remaining = Array(endpoints.dropFirst())
             if !remaining.isEmpty {
-                self?.tryNextEndpoint(endpoints: remaining, prompt: prompt, model: model, persona: persona, licenseKey: licenseKey, completion: completion)
+                self?.tryNextEndpoint(
+                    endpoints: remaining,
+                    prompt: prompt,
+                    model: model,
+                    persona: persona,
+                    licenseKey: licenseKey,
+                    gatewayFailureReason: updatedReason,
+                    completion: completion
+                )
             } else {
                 DispatchQueue.main.async {
-                    self?.fallbackDynamic(prompt: prompt, provider: .virtualLinuxVM, model: model, completion: completion)
+                    if let reason = updatedReason {
+                        completion("⚠️ \(reason)", "ゲートウェイ通信タイムアウト / エラー")
+                    } else {
+                        self?.fallbackDynamic(prompt: prompt, provider: .virtualLinuxVM, model: model, completion: completion)
+                    }
                 }
             }
         }.resume()
@@ -938,6 +1644,7 @@ public final class TohoAIService: ObservableObject {
                 case .success(let info):
                     self.nanndemoyaConfig.latencyMs = ms
                     self.nanndemoyaConfig.isConnected = true
+                    self.nanndemoyaConfig.isEnabled = true
                     self.nanndemoyaConfig.lastTestedAt = Date()
                     self.nanndemoyaLicenseInfo = info
                     let msg = "認証成功: \(info.label) (累計 \(info.usage.total_requests)回利用)"
@@ -951,26 +1658,42 @@ public final class TohoAIService: ObservableObject {
             }
         case .gemini:
             let key = geminiConfig.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !key.isEmpty, let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models?key=\(key)") else {
+            guard !key.isEmpty, let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models") else {
                 geminiConfig.isConnected = false
                 completion?(false, "APIキーを入力してください")
                 return
             }
-            URLSession.shared.dataTask(with: url) { [weak self] _, res, _ in
+            var req = URLRequest(url: url, timeoutInterval: 10)
+            req.setValue(key, forHTTPHeaderField: "x-goog-api-key")
+            URLSession.shared.dataTask(with: req) { [weak self] data, res, err in
+                let statusCode = (res as? HTTPURLResponse)?.statusCode ?? 0
+                let ok = statusCode == 200
+                let models = (ok && data != nil) ? Self.parseGeminiGenerateModels(from: data!) : []
+                let errDetail = ok ? "" : Self.extractProviderAPIError(from: data, statusCode: statusCode, fallbackError: err)
                 DispatchQueue.main.async {
-                    let ok = (res as? HTTPURLResponse)?.statusCode == 200
-                    self?.geminiConfig.isConnected = ok
-                    self?.geminiConfig.latencyMs = max(1, Int(Date().timeIntervalSince(start) * 1000))
-                    self?.geminiConfig.lastTestedAt = Date()
-                    completion?(ok, ok ? "Google Gemini 認証成功" : "APIキーが無効または通信失敗")
+                    guard let self = self else { return }
+                    self.geminiConfig.isConnected = ok
+                    self.geminiConfig.latencyMs = max(1, Int(Date().timeIntervalSince(start) * 1000))
+                    self.geminiConfig.lastTestedAt = Date()
+                    if ok {
+                        self.geminiConfig.isEnabled = true
+                        if !models.isEmpty {
+                            self.discoveredGeminiModels = models
+                        }
+                        let preferred = Self.buildGeminiModelCandidates(selectedModel: self.geminiConfig.selectedModel, discovered: models).first ?? "gemini-flash-latest"
+                        completion?(true, "Google Gemini 認証成功 (推論モデル: \(preferred))")
+                    } else {
+                        completion?(false, "Google Gemini 認証失敗: \(errDetail)")
+                    }
                 }
             }.resume()
         case .chatGPT:
-            testBearerModelsEndpoint(urlStr: "https://api.openai.com/v1/models", key: chatGPTConfig.apiKey, start: start) { [weak self] ok, ms in
+            testBearerModelsEndpoint(urlStr: "https://api.openai.com/v1/models", key: chatGPTConfig.apiKey, start: start) { [weak self] ok, ms, errMsg in
                 self?.chatGPTConfig.isConnected = ok
                 self?.chatGPTConfig.latencyMs = ms
                 self?.chatGPTConfig.lastTestedAt = Date()
-                completion?(ok, ok ? "OpenAI 認証成功" : "OpenAI 認証失敗")
+                if ok { self?.chatGPTConfig.isEnabled = true }
+                completion?(ok, ok ? "OpenAI 認証成功" : "OpenAI 認証失敗: \(errMsg)")
             }
         case .claude:
             let key = claudeConfig.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -982,45 +1705,61 @@ public final class TohoAIService: ObservableObject {
             var req = URLRequest(url: url, timeoutInterval: 10)
             req.setValue(key, forHTTPHeaderField: "x-api-key")
             req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-            URLSession.shared.dataTask(with: req) { [weak self] _, res, _ in
+            URLSession.shared.dataTask(with: req) { [weak self] data, res, err in
+                let statusCode = (res as? HTTPURLResponse)?.statusCode ?? 0
+                let ok = statusCode == 200
+                var ids: [String] = []
+                if ok, let data = data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let arr = json["data"] as? [[String: Any]] {
+                    ids = arr.compactMap { $0["id"] as? String }
+                }
+                let errDetail = ok ? "" : Self.extractProviderAPIError(from: data, statusCode: statusCode, fallbackError: err)
                 DispatchQueue.main.async {
-                    let ok = (res as? HTTPURLResponse)?.statusCode == 200
                     self?.claudeConfig.isConnected = ok
                     self?.claudeConfig.latencyMs = max(1, Int(Date().timeIntervalSince(start) * 1000))
                     self?.claudeConfig.lastTestedAt = Date()
-                    completion?(ok, ok ? "Anthropic 認証成功" : "Anthropic 認証失敗")
+                    if ok {
+                        self?.claudeConfig.isEnabled = true
+                        if !ids.isEmpty { self?.discoveredClaudeModels = ids }
+                    }
+                    completion?(ok, ok ? "Anthropic 認証成功" : "Anthropic 認証失敗: \(errDetail)")
                 }
             }.resume()
         case .grok:
-            testBearerModelsEndpoint(urlStr: "https://api.x.ai/v1/models", key: grokConfig.apiKey, start: start) { [weak self] ok, ms in
+            testBearerModelsEndpoint(urlStr: "https://api.x.ai/v1/models", key: grokConfig.apiKey, start: start) { [weak self] ok, ms, errMsg in
                 self?.grokConfig.isConnected = ok
                 self?.grokConfig.latencyMs = ms
                 self?.grokConfig.lastTestedAt = Date()
-                completion?(ok, ok ? "xAI Grok 認証成功" : "Grok 認証失敗")
+                if ok { self?.grokConfig.isEnabled = true }
+                completion?(ok, ok ? "xAI Grok 認証成功" : "Grok 認証失敗: \(errMsg)")
             }
         case .mistral:
-            testBearerModelsEndpoint(urlStr: "https://api.mistral.ai/v1/models", key: mistralConfig.apiKey, start: start) { [weak self] ok, ms in
+            testBearerModelsEndpoint(urlStr: "https://api.mistral.ai/v1/models", key: mistralConfig.apiKey, start: start) { [weak self] ok, ms, errMsg in
                 self?.mistralConfig.isConnected = ok
                 self?.mistralConfig.latencyMs = ms
                 self?.mistralConfig.lastTestedAt = Date()
-                completion?(ok, ok ? "Mistral AI 認証成功" : "Mistral 認証失敗")
+                if ok { self?.mistralConfig.isEnabled = true }
+                completion?(ok, ok ? "Mistral AI 認証成功" : "Mistral 認証失敗: \(errMsg)")
             }
         }
     }
 
-    private func testBearerModelsEndpoint(urlStr: String, key: String, start: Date, done: @escaping (Bool, Int) -> Void) {
+    private func testBearerModelsEndpoint(urlStr: String, key: String, start: Date, done: @escaping (Bool, Int, String) -> Void) {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let url = URL(string: urlStr) else {
-            done(false, 0)
+            done(false, 0, "APIキーを入力してください")
             return
         }
         var req = URLRequest(url: url, timeoutInterval: 10)
         req.setValue("Bearer \(trimmed)", forHTTPHeaderField: "Authorization")
-        URLSession.shared.dataTask(with: req) { _, res, _ in
+        URLSession.shared.dataTask(with: req) { data, res, err in
+            let statusCode = (res as? HTTPURLResponse)?.statusCode ?? 0
+            let ok = statusCode == 200
+            let ms = max(1, Int(Date().timeIntervalSince(start) * 1000))
+            let errDetail = ok ? "" : Self.extractProviderAPIError(from: data, statusCode: statusCode, fallbackError: err)
             DispatchQueue.main.async {
-                let ok = (res as? HTTPURLResponse)?.statusCode == 200
-                let ms = max(1, Int(Date().timeIntervalSince(start) * 1000))
-                done(ok, ms)
+                done(ok, ms, errDetail)
             }
         }.resume()
     }

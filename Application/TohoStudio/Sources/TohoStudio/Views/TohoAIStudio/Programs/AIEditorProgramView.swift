@@ -86,9 +86,15 @@ public struct AIEditorProgramView: View {
                 Text(tohoAIService.selectedModel)
                     .font(.caption)
                     .bold()
-                Text("• 残: \(cloudLinuxService.remainingPrompts)")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+                if tohoAIService.activeProvider.consumesFlatRateQuota {
+                    Text("• 残: \(cloudLinuxService.remainingPrompts)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("• API利用 (枠消費なし)")
+                        .font(.caption2)
+                        .foregroundColor(.orange)
+                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
@@ -295,7 +301,7 @@ public struct AIEditorProgramView: View {
                     } else {
                         Image(systemName: "wand.and.stars")
                     }
-                    Text("AI編集・推敲を実行 (1プロンプト消費)")
+                    Text(tohoAIService.activeProvider.consumesFlatRateQuota ? "AI編集・推敲を実行 (1プロンプト消費)" : "AI編集・推敲を実行 (API利用・定額枠消費なし)")
                         .bold()
                 }
                 .padding(.horizontal, 8)

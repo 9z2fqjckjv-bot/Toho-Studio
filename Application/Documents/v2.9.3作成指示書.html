@@ -1,0 +1,20 @@
+<h1>v2.9.3作成指示書</h1>
+<p>作成日：2026年11月24日</p>
+<h2>リソースの範囲</h2>
+<p>/Volumes/ZSSD/GitHub/repository/TohoStudio/Application</p>
+<h2>概要</h2>
+<p>アプリケーション起動不能問題の完全修復、/Applications 配下のアプリへの最新変更反映、および TohoAIStudio V3.0・外部API永続化改善を含む v2.9.3 最新リソース。</p>
+<ul>
+    <li>アプリケーション起動不能問題の修正とバンドル整合性復旧：欠損していたリリース実行バイナリ（Contents/MacOS/TohoStudio および Toho-Studio）の再ビルド・再配置、Info.plist の NSAppTransportSecurity（ローカル・ゲートウェイ通信許可）反映、Ad-hoc コード署名（codesign --deep）および LaunchServices 再登録、さらに /Applications/Toho-Studio.app への最新バイナリ・リソース完全同期</li>
+    <li>TohoAIStudio V3.0 パブリックゲートウェイ＆新料金プラン移行対応：パブリックゲートウェイサーバー（gateway_server.py）・管理CLI（admin_cli.py）・MacMiniデプロイスクリプト（deploy_macmini.sh）統合、原価ベースの料金プラン改定（pricing_plans.py）および旧プランからの自動マイグレーション実装</li>
+    <li>外部AI API連携の永続化・モデル自動検出・定額枠分離：プロバイダ選択・モデル選択・外部APIキー設定（Nanndemoya / Gemini / ChatGPT / Claude / Grok）の UserDefaults 永続化、Gemini / Claude 最新モデル候補の自動検出・フォールバック（x-goog-api-key ヘッダー対応）、外部API管理画面からのワンクリックAIチャット切替、および外部API利用時の定額プロンプト枠消費除外（AIEditor / AIImageGenerator）</li>
+    <li>クラウド仮想Linux監視の強化：起動時ヘルスチェック即時実行、リアルタイムCPU使用率・メモリ使用率テレメトリ同期、プロンプト残数ゼロ一時停止状態の保持改善</li>
+    <li>アプリケーション各画面（Info.plist, AppTopScreenView, AppInfoView, DeveloperConsoleView, MenuBarModals, RootView, MovieExporter, AppState）におけるバージョン表記の v2.9.3 統一、および最新リソース整合性マニフェスト（integrity_manifest.json）の更新</li>
+    <li>新規配布パッケージ（v2.9.3.dmg / v2.9.3.zip / v2.9.dmg / v2.9.zip）の生成・GitHubリリース（リソースページ）公開</li>
+</ul>
+<p>有料機能、クラウド連携、アカウントログイン機能、全ての有料機能と有料機能の設定画面、ストアは、以下のパスにある画像を表示させて、利用者が使えないようにする。</p>
+<p>"/Volumes/ZSSD/GitHub/repository/TohoStudio/Application/機能停止中画面.jpg"</p>
+<p>有料機能については、このリポジトリ内を分析し、該当する機能や仕様を判断する。</p>
+<p>上記画像パスのお問い合わせはアプリ内ブラウザで次のURLを開く：https://forms.gle/vNofNkf1WugvGNTe8</p>
+<h2>リソースバージョン</h2>
+<p>v2.9.3</p>

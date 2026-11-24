@@ -108,9 +108,11 @@ public final class AIImageGeneratorService: ObservableObject {
         }
 
         let linuxService = CloudVirtualLinuxService.shared
-        guard linuxService.consumePrompt(count: 1, purpose: "TohoAIStudio AI生成") else {
-            AppState.shared.addSystemLog(level: "ERROR", message: "AI生成失敗: プロンプト残数が0です。")
-            return
+        if selectedProvider.consumesFlatRateQuota {
+            guard linuxService.consumePrompt(count: 1, purpose: "TohoAIStudio AI生成") else {
+                AppState.shared.addSystemLog(level: "ERROR", message: "AI生成失敗: プロンプト残数が0です。")
+                return
+            }
         }
 
         isGenerating = true
