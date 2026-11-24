@@ -4,7 +4,7 @@
 TohoAIStudio V3.0 Public Distribution Gateway Server
 - 新・定額プラン料金体系 (5時間バースト枠 / 週次枠 / 月次枠 / 有効期限付き繰越 / お試し広告ボーナス)
 - NanndemoyaAPI ライセンスキー認証＆利用明細ロギング (決済処理不要・管理者発行キー方式)
-- ハイブリッドLLM推論ルーター (Gemini / DeepSeek / OpenAI / Claude / Grok / Mistral / Colab GPU / Local Ollama)
+- ハイブリッドLLM推論ルーター (Gemini / DeepSeek / OpenAI / Claude / Grok / Mistral / Local Ollama)
 - SQLite WAL モードによるスレッドセーフ永続化 & ボット・不正利用自動検知
 """
 
@@ -715,10 +715,6 @@ class AdminIssueLicenseRequest(BaseModel):
     note: Optional[str] = None
 
 
-class ColabEndpointSyncRequest(BaseModel):
-    colab_url: str
-
-
 # ==============================================================================
 # エンドポイント実装
 # ==============================================================================
@@ -757,8 +753,6 @@ def health():
     cpu_pct, mem_pct = get_system_metrics()
     with get_db() as conn:
         user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        colab_row = conn.execute("SELECT value FROM runtime_state WHERE key = 'colab_url'").fetchone()
-        colab_url = colab_row["value"] if colab_row else ""
 
     return {
         "status": "OPERATIONAL",
@@ -769,7 +763,6 @@ def health():
         "engine": f"Hybrid Gateway (Ollama: {', '.join(ollama_models) if ollama_models else 'standby'})",
         "ollama_models": ollama_models,
         "configured_cloud_upstreams": configured_upstreams,
-        "colab_endpoint": colab_url,
         "active_local_users": user_count,
         "cpu_percent": cpu_pct,
         "memory_percent": mem_pct,
@@ -1165,16 +1158,6 @@ def chat_or_edit(req: CompletionRequest):
         "scenes": parsed_scenes,
         "quota": quota_status,
     }
-
-
-@app.post("/v1/colab/endpoint")
-def sync_colab_endpoint(req: ColabEndpointSyncRequest):
-    with get_db() as conn:
-        conn.execute(
-            "INSERT OR REPLACE INTO runtime_state (key, value) VALUES ('colab_url', ?)",
-            (req.colab_url.strip(),),
-        )
-    return {"status": "OK", "colab_url": req.colab_url.strip()}
 
 
 # ==============================================================================

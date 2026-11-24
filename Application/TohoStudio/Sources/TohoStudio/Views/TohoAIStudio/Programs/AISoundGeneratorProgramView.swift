@@ -1,24 +1,21 @@
 import SwiftUI
 import AppKit
 
-/// 仕様書「AI BGM & SE 生成機能」プログラム
-/// 現代社会・日常・映画劇伴・一般ゲームUI・東方Project両対応 プロシージャル波形合成エンジン
+/// 仕様書「AI BGM & SE 生成機能」プログラム (外部AI API専用モデル直結 ＆ 内蔵シンセフォールバック統合版)
 public struct AISoundGeneratorProgramView: View {
     @ObservedObject var soundService = AISoundGeneratorService.shared
     @ObservedObject var tohoAIService = TohoAIService.shared
-    @ObservedObject var cloudLinuxService = CloudVirtualLinuxService.shared
     @ObservedObject var appState = AppState.shared
 
     @State private var activeTab: SoundGeneratorMode = .bgm
     @State private var showSuccessAlert: Bool = false
     @State private var alertMessage: String = ""
-    @State private var showColabBrowser: Bool = false
     @State private var showScoreViewer: Bool = false
     @State private var scoreViewerAudioURL: URL? = nil
 
     public enum SoundGeneratorMode: String, CaseIterable, Identifiable {
-        case bgm = "BGM生成 (プロンプト入力)"
-        case se = "効果音 (SE) 生成 (プロンプト入力)"
+        case bgm = "BGM生成 (専用音楽モデル)"
+        case se = "効果音 (SE) 生成 (専用SEモデル)"
 
         public var id: String { rawValue }
 
@@ -32,22 +29,30 @@ public struct AISoundGeneratorProgramView: View {
 
     public init() {}
 
+    private var activeModality: AIMediaModality {
+        activeTab == .bgm ? .bgm : .se
+    }
+
+    private var currentProviderBinding: Binding<AIMediaProviderType> {
+        activeTab == .bgm ? $soundService.bgmProvider : $soundService.seProvider
+    }
+
+    private var currentModelBinding: Binding<String> {
+        activeTab == .bgm ? $soundService.bgmModelId : $soundService.seModelId
+    }
+
     public var body: some View {
         VStack(spacing: 0) {
-            // 上部モード切り替えタブバー
             modeSegmentBar
 
             Divider()
 
-            // メインコンテンツ領域 (2カラム: 左 パラメータ設定 / 右 試聴・ビジュアライザ・履歴)
             HStack(spacing: 0) {
-                // 左カラム: 設定パネル
                 leftSettingsPanel
                     .frame(width: 400)
 
                 Divider()
 
-                // 右カラム: 試聴・波形・制作連携パネル
                 rightPlaybackPanel
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -60,57 +65,48 @@ public struct AISoundGeneratorProgramView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
-        .sheet(isPresented: $showColabBrowser) {
-            ColabGPUInAppBrowserView(isPresented: $showColabBrowser)
-        }
         .sheet(isPresented: $showScoreViewer) {
             ScoreViewerSheetView(initialAudioURL: scoreViewerAudioURL)
         }
     }
 
-    // MARK: - Mode Segment Bar (AIチャットと同様のエンジン・モデル選択バー統合)
+    // MARK: - Mode Segment Bar (外部AIプロバイダー ＆ 専用BGM/SEモデル選択バー)
     private var modeSegmentBar: some View {
-        VStack(spacing: 8) {
-            // 上段: エンジン・モデル選択バー (AIチャットと同様)
+        let currentProvider = currentProviderBinding.wrappedValue
+        let availableModels = currentProvider.models(for: activeModality)
+
+        return VStack(spacing: 8) {
             HStack(spacing: 12) {
-                // プロバイダー選択
-                Picker("エンジン", selection: $soundService.selectedProvider) {
-                    ForEach(AIProviderType.allCases) { provider in
-                        Label(provider.rawValue, systemImage: provider.iconName).tag(provider)
+                Picker("プロバイダー", selection: currentProviderBinding) {
+                    ForEach(AIMediaProviderType.providers(for: activeModality)) { provider in
+                        let prefix = (provider != .localBuiltIn && tohoAIService.isMediaProviderConfigured(provider)) ? "✓ " : ""
+                        Label("\(prefix)\(provider.rawValue)", systemImage: provider.iconName).tag(provider)
                     }
                 }
                 .pickerStyle(.menu)
-                .frame(width: 220)
+                .frame(width: 240)
 
-                // モデル選択
-                Picker("モデル", selection: $soundService.selectedModel) {
-                    ForEach(soundService.selectedProvider.availableModels, id: \.self) { model in
-                        Text(model).tag(model)
+                Picker("専用モデル", selection: currentModelBinding) {
+                    ForEach(availableModels) { spec in
+                        Text(spec.displayName).tag(spec.id)
                     }
                 }
                 .pickerStyle(.menu)
-                .frame(width: 200)
+                .frame(width: 270)
 
-                // 接続ステータスバッジ
-                apiStatusBadge(for: soundService.selectedProvider)
+                providerStatusBadge(for: currentProvider)
 
                 Spacer()
 
-                // プロンプト残数バッジ
-                HStack(spacing: 6) {
-                    Image(systemName: "sparkles")
-                        .foregroundColor(.yellow)
-                    Text("残プロンプト: \(cloudLinuxService.remainingPrompts) / \(cloudLinuxService.totalPromptsMonthly)")
+                Button(action: {
+                    tohoAIService.activeProgramTab = .externalAPI
+                }) {
+                    Label("APIキー管理", systemImage: "key.fill")
                         .font(.caption)
-                        .bold()
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Color.secondary.opacity(0.12))
-                .cornerRadius(8)
+                .buttonStyle(.bordered)
             }
 
-            // 下段: モード切り替え (BGM / SE)
             HStack {
                 Picker("", selection: $activeTab) {
                     ForEach(SoundGeneratorMode.allCases) { mode in
@@ -118,7 +114,7 @@ public struct AISoundGeneratorProgramView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 440)
+                .frame(width: 460)
 
                 Spacer()
             }
@@ -128,50 +124,39 @@ public struct AISoundGeneratorProgramView: View {
         .background(Color(NSColor.controlBackgroundColor))
     }
 
-    private func apiStatusBadge(for provider: AIProviderType) -> some View {
-        let isConfigured: Bool
-        let labelText: String
+    private func providerStatusBadge(for provider: AIMediaProviderType) -> some View {
+        let isLocal = provider == .localBuiltIn
+        let isReady = tohoAIService.isMediaProviderConfigured(provider)
+        let configuredAlts = tohoAIService.configuredMediaProviders(for: activeModality)
 
-        switch provider {
-        case .nanndemoya:
-            isConfigured = !tohoAIService.nanndemoyaConfig.apiKey.isEmpty
-            labelText = isConfigured ? "Nanndemoyaライセンス連携中" : "ライセンスキー未設定"
-        case .chatGPT:
-            isConfigured = !tohoAIService.chatGPTConfig.apiKey.isEmpty
-            labelText = isConfigured ? "OpenAI連携中" : "ChatGPT音響推論"
-        case .gemini:
-            isConfigured = !tohoAIService.geminiConfig.apiKey.isEmpty
-            labelText = isConfigured ? "Gemini連携中" : "Gemini音響推論"
-        case .claude:
-            isConfigured = !tohoAIService.claudeConfig.apiKey.isEmpty
-            labelText = isConfigured ? "Claude連携中" : "Claude音響推論"
-        case .grok:
-            isConfigured = !tohoAIService.grokConfig.apiKey.isEmpty
-            labelText = isConfigured ? "Grok連携中" : "Grok音響推論"
-        case .mistral:
-            isConfigured = !tohoAIService.mistralConfig.apiKey.isEmpty
-            labelText = isConfigured ? "Mistral連携中" : "Mistral音響推論"
-        case .virtualLinuxVM:
-            if cloudLinuxService.colabBridge.isOnline && !cloudLinuxService.colabBridge.endpoint.isEmpty {
-                isConfigured = true
-                labelText = "⚡️ Colab GPU ブリッジ (MusicGen/SE / \(cloudLinuxService.colabBridge.gpuName))"
-            } else {
-                isConfigured = (cloudLinuxService.connectionStatus == .connected || cloudLinuxService.connectionStatus == .lowLatency)
-                labelText = isConfigured ? "ゲートウェイ接続中 (シンセ波形合成)" : "スタンドアロン音響合成"
-            }
+        let badgeColor: Color
+        let labelText: String
+        if isLocal {
+            badgeColor = .blue
+            labelText = "内蔵シンセ波形合成 (APIキー不要)"
+        } else if isReady {
+            badgeColor = .green
+            labelText = "APIキー有効・定額枠消費なし"
+        } else if let alt = configuredAlts.first {
+            badgeColor = .teal
+            labelText = "未登録（実行時に \(alt.rawValue) へ自動切替）"
+        } else {
+            badgeColor = .orange
+            labelText = "APIキー未登録（「APIキー管理」で設定）"
         }
 
-        return HStack(spacing: 4) {
+        return HStack(spacing: 5) {
             Circle()
-                .fill(isConfigured ? Color.green : Color.blue)
+                .fill(badgeColor)
                 .frame(width: 7, height: 7)
             Text(labelText)
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .bold()
+                .foregroundColor(badgeColor)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(Color.secondary.opacity(0.08))
+        .background(badgeColor.opacity(0.1))
         .cornerRadius(6)
     }
 
@@ -179,8 +164,7 @@ public struct AISoundGeneratorProgramView: View {
     private var leftSettingsPanel: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                // Google Colab GPU Bridge 設定・状態カード
-                colabBridgeCard
+                externalAudioModelCard
 
                 if activeTab == .bgm {
                     bgmSettingsSection
@@ -190,7 +174,6 @@ public struct AISoundGeneratorProgramView: View {
 
                 Divider()
 
-                // 生成実行ボタン
                 generateButtonSection
 
                 Spacer()
@@ -200,13 +183,68 @@ public struct AISoundGeneratorProgramView: View {
         .background(Color(NSColor.controlBackgroundColor))
     }
 
-    // MARK: - BGM Settings (プロンプト駆動)
+    // MARK: - External Audio Model Card
+    private var externalAudioModelCard: some View {
+        let configuredList = tohoAIService.configuredMediaProviders(for: activeModality)
+        let currentProv = currentProviderBinding.wrappedValue
+        let currentModName = currentProv.displayName(forModelId: currentModelBinding.wrappedValue, modality: activeModality)
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "waveform.badge.magnifyingglass")
+                    .foregroundColor(.purple)
+                Text(activeTab == .bgm ? "BGM作曲 外部AI専用モデル設定" : "効果音(SE) 外部AI専用モデル設定")
+                    .font(.caption)
+                    .bold()
+                Spacer()
+                Text("登録済API: \(configuredList.count)社")
+                    .font(.caption2)
+                    .bold()
+                    .foregroundColor(configuredList.isEmpty ? .orange : .green)
+            }
+
+            Text("選択中: \(currentProv.rawValue) / \(currentModName)")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+
+            Toggle("API未登録・通信失敗時は内蔵シンセ波形合成へ自動フォールバック", isOn: $soundService.allowSynthFallback)
+                .font(.caption2)
+
+            if configuredList.isEmpty && currentProv != .localBuiltIn {
+                Button(action: {
+                    tohoAIService.activeProgramTab = .externalAPI
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus.circle.fill")
+                        Text("ElevenLabs / Stability / fal.ai / Replicate キーを登録...")
+                            .font(.caption2)
+                            .bold()
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.purple))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(10)
+        .background(Color.purple.opacity(0.07))
+        .cornerRadius(8)
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.purple.opacity(0.25), lineWidth: 1))
+    }
+
+    // MARK: - BGM Settings
     private var bgmSettingsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("AI BGM プロンプト生成")
                     .font(.headline)
-                Text("情景・楽器・テンポ・雰囲気を自由に記述してリアルタイム作曲")
+                Text("情景・楽器・テンポ・雰囲気を記述して外部専用モデル（ElevenLabs Music / Stable Audio 2.0 / MusicGen / Ace-Step）で作曲")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
@@ -218,13 +256,12 @@ public struct AISoundGeneratorProgramView: View {
 
                 TextEditor(text: $soundService.bgmPrompt)
                     .font(.system(.body, design: .default))
-                    .frame(height: 120)
+                    .frame(height: 115)
                     .padding(6)
                     .background(Color(NSColor.textBackgroundColor))
                     .cornerRadius(6)
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
 
-                // クイック入力サジェストタグ
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         soundTagButton("雨の日の静かなカフェ、アコギとピアノ", isBGM: true)
@@ -237,10 +274,24 @@ public struct AISoundGeneratorProgramView: View {
                 }
             }
 
-            // プロンプトから推論される音響特徴のリアルタイムプレビュー
+            // 生成秒数スライダー
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("生成するBGMの長さ (尺):")
+                        .font(.caption)
+                        .bold()
+                    Spacer()
+                    Text("\(Int(soundService.bgmDurationSeconds)) 秒")
+                        .font(.caption)
+                        .bold()
+                        .foregroundColor(.blue)
+                }
+                Slider(value: $soundService.bgmDurationSeconds, in: 5...60, step: 1)
+            }
+
             let inferred = soundService.analyzeBGMPrompt(soundService.bgmPrompt)
             VStack(alignment: .leading, spacing: 4) {
-                Text("AI推論プレビュー:")
+                Text("音響特徴・シンセフォールバック推論:")
                     .font(.caption2)
                     .foregroundColor(.secondary)
                 Text(inferred.summary)
@@ -254,13 +305,13 @@ public struct AISoundGeneratorProgramView: View {
         }
     }
 
-    // MARK: - SE Settings (プロンプト駆動)
+    // MARK: - SE Settings
     private var seSettingsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("AI 効果音(SE) プロンプト生成")
                     .font(.headline)
-                Text("欲しい音（通知音、打撃、爆発、環境音等）を自由に記述して波形合成")
+                Text("欲しい効果音を記述して外部専用モデル（ElevenLabs Sound Effects / Stable Audio 2.0 / MMAudio v2 / AudioLDM 2）で生成")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
@@ -272,13 +323,12 @@ public struct AISoundGeneratorProgramView: View {
 
                 TextEditor(text: $soundService.sePrompt)
                     .font(.system(.body, design: .default))
-                    .frame(height: 120)
+                    .frame(height: 115)
                     .padding(6)
                     .background(Color(NSColor.textBackgroundColor))
                     .cornerRadius(6)
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
 
-                // クイック入力サジェストタグ
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         soundTagButton("スマホのチャット着信音、クリアな通知ベル", isBGM: false)
@@ -298,10 +348,24 @@ public struct AISoundGeneratorProgramView: View {
                 }
             }
 
-            // プロンプトから推論される音響特徴のリアルタイムプレビュー
+            // SE生成秒数スライダー
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("生成する効果音(SE)の長さ:")
+                        .font(.caption)
+                        .bold()
+                    Spacer()
+                    Text(String(format: "%.1f 秒", soundService.seDurationSeconds))
+                        .font(.caption)
+                        .bold()
+                        .foregroundColor(.purple)
+                }
+                Slider(value: $soundService.seDurationSeconds, in: 0.5...15.0, step: 0.5)
+            }
+
             let inferred = soundService.analyzeSEPrompt(soundService.sePrompt)
             VStack(alignment: .leading, spacing: 4) {
-                Text("AI推論プレビュー:")
+                Text("音響特徴・シンセフォールバック推論:")
                     .font(.caption2)
                     .foregroundColor(.secondary)
                 Text(inferred.summary)
@@ -322,6 +386,8 @@ public struct AISoundGeneratorProgramView: View {
                 soundService.bgmPrompt = text
             } else {
                 soundService.sePrompt = text
+                let inferred = soundService.analyzeSEPrompt(text)
+                soundService.seDurationSeconds = max(0.5, min(15.0, inferred.duration))
             }
         }) {
             Text(text)
@@ -335,49 +401,33 @@ public struct AISoundGeneratorProgramView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Generate Button Section (GPU / ローカル統合生成ボタン)
+    // MARK: - Generate Button Section
     private var generateButtonSection: some View {
-        VStack(spacing: 8) {
+        let currentProv = currentProviderBinding.wrappedValue
+        let modelTitle = currentProv.displayName(forModelId: currentModelBinding.wrappedValue, modality: activeModality)
+
+        return VStack(spacing: 8) {
             Button(action: {
-                if cloudLinuxService.colabBridge.isOnline && !cloudLinuxService.colabBridge.endpoint.isEmpty && soundService.useColabGPUIfAvailable {
-                    // Colab GPU 実行
-                    if activeTab == .bgm {
-                        soundService.generateBGM()
-                    } else {
-                        soundService.generateSE()
-                    }
+                if activeTab == .bgm {
+                    soundService.generateBGM()
                 } else {
-                    // ローカルAI・高品質プロシージャル合成を実行 (Colabオフラインでも即座に生成可能)
-                    soundService.useColabGPUIfAvailable = false
-                    if activeTab == .bgm {
-                        soundService.generateBGM()
-                    } else {
-                        soundService.generateSE()
-                    }
+                    soundService.generateSE()
                 }
             }) {
                 HStack(spacing: 8) {
                     if (activeTab == .bgm && soundService.isBGMGenerating) ||
                        (activeTab == .se && soundService.isSEGenerating) {
                         ProgressView().controlSize(.small)
-                        Text(cloudLinuxService.colabBridge.isOnline && soundService.useColabGPUIfAvailable ? "GPU音響生成処理中..." : "AI音響生成中...")
+                        Text("専用モデルで音響生成中...")
                             .bold()
                     } else {
-                        if cloudLinuxService.colabBridge.isOnline && soundService.useColabGPUIfAvailable {
-                            Image(systemName: "bolt.fill")
-                                .foregroundColor(.yellow)
-                            Text(activeTab == .bgm
-                                 ? "⚡️ GPU経由でBGMを生成 (Colab MusicGen)"
-                                 : "⚡️ GPU経由で効果音を生成 (Colab AudioGen/SE)")
-                                .bold()
-                        } else {
-                            Image(systemName: "waveform.badge.plus")
-                                .foregroundColor(.cyan)
-                            Text(activeTab == .bgm
-                                 ? "AI BGMを生成 (\(soundService.selectedProvider.rawValue))"
-                                 : "AI 効果音(SE)を生成 (\(soundService.selectedProvider.rawValue))")
-                                .bold()
-                        }
+                        Image(systemName: activeTab == .bgm ? "music.quarternote.3" : "waveform.badge.plus")
+                            .foregroundColor(.cyan)
+                        Text(activeTab == .bgm
+                             ? "BGMを生成 (\(modelTitle))"
+                             : "効果音(SE)を生成 (\(modelTitle))")
+                            .bold()
+                            .lineLimit(1)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -386,14 +436,10 @@ public struct AISoundGeneratorProgramView: View {
                 .background(
                     RoundedRectangle(cornerRadius: 8)
                         .fill(
-                            (cloudLinuxService.colabBridge.isOnline && soundService.useColabGPUIfAvailable)
-                            ? LinearGradient(
-                                colors: [Color.teal, Color.cyan],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                            : LinearGradient(
-                                colors: [Color.purple, Color.indigo],
+                            LinearGradient(
+                                colors: activeTab == .bgm
+                                    ? [Color.teal, Color.indigo]
+                                    : [Color.purple, Color.indigo],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -402,146 +448,32 @@ public struct AISoundGeneratorProgramView: View {
             }
             .buttonStyle(.plain)
             .disabled(soundService.isBGMGenerating || soundService.isSEGenerating)
-
-            // GPU未接続時のColab接続誘導
-            if !cloudLinuxService.colabBridge.isOnline {
-                Button(action: {
-                    showColabBrowser = true
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "bolt.badge.automatic.fill")
-                            .foregroundColor(.yellow)
-                        Text("Google Colab L4 GPU を接続して生成する")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .buttonStyle(.plain)
-            } else {
-                HStack(spacing: 4) {
-                    Image(systemName: "brain.head.profile")
-                        .font(.system(size: 10))
-                        .foregroundColor(.blue)
-                    Text("日本語入力時はローカルLLM (Qwen 2.5) が英語化してからGPUへ送信")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
-            }
         }
-    }
-
-    // MARK: - Colab GPU Bridge Control Card
-    private var colabBridgeCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Image(systemName: "bolt.badge.automatic.fill")
-                    .foregroundColor(.yellow)
-                Text("Google Colab GPU Bridge")
-                    .font(.caption)
-                    .bold()
-                Spacer()
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(cloudLinuxService.colabBridge.isOnline ? Color.green : Color.orange)
-                        .frame(width: 7, height: 7)
-                    Text(cloudLinuxService.colabBridge.isOnline ? "オンライン" : "未接続/待機中")
-                        .font(.caption2)
-                        .bold()
-                        .foregroundColor(cloudLinuxService.colabBridge.isOnline ? .green : .orange)
-                }
-            }
-
-            Text("NVIDIA L4/T4 (16-24GB VRAM): MusicGen(本格BGM作曲) ＆ AudioGen(効果音生成)")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-
-            // アプリ内Colab起動 ＆ 自動検出トリガーボタン
-            Button(action: {
-                showColabBrowser = true
-            }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "sparkles.tv.fill")
-                        .font(.caption)
-                    Text(cloudLinuxService.colabBridge.isOnline ? "アプリ内Colabブラウザを表示 (接続中)" : "🌸 アプリ内Colabで起動 ＆ GPU自動接続")
-                        .font(.caption)
-                        .bold()
-                    Spacer()
-                    Image(systemName: "arrow.right.circle.fill")
-                        .font(.caption)
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(cloudLinuxService.colabBridge.isOnline ? Color.green : Color.blue)
-                )
-            }
-            .buttonStyle(.plain)
-            .help("アプリ内WebKitブラウザでColabを開き、セル実行後にURLを全自動挿入します")
-
-            // エンドポイント入力欄
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text("Colab 一時URL (trycloudflare.com):")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    if cloudLinuxService.colabBridge.isOnline {
-                        Text("自動挿入・接続済み")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.green)
-                    }
-                }
-                HStack {
-                    TextField("https://xxxx.trycloudflare.com", text: $cloudLinuxService.colabBridge.endpoint)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.caption)
-
-                    Button(action: {
-                        cloudLinuxService.testColabBridgeConnection { success, message in
-                            alertMessage = message
-                            showSuccessAlert = true
-                        }
-                    }) {
-                        Label("接続テスト", systemImage: "arrow.triangle.2.circlepath")
-                            .font(.caption2)
-                    }
-                    .buttonStyle(.bordered)
-                }
-            }
-
-            HStack(spacing: 8) {
-                Toggle("Colab GPU を優先使用", isOn: $soundService.useColabGPUIfAvailable)
-                    .font(.caption)
-
-                Spacer()
-
-                if let url = URL(string: cloudLinuxService.colabBridge.notebookUrl) {
-                    Button(action: {
-                        NSWorkspace.shared.open(url)
-                    }) {
-                        Label("外部Safariで開く", systemImage: "safari")
-                            .font(.caption2)
-                    }
-                    .buttonStyle(.link)
-                }
-            }
-        }
-        .padding(10)
-        .background(Color.yellow.opacity(0.08))
-        .cornerRadius(8)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.yellow.opacity(0.3), lineWidth: 1))
     }
 
     // MARK: - Right Playback & History Panel
     private var rightPlaybackPanel: some View {
         VStack(spacing: 0) {
-            // 現在選択中のサウンド再生プレイヤー
+            // ステータスバー
+            HStack(spacing: 8) {
+                Circle()
+                    .fill((soundService.isBGMGenerating || soundService.isSEGenerating) ? Color.orange : (soundService.currentStatusMessage.hasPrefix("⚠️") ? Color.red : Color.green))
+                    .frame(width: 8, height: 8)
+                Text(soundService.currentStatusMessage)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Color(NSColor.controlBackgroundColor).opacity(0.8))
+
+            Divider()
+
             VStack(spacing: 16) {
                 Spacer()
 
-                // 波形ビジュアライザーアニメーション
                 HStack(spacing: 6) {
                     ForEach(0..<24) { i in
                         RoundedRectangle(cornerRadius: 3)
@@ -557,7 +489,6 @@ public struct AISoundGeneratorProgramView: View {
                 .frame(height: 110)
                 .padding(.horizontal)
 
-                // 試聴コントロールバー
                 HStack(spacing: 16) {
                     if activeTab == .bgm {
                         Button(action: {
@@ -590,7 +521,6 @@ public struct AISoundGeneratorProgramView: View {
                     }
                 }
 
-                // 制作スタジオ連携ボタン群
                 if let latest = soundService.soundHistory.first {
                     HStack(spacing: 8) {
                         Button(action: {
@@ -652,7 +582,6 @@ public struct AISoundGeneratorProgramView: View {
 
             Divider()
 
-            // 下部: サウンド生成履歴
             bottomSoundHistoryList
         }
     }

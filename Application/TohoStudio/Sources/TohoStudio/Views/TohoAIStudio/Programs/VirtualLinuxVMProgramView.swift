@@ -36,11 +36,11 @@ public struct VirtualLinuxVMProgramView: View {
                     Image(systemName: "server.rack")
                         .font(.title2)
                         .foregroundColor(.blue)
-                    Text("TohoAIStudio 公開LLMゲートウェイ & Colab GPU 運用モニター")
+                    Text("TohoAIStudio 公開LLMゲートウェイ & 外部AI連携モニター")
                         .font(.title2)
                         .bold()
                 }
-                Text("Debian 13 ゲートウェイサーバ（MacMini / Cloudflare Tunnel 外部公開対応）と常時通信し、定額プランの3段階レート制御・NanndemoyaAPI中継・Colab GPU連携を管理します。")
+                Text("Debian 13 ゲートウェイサーバ（MacMini / Cloudflare Tunnel 外部公開対応）と常時通信し、定額プランの3段階レート制御・NanndemoyaAPI中継・外部AIメディアAPI連携状況を管理します。")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -196,7 +196,10 @@ public struct VirtualLinuxVMProgramView: View {
             HStack(spacing: 24) {
                 resourceBar(label: "CPU 使用率", percent: cloudLinuxService.machineStatus.cpuUsagePercent, color: .blue)
                 resourceBar(label: "メモリ 使用率", percent: cloudLinuxService.machineStatus.memoryUsagePercent, color: .orange)
-                resourceBar(label: "Colab GPU ブリッジ", percent: cloudLinuxService.colabBridge.isOnline ? 100.0 : 0.0, color: .green)
+                let configuredCount = tohoAIService.configuredMediaProviderCount()
+                let totalExternalProviders = AIMediaProviderType.externalProviders.count
+                let ratio = totalExternalProviders > 0 ? (Double(configuredCount) / Double(totalExternalProviders)) * 100.0 : 0.0
+                resourceBar(label: "外部メディアAPI登録率 (\(configuredCount)/\(totalExternalProviders))", percent: ratio, color: .green)
             }
         }
         .padding(16)
@@ -321,8 +324,8 @@ public struct VirtualLinuxVMProgramView: View {
                     if let st = status {
                         pingTestLogs.append("Active Plan: \(st.plan_name) | 残プロンプト合計: \(st.remaining_prompts)回 (5h残:\(st.windows.remaining_5hour) / 週残:\(st.windows.remaining_weekly))")
                     }
-                    let colabOnline = cloudLinuxService.colabBridge.isOnline ? "ONLINE (\(cloudLinuxService.colabBridge.gpuName))" : "STANDBY"
-                    pingTestLogs.append("Colab GPU Bridge: \(colabOnline)")
+                    let mediaCount = tohoAIService.configuredMediaProviderCount()
+                    pingTestLogs.append("External Media AI Providers Configured: \(mediaCount)社")
                     pingTestLogs.append(">>> SUCCESS: 公開ゲートウェイおよびクォータ管理DBとの通信は全て正常です。")
                     isRunningPingTest = false
                 }

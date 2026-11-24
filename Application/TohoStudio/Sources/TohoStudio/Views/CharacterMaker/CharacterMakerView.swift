@@ -612,7 +612,7 @@ public struct CharacterMakerView: View {
                         .foregroundColor(.yellow)
                     }
                     .buttonStyle(.bordered)
-                    .help("AI拡散モデル・Colab GPUを使って立ち絵パーツや背景を即座に生成します")
+                    .help("登録済みの外部AI画像生成APIを使って立ち絵パーツや背景を即座に生成します")
 
                     // PSDToolで選んだ差分をキャンバスへ瞬時に取り込むボタン
                     Button(action: {
@@ -1897,7 +1897,7 @@ public struct CharacterMakerView: View {
     private var aiCharacterGeneratorCard: some View {
         GroupBox(label: Label("✨ AI 立ち絵・衣装・背景ジェネレーター", systemImage: "sparkles.rectangle.stack.fill")) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Google Colab GPU (SDXL 1.0) ＆ 最新AI拡散モデルと連携し、自由なプロンプトから立ち絵パーツや背景を直接生成・取り込みます。")
+                Text("登録済みの外部AI画像生成API（Imagen 3/4・GPT Image 1・Stable Image・FLUX等）と連携し、自由なプロンプトから立ち絵パーツや背景を直接生成・取り込みます。")
                     .font(.caption2)
                     .foregroundColor(.secondary)
 
@@ -1933,10 +1933,11 @@ public struct CharacterMakerView: View {
                 HStack {
                     HStack(spacing: 4) {
                         Circle()
-                            .fill(aiImageService.isColabBridgeAvailable ? Color.green : Color.blue)
+                            .fill(aiImageService.hasConfiguredExternalImageAPI ? Color.green : Color.blue)
                             .frame(width: 6, height: 6)
-                        Text(aiImageService.isColabBridgeAvailable ? "Colab GPU (SDXL 1.0 高精細)" : "AI拡散モデル連携")
+                        Text(aiImageService.activeEngineSummary)
                             .font(.caption2)
+                            .lineLimit(1)
                             .foregroundColor(.secondary)
                     }
 
@@ -1944,15 +1945,13 @@ public struct CharacterMakerView: View {
 
                     Button(action: {
                         isAIGeneratingPart = true
-                        aiImageService.generateImage(userPrompt: aiPrompt)
-                        
-                        // 生成完了を監視してパーツ追加
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                            if let latest = aiImageService.generatedImagesHistory.first {
+                        aiImageService.selectedOutputType = .image
+                        aiImageService.generateImage(userPrompt: aiPrompt) { item in
+                            if let item = item {
                                 if aiPartType == "background" {
-                                    aiImageService.sendToCharacterMakerAsBackground(item: latest)
+                                    aiImageService.sendToCharacterMakerAsBackground(item: item)
                                 } else {
-                                    aiImageService.sendToCharacterMakerAsPart(item: latest)
+                                    aiImageService.sendToCharacterMakerAsPart(item: item)
                                 }
                             }
                             isAIGeneratingPart = false
@@ -1983,7 +1982,7 @@ public struct CharacterMakerView: View {
             Text("アプリ拡張機能")
                 .font(.headline)
 
-            // ✨ AI立ち絵・衣装・背景ジェネレーター (Colab GPU & 外部API統合)
+            // ✨ AI立ち絵・衣装・背景ジェネレーター (外部AI画像生成API統合)
             aiCharacterGeneratorCard
 
             // PSDTool 拡張 (PSDTool_files完全統合)

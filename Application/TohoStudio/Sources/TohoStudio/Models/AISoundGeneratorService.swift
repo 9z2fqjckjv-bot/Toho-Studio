@@ -4,22 +4,59 @@ import SwiftUI
 import Combine
 
 /// 汎用＆東方Project両対応 AI BGM & SE 生成サービス
-/// プロシージャル・シンセ波形合成によるBGM/SE生成、リアルタイム試聴、およびSoundMaker/MovieMaker/素材スタジオ連携
+/// 事前登録した外部AI API専用モデル（ElevenLabs / Stability Audio / fal.ai / Replicate）呼び出し ＆ 内蔵シンセ波形合成フォールバック統合
 public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioPlayerDelegate {
     public static let shared = AISoundGeneratorService()
 
-    // MARK: - AI生成エンジン選択 (仮想LinuxVM: Qwen 2.5 ＆ 外部API: Gemini/ChatGPT/Claude)
-    @Published public var selectedProvider: AIProviderType = .virtualLinuxVM {
+    private var isSyncingDefaults: Bool = false
+
+    // MARK: - BGM専用プロバイダー＆モデル選択
+    @Published public var bgmProvider: AIMediaProviderType = .elevenLabs {
         didSet {
-            if !selectedProvider.availableModels.contains(selectedModel) {
-                selectedModel = selectedProvider.defaultModel
+            let validIds = bgmProvider.models(for: .bgm).map(\.id)
+            if !validIds.contains(bgmModelId) {
+                bgmModelId = bgmProvider.defaultModelId(for: .bgm)
+            }
+            if !isSyncingDefaults {
+                TohoAIService.shared.preferredBGMProvider = bgmProvider
+                TohoAIService.shared.preferredBGMModel = bgmModelId
             }
         }
     }
-    @Published public var selectedModel: String = "Qwen 2.5 (3B)"
+    @Published public var bgmModelId: String = "music_v2_5" {
+        didSet {
+            if !isSyncingDefaults {
+                TohoAIService.shared.preferredBGMModel = bgmModelId
+            }
+        }
+    }
+
+    // MARK: - SE(効果音)専用プロバイダー＆モデル選択
+    @Published public var seProvider: AIMediaProviderType = .elevenLabs {
+        didSet {
+            let validIds = seProvider.models(for: .se).map(\.id)
+            if !validIds.contains(seModelId) {
+                seModelId = seProvider.defaultModelId(for: .se)
+            }
+            if !isSyncingDefaults {
+                TohoAIService.shared.preferredSEProvider = seProvider
+                TohoAIService.shared.preferredSEModel = seModelId
+            }
+        }
+    }
+    @Published public var seModelId: String = "eleven_text_to_sound_v3" {
+        didSet {
+            if !isSyncingDefaults {
+                TohoAIService.shared.preferredSEModel = seModelId
+            }
+        }
+    }
+
+    /// API未登録・オフライン時に内蔵シンセ波形合成へ自動フォールバックするか
+    @Published public var allowSynthFallback: Bool = true
+    @Published public var currentStatusMessage: String = "待機中"
 
     // MARK: - プロンプト駆動パラメータ
-    @Published public var useColabGPUIfAvailable: Bool = true
     @Published public var bgmPrompt: String = "雨の日の静かなカフェ、心落ち着くアコースティックギターとピアノのBGM"
     @Published public var sePrompt: String = "スマホのチャット着信音、ポロンと鳴るクリアな通知音"
 
@@ -337,7 +374,42 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
 
     private override init() {
         super.init()
+        syncFromTohoAIPreferences()
         seedInitialPresetSounds()
+    }
+
+    public func syncFromTohoAIPreferences() {
+        let tohoAI = TohoAIService.shared
+        isSyncingDefaults = true
+        bgmProvider = tohoAI.preferredBGMProvider
+        bgmModelId = tohoAI.preferredBGMModel
+        seProvider = tohoAI.preferredSEProvider
+        seModelId = tohoAI.preferredSEModel
+        isSyncingDefaults = false
+    }
+
+    public var hasConfiguredExternalBGMAPI: Bool {
+        return !TohoAIService.shared.configuredMediaProviders(for: .bgm).isEmpty
+    }
+
+    public var hasConfiguredExternalSEAPI: Bool {
+        return !TohoAIService.shared.configuredMediaProviders(for: .se).isEmpty
+    }
+
+    public var activeBGMEngineSummary: String {
+        let resolved = TohoAIService.shared.resolveActiveMediaTarget(modality: .bgm, selectedProvider: bgmProvider, selectedModelId: bgmModelId)
+        if resolved.isConfiguredExternal {
+            return "\(resolved.provider.rawValue) (\(resolved.provider.displayName(forModelId: resolved.modelId, modality: .bgm)))"
+        }
+        return "内蔵多重シンセ波形合成 (オフライン)"
+    }
+
+    public var activeSEEngineSummary: String {
+        let resolved = TohoAIService.shared.resolveActiveMediaTarget(modality: .se, selectedProvider: seProvider, selectedModelId: seModelId)
+        if resolved.isConfiguredExternal {
+            return "\(resolved.provider.rawValue) (\(resolved.provider.displayName(forModelId: resolved.modelId, modality: .se)))"
+        }
+        return "内蔵プロシージャル効果音合成 (オフライン)"
     }
 
     private func seedInitialPresetSounds() {
@@ -675,132 +747,118 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         return InferredSEParams(preset: preset, baseFreq: baseFreq, duration: duration, noiseMix: noiseMix, isReversed: isReversed, summary: summary)
     }
 
-    public var isColabBridgeAvailable: Bool {
-        let colab = CloudVirtualLinuxService.shared.colabBridge
-        return colab.isOnline && !colab.endpoint.isEmpty
-    }
-
-    // MARK: - BGM生成実行 (プロンプト駆動)
+    // MARK: - BGM生成実行 (事前登録された外部AI APIのBGM専用モデル + 内蔵シンセフォールバック)
     public func generateBGM(userPrompt: String? = nil, silent: Bool = false) {
         guard !isBGMGenerating else { return }
 
         let targetPrompt = (userPrompt ?? bgmPrompt).trimmingCharacters(in: .whitespacesAndNewlines)
         if targetPrompt.isEmpty {
             bgmPrompt = "雨の日の静かなカフェ、心落ち着くアコースティックギターとピアノのBGM"
+        } else if let up = userPrompt, !up.isEmpty {
+            bgmPrompt = up
         }
 
-        if !silent {
-            let linuxService = CloudVirtualLinuxService.shared
-            guard linuxService.consumePrompt(count: 1, purpose: "TohoAIStudio BGM生成") else {
-                AppState.shared.addSystemLog(level: "ERROR", message: "AI BGM生成失敗: プロンプト残数が0です。")
-                return
-            }
-            isBGMGenerating = true
-        }
-
-        // プロンプトから動的推論
+        // プロンプトから動的推論 (ユーザー指定の尺 bgmDurationSeconds は保持する)
         let inferred = analyzeBGMPrompt(bgmPrompt)
         bgmTheme = inferred.theme
         bgmBPM = inferred.bpm
         bgmInstrumentStyle = inferred.style
-        bgmDurationSeconds = inferred.duration
+        let targetDuration = max(4.0, bgmDurationSeconds)
 
-        let provider = self.selectedProvider
-        let model = self.selectedModel
+        // 起動時シード生成 (silent == true) は課金APIを呼ばずローカル波形合成のみ行う
+        if silent {
+            executeBGMSynthesis(inferred: inferred, duration: targetDuration, engineLabel: "内蔵多重シンセ波形合成 (初期サンプル)", silent: true)
+            return
+        }
 
-        // 0. Google Colab GPU Bridge が利用可能な場合はローカルLLMで英語化して最優先実行 (MusicGen)
-        if useColabGPUIfAvailable && isColabBridgeAvailable {
-            let linuxService = CloudVirtualLinuxService.shared
-            linuxService.translateAndOptimizePromptWithLocalLLM(prompt: bgmPrompt, mediaType: .music) { [weak self] englishPrompt in
-                guard let self = self else { return }
-                self.fetchColabGPUBGM(prompt: englishPrompt, duration: Int(self.bgmDurationSeconds)) { [weak self] fileURL, engineName in
+        isBGMGenerating = true
+        currentStatusMessage = "BGMプロンプトを解析中..."
+
+        if bgmProvider == .localBuiltIn {
+            currentStatusMessage = "内蔵多重シンセ波形合成でBGMを生成中..."
+            executeBGMSynthesis(inferred: inferred, duration: targetDuration, engineLabel: "内蔵多重シンセ波形合成", silent: false)
+            return
+        }
+
+        let tohoAI = TohoAIService.shared
+        let resolved = tohoAI.resolveActiveMediaTarget(modality: .bgm, selectedProvider: bgmProvider, selectedModelId: bgmModelId)
+
+        guard resolved.isConfiguredExternal else {
+            if allowSynthFallback {
+                currentStatusMessage = "外部BGM APIキー未登録のため、内蔵シンセ波形合成を実行中..."
+                executeBGMSynthesis(inferred: inferred, duration: targetDuration, engineLabel: "内蔵多重シンセ波形合成 (外部API未設定フォールバック)", silent: false)
+            } else {
+                isBGMGenerating = false
+                currentStatusMessage = "⚠️ BGM生成用の外部APIキー（ElevenLabs / Stability AI / fal.ai / Replicate）が未登録です。「外部API・Nanndemoya認証」タブで設定してください。"
+                AppState.shared.addSystemLog(level: "WARN", message: currentStatusMessage)
+            }
+            return
+        }
+
+        if resolved.provider != bgmProvider {
+            isSyncingDefaults = true
+            bgmProvider = resolved.provider
+            bgmModelId = resolved.modelId
+            isSyncingDefaults = false
+        }
+
+        let apiKey = tohoAI.mediaAPIKey(for: resolved.provider)
+        let currentPromptSnapshot = bgmPrompt
+
+        ExternalMediaAPIClient.shared.resolveEnglishMediaPrompt(prompt: currentPromptSnapshot, modality: .bgm) { [weak self] englishPrompt in
+            guard let self = self else { return }
+            ExternalMediaAPIClient.shared.generateAudio(
+                modality: .bgm,
+                provider: resolved.provider,
+                modelId: resolved.modelId,
+                apiKey: apiKey,
+                prompt: englishPrompt,
+                durationSeconds: targetDuration,
+                statusCallback: { [weak self] msg in
+                    self?.currentStatusMessage = msg
+                },
+                completion: { [weak self] result in
                     guard let self = self else { return }
-                    if let fileURL = fileURL {
+                    switch result {
+                    case .success(let (fileURL, engineLabel)):
+                        let measuredDuration = Self.measureAudioDuration(url: fileURL) ?? targetDuration
                         DispatchQueue.main.async {
                             self.isBGMGenerating = false
                             self.generatedBGMURL = fileURL
+                            self.currentStatusMessage = "BGM生成完了 [\(engineLabel)]"
 
                             let item = GeneratedSoundItem(
-                                name: "[Colab GPU] \(self.bgmPrompt.prefix(16)) (MusicGen)",
+                                name: "[\(resolved.provider.rawValue)] \(currentPromptSnapshot.prefix(16))",
                                 type: "BGM",
-                                duration: inferred.duration,
+                                duration: measuredDuration,
                                 fileURL: fileURL,
                                 createdAt: Date(),
-                                detailDescription: "\(engineName) | 尺: \(Int(inferred.duration))秒, 英語プロンプト: \(englishPrompt)"
+                                detailDescription: "\(engineLabel) | 尺: \(String(format: "%.1f", measuredDuration))秒 | Prompt: \(englishPrompt.prefix(60))"
                             )
                             self.soundHistory.insert(item, at: 0)
-
-                            if !silent {
-                                AppState.shared.addSystemLog(level: "SUCCESS", message: "TohoAIStudio: \(engineName) からAI BGM「\(item.name)」を生成しました。")
+                            AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: [\(engineLabel)] からBGM「\(item.name)」を生成しました。")
+                        }
+                    case .failure(let err):
+                        if self.allowSynthFallback {
+                            DispatchQueue.main.async {
+                                self.currentStatusMessage = "⚠️ \(err.localizedDescription) -> 内蔵シンセ波形合成へフォールバック中..."
+                                AppState.shared.addSystemLog(level: "WARN", message: "外部BGM API失敗のため内蔵シンセへフォールバック: \(err.localizedDescription)")
+                            }
+                            self.executeBGMSynthesis(inferred: inferred, duration: targetDuration, engineLabel: "内蔵多重シンセ (APIエラー時フォールバック)", silent: false)
+                        } else {
+                            DispatchQueue.main.async {
+                                self.isBGMGenerating = false
+                                self.currentStatusMessage = "⚠️ \(err.localizedDescription)"
+                                AppState.shared.addSystemLog(level: "ERROR", message: "BGM生成エラー: \(err.localizedDescription)")
                             }
                         }
-                    } else {
-                        // Colab 失敗時はローカルシンセ合成へ自動フォールバック
-                        self.executeBGMSynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: nil)
                     }
                 }
-            }
-            return
-        }
-
-        if provider == .virtualLinuxVM {
-            // 仮想Linux環境にあるローカルLLM (Google Gemma 2 / Meta Llama 3.2) に音響作曲推論を実行
-            let vmPrompt = "BGM制作ディレクション: \(bgmPrompt)。この情景に最適なテンポBPM、楽器構成、展開コードを推論してください。"
-            TohoAIService.shared.callAPIOrGenerateSmart(prompt: vmPrompt, provider: .virtualLinuxVM, model: model) { [weak self] responseText, thinkingLog in
-                self?.executeBGMSynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: thinkingLog)
-            }
-        } else {
-            self.executeBGMSynthesis(inferred: inferred, provider: provider, model: model, silent: silent, thinking: nil)
+            )
         }
     }
 
-    // MARK: - Google Colab GPU Bridge (MusicGen Medium BGM生成: L4 GPU)
-    public func fetchColabGPUBGM(
-        prompt: String,
-        duration: Int,
-        completion: @escaping (URL?, String) -> Void
-    ) {
-        let colab = CloudVirtualLinuxService.shared.colabBridge
-        let endpoint = CloudVirtualLinuxService.sanitizeColabEndpoint(colab.endpoint)
-        guard !endpoint.isEmpty, let url = URL(string: "\(endpoint)/v1/generate/bgm") else {
-            completion(nil, "Error")
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 90.0
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body: [String: Any] = [
-            "prompt": prompt,
-            "duration_seconds": duration
-        ]
-        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
-            completion(nil, "Error")
-            return
-        }
-        request.httpBody = httpBody
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            guard let data = data, data.count > 1000 else {
-                completion(nil, "Error")
-                return
-            }
-
-            let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Audio", isDirectory: true)
-            try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
-
-            let cleanName = prompt.prefix(10).replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
-            let fileName = "Colab_MusicGen_\(cleanName)_\(Int(Date().timeIntervalSince1970)).wav"
-            let fileURL = outputDir.appendingPathComponent(fileName)
-            try? data.write(to: fileURL)
-
-            completion(fileURL, "Google Colab GPU (MusicGen Medium / \(colab.gpuName))")
-        }.resume()
-    }
-
-    private func executeBGMSynthesis(inferred: InferredBGMParams, provider: AIProviderType, model: String, silent: Bool, thinking: String?) {
+    private func executeBGMSynthesis(inferred: InferredBGMParams, duration: Double, engineLabel: String, silent: Bool) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
 
@@ -808,7 +866,7 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             let samples = self.synthesizeFullBGM(
                 theme: inferred.theme,
                 bpm: inferred.bpm,
-                duration: inferred.duration,
+                duration: duration,
                 style: inferred.style,
                 sampleRate: sampleRate
             )
@@ -826,27 +884,28 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             DispatchQueue.main.async {
                 self.isBGMGenerating = false
                 self.generatedBGMURL = fileURL
+                if !silent {
+                    self.currentStatusMessage = "BGM生成完了 [\(engineLabel)]"
+                }
 
-                let providerTag = "[\(provider.rawValue)]"
                 let item = GeneratedSoundItem(
-                    name: "\(providerTag) \(self.bgmPrompt.prefix(16)) (BPM \(Int(inferred.bpm)))",
+                    name: "[内蔵シンセ] \(self.bgmPrompt.prefix(16)) (BPM \(Int(inferred.bpm)))",
                     type: "BGM",
-                    duration: inferred.duration,
+                    duration: duration,
                     fileURL: fileURL,
                     createdAt: Date(),
-                    detailDescription: "\(provider.rawValue) (\(model)) | [\(inferred.theme.category)] \(inferred.style.rawValue), 尺: \(Int(inferred.duration))秒"
+                    detailDescription: "\(engineLabel) | [\(inferred.theme.category)] \(inferred.style.rawValue), 尺: \(Int(duration))秒"
                 )
                 self.soundHistory.insert(item, at: 0)
 
                 if !silent {
-                    let logPrefix = (provider == .virtualLinuxVM && thinking != nil) ? "仮想LinuxVM (\(model)) 推論完了: " : ""
-                    AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: \(logPrefix)[\(provider.rawValue) (\(model))] からBGM「\(item.name)」を生成しました。")
+                    AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: [\(engineLabel)] からBGM「\(item.name)」を生成しました。")
                 }
             }
         }
     }
 
-    // MARK: - SE生成実行 (プロンプト駆動)
+    // MARK: - SE生成実行 (事前登録された外部AI APIのSE専用モデル + 内蔵シンセフォールバック)
     public func generateSE(userPrompt: String? = nil, silent: Bool = false) {
         guard !isSEGenerating else { return }
 
@@ -854,118 +913,107 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
         let effectivePrompt = targetPrompt.isEmpty ? "スマホのチャット着信音、ポロンと鳴るクリアな通知音" : targetPrompt
         self.sePrompt = effectivePrompt
 
-        if !silent {
-            let linuxService = CloudVirtualLinuxService.shared
-            guard linuxService.consumePrompt(count: 1, purpose: "TohoAIStudio SE生成") else {
-                AppState.shared.addSystemLog(level: "ERROR", message: "AI SE生成失敗: プロンプト残数が0です。")
-                return
-            }
-            isSEGenerating = true
-        }
-
-        // プロンプトから動的推論
+        // プロンプトから動的推論 (ユーザー指定の尺 seDurationSeconds はプリセット既定値とのバランスを保ちつつ優先)
         let inferred = analyzeSEPrompt(effectivePrompt)
         sePreset = inferred.preset
         seBaseFrequency = inferred.baseFreq
-        seDurationSeconds = inferred.duration
         seNoiseMix = inferred.noiseMix
         seIsReversed = inferred.isReversed
+        let targetDuration = silent ? inferred.duration : max(0.3, seDurationSeconds)
 
-        let provider = self.selectedProvider
-        let model = self.selectedModel
+        if silent {
+            seDurationSeconds = inferred.duration
+            executeSESynthesis(inferred: inferred, duration: inferred.duration, prompt: effectivePrompt, engineLabel: "内蔵プロシージャル合成 (初期サンプル)", silent: true)
+            return
+        }
 
-        // 0. Google Colab GPU Bridge が利用可能な場合はローカルLLMで英語化して最優先実行 (AudioGen/SE)
-        if useColabGPUIfAvailable && isColabBridgeAvailable {
-            let linuxService = CloudVirtualLinuxService.shared
-            linuxService.translateAndOptimizePromptWithLocalLLM(prompt: effectivePrompt, mediaType: .soundEffect) { [weak self] englishPrompt in
-                guard let self = self else { return }
-                self.fetchColabGPUSE(prompt: englishPrompt, duration: Int(max(1, self.seDurationSeconds))) { [weak self] fileURL, engineName in
+        isSEGenerating = true
+        currentStatusMessage = "効果音(SE)プロンプトを解析中..."
+
+        if seProvider == .localBuiltIn {
+            currentStatusMessage = "内蔵プロシージャル波形合成で効果音(SE)を生成中..."
+            executeSESynthesis(inferred: inferred, duration: targetDuration, prompt: effectivePrompt, engineLabel: "内蔵プロシージャル効果音合成", silent: false)
+            return
+        }
+
+        let tohoAI = TohoAIService.shared
+        let resolved = tohoAI.resolveActiveMediaTarget(modality: .se, selectedProvider: seProvider, selectedModelId: seModelId)
+
+        guard resolved.isConfiguredExternal else {
+            if allowSynthFallback {
+                currentStatusMessage = "外部SE APIキー未登録のため、内蔵プロシージャル波形合成を実行中..."
+                executeSESynthesis(inferred: inferred, duration: targetDuration, prompt: effectivePrompt, engineLabel: "内蔵プロシージャル合成 (外部API未設定フォールバック)", silent: false)
+            } else {
+                isSEGenerating = false
+                currentStatusMessage = "⚠️ SE生成用の外部APIキー（ElevenLabs / Stability AI / fal.ai / Replicate）が未登録です。「外部API・Nanndemoya認証」タブで設定してください。"
+                AppState.shared.addSystemLog(level: "WARN", message: currentStatusMessage)
+            }
+            return
+        }
+
+        if resolved.provider != seProvider {
+            isSyncingDefaults = true
+            seProvider = resolved.provider
+            seModelId = resolved.modelId
+            isSyncingDefaults = false
+        }
+
+        let apiKey = tohoAI.mediaAPIKey(for: resolved.provider)
+
+        ExternalMediaAPIClient.shared.resolveEnglishMediaPrompt(prompt: effectivePrompt, modality: .se) { [weak self] englishPrompt in
+            guard let self = self else { return }
+            ExternalMediaAPIClient.shared.generateAudio(
+                modality: .se,
+                provider: resolved.provider,
+                modelId: resolved.modelId,
+                apiKey: apiKey,
+                prompt: englishPrompt,
+                durationSeconds: max(0.5, targetDuration),
+                statusCallback: { [weak self] msg in
+                    self?.currentStatusMessage = msg
+                },
+                completion: { [weak self] result in
                     guard let self = self else { return }
-                    if let fileURL = fileURL {
+                    switch result {
+                    case .success(let (fileURL, engineLabel)):
+                        let measuredDuration = Self.measureAudioDuration(url: fileURL) ?? targetDuration
                         DispatchQueue.main.async {
                             self.isSEGenerating = false
                             self.generatedSEURL = fileURL
+                            self.currentStatusMessage = "効果音(SE)生成完了 [\(engineLabel)]"
 
                             let item = GeneratedSoundItem(
-                                name: "[Colab GPU] \(self.sePrompt.prefix(16))",
+                                name: "[\(resolved.provider.rawValue)] \(effectivePrompt.prefix(16))",
                                 type: "SE",
-                                duration: inferred.duration,
+                                duration: measuredDuration,
                                 fileURL: fileURL,
                                 createdAt: Date(),
-                                detailDescription: "\(engineName) | 尺: \(String(format: "%.2f", inferred.duration))秒, 英語プロンプト: \(englishPrompt)"
+                                detailDescription: "\(engineLabel) | 尺: \(String(format: "%.2f", measuredDuration))秒 | Prompt: \(englishPrompt.prefix(60))"
                             )
                             self.soundHistory.insert(item, at: 0)
-
-                            if !silent {
-                                AppState.shared.addSystemLog(level: "SUCCESS", message: "TohoAIStudio: \(engineName) からAI SE「\(item.name)」を生成しました。")
+                            AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: [\(engineLabel)] からSE「\(item.name)」を生成しました。")
+                        }
+                    case .failure(let err):
+                        if self.allowSynthFallback {
+                            DispatchQueue.main.async {
+                                self.currentStatusMessage = "⚠️ \(err.localizedDescription) -> 内蔵プロシージャル合成へフォールバック中..."
+                                AppState.shared.addSystemLog(level: "WARN", message: "外部SE API失敗のため内蔵シンセへフォールバック: \(err.localizedDescription)")
+                            }
+                            self.executeSESynthesis(inferred: inferred, duration: targetDuration, prompt: effectivePrompt, engineLabel: "内蔵プロシージャル合成 (APIエラー時フォールバック)", silent: false)
+                        } else {
+                            DispatchQueue.main.async {
+                                self.isSEGenerating = false
+                                self.currentStatusMessage = "⚠️ \(err.localizedDescription)"
+                                AppState.shared.addSystemLog(level: "ERROR", message: "SE生成エラー: \(err.localizedDescription)")
                             }
                         }
-                    } else {
-                        // Colab 失敗時はローカルシンセ合成へ自動フォールバック
-                        self.executeSESynthesis(inferred: inferred, prompt: effectivePrompt, provider: provider, model: model, silent: silent, thinking: nil)
                     }
                 }
-            }
-            return
-        }
-
-        if provider == .virtualLinuxVM {
-            let seDirective = "効果音(SE)音響物理設計: \(effectivePrompt)。基本周波数(Hz)、エンベロープ(アタック/減衰時間)、ノイズ成分比率を推論してください。"
-            TohoAIService.shared.callAPIOrGenerateSmart(prompt: seDirective, provider: .virtualLinuxVM, model: model) { [weak self] responseText, thinkingLog in
-                self?.executeSESynthesis(inferred: inferred, prompt: effectivePrompt, provider: provider, model: model, silent: silent, thinking: thinkingLog)
-            }
-        } else {
-            self.executeSESynthesis(inferred: inferred, prompt: effectivePrompt, provider: provider, model: model, silent: silent, thinking: nil)
+            )
         }
     }
 
-    // MARK: - Google Colab GPU Bridge (AudioLDM 2 SE生成: L4 GPU)
-    public func fetchColabGPUSE(
-        prompt: String,
-        duration: Int,
-        completion: @escaping (URL?, String) -> Void
-    ) {
-        let colab = CloudVirtualLinuxService.shared.colabBridge
-        let endpoint = CloudVirtualLinuxService.sanitizeColabEndpoint(colab.endpoint)
-        guard !endpoint.isEmpty, let url = URL(string: "\(endpoint)/v1/generate/se") else {
-            completion(nil, "Error")
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 60.0
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body: [String: Any] = [
-            "prompt": prompt,
-            "duration_seconds": duration
-        ]
-        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
-            completion(nil, "Error")
-            return
-        }
-        request.httpBody = httpBody
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            guard let data = data, data.count > 1000 else {
-                completion(nil, "Error")
-                return
-            }
-
-            let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Audio", isDirectory: true)
-            try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
-
-            let cleanName = prompt.prefix(10).replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "_")
-            let fileName = "Colab_SE_\(cleanName)_\(Int(Date().timeIntervalSince1970))_\(Int.random(in: 100...999)).wav"
-            let fileURL = outputDir.appendingPathComponent(fileName)
-            try? data.write(to: fileURL)
-
-            completion(fileURL, "Google Colab GPU (AudioLDM 2 / \(colab.gpuName))")
-        }.resume()
-    }
-
-    private func executeSESynthesis(inferred: InferredSEParams, prompt: String, provider: AIProviderType, model: String, silent: Bool, thinking: String?) {
+    private func executeSESynthesis(inferred: InferredSEParams, duration: Double, prompt: String, engineLabel: String, silent: Bool) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
 
@@ -973,7 +1021,7 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             var samples = self.synthesizeSE(
                 preset: inferred.preset,
                 baseFreq: inferred.baseFreq,
-                duration: inferred.duration,
+                duration: duration,
                 noiseMix: inferred.noiseMix,
                 sampleRate: sampleRate,
                 prompt: prompt
@@ -996,24 +1044,32 @@ public final class AISoundGeneratorService: NSObject, ObservableObject, AVAudioP
             DispatchQueue.main.async {
                 self.isSEGenerating = false
                 self.generatedSEURL = fileURL
+                if !silent {
+                    self.currentStatusMessage = "効果音(SE)生成完了 [\(engineLabel)]"
+                }
 
-                let providerTag = "[\(provider.rawValue)]"
                 let item = GeneratedSoundItem(
-                    name: "\(providerTag) \(prompt.prefix(16))",
+                    name: "[内蔵シンセ] \(prompt.prefix(16))",
                     type: "SE",
-                    duration: inferred.duration,
+                    duration: duration,
                     fileURL: fileURL,
                     createdAt: Date(),
-                    detailDescription: "\(provider.rawValue) (\(model)) | [\(inferred.preset.category)] \(Int(inferred.baseFreq))Hz, \(String(format: "%.2f", inferred.duration))秒\(inferred.isReversed ? " [逆再生]" : "")"
+                    detailDescription: "\(engineLabel) | [\(inferred.preset.category)] \(Int(inferred.baseFreq))Hz, \(String(format: "%.2f", duration))秒\(inferred.isReversed ? " [逆再生]" : "")"
                 )
                 self.soundHistory.insert(item, at: 0)
 
                 if !silent {
-                    let logPrefix = (provider == .virtualLinuxVM && thinking != nil) ? "仮想LinuxVM (\(model)) 推論完了: " : ""
-                    AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: \(logPrefix)[\(provider.rawValue) (\(model))] からSE「\(item.name)」を生成しました。")
+                    AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: [\(engineLabel)] からSE「\(item.name)」を生成しました。")
                 }
             }
         }
+    }
+
+    private static func measureAudioDuration(url: URL) -> Double? {
+        if let player = try? AVAudioPlayer(contentsOf: url), player.duration > 0.05 {
+            return player.duration
+        }
+        return nil
     }
 
     // MARK: - 試聴プレビュー制御

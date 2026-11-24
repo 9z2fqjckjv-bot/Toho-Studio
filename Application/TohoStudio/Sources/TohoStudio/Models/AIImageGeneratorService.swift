@@ -3,25 +3,61 @@ import SwiftUI
 import AppKit
 import AVFoundation
 
-/// 本格 AI画像生成サービス (Google Gemini / Imagen 3 / ChatGPT / Claude / 仮想LinuxVM 統合)
-/// 固定のシーンプリセットや擬似描画を全廃し、プロンプト1つから最先端AI拡散モデルによる本格画像を生成
+/// 本格 AI画像・動画生成サービス (事前登録された外部AI API専用モデル + 東方公式参考資料連携)
 public final class AIImageGeneratorService: ObservableObject {
     public static let shared = AIImageGeneratorService()
 
-    // MARK: - AI生成エンジン選択 (仮想LinuxVM: Qwen 2.5 ＆ 外部API: Gemini/ChatGPT/Claude)
-    @Published public var selectedProvider: AIProviderType = .virtualLinuxVM {
+    private var isSyncingDefaults: Bool = false
+
+    // MARK: - 画像専用プロバイダー＆モデル選択
+    @Published public var imageProvider: AIMediaProviderType = .gemini {
         didSet {
-            if !selectedProvider.availableModels.contains(selectedModel) {
-                selectedModel = selectedProvider.defaultModel
+            let validIds = imageProvider.models(for: .image).map(\.id)
+            if !validIds.contains(imageModelId) {
+                imageModelId = imageProvider.defaultModelId(for: .image)
+            }
+            if !isSyncingDefaults {
+                TohoAIService.shared.preferredImageProvider = imageProvider
+                TohoAIService.shared.preferredImageModel = imageModelId
             }
         }
     }
-    @Published public var selectedModel: String = "Qwen 2.5 (3B)"
+    @Published public var imageModelId: String = "imagen-3.0-generate-002" {
+        didSet {
+            if !isSyncingDefaults {
+                TohoAIService.shared.preferredImageModel = imageModelId
+            }
+        }
+    }
 
-    // MARK: - メディア出力種別 (静止画イラスト / アニメーション動画)
+    // MARK: - 動画専用プロバイダー＆モデル選択
+    @Published public var videoProvider: AIMediaProviderType = .gemini {
+        didSet {
+            let validIds = videoProvider.models(for: .video).map(\.id)
+            if !validIds.contains(videoModelId) {
+                videoModelId = videoProvider.defaultModelId(for: .video)
+            }
+            if !isSyncingDefaults {
+                TohoAIService.shared.preferredVideoProvider = videoProvider
+                TohoAIService.shared.preferredVideoModel = videoModelId
+            }
+        }
+    }
+    @Published public var videoModelId: String = "veo-3.0-generate-preview" {
+        didSet {
+            if !isSyncingDefaults {
+                TohoAIService.shared.preferredVideoModel = videoModelId
+            }
+        }
+    }
+
+    /// API未設定時やオフライン時に公式参考資料・内蔵プロシージャル演出動画へフォールバックするか
+    @Published public var allowOfflineFallback: Bool = true
+
+    // MARK: - メディア出力種別 (静止画イラスト / AI動画)
     public enum MediaOutputType: String, CaseIterable, Identifiable {
         case image = "高精細画像 (PNG)"
-        case video = "アニメ動画 (MP4 - Colab GPU)"
+        case video = "AI動画 (MP4)"
 
         public var id: String { rawValue }
         public var iconName: String {
@@ -32,12 +68,11 @@ public final class AIImageGeneratorService: ObservableObject {
         }
     }
     @Published public var selectedOutputType: MediaOutputType = .image
-    @Published public var useColabGPUIfAvailable: Bool = true
 
-    // MARK: - 生成ソースモード選択 (公式素材そのまま使用 / AI新規生成 / 自動判別)
+    // MARK: - 生成ソースモード選択 (公式素材そのまま使用 / 外部AI専用モデル生成 / 自動判別)
     public enum GenerationSourceMode: String, CaseIterable, Identifiable {
-        case auto = "✨ 自動判別 (素材検出時は原画・未検出時はAI)"
-        case aiGeneration = "⚡️ AIイラスト新規生成 (SDXL 1.0 / 自然な作画)"
+        case auto = "✨ 自動判別 (外部API優先・未設定時は公式参考資料)"
+        case aiGeneration = "⚡️ 外部AI専用モデルで新規生成"
         case referenceAsset = "📁 公式参考資料 (原画そのまま使用・追加エフェクトなし)"
 
         public var id: String { rawValue }
@@ -50,7 +85,7 @@ public final class AIImageGeneratorService: ObservableObject {
     @Published public var selectedAspectRatio: ImageAspectRatio = .landscape16_9
     @Published public var seed: Int = -1
 
-    // MARK: - 生成状態 (初期状態は完全にクリーン)
+    // MARK: - 生成状態
     @Published public var isGenerating: Bool = false
     @Published public var generationProgress: Double = 0.0
     @Published public var currentStatusMessage: String = "待機中"
@@ -89,116 +124,283 @@ public final class AIImageGeneratorService: ObservableObject {
         public var isVideo: Bool = false
     }
 
-    public var isColabBridgeAvailable: Bool {
-        let colab = CloudVirtualLinuxService.shared.colabBridge
-        return colab.isOnline && !colab.endpoint.isEmpty
+    public var hasConfiguredExternalImageAPI: Bool {
+        return !TohoAIService.shared.configuredMediaProviders(for: .image).isEmpty
+    }
+
+    public var hasConfiguredExternalVideoAPI: Bool {
+        return !TohoAIService.shared.configuredMediaProviders(for: .video).isEmpty
+    }
+
+    public var activeEngineSummary: String {
+        let tohoAI = TohoAIService.shared
+        if selectedOutputType == .video {
+            let resolved = tohoAI.resolveActiveMediaTarget(modality: .video, selectedProvider: videoProvider, selectedModelId: videoModelId)
+            if resolved.isConfiguredExternal {
+                return "\(resolved.provider.rawValue) (\(resolved.provider.displayName(forModelId: resolved.modelId, modality: .video)))"
+            }
+            return videoProvider == .localBuiltIn ? "内蔵プロシージャル演出動画 (MP4)" : "外部動画APIキー未設定"
+        } else {
+            let resolved = tohoAI.resolveActiveMediaTarget(modality: .image, selectedProvider: imageProvider, selectedModelId: imageModelId)
+            if resolved.isConfiguredExternal {
+                return "\(resolved.provider.rawValue) (\(resolved.provider.displayName(forModelId: resolved.modelId, modality: .image)))"
+            }
+            return "公式参考資料 / 外部画像APIキー未設定"
+        }
     }
 
     private init() {
-        // 初期状態は完全に空っぽ（フェイク画像は生成しない）
+        syncFromTohoAIPreferences()
     }
 
-    // MARK: - 画像・動画生成実行 (プロンプト1つで本格AIモデルを駆動)
-    public func generateImage(userPrompt: String? = nil, forceAI: Bool = false) {
+    public func syncFromTohoAIPreferences() {
+        let tohoAI = TohoAIService.shared
+        isSyncingDefaults = true
+        imageProvider = tohoAI.preferredImageProvider
+        imageModelId = tohoAI.preferredImageModel
+        videoProvider = tohoAI.preferredVideoProvider
+        videoModelId = tohoAI.preferredVideoModel
+        isSyncingDefaults = false
+    }
+
+    // MARK: - 画像・動画生成実行 (事前登録された外部AI APIの専用モデルを呼び出し)
+    public func generateImage(
+        userPrompt: String? = nil,
+        forceAI: Bool = false,
+        onComplete: ((GeneratedImageItem?) -> Void)? = nil
+    ) {
         guard !isGenerating else { return }
 
         let targetPrompt = (userPrompt ?? prompt).trimmingCharacters(in: .whitespacesAndNewlines)
         if targetPrompt.isEmpty {
             prompt = "学校の中庭が窓から見える保健室のイメージイラスト"
+        } else if let up = userPrompt, !up.isEmpty {
+            self.prompt = up
         }
 
-        let linuxService = CloudVirtualLinuxService.shared
-        if selectedProvider.consumesFlatRateQuota {
-            guard linuxService.consumePrompt(count: 1, purpose: "TohoAIStudio AI生成") else {
-                AppState.shared.addSystemLog(level: "ERROR", message: "AI生成失敗: プロンプト残数が0です。")
+        let currentPrompt = prompt
+        let currentAspect = selectedAspectRatio
+        let currentNegative = negativePrompt
+        let currentOutputType = selectedOutputType
+        let currentSeed = seed == -1 ? Int.random(in: 1000...99999) : seed
+        let tohoAI = TohoAIService.shared
+
+        // 0. 画像モードで「公式参考資料」が明示選択されている場合、または内蔵アーカイブプロバイダー選択時
+        if currentOutputType == .image && (generationSourceMode == .referenceAsset || imageProvider == .localBuiltIn) && !forceAI {
+            if let localMatch = TohoLocalReferenceAssetService.shared.searchAndComposeAsset(prompt: currentPrompt, aspectRatio: currentAspect) {
+                isGenerating = true
+                generationProgress = 1.0
+                currentStatusMessage = "📁 公式素材適用: \(localMatch.description)"
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                    self?.handleGenerationResult(
+                        image: localMatch.composedImage,
+                        fileURL: localMatch.fileURL,
+                        providerLabel: AIMediaProviderType.localBuiltIn.rawValue,
+                        modelLabel: "公式参考資料 (原画素材)",
+                        engineName: "東方素材アーカイブ (公式参考資料 原画素材)",
+                        currentPrompt: currentPrompt,
+                        currentSeed: currentSeed,
+                        isVideo: false,
+                        onComplete: onComplete
+                    )
+                }
+                return
+            } else if imageProvider == .localBuiltIn || generationSourceMode == .referenceAsset {
+                currentStatusMessage = "⚠️ 該当する公式参考資料が見つかりませんでした。外部APIプロバイダーを選択するかキーワードを調整してください。"
+                onComplete?(nil)
                 return
             }
         }
 
         isGenerating = true
-        generationProgress = 0.0
-        currentStatusMessage = "AIモデル準備中..."
+        generationProgress = 0.12
+        currentStatusMessage = "プロンプトを解析・最適化中..."
 
-        let currentSeed = seed == -1 ? Int.random(in: 1000...99999) : seed
-        if let up = userPrompt, !up.isEmpty {
-            self.prompt = up
-        }
-        let currentPrompt = prompt
-        // ユーザーが選択したアスペクト比を最優先で維持 (勝手な上書きを廃止)
-        let currentAspect = selectedAspectRatio
-        let currentNegative = negativePrompt
-        let currentOutputType = selectedOutputType
+        if currentOutputType == .video {
+            // --- 動画生成フロー ---
+            if videoProvider == .localBuiltIn {
+                generationProgress = 0.5
+                currentStatusMessage = "内蔵プロシージャル演出動画を合成中..."
+                createFallbackMP4Video(prompt: currentPrompt) { [weak self] thumb, url, engine in
+                    self?.handleGenerationResult(
+                        image: thumb,
+                        fileURL: url,
+                        providerLabel: AIMediaProviderType.localBuiltIn.rawValue,
+                        modelLabel: "内蔵プロシージャルMP4",
+                        engineName: engine,
+                        currentPrompt: currentPrompt,
+                        currentSeed: currentSeed,
+                        isVideo: true,
+                        onComplete: onComplete
+                    )
+                }
+                return
+            }
 
-        // 0. プロンプトからキーワード(施設・キャラクター等)を抽出し、モードに応じてローカル参考資料を探索
-        if currentOutputType == .image && !forceAI && generationSourceMode != .aiGeneration {
-            if let localMatch = TohoLocalReferenceAssetService.shared.searchAndComposeAsset(prompt: currentPrompt, aspectRatio: currentAspect) {
-                let shouldApplyReferenceDirectly = (generationSourceMode == .referenceAsset) || (generationSourceMode == .auto && !isColabBridgeAvailable)
-                if shouldApplyReferenceDirectly {
-                    AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: ローカル参考資料アーカイブより「\(localMatch.description)」を発見。公式原画素材を適用しました（追加エフェクトなし）。")
-                    self.currentStatusMessage = "📁 公式素材適用: \(localMatch.description) (エフェクトなし原画)"
-                    self.generationProgress = 1.0
-
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-                        guard let self = self else { return }
-                        self.handleGenerationResult(
-                            image: localMatch.composedImage,
-                            fileURL: localMatch.fileURL,
-                            engineName: "東方素材アーカイブ (公式参考資料 原画素材・追加エフェクトなし)",
+            let resolved = tohoAI.resolveActiveMediaTarget(modality: .video, selectedProvider: videoProvider, selectedModelId: videoModelId)
+            guard resolved.isConfiguredExternal else {
+                if allowOfflineFallback && !forceAI {
+                    currentStatusMessage = "外部動画APIキー未登録のため、内蔵プロシージャル動画を合成中..."
+                    generationProgress = 0.6
+                    createFallbackMP4Video(prompt: currentPrompt) { [weak self] thumb, url, engine in
+                        self?.handleGenerationResult(
+                            image: thumb,
+                            fileURL: url,
+                            providerLabel: AIMediaProviderType.localBuiltIn.rawValue,
+                            modelLabel: "内蔵プロシージャルMP4",
+                            engineName: "\(engine)（外部APIキー未登録フォールバック）",
                             currentPrompt: currentPrompt,
                             currentSeed: currentSeed,
-                            isVideo: false
+                            isVideo: true,
+                            onComplete: onComplete
                         )
                     }
-                    return
-                }
-            }
-        }
-
-        // 進捗メッセージアニメーション
-        let stepsCount = currentOutputType == .video ? 16 : 10
-        let stepInterval = currentOutputType == .video ? 0.8 : 0.2
-        for i in 1...stepsCount {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * stepInterval) { [weak self] in
-                guard let self = self, self.isGenerating else { return }
-                self.generationProgress = min(0.92, Double(i) / Double(stepsCount))
-                if i < 3 {
-                    self.currentStatusMessage = "🧠 ローカルLLM (Google Gemma 2) で英語プロンプトを自動生成・最適化中..."
-                } else if currentOutputType == .video {
-                    self.currentStatusMessage = "⚡️ Google Colab GPU (L4 / AnimateDiff) 動画レンダリング中... (\(Int(self.generationProgress * 100))%)"
                 } else {
-                    self.currentStatusMessage = "⚡️ Google Colab GPU (L4 / SDXL 1.0) 超高解像度生成中... (\(Int(self.generationProgress * 100))%)"
+                    isGenerating = false
+                    generationProgress = 0.0
+                    currentStatusMessage = "⚠️ 動画生成用の外部APIキー（Gemini Veo / OpenAI Sora / fal.ai / Replicate / Runway / Luma）が未登録または無効です。「外部API・Nanndemoya認証」タブで登録してください。"
+                    AppState.shared.addSystemLog(level: "WARN", message: currentStatusMessage)
+                    onComplete?(nil)
                 }
+                return
             }
-        }
 
-        // 1. ローカルLLM (LLMMac.md: Google Gemma 2 / Meta Llama 3.2) で英語プロンプトを生成
-        let mediaType: CloudVirtualLinuxService.LocalLLMMediaType = currentOutputType == .video ? .video : .image
-        linuxService.translateAndOptimizePromptWithLocalLLM(prompt: currentPrompt, mediaType: mediaType) { [weak self] generatedEnglish in
-            guard let self = self else { return }
+            if resolved.provider != videoProvider {
+                isSyncingDefaults = true
+                videoProvider = resolved.provider
+                videoModelId = resolved.modelId
+                isSyncingDefaults = false
+            }
 
-            // 万一ローカルLLMがオフラインで日本語が残った場合は高精度辞書エンジンで補完
-            let finalEnglishPrompt = CloudVirtualLinuxService.containsJapanese(generatedEnglish)
-                ? Self.generateOptimizedEnglishPrompt(from: generatedEnglish)
-                : generatedEnglish
-
-            // 2. Colab GPU Bridge へリクエスト送信 (アスペクト比・除外プロンプト完全反映)
-            if currentOutputType == .video {
-                self.fetchColabGPUVideo(
-                    prompt: finalEnglishPrompt,
-                    negativePrompt: currentNegative,
-                    aspectRatio: currentAspect
-                ) { [weak self] image, fileURL, engineName in
-                    self?.handleGenerationResult(image: image, fileURL: fileURL, engineName: engineName, currentPrompt: currentPrompt, currentSeed: currentSeed, isVideo: true)
+            let apiKey = tohoAI.mediaAPIKey(for: resolved.provider)
+            ExternalMediaAPIClient.shared.resolveEnglishMediaPrompt(prompt: currentPrompt, modality: .video) { [weak self] englishPrompt in
+                guard let self = self else { return }
+                DispatchQueue.main.async {
+                    self.generationProgress = 0.35
                 }
-            } else {
-                self.fetchRealAIImage(
-                    prompt: finalEnglishPrompt,
+                ExternalMediaAPIClient.shared.generateVideo(
+                    provider: resolved.provider,
+                    modelId: resolved.modelId,
+                    apiKey: apiKey,
+                    prompt: englishPrompt,
                     negativePrompt: currentNegative,
                     aspectRatio: currentAspect,
-                    seed: currentSeed
-                ) { [weak self] image, fileURL, engineName in
-                    self?.handleGenerationResult(image: image, fileURL: fileURL, engineName: engineName, currentPrompt: currentPrompt, currentSeed: currentSeed, isVideo: false)
+                    statusCallback: { [weak self] msg in
+                        guard let self = self else { return }
+                        self.currentStatusMessage = msg
+                        self.generationProgress = min(0.92, self.generationProgress + 0.06)
+                    },
+                    completion: { [weak self] result in
+                        switch result {
+                        case .success(let (thumb, fileURL, engineLabel)):
+                            self?.handleGenerationResult(
+                                image: thumb,
+                                fileURL: fileURL,
+                                providerLabel: resolved.provider.rawValue,
+                                modelLabel: resolved.modelId,
+                                engineName: engineLabel,
+                                currentPrompt: currentPrompt,
+                                currentSeed: currentSeed,
+                                isVideo: true,
+                                onComplete: onComplete
+                            )
+                        case .failure(let err):
+                            self?.handleGenerationResult(
+                                image: nil,
+                                fileURL: nil,
+                                providerLabel: resolved.provider.rawValue,
+                                modelLabel: resolved.modelId,
+                                engineName: err.localizedDescription,
+                                currentPrompt: currentPrompt,
+                                currentSeed: currentSeed,
+                                isVideo: true,
+                                onComplete: onComplete
+                            )
+                        }
+                    }
+                )
+            }
+        } else {
+            // --- 画像生成フロー ---
+            let resolved = tohoAI.resolveActiveMediaTarget(modality: .image, selectedProvider: imageProvider, selectedModelId: imageModelId)
+            guard resolved.isConfiguredExternal else {
+                // 外部画像APIキーが1つも有効でない場合、自動モードなら公式参考資料アーカイブを探索
+                if !forceAI && generationSourceMode == .auto && allowOfflineFallback,
+                   let localMatch = TohoLocalReferenceAssetService.shared.searchAndComposeAsset(prompt: currentPrompt, aspectRatio: currentAspect) {
+                    self.handleGenerationResult(
+                        image: localMatch.composedImage,
+                        fileURL: localMatch.fileURL,
+                        providerLabel: AIMediaProviderType.localBuiltIn.rawValue,
+                        modelLabel: "公式参考資料 (原画素材)",
+                        engineName: "東方素材アーカイブ (外部API未設定フォールバック)",
+                        currentPrompt: currentPrompt,
+                        currentSeed: currentSeed,
+                        isVideo: false,
+                        onComplete: onComplete
+                    )
+                    return
                 }
+                isGenerating = false
+                generationProgress = 0.0
+                currentStatusMessage = "⚠️ 画像生成用の外部APIキー（Gemini / OpenAI / Stability AI / fal.ai / Replicate / Grok / Luma）が未登録または無効です。「外部API・Nanndemoya認証」タブで設定してください。"
+                AppState.shared.addSystemLog(level: "WARN", message: currentStatusMessage)
+                onComplete?(nil)
+                return
+            }
+
+            if resolved.provider != imageProvider {
+                isSyncingDefaults = true
+                imageProvider = resolved.provider
+                imageModelId = resolved.modelId
+                isSyncingDefaults = false
+            }
+
+            let apiKey = tohoAI.mediaAPIKey(for: resolved.provider)
+            ExternalMediaAPIClient.shared.resolveEnglishMediaPrompt(prompt: currentPrompt, modality: .image) { [weak self] englishPrompt in
+                guard let self = self else { return }
+                DispatchQueue.main.async {
+                    self.generationProgress = 0.45
+                }
+                ExternalMediaAPIClient.shared.generateImage(
+                    provider: resolved.provider,
+                    modelId: resolved.modelId,
+                    apiKey: apiKey,
+                    prompt: englishPrompt,
+                    negativePrompt: currentNegative,
+                    aspectRatio: currentAspect,
+                    seed: currentSeed,
+                    statusCallback: { [weak self] msg in
+                        self?.currentStatusMessage = msg
+                    },
+                    completion: { [weak self] result in
+                        switch result {
+                        case .success(let (img, fileURL, engineLabel)):
+                            self?.handleGenerationResult(
+                                image: img,
+                                fileURL: fileURL,
+                                providerLabel: resolved.provider.rawValue,
+                                modelLabel: resolved.modelId,
+                                engineName: engineLabel,
+                                currentPrompt: currentPrompt,
+                                currentSeed: currentSeed,
+                                isVideo: false,
+                                onComplete: onComplete
+                            )
+                        case .failure(let err):
+                            self?.handleGenerationResult(
+                                image: nil,
+                                fileURL: nil,
+                                providerLabel: resolved.provider.rawValue,
+                                modelLabel: resolved.modelId,
+                                engineName: err.localizedDescription,
+                                currentPrompt: currentPrompt,
+                                currentSeed: currentSeed,
+                                isVideo: false,
+                                onComplete: onComplete
+                            )
+                        }
+                    }
+                )
             }
         }
     }
@@ -206,10 +408,13 @@ public final class AIImageGeneratorService: ObservableObject {
     private func handleGenerationResult(
         image: NSImage?,
         fileURL: URL?,
+        providerLabel: String,
+        modelLabel: String,
         engineName: String,
         currentPrompt: String,
         currentSeed: Int,
-        isVideo: Bool
+        isVideo: Bool,
+        onComplete: ((GeneratedImageItem?) -> Void)? = nil
     ) {
         DispatchQueue.main.async {
             self.isGenerating = false
@@ -232,21 +437,24 @@ public final class AIImageGeneratorService: ObservableObject {
                     image: img,
                     fileURL: url,
                     createdAt: Date(),
-                    providerName: self.selectedProvider.rawValue,
-                    modelName: isVideo ? "AnimateDiff (MP4)" : self.selectedModel,
+                    providerName: providerLabel,
+                    modelName: modelLabel,
                     isVideo: isVideo
                 )
                 self.generatedImagesHistory.insert(item, at: 0)
 
-                let mediaKindStr = isVideo ? "アニメ動画" : "本格画像"
+                let mediaKindStr = isVideo ? "AI動画" : "AI画像"
                 AppState.shared.addSystemLog(level: "INFO", message: "TohoAIStudio: [\(engineName)] から\(mediaKindStr)「\(item.title)」を生成しました。")
+                onComplete?(item)
             } else {
+                self.generationProgress = 0.0
                 if !engineName.isEmpty && engineName != "Error" {
-                    self.currentStatusMessage = "生成エラー: \(engineName)"
+                    self.currentStatusMessage = "⚠️ \(engineName)"
                 } else {
-                    self.currentStatusMessage = "生成に失敗しました (Google Colab GPU接続またはAPIキーを確認してください)"
+                    self.currentStatusMessage = "⚠️ 生成に失敗しました（外部APIキーの設定・利用枠をご確認ください）"
                 }
-                AppState.shared.addSystemLog(level: "ERROR", message: "AI生成エラー: \(engineName)")
+                AppState.shared.addSystemLog(level: "ERROR", message: "AIメディア生成エラー: \(engineName)")
+                onComplete?(nil)
             }
         }
     }
@@ -261,76 +469,13 @@ public final class AIImageGeneratorService: ObservableObject {
         self.handleGenerationResult(
             image: match.composedImage,
             fileURL: match.fileURL,
+            providerLabel: AIMediaProviderType.localBuiltIn.rawValue,
+            modelLabel: "公式参考資料 (原画素材)",
             engineName: "公式参考資料 (原画素材・追加エフェクトなし)",
             currentPrompt: self.prompt,
             currentSeed: 0,
             isVideo: false
         )
-    }
-
-    // MARK: - 本格AI画像生成パイプライン (Google Colab GPU Bridge / Google Gemini / OpenAI ChatGPT)
-    private func fetchRealAIImage(
-        prompt: String,
-        negativePrompt: String,
-        aspectRatio: ImageAspectRatio,
-        seed: Int,
-        completion: @escaping (NSImage?, URL?, String) -> Void
-    ) {
-        let tohoAI = TohoAIService.shared
-        let provider = self.selectedProvider
-        let model = self.selectedModel
-
-        // 0. Google Colab GPU Bridge がオンラインの場合は最優先で高速高品質生成 (SD-Turbo 約1〜2秒)
-        if isColabBridgeAvailable || useColabGPUIfAvailable || provider == .virtualLinuxVM {
-            if isColabBridgeAvailable {
-                fetchColabGPUImage(prompt: prompt, negativePrompt: negativePrompt, aspectRatio: aspectRatio, seed: seed) { [weak self] img, url, engine in
-                    if let img = img, let url = url {
-                        completion(img, url, engine)
-                    } else {
-                        self?.currentStatusMessage = "⚠️ Colab GPU 応答エラー。セルの実行ログを確認してください。"
-                        completion(nil, nil, engine)
-                    }
-                }
-                return
-            }
-        }
-
-        let englishPrompt = Self.generateOptimizedEnglishPrompt(from: prompt)
-
-        // 1. OpenAI ChatGPT (DALL-E 3)
-        if provider == .chatGPT {
-            let openAIKey = tohoAI.chatGPTConfig.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !openAIKey.isEmpty && tohoAI.chatGPTConfig.isEnabled {
-                fetchOpenAIDallE3(prompt: englishPrompt, apiKey: openAIKey, aspectRatio: aspectRatio) { result in
-                    if let (img, url) = result {
-                        completion(img, url, "OpenAI ChatGPT (\(model) / DALL-E 3)")
-                    } else {
-                        completion(nil, nil, "OpenAI DALL-E 3 生成エラー")
-                    }
-                }
-                return
-            }
-        }
-
-        // 2. Google Gemini (Imagen 3 / Gemini Multimodal)
-        if provider == .gemini {
-            let geminiKey = tohoAI.geminiConfig.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !geminiKey.isEmpty && tohoAI.geminiConfig.isEnabled {
-                fetchGoogleImagen(prompt: englishPrompt, apiKey: geminiKey, aspectRatio: aspectRatio) { result in
-                    if let (img, url) = result {
-                        completion(img, url, "Google Gemini (\(model) / Imagen 3)")
-                    } else {
-                        completion(nil, nil, "Google Imagen 3 生成エラー")
-                    }
-                }
-                return
-            }
-        }
-
-        // 3. Colab GPU 未接続かつ外部APIキー未設定の案内
-        self.currentStatusMessage = "⚠️ Google Colab GPU が未接続です。「Colabを開く」からアプリ内ブラウザでGPUを起動・接続してください。"
-        AppState.shared.addSystemLog(level: "WARNING", message: "Colab GPU 未接続: アプリ内Colabブラウザから『すべてのセルを実行』してGPUに接続してください。")
-        completion(nil, nil, "Google Colab GPU 未接続")
     }
 
     // MARK: - 高精度日英プロンプト最適化エンジン (文脈解析・施設別判定・人物混入完全防止)
@@ -752,166 +897,7 @@ public final class AIImageGeneratorService: ObservableObject {
         return "\(antiPhotoTags)\(combined)"
     }
 
-    // MARK: - Google Colab GPU Bridge (SDXL 1.0 高精度・汎用画像生成: L4 GPU)
-    public func fetchColabGPUImage(
-        prompt: String,
-        negativePrompt: String = "",
-        aspectRatio: ImageAspectRatio = .landscape16_9,
-        seed: Int = -1,
-        completion: @escaping (NSImage?, URL?, String) -> Void
-    ) {
-        let colab = CloudVirtualLinuxService.shared.colabBridge
-        let englishPrompt = CloudVirtualLinuxService.containsJapanese(prompt)
-            ? Self.generateOptimizedEnglishPrompt(from: prompt)
-            : prompt
-        var englishNegative = Self.convertNegativePromptToEnglish(negativePrompt)
-        let endpoint = CloudVirtualLinuxService.sanitizeColabEndpoint(colab.endpoint)
-
-        guard !endpoint.isEmpty, let url = URL(string: "\(endpoint)/v1/generate/image") else {
-            AppState.shared.addSystemLog(level: "WARNING", message: "Colab GPU Bridge 未接続: エンドポイントURLが空です。アプリ内Colabブラウザから起動してください。")
-            self.currentStatusMessage = "⚠️ Google Colab GPU が未接続です。「Colabを開く」からGPUを起動・接続してください。"
-            completion(nil, nil, "Colab GPU 未接続")
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 60.0
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let (width, height) = aspectRatio.dimensions
-        let effectiveSeed = seed == -1 ? Int.random(in: 1000...99999) : seed
-
-        // 明示的に「風景・背景のみ（人物なし）」が要求された場合のみ、ネガティブに人物排除タグを付与
-        let promptLower = prompt.lowercased()
-        let hasPerson = Self.hasExplicitCharacterOrPerson(prompt)
-        let isLandscapeExplicitlyRequested = promptLower.contains("風景") || promptLower.contains("景色") ||
-            promptLower.contains("背景のみ") || promptLower.contains("誰もいない") ||
-            promptLower.contains("人物なし") || promptLower.contains("no humans") ||
-            promptLower.contains("empty scene") || promptLower.contains("pure scenery")
-
-        if isLandscapeExplicitlyRequested && !hasPerson {
-            if !englishNegative.contains("people") {
-                englishNegative += ", people, person, humans, girl, boy, 1girl, 1boy, female, male, character, face, portrait"
-            }
-        }
-
-        var finalPositivePrompt = englishPrompt
-        if !finalPositivePrompt.lowercased().contains("anime style") && !finalPositivePrompt.lowercased().contains("cel shaded") {
-            finalPositivePrompt = "anime style, cel shaded anime illustration, 2D anime art, clean lineart, Japanese animation aesthetic, " + finalPositivePrompt
-        }
-        if !englishNegative.contains("photorealistic") {
-            englishNegative = "photorealistic, realistic, photograph, photo, real life, realistic skin texture, 3d render, 3d model, " + englishNegative
-        }
-
-        // 屋外シーンで人物がいない場合のみ、誤って混入した室内・教室キーワードを排除
-        let isOutdoorPrompt = promptLower.contains("校庭") || promptLower.contains("グラウンド") || promptLower.contains("運動場") ||
-                              promptLower.contains("屋外") || promptLower.contains("空") || promptLower.contains("海") ||
-                              promptLower.contains("公園") || promptLower.contains("屋上") || promptLower.contains("中庭") ||
-                              promptLower.contains("神社")
-        if isOutdoorPrompt && !hasPerson {
-            let termsToRemove = ["architectural interior", "interior architecture", "classroom interior", "classroom", "interior"]
-            for term in termsToRemove {
-                finalPositivePrompt = finalPositivePrompt.replacingOccurrences(of: term, with: "", options: .caseInsensitive)
-            }
-        }
-
-        if isLandscapeExplicitlyRequested && !hasPerson && !finalPositivePrompt.contains("no humans") {
-            finalPositivePrompt += isOutdoorPrompt
-                ? " AND no humans, empty scene, wide outdoor scenery, pure scenery"
-                : " AND no humans, empty scene, pure scenery"
-        }
-
-        let body: [String: Any] = [
-            "prompt": finalPositivePrompt,
-            "negative_prompt": englishNegative,
-            "width": width,
-            "height": height,
-            "seed": effectiveSeed
-        ]
-
-        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
-            completion(nil, nil, "リクエストJSON生成エラー")
-            return
-        }
-        request.httpBody = httpBody
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let data = data, let image = NSImage(data: data), data.count > 1000,
-               let http = response as? HTTPURLResponse, http.statusCode == 200 {
-                let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Images", isDirectory: true)
-                try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
-
-                let fileName = "ColabGPU_\(Int(Date().timeIntervalSince1970))_\(effectiveSeed).png"
-                let fileURL = outputDir.appendingPathComponent(fileName)
-                try? data.write(to: fileURL)
-
-                completion(image, fileURL, "Google Colab GPU (SDXL 1.0 / \(colab.gpuName) / \(width)x\(height))")
-            } else {
-                let errDetail = error?.localizedDescription ?? "HTTP status \((response as? HTTPURLResponse)?.statusCode ?? 0)"
-                AppState.shared.addSystemLog(level: "ERROR", message: "Colab GPU 画像生成エラー: \(errDetail)。Colabセルの実行状態を確認してください。")
-                completion(nil, nil, "Colab GPU応答エラー: \(errDetail)")
-            }
-        }.resume()
-    }
-
-    // MARK: - Google Colab GPU Bridge (AnimateDiff アニメ動画生成: 30〜45秒)
-    public func fetchColabGPUVideo(
-        prompt: String,
-        negativePrompt: String = "",
-        aspectRatio: ImageAspectRatio = .landscape16_9,
-        completion: @escaping (NSImage?, URL?, String) -> Void
-    ) {
-        let colab = CloudVirtualLinuxService.shared.colabBridge
-        let englishPrompt = CloudVirtualLinuxService.containsJapanese(prompt)
-            ? Self.generateOptimizedEnglishPrompt(from: prompt)
-            : prompt
-        let englishNegative = Self.convertNegativePromptToEnglish(negativePrompt)
-        let (width, height) = aspectRatio.dimensions
-        let endpoint = CloudVirtualLinuxService.sanitizeColabEndpoint(colab.endpoint)
-
-        guard !endpoint.isEmpty, let url = URL(string: "\(endpoint)/v1/generate/video") else {
-            createFallbackMP4Video(prompt: englishPrompt, completion: completion)
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 120.0
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body: [String: Any] = [
-            "prompt": englishPrompt,
-            "negative_prompt": englishNegative,
-            "width": width,
-            "height": height
-        ]
-        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
-            createFallbackMP4Video(prompt: englishPrompt, completion: completion)
-            return
-        }
-        request.httpBody = httpBody
-
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            if let data = data, data.count > 5000,
-               let http = response as? HTTPURLResponse, http.statusCode == 200 {
-                let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Videos", isDirectory: true)
-                try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
-
-                let fileName = "ColabGPU_Anim_\(Int(Date().timeIntervalSince1970)).mp4"
-                let fileURL = outputDir.appendingPathComponent(fileName)
-                try? data.write(to: fileURL)
-
-                let thumbnail = Self.generateVideoThumbnail(from: fileURL) ?? NSImage(systemSymbolName: "film.fill", accessibilityDescription: nil) ?? NSImage()
-                completion(thumbnail, fileURL, "Google Colab GPU (AnimateDiff MP4 / \(colab.gpuName) / \(width)x\(height))")
-            } else {
-                // Colab オフラインまたは通信エラー時はローカルアニメーション動画合成へ自動フォールバック
-                self?.createFallbackMP4Video(prompt: prompt, completion: completion)
-            }
-        }.resume()
-    }
-
-    // MARK: - ローカルアニメーション動画 (MP4) レンダリングフォールバック
+    // MARK: - ローカルプロシージャル演出動画 (MP4) レンダリングフォールバック
     public func createFallbackMP4Video(prompt: String, completion: @escaping (NSImage?, URL?, String) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Videos", isDirectory: true)
@@ -1029,127 +1015,20 @@ public final class AIImageGeneratorService: ObservableObject {
 
 
 
-    // MARK: - OpenAI DALL-E 3
-    private func fetchOpenAIDallE3(
-        prompt: String,
-        apiKey: String,
-        aspectRatio: ImageAspectRatio,
-        completion: @escaping ((NSImage, URL)?) -> Void
-    ) {
-        guard let url = URL(string: "https://api.openai.com/v1/images/generations") else {
-            completion(nil)
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let sizeStr = aspectRatio == .portrait9_16 ? "1024x1792" : (aspectRatio == .square1_1 ? "1024x1024" : "1792x1024")
-        let body: [String: Any] = [
-            "model": "dall-e-3",
-            "prompt": prompt,
-            "n": 1,
-            "size": sizeStr,
-            "response_format": "b64_json"
-        ]
-
-        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
-            completion(nil)
-            return
-        }
-        request.httpBody = httpBody
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            guard let data = data, error == nil,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let dataArr = json["data"] as? [[String: Any]],
-                  let first = dataArr.first,
-                  let b64 = first["b64_json"] as? String,
-                  let imgData = Data(base64Encoded: b64),
-                  let image = NSImage(data: imgData) else {
-                completion(nil)
-                return
-            }
-
-            let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Images", isDirectory: true)
-            try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
-            let fileURL = outputDir.appendingPathComponent("DallE3_\(Int(Date().timeIntervalSince1970)).png")
-            try? imgData.write(to: fileURL)
-
-            completion((image, fileURL))
-        }.resume()
-    }
-
-    // MARK: - Google Imagen 3
-    private func fetchGoogleImagen(
-        prompt: String,
-        apiKey: String,
-        aspectRatio: ImageAspectRatio,
-        completion: @escaping ((NSImage, URL)?) -> Void
-    ) {
-        let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=\(apiKey)"
-        guard let url = URL(string: endpoint) else {
-            completion(nil)
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let aspectStr = aspectRatio == .portrait9_16 ? "9:16" : (aspectRatio == .square1_1 ? "1:1" : "16:9")
-        let body: [String: Any] = [
-            "instances": [
-                ["prompt": prompt]
-            ],
-            "parameters": [
-                "sampleCount": 1,
-                "aspectRatio": aspectStr
-            ]
-        ]
-
-        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
-            completion(nil)
-            return
-        }
-        request.httpBody = httpBody
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            guard let data = data, error == nil,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let predictions = json["predictions"] as? [[String: Any]],
-                  let first = predictions.first,
-                  let b64 = first["bytesBase64Encoded"] as? String,
-                  let imgData = Data(base64Encoded: b64),
-                  let image = NSImage(data: imgData) else {
-                completion(nil)
-                return
-            }
-
-            let outputDir = FileManager.default.temporaryDirectory.appendingPathComponent("TohoAI_Images", isDirectory: true)
-            try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
-            let fileURL = outputDir.appendingPathComponent("Imagen3_\(Int(Date().timeIntervalSince1970)).png")
-            try? imgData.write(to: fileURL)
-
-            completion((image, fileURL))
-        }.resume()
-    }
-
     // MARK: - 制作スタジオ連携
     public func saveToMaterialStudio(item: GeneratedImageItem) {
         let mat = MaterialItem(
             title: item.title,
-            type: "画像",
-            category: "AI生成画像",
+            type: item.isVideo ? "動画" : "画像",
+            category: item.isVideo ? "AI生成動画" : "AI生成画像",
             filePath: item.fileURL.path,
             fileSize: (try? FileManager.default.attributesOfItem(atPath: item.fileURL.path)[.size] as? Int64) ?? 524288,
             createdAt: Date()
         )
         AppState.shared.materials.append(mat)
-        AppState.shared.addHistory("AI生成画像「\(item.title)」を素材スタジオへ登録")
-        AppState.shared.addSystemLog(level: "INFO", message: "素材スタジオに画像「\(item.title)」を追加しました。")
+        let label = item.isVideo ? "AI生成動画" : "AI生成画像"
+        AppState.shared.addHistory("\(label)「\(item.title)」を素材スタジオへ登録")
+        AppState.shared.addSystemLog(level: "INFO", message: "素材スタジオに\(label)「\(item.title)」を追加しました。")
     }
 
     public func applyToMovieMakerBackground(item: GeneratedImageItem) {

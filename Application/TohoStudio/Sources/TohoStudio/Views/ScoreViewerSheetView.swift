@@ -32,7 +32,6 @@ public struct ScoreViewerSheetView: View {
     @State private var separateStems: Bool = true
     @State private var withLyrics: Bool = true
     @State private var showLyricsInput: Bool = false
-    @State private var showColabBrowser: Bool = false
 
     // PDF表示設定
     @State private var pdfViewScale: CGFloat = 1.0
@@ -115,9 +114,6 @@ public struct ScoreViewerSheetView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
-        .sheet(isPresented: $showColabBrowser) {
-            ColabGPUInAppBrowserView(isPresented: $showColabBrowser)
-        }
     }
 
     // MARK: - Header Bar
@@ -137,26 +133,6 @@ public struct ScoreViewerSheetView: View {
             }
 
             Spacer()
-
-            // Colab GPU 起動 / 状態ボタン
-            Button(action: {
-                showColabBrowser = true
-            }) {
-                HStack(spacing: 5) {
-                    Circle()
-                        .fill(cloudLinuxService.colabBridge.isOnline ? Color.green : Color.blue)
-                        .frame(width: 8, height: 8)
-                    Text(cloudLinuxService.colabBridge.isOnline ? "⚡️ Colab GPU 接続中 (音源分離・歌詞抽出)" : "🌸 Colab GPU 起動...")
-                        .font(.caption2)
-                        .foregroundColor(cloudLinuxService.colabBridge.isOnline ? .green : .cyan)
-                }
-                .padding(.horizontal, 9)
-                .padding(.vertical, 5)
-                .background(cloudLinuxService.colabBridge.isOnline ? Color.green.opacity(0.12) : Color.cyan.opacity(0.12))
-                .cornerRadius(6)
-            }
-            .buttonStyle(.plain)
-            .help("アプリ内ブラウザでGoogle Colabを開き、GPUを使った音源分離・自動採譜を実行します")
 
             // サーバー接続情報バッジ
             HStack(spacing: 6) {
@@ -206,7 +182,7 @@ public struct ScoreViewerSheetView: View {
                     .font(.title3)
                     .bold()
 
-                Text("音声からAIがメロディ・リズムを抽出し、高品位な五線譜（PDF）を自動で作成・組版します。\nColab GPU 接続時は、ドラムや伴奏を自動除去（音源分離）し歌詞付き楽譜を瞬時に生成します。")
+                Text("音声からAIがメロディ・リズムを抽出し、高品位な五線譜（PDF）を自動で作成・組版します。\n音源分離オプションを有効にすると、ドラムや伴奏を除去してメロディと歌詞を抽出します。")
                     .font(.callout)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -219,13 +195,12 @@ public struct ScoreViewerSheetView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "sparkles")
                                 .foregroundColor(.purple)
-                            Text("Colab GPU 音源分離 (ドラム・低音ノイズ遮断)")
+                            Text("AI 音源分離 (ドラム・低音ノイズ遮断)")
                                 .font(.caption)
                                 .bold()
                         }
                     }
                     .toggleStyle(.checkbox)
-                    .disabled(!cloudLinuxService.colabBridge.isOnline)
 
                     Toggle(isOn: $withLyrics) {
                         HStack(spacing: 4) {
@@ -340,29 +315,16 @@ public struct ScoreViewerSheetView: View {
                     .background(Color.blue.opacity(0.1))
                     .cornerRadius(6)
 
-                if cloudLinuxService.colabBridge.isOnline {
-                    HStack(spacing: 5) {
-                        Circle().fill(Color.green).frame(width: 7, height: 7)
-                        Text("⚡️ Colab L4 GPU: Meta Demucs音源分離 ＆ OpenAI Whisper歌詞抽出中")
-                            .font(.caption2)
-                            .foregroundColor(.green)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Color.green.opacity(0.1))
-                    .cornerRadius(6)
-                } else {
-                    HStack(spacing: 5) {
-                        Circle().fill(Color.orange).frame(width: 7, height: 7)
-                        Text("ℹ️ ローカル Linux VM で解析中（Colab GPU 接続時はさらに高精度・ボーカル分離）")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(6)
+                HStack(spacing: 5) {
+                    Circle().fill(Color.blue).frame(width: 7, height: 7)
+                    Text("ℹ️ 採譜サーバーで解析中（Basic Pitch + LilyPond）")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(6)
 
                 Text("※ 音声の長さにより、処理に約10秒〜30秒ほどかかります。")
                     .font(.caption)
@@ -505,10 +467,7 @@ public struct ScoreViewerSheetView: View {
         guard !isProcessing else { return }
         isProcessing = true
         errorMessage = nil
-        let isColab = cloudLinuxService.colabBridge.isOnline
-        progressPhase = isColab
-            ? "1/3: 音声データを Colab L4 GPU へ転送中..."
-            : "1/3: 音声データを準備して Linux VM へ転送中..."
+        progressPhase = "1/3: 音声データを準備して採譜サーバーへ転送中..."
 
         currentTranscriptionTask = Task {
             do {
@@ -517,9 +476,7 @@ public struct ScoreViewerSheetView: View {
 
                 try Task.checkCancellation()
                 await MainActor.run {
-                    progressPhase = isColab
-                        ? "2/3: Colab GPU (Demucs音源分離 + Whisper歌詞抽出 + Basic Pitch) 実行中..."
-                        : "2/3: Basic Pitch AI によるピッチ・発音時刻の抽出中..."
+                    progressPhase = "2/3: Basic Pitch AI によるピッチ・発音時刻の抽出中..."
                 }
 
                 let receivedData = try await client.transcribe(

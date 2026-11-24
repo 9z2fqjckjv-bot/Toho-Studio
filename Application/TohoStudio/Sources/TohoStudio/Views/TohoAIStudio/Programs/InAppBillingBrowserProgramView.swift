@@ -110,23 +110,29 @@ public struct InAppBillingBrowserProgramView: View {
 
     // MARK: - Shortcuts Bar
     private var portalShortcutsBar: some View {
-        HStack(spacing: 10) {
-            Text("請求ポータル:")
-                .font(.caption2)
-                .bold()
-                .foregroundColor(.secondary)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                Text("請求ポータル:")
+                    .font(.caption2)
+                    .bold()
+                    .foregroundColor(.secondary)
 
-            portalButton(title: "Google AI Studio", urlString: "https://aistudio.google.com/", icon: "sparkles", color: .blue)
-            portalButton(title: "OpenAI Billing", urlString: "https://platform.openai.com/usage", icon: "brain", color: .green)
-            portalButton(title: "Anthropic Billing", urlString: "https://console.anthropic.com/settings/plans", icon: "cpu", color: .purple)
-            portalButton(title: "xAI Grok Console", urlString: "https://console.x.ai/", icon: "bolt.horizontal.circle.fill", color: .orange)
-            portalButton(title: "Mistral Billing", urlString: "https://console.mistral.ai/billing/", icon: "wind", color: .teal)
-            portalButton(title: "何でも屋 公式ポータル", urlString: "https://www.nanndemoya.net/top", icon: "server.rack", color: .orange)
-
-            Spacer()
+                portalButton(title: "Google AI Studio", urlString: "https://aistudio.google.com/", icon: "sparkles", color: .blue)
+                portalButton(title: "OpenAI Billing", urlString: "https://platform.openai.com/usage", icon: "brain", color: .green)
+                portalButton(title: "ElevenLabs", urlString: "https://elevenlabs.io/app/subscription", icon: "waveform.circle.fill", color: .pink)
+                portalButton(title: "Stability AI", urlString: "https://platform.stability.ai/account/credits", icon: "paintbrush.pointed.fill", color: .indigo)
+                portalButton(title: "fal.ai Billing", urlString: "https://fal.ai/dashboard/billing", icon: "bolt.horizontal.icloud.fill", color: .cyan)
+                portalButton(title: "Replicate", urlString: "https://replicate.com/account/billing", icon: "cube.transparent.fill", color: .mint)
+                portalButton(title: "Runway Dev", urlString: "https://dev.runwayml.com/", icon: "film.circle.fill", color: .red)
+                portalButton(title: "Luma Labs", urlString: "https://lumalabs.ai/dream-machine/api/keys", icon: "rays", color: .yellow)
+                portalButton(title: "Anthropic", urlString: "https://console.anthropic.com/settings/plans", icon: "cpu", color: .purple)
+                portalButton(title: "xAI Grok", urlString: "https://console.x.ai/", icon: "bolt.horizontal.circle.fill", color: .orange)
+                portalButton(title: "Mistral", urlString: "https://console.mistral.ai/billing/", icon: "wind", color: .teal)
+                portalButton(title: "何でも屋 ポータル", urlString: "https://www.nanndemoya.net/top", icon: "server.rack", color: .orange)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
         .background(Color(NSColor.controlBackgroundColor))
     }
 

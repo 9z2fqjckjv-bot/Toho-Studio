@@ -67,7 +67,6 @@ public struct SoundMakerView: View {
     @State private var showDictionarySheet: Bool = false
     @State private var showScoreViewerSheet: Bool = false
     @State private var scoreViewerInitialURL: URL? = nil
-    @State private var showColabGPUInAppBrowser: Bool = false
     @State private var selectedClipForCharFade: SoundClip? = nil
     @ObservedObject var cloudLinuxService = CloudVirtualLinuxService.shared
 
@@ -238,9 +237,6 @@ public struct SoundMakerView: View {
         }
         .sheet(isPresented: $showScoreViewerSheet) {
             ScoreViewerSheetView(initialAudioURL: scoreViewerInitialURL)
-        }
-        .sheet(isPresented: $showColabGPUInAppBrowser) {
-            ColabGPUInAppBrowserView(isPresented: $showColabGPUInAppBrowser)
         }
         .sheet(isPresented: $showDictionarySheet) {
             SoundMakerDictionarySheet()
@@ -512,19 +508,23 @@ public struct SoundMakerView: View {
                 .buttonStyle(.bordered)
                 .help("選択中クリップや音声ファイルをSpotify Basic Pitchで自動解析し五線譜PDF楽譜を生成")
 
-                // 🌸 Colab L4 GPU ブラウザ接続
-                Button(action: { showColabGPUInAppBrowser = true }) {
+                // 外部AI音響API設定ショートカット
+                Button(action: {
+                    TohoAIService.shared.activeProgramTab = .externalAPI
+                    appState.currentModule = .tohoAIStudio
+                }) {
+                    let hasExtAudio = aiSoundService.hasConfiguredExternalBGMAPI || aiSoundService.hasConfiguredExternalSEAPI
                     HStack(spacing: 5) {
                         Circle()
-                            .fill(cloudLinuxService.colabBridge.isOnline ? Color.green : Color.blue)
+                            .fill(hasExtAudio ? Color.green : Color.orange)
                             .frame(width: 7, height: 7)
-                        Label(cloudLinuxService.colabBridge.isOnline ? "Colab GPU (接続中)" : "Colab GPU 起動...", systemImage: "bolt.fill")
+                        Label(hasExtAudio ? "外部AI音響API連携中" : "外部AI音響API設定...", systemImage: "key.fill")
                             .font(.caption)
-                            .foregroundColor(cloudLinuxService.colabBridge.isOnline ? .green : .cyan)
+                            .foregroundColor(hasExtAudio ? .green : .cyan)
                     }
                 }
                 .buttonStyle(.bordered)
-                .help("アプリ内ブラウザでGoogle Colabを開き、L4 GPUの起動や接続を確認します")
+                .help("TohoAIStudioの外部API管理画面を開き、ElevenLabs / Stability AI / fal.ai / Replicate 等の音響生成APIキーを設定します")
 
                 // Export Audio
                 Button(action: { showExportAudioSheet = true }) {
@@ -2532,15 +2532,20 @@ public struct SoundMakerView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         // AI Engine Badge
                         HStack {
+                            let isExtReady = aiSoundMode == "bgm" ? aiSoundService.hasConfiguredExternalBGMAPI : aiSoundService.hasConfiguredExternalSEAPI
                             Circle()
-                                .fill(aiSoundService.isColabBridgeAvailable ? Color.green : Color.blue)
+                                .fill(isExtReady ? Color.green : Color.blue)
                                 .frame(width: 6, height: 6)
-                            Text(aiSoundService.isColabBridgeAvailable ? "⚡️ Colab L4/T4 GPU" : "東方・日常プロシージャル合成")
+                            Text(aiSoundMode == "bgm" ? aiSoundService.activeBGMEngineSummary : aiSoundService.activeSEEngineSummary)
                                 .font(.system(size: 10))
+                                .lineLimit(1)
                                 .foregroundColor(Color(white: 0.8))
                             Spacer()
-                            Button(action: { showColabGPUInAppBrowser = true }) {
-                                Text(aiSoundService.isColabBridgeAvailable ? "設定" : "🌸 Colab起動")
+                            Button(action: {
+                                TohoAIService.shared.activeProgramTab = .externalAPI
+                                appState.currentModule = .tohoAIStudio
+                            }) {
+                                Text("API設定")
                                     .font(.system(size: 9))
                                     .foregroundColor(.cyan)
                             }

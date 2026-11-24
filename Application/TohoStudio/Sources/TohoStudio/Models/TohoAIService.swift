@@ -171,7 +171,7 @@ public enum TohoAIProgramTab: String, CaseIterable, Identifiable {
     case virtualLinuxVM = "ゲートウェイ通信確認"
     case aiChat = "AIチャット"
     case aiEditor = "AI編集・推敲"
-    case aiImageGenerator = "AI画像生成"
+    case aiImageGenerator = "AI画像・動画生成"
     case aiSoundGenerator = "AI音楽・SE生成"
     case usageBilling = "プラン・使用量管理"
     case externalAPI = "外部API・Nanndemoya認証"
@@ -202,6 +202,15 @@ public final class TohoAIService: ObservableObject {
     private static let selectedModelStorageKey = "TohoAIStudio.SelectedModel"
     private static func externalConfigStorageKey(for provider: AIProviderType) -> String {
         return "TohoAIStudio.ExternalConfig.\(provider.rawValue)"
+    }
+    private static func mediaConfigStorageKey(for provider: AIMediaProviderType) -> String {
+        return "TohoAIStudio.MediaExternalConfig.\(provider.rawValue)"
+    }
+    private static func preferredMediaProviderKey(for modality: AIMediaModality) -> String {
+        return "TohoAIStudio.PreferredMediaProvider.\(modality.rawValue)"
+    }
+    private static func preferredMediaModelKey(for modality: AIMediaModality) -> String {
+        return "TohoAIStudio.PreferredMediaModel.\(modality.rawValue)"
     }
     private var isRestoringSettings: Bool = false
     private var discoveredGeminiModels: [String] = []
@@ -349,6 +358,161 @@ public final class TohoAIService: ObservableObject {
         }
     }
 
+    // MARK: - Dedicated Media External API Settings (画像・動画・SE・BGM 専用プロバイダー)
+    @Published public var elevenLabsConfig: ExternalAPIConfig = ExternalAPIConfig(
+        apiKey: "",
+        isEnabled: false,
+        selectedModel: "eleven_text_to_sound_v3",
+        isConnected: false,
+        lastTestedAt: nil,
+        latencyMs: 0,
+        billingURLString: "https://elevenlabs.io/app/subscription"
+    ) {
+        didSet {
+            guard !isRestoringSettings else { return }
+            saveMediaExternalConfig(elevenLabsConfig, for: .elevenLabs)
+        }
+    }
+    @Published public var stabilityConfig: ExternalAPIConfig = ExternalAPIConfig(
+        apiKey: "",
+        isEnabled: false,
+        selectedModel: "ultra",
+        isConnected: false,
+        lastTestedAt: nil,
+        latencyMs: 0,
+        billingURLString: "https://platform.stability.ai/account/credits"
+    ) {
+        didSet {
+            guard !isRestoringSettings else { return }
+            saveMediaExternalConfig(stabilityConfig, for: .stabilityAI)
+        }
+    }
+    @Published public var falAIConfig: ExternalAPIConfig = ExternalAPIConfig(
+        apiKey: "",
+        isEnabled: false,
+        selectedModel: "fal-ai/flux/dev",
+        isConnected: false,
+        lastTestedAt: nil,
+        latencyMs: 0,
+        billingURLString: "https://fal.ai/dashboard/billing"
+    ) {
+        didSet {
+            guard !isRestoringSettings else { return }
+            saveMediaExternalConfig(falAIConfig, for: .falAI)
+        }
+    }
+    @Published public var replicateConfig: ExternalAPIConfig = ExternalAPIConfig(
+        apiKey: "",
+        isEnabled: false,
+        selectedModel: "black-forest-labs/flux-1.1-pro",
+        isConnected: false,
+        lastTestedAt: nil,
+        latencyMs: 0,
+        billingURLString: "https://replicate.com/account/billing"
+    ) {
+        didSet {
+            guard !isRestoringSettings else { return }
+            saveMediaExternalConfig(replicateConfig, for: .replicate)
+        }
+    }
+    @Published public var runwayConfig: ExternalAPIConfig = ExternalAPIConfig(
+        apiKey: "",
+        isEnabled: false,
+        selectedModel: "gen4.5",
+        isConnected: false,
+        lastTestedAt: nil,
+        latencyMs: 0,
+        billingURLString: "https://dev.runwayml.com/"
+    ) {
+        didSet {
+            guard !isRestoringSettings else { return }
+            saveMediaExternalConfig(runwayConfig, for: .runway)
+        }
+    }
+    @Published public var lumaConfig: ExternalAPIConfig = ExternalAPIConfig(
+        apiKey: "",
+        isEnabled: false,
+        selectedModel: "ray-2",
+        isConnected: false,
+        lastTestedAt: nil,
+        latencyMs: 0,
+        billingURLString: "https://lumalabs.ai/dream-machine/api/keys"
+    ) {
+        didSet {
+            guard !isRestoringSettings else { return }
+            saveMediaExternalConfig(lumaConfig, for: .luma)
+        }
+    }
+
+    // MARK: - Default Dedicated Media Model Assignments (画像 / 動画 / BGM / SE)
+    @Published public var preferredImageProvider: AIMediaProviderType = .gemini {
+        didSet {
+            guard !isRestoringSettings else { return }
+            UserDefaults.standard.set(preferredImageProvider.rawValue, forKey: Self.preferredMediaProviderKey(for: .image))
+            let validIds = preferredImageProvider.models(for: .image).map(\.id)
+            if !validIds.contains(preferredImageModel) {
+                preferredImageModel = preferredImageProvider.defaultModelId(for: .image)
+            }
+        }
+    }
+    @Published public var preferredImageModel: String = "imagen-3.0-generate-002" {
+        didSet {
+            guard !isRestoringSettings else { return }
+            UserDefaults.standard.set(preferredImageModel, forKey: Self.preferredMediaModelKey(for: .image))
+        }
+    }
+
+    @Published public var preferredVideoProvider: AIMediaProviderType = .gemini {
+        didSet {
+            guard !isRestoringSettings else { return }
+            UserDefaults.standard.set(preferredVideoProvider.rawValue, forKey: Self.preferredMediaProviderKey(for: .video))
+            let validIds = preferredVideoProvider.models(for: .video).map(\.id)
+            if !validIds.contains(preferredVideoModel) {
+                preferredVideoModel = preferredVideoProvider.defaultModelId(for: .video)
+            }
+        }
+    }
+    @Published public var preferredVideoModel: String = "veo-3.0-generate-preview" {
+        didSet {
+            guard !isRestoringSettings else { return }
+            UserDefaults.standard.set(preferredVideoModel, forKey: Self.preferredMediaModelKey(for: .video))
+        }
+    }
+
+    @Published public var preferredBGMProvider: AIMediaProviderType = .elevenLabs {
+        didSet {
+            guard !isRestoringSettings else { return }
+            UserDefaults.standard.set(preferredBGMProvider.rawValue, forKey: Self.preferredMediaProviderKey(for: .bgm))
+            let validIds = preferredBGMProvider.models(for: .bgm).map(\.id)
+            if !validIds.contains(preferredBGMModel) {
+                preferredBGMModel = preferredBGMProvider.defaultModelId(for: .bgm)
+            }
+        }
+    }
+    @Published public var preferredBGMModel: String = "music_v2_5" {
+        didSet {
+            guard !isRestoringSettings else { return }
+            UserDefaults.standard.set(preferredBGMModel, forKey: Self.preferredMediaModelKey(for: .bgm))
+        }
+    }
+
+    @Published public var preferredSEProvider: AIMediaProviderType = .elevenLabs {
+        didSet {
+            guard !isRestoringSettings else { return }
+            UserDefaults.standard.set(preferredSEProvider.rawValue, forKey: Self.preferredMediaProviderKey(for: .se))
+            let validIds = preferredSEProvider.models(for: .se).map(\.id)
+            if !validIds.contains(preferredSEModel) {
+                preferredSEModel = preferredSEProvider.defaultModelId(for: .se)
+            }
+        }
+    }
+    @Published public var preferredSEModel: String = "eleven_text_to_sound_v3" {
+        didSet {
+            guard !isRestoringSettings else { return }
+            UserDefaults.standard.set(preferredSEModel, forKey: Self.preferredMediaModelKey(for: .se))
+        }
+    }
+
     // MARK: - AI Editing & Proofreading Workspace State
     @Published public var selectedEditMode: AIEditMode = .proofreadPolish
     @Published public var selectedTone: CharacterTonePreset = .reimu
@@ -393,6 +557,18 @@ public final class TohoAIService: ObservableObject {
         grokConfig = loadExternalConfig(for: .grok, fallback: grokConfig)
         mistralConfig = loadExternalConfig(for: .mistral, fallback: mistralConfig)
 
+        elevenLabsConfig = loadMediaExternalConfig(for: .elevenLabs, fallback: elevenLabsConfig)
+        stabilityConfig = loadMediaExternalConfig(for: .stabilityAI, fallback: stabilityConfig)
+        falAIConfig = loadMediaExternalConfig(for: .falAI, fallback: falAIConfig)
+        replicateConfig = loadMediaExternalConfig(for: .replicate, fallback: replicateConfig)
+        runwayConfig = loadMediaExternalConfig(for: .runway, fallback: runwayConfig)
+        lumaConfig = loadMediaExternalConfig(for: .luma, fallback: lumaConfig)
+
+        restorePreferredMediaSelection(modality: .image, providerTarget: &preferredImageProvider, modelTarget: &preferredImageModel, fallbackProvider: .gemini)
+        restorePreferredMediaSelection(modality: .video, providerTarget: &preferredVideoProvider, modelTarget: &preferredVideoModel, fallbackProvider: .gemini)
+        restorePreferredMediaSelection(modality: .bgm, providerTarget: &preferredBGMProvider, modelTarget: &preferredBGMModel, fallbackProvider: .elevenLabs)
+        restorePreferredMediaSelection(modality: .se, providerTarget: &preferredSEProvider, modelTarget: &preferredSEModel, fallbackProvider: .elevenLabs)
+
         if let savedProvRaw = UserDefaults.standard.string(forKey: Self.providerStorageKey),
            let savedProv = AIProviderType(rawValue: savedProvRaw) {
             activeProvider = savedProv
@@ -412,6 +588,48 @@ public final class TohoAIService: ObservableObject {
     private func saveExternalConfig(_ config: ExternalAPIConfig, for provider: AIProviderType) {
         if let encoded = try? JSONEncoder().encode(config) {
             UserDefaults.standard.set(encoded, forKey: Self.externalConfigStorageKey(for: provider))
+        }
+    }
+
+    private func saveMediaExternalConfig(_ config: ExternalAPIConfig, for provider: AIMediaProviderType) {
+        if let encoded = try? JSONEncoder().encode(config) {
+            UserDefaults.standard.set(encoded, forKey: Self.mediaConfigStorageKey(for: provider))
+        }
+    }
+
+    private func loadMediaExternalConfig(for provider: AIMediaProviderType, fallback: ExternalAPIConfig) -> ExternalAPIConfig {
+        guard let data = UserDefaults.standard.data(forKey: Self.mediaConfigStorageKey(for: provider)),
+              var decoded = try? JSONDecoder().decode(ExternalAPIConfig.self, from: data) else {
+            return fallback
+        }
+        if decoded.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            decoded.isConnected = false
+        }
+        return decoded
+    }
+
+    private func restorePreferredMediaSelection(
+        modality: AIMediaModality,
+        providerTarget: inout AIMediaProviderType,
+        modelTarget: inout String,
+        fallbackProvider: AIMediaProviderType
+    ) {
+        if let rawProv = UserDefaults.standard.string(forKey: Self.preferredMediaProviderKey(for: modality)),
+           let prov = AIMediaProviderType(rawValue: rawProv),
+           prov.supportedModalities.contains(modality) {
+            providerTarget = prov
+        } else if let firstConfigured = AIMediaProviderType.externalProviders.first(where: { $0.supportedModalities.contains(modality) && isMediaProviderConfigured($0) }) {
+            providerTarget = firstConfigured
+        } else {
+            providerTarget = fallbackProvider
+        }
+
+        let validModels = providerTarget.models(for: modality).map(\.id)
+        if let savedMod = UserDefaults.standard.string(forKey: Self.preferredMediaModelKey(for: modality)),
+           validModels.contains(savedMod) {
+            modelTarget = savedMod
+        } else {
+            modelTarget = providerTarget.defaultModelId(for: modality)
         }
     }
 
@@ -478,7 +696,182 @@ public final class TohoAIService: ObservableObject {
                (claudeConfig.isEnabled && !claudeConfig.apiKey.isEmpty) ||
                (grokConfig.isEnabled && !grokConfig.apiKey.isEmpty) ||
                (mistralConfig.isEnabled && !mistralConfig.apiKey.isEmpty) ||
-               (nanndemoyaConfig.isEnabled && !nanndemoyaConfig.apiKey.isEmpty)
+               (nanndemoyaConfig.isEnabled && !nanndemoyaConfig.apiKey.isEmpty) ||
+               configuredMediaProviderCount() > 0
+    }
+
+    // MARK: - Media Provider Registry Helpers
+    public func firstEnabledExternalLLMProvider() -> AIProviderType? {
+        for p in [AIProviderType.gemini, .chatGPT, .claude, .grok, .mistral] {
+            if isProviderEnabled(p) && !apiKey(for: p).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return p
+            }
+        }
+        return nil
+    }
+
+    public func preferredLLMModel(for provider: AIProviderType) -> String {
+        return preferredModel(for: provider)
+    }
+
+    public func mediaConfig(for provider: AIMediaProviderType) -> ExternalAPIConfig? {
+        switch provider {
+        case .gemini: return geminiConfig
+        case .openAI: return chatGPTConfig
+        case .grok: return grokConfig
+        case .elevenLabs: return elevenLabsConfig
+        case .stabilityAI: return stabilityConfig
+        case .falAI: return falAIConfig
+        case .replicate: return replicateConfig
+        case .runway: return runwayConfig
+        case .luma: return lumaConfig
+        case .localBuiltIn: return nil
+        }
+    }
+
+    public func mediaAPIKey(for provider: AIMediaProviderType) -> String {
+        return mediaConfig(for: provider)?.apiKey.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
+    public func isMediaProviderConfigured(_ provider: AIMediaProviderType) -> Bool {
+        if provider == .localBuiltIn { return true }
+        guard let cfg = mediaConfig(for: provider) else { return false }
+        return cfg.isEnabled && !cfg.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    public func configuredMediaProviders(for modality: AIMediaModality) -> [AIMediaProviderType] {
+        return AIMediaProviderType.externalProviders.filter {
+            $0.supportedModalities.contains(modality) && isMediaProviderConfigured($0)
+        }
+    }
+
+    public func configuredMediaProviderCount() -> Int {
+        return AIMediaProviderType.externalProviders.filter { isMediaProviderConfigured($0) }.count
+    }
+
+    public func resolveActiveMediaTarget(
+        modality: AIMediaModality,
+        selectedProvider: AIMediaProviderType,
+        selectedModelId: String
+    ) -> (provider: AIMediaProviderType, modelId: String, isConfiguredExternal: Bool) {
+        if selectedProvider == .localBuiltIn {
+            return (.localBuiltIn, AIMediaProviderType.localBuiltIn.defaultModelId(for: modality), false)
+        }
+        if isMediaProviderConfigured(selectedProvider) && selectedProvider.supportedModalities.contains(modality) {
+            let validIds = selectedProvider.models(for: modality).map(\.id)
+            let mod = validIds.contains(selectedModelId) ? selectedModelId : selectedProvider.defaultModelId(for: modality)
+            return (selectedProvider, mod, true)
+        }
+        // 選択中プロバイダーが未設定でも、他に登録済み外部APIがあれば自動解決して即利用可能にする
+        if let fallbackExternal = configuredMediaProviders(for: modality).first {
+            return (fallbackExternal, fallbackExternal.defaultModelId(for: modality), true)
+        }
+        return (selectedProvider, selectedModelId, false)
+    }
+
+    public func testMediaAPIConnection(provider: AIMediaProviderType, completion: ((Bool, String) -> Void)? = nil) {
+        let start = Date()
+        switch provider {
+        case .gemini:
+            testAPIConnection(provider: .gemini, completion: completion)
+        case .openAI:
+            testAPIConnection(provider: .chatGPT, completion: completion)
+        case .grok:
+            testAPIConnection(provider: .grok, completion: completion)
+        case .elevenLabs:
+            let key = elevenLabsConfig.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty, let url = URL(string: "https://api.elevenlabs.io/v1/user") else {
+                elevenLabsConfig.isConnected = false
+                completion?(false, "ElevenLabs APIキーを入力してください")
+                return
+            }
+            var req = URLRequest(url: url, timeoutInterval: 12)
+            req.setValue(key, forHTTPHeaderField: "xi-api-key")
+            URLSession.shared.dataTask(with: req) { [weak self] data, res, err in
+                let code = (res as? HTTPURLResponse)?.statusCode ?? 0
+                let ok = code == 200
+                let ms = max(1, Int(Date().timeIntervalSince(start) * 1000))
+                let detail = ok ? "" : Self.extractProviderAPIError(from: data, statusCode: code, fallbackError: err)
+                DispatchQueue.main.async {
+                    self?.elevenLabsConfig.isConnected = ok
+                    self?.elevenLabsConfig.latencyMs = ms
+                    self?.elevenLabsConfig.lastTestedAt = Date()
+                    if ok { self?.elevenLabsConfig.isEnabled = true }
+                    completion?(ok, ok ? "ElevenLabs 認証成功 (SE / Music 利用可能)" : "ElevenLabs 認証失敗: \(detail)")
+                }
+            }.resume()
+        case .stabilityAI:
+            testBearerModelsEndpoint(urlStr: "https://api.stability.ai/v1/user/account", key: stabilityConfig.apiKey, start: start) { [weak self] ok, ms, errMsg in
+                self?.stabilityConfig.isConnected = ok
+                self?.stabilityConfig.latencyMs = ms
+                self?.stabilityConfig.lastTestedAt = Date()
+                if ok { self?.stabilityConfig.isEnabled = true }
+                completion?(ok, ok ? "Stability AI 認証成功 (Stable Image / Stable Audio 利用可能)" : "Stability AI 認証失敗: \(errMsg)")
+            }
+        case .falAI:
+            let key = falAIConfig.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty, let url = URL(string: "https://api.fal.ai/v1/models?limit=1") else {
+                falAIConfig.isConnected = false
+                completion?(false, "fal.ai APIキーを入力してください")
+                return
+            }
+            var req = URLRequest(url: url, timeoutInterval: 12)
+            req.setValue("Key \(key)", forHTTPHeaderField: "Authorization")
+            URLSession.shared.dataTask(with: req) { [weak self] data, res, err in
+                let code = (res as? HTTPURLResponse)?.statusCode ?? 0
+                let ok = (200...299).contains(code)
+                let ms = max(1, Int(Date().timeIntervalSince(start) * 1000))
+                let detail = ok ? "" : Self.extractProviderAPIError(from: data, statusCode: code, fallbackError: err)
+                DispatchQueue.main.async {
+                    self?.falAIConfig.isConnected = ok
+                    self?.falAIConfig.latencyMs = ms
+                    self?.falAIConfig.lastTestedAt = Date()
+                    if ok { self?.falAIConfig.isEnabled = true }
+                    completion?(ok, ok ? "fal.ai 認証成功 (画像・動画・BGM・SE 全モデル利用可能)" : "fal.ai 認証失敗: \(detail)")
+                }
+            }.resume()
+        case .replicate:
+            testBearerModelsEndpoint(urlStr: "https://api.replicate.com/v1/account", key: replicateConfig.apiKey, start: start) { [weak self] ok, ms, errMsg in
+                self?.replicateConfig.isConnected = ok
+                self?.replicateConfig.latencyMs = ms
+                self?.replicateConfig.lastTestedAt = Date()
+                if ok { self?.replicateConfig.isEnabled = true }
+                completion?(ok, ok ? "Replicate 認証成功 (FLUX / Wan / MusicGen / AudioLDM 利用可能)" : "Replicate 認証失敗: \(errMsg)")
+            }
+        case .runway:
+            let key = runwayConfig.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty, let url = URL(string: "https://api.dev.runwayml.com/v1/organization") else {
+                runwayConfig.isConnected = false
+                completion?(false, "Runway APIキーを入力してください")
+                return
+            }
+            var req = URLRequest(url: url, timeoutInterval: 12)
+            req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+            req.setValue("2024-11-06", forHTTPHeaderField: "X-Runway-Version")
+            URLSession.shared.dataTask(with: req) { [weak self] data, res, err in
+                let code = (res as? HTTPURLResponse)?.statusCode ?? 0
+                let ok = (200...299).contains(code)
+                let ms = max(1, Int(Date().timeIntervalSince(start) * 1000))
+                let detail = ok ? "" : Self.extractProviderAPIError(from: data, statusCode: code, fallbackError: err)
+                DispatchQueue.main.async {
+                    self?.runwayConfig.isConnected = ok
+                    self?.runwayConfig.latencyMs = ms
+                    self?.runwayConfig.lastTestedAt = Date()
+                    if ok { self?.runwayConfig.isEnabled = true }
+                    completion?(ok, ok ? "Runway 認証成功 (Gen-4.5 / Gen-4 動画生成利用可能)" : "Runway 認証失敗: \(detail)")
+                }
+            }.resume()
+        case .luma:
+            testBearerModelsEndpoint(urlStr: "https://api.lumalabs.ai/dream-machine/v1/credits", key: lumaConfig.apiKey, start: start) { [weak self] ok, ms, errMsg in
+                self?.lumaConfig.isConnected = ok
+                self?.lumaConfig.latencyMs = ms
+                self?.lumaConfig.lastTestedAt = Date()
+                if ok { self?.lumaConfig.isEnabled = true }
+                completion?(ok, ok ? "Luma Dream Machine 認証成功 (Ray 2 / Photon 1 利用可能)" : "Luma 認証失敗: \(errMsg)")
+            }
+        case .localBuiltIn:
+            completion?(true, "内蔵オフライン合成エンジンは常時利用可能です")
+        }
     }
 
     private func seedInitialMessages() {

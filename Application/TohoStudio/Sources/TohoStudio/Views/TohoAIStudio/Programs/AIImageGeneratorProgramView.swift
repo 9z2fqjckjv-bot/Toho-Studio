@@ -1,157 +1,158 @@
 import SwiftUI
 import AppKit
+import AVKit
 
-/// 仕様書「AI画像生成機能」プログラム
-/// 東方Project専用のプロシージャルCoreGraphics高品位描画 ＆ 外部API連携
+/// 仕様書「AI画像・動画生成機能」プログラム (外部AI API専用モデル直結版)
 public struct AIImageGeneratorProgramView: View {
     @ObservedObject var imageService = AIImageGeneratorService.shared
     @ObservedObject var tohoAIService = TohoAIService.shared
-    @ObservedObject var cloudLinuxService = CloudVirtualLinuxService.shared
     @ObservedObject var appState = AppState.shared
 
     @State private var showSaveAlert: Bool = false
     @State private var alertMessage: String = ""
-    @State private var showColabBrowser: Bool = false
+    @State private var activeVideoPlayer: AVPlayer? = nil
 
     public init() {}
 
+    private var activeModality: AIMediaModality {
+        imageService.selectedOutputType == .video ? .video : .image
+    }
+
+    private var currentProviderBinding: Binding<AIMediaProviderType> {
+        imageService.selectedOutputType == .video ? $imageService.videoProvider : $imageService.imageProvider
+    }
+
+    private var currentModelBinding: Binding<String> {
+        imageService.selectedOutputType == .video ? $imageService.videoModelId : $imageService.imageModelId
+    }
+
     public var body: some View {
         VStack(spacing: 0) {
-            // 上部ツールバー (AIチャットと同様のエンジン・モデル選択)
             headerBar
 
             Divider()
 
             HStack(spacing: 0) {
-                // 左側: パラメータ設定コントロールパネル
                 leftControlPanel
-                    .frame(width: 360)
+                    .frame(width: 370)
 
                 Divider()
 
-                // 右側: プレビュー＆生成履歴
                 rightPreviewPanel
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .background(Color(NSColor.windowBackgroundColor))
+        .onAppear {
+            if let videoURL = imageService.generatedVideoURL,
+               let first = imageService.generatedImagesHistory.first, first.isVideo {
+                activeVideoPlayer = AVPlayer(url: videoURL)
+            }
+        }
+        .onChange(of: imageService.generatedVideoURL) { newURL in
+            if let url = newURL {
+                activeVideoPlayer = AVPlayer(url: url)
+            } else {
+                activeVideoPlayer = nil
+            }
+        }
         .alert(isPresented: $showSaveAlert) {
             Alert(
-                title: Text("画像出力・転送完了"),
+                title: Text("メディア出力・転送完了"),
                 message: Text(alertMessage),
                 dismissButton: .default(Text("OK"))
             )
         }
-        .sheet(isPresented: $showColabBrowser) {
-            ColabGPUInAppBrowserView(isPresented: $showColabBrowser)
-        }
     }
 
-    // MARK: - Header Bar (AIチャットと同様のエンジン・モデル選択)
+    // MARK: - Header Bar (事前登録された外部AIプロバイダー ＆ 専用モデル選択)
     private var headerBar: some View {
-        HStack(spacing: 12) {
-            // プロバイダー選択
-            Picker("エンジン", selection: $imageService.selectedProvider) {
-                ForEach(AIProviderType.allCases) { provider in
-                    Label(provider.rawValue, systemImage: provider.iconName).tag(provider)
+        let currentProvider = currentProviderBinding.wrappedValue
+        let availableModels = currentProvider.models(for: activeModality)
+
+        return HStack(spacing: 12) {
+            Picker("プロバイダー", selection: currentProviderBinding) {
+                ForEach(AIMediaProviderType.providers(for: activeModality)) { provider in
+                    let prefix = (provider != .localBuiltIn && tohoAIService.isMediaProviderConfigured(provider)) ? "✓ " : ""
+                    Label("\(prefix)\(provider.rawValue)", systemImage: provider.iconName).tag(provider)
                 }
             }
             .pickerStyle(.menu)
-            .frame(width: 220)
+            .frame(width: 240)
 
-            // モデル選択
-            Picker("モデル", selection: $imageService.selectedModel) {
-                ForEach(imageService.selectedProvider.availableModels, id: \.self) { model in
-                    Text(model).tag(model)
+            Picker("専用モデル", selection: currentModelBinding) {
+                ForEach(availableModels) { spec in
+                    Text(spec.displayName).tag(spec.id)
                 }
             }
             .pickerStyle(.menu)
-            .frame(width: 200)
+            .frame(width: 260)
 
-            // 接続ステータスバッジ
-            apiStatusBadge(for: imageService.selectedProvider)
+            providerStatusBadge(for: currentProvider)
 
             Spacer()
 
-            // プロンプト残数バッジ
-            HStack(spacing: 6) {
-                Image(systemName: "sparkles")
-                    .foregroundColor(.yellow)
-                Text("残プロンプト: \(cloudLinuxService.remainingPrompts) / \(cloudLinuxService.totalPromptsMonthly)")
+            Button(action: {
+                tohoAIService.activeProgramTab = .externalAPI
+            }) {
+                Label("APIキー管理", systemImage: "key.fill")
                     .font(.caption)
-                    .bold()
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(Color.secondary.opacity(0.12))
-            .cornerRadius(8)
+            .buttonStyle(.bordered)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(Color(NSColor.controlBackgroundColor))
     }
 
-    private func apiStatusBadge(for provider: AIProviderType) -> some View {
-        let isConfigured: Bool
-        let labelText: String
+    private func providerStatusBadge(for provider: AIMediaProviderType) -> some View {
+        let isLocal = provider == .localBuiltIn
+        let isReady = tohoAIService.isMediaProviderConfigured(provider)
+        let autoFallbackList = tohoAIService.configuredMediaProviders(for: activeModality)
 
-        switch provider {
-        case .nanndemoya:
-            isConfigured = !tohoAIService.nanndemoyaConfig.apiKey.isEmpty
-            labelText = isConfigured ? "Nanndemoyaライセンス連携中" : "ライセンスキー未設定"
-        case .chatGPT:
-            isConfigured = !tohoAIService.chatGPTConfig.apiKey.isEmpty
-            labelText = isConfigured ? "OpenAI連携中 (DALL-E 3)" : "ChatGPT推論＋高精細拡散"
-        case .gemini:
-            isConfigured = !tohoAIService.geminiConfig.apiKey.isEmpty
-            labelText = isConfigured ? "Gemini連携中 (Imagen 3)" : "Gemini推論＋高精細拡散"
-        case .claude:
-            isConfigured = !tohoAIService.claudeConfig.apiKey.isEmpty
-            labelText = isConfigured ? "Claude連携中" : "Claude推論＋高精細拡散"
-        case .grok:
-            isConfigured = !tohoAIService.grokConfig.apiKey.isEmpty
-            labelText = isConfigured ? "Grok連携中" : "Grok推論＋高精細拡散"
-        case .mistral:
-            isConfigured = !tohoAIService.mistralConfig.apiKey.isEmpty
-            labelText = isConfigured ? "Mistral連携中" : "Mistral推論＋高精細拡散"
-        case .virtualLinuxVM:
-            if cloudLinuxService.colabBridge.isOnline && !cloudLinuxService.colabBridge.endpoint.isEmpty {
-                isConfigured = true
-                labelText = "⚡️ Colab GPU ブリッジ接続中 (\(cloudLinuxService.colabBridge.gpuName))"
-            } else {
-                isConfigured = (cloudLinuxService.connectionStatus == .connected || cloudLinuxService.connectionStatus == .lowLatency)
-                labelText = isConfigured ? "ゲートウェイ接続中" : "スタンドアロン推論"
-            }
+        let badgeColor: Color
+        let labelText: String
+        if isLocal {
+            badgeColor = .blue
+            labelText = "内蔵オフラインモード (APIキー不要)"
+        } else if isReady {
+            badgeColor = .green
+            labelText = "APIキー有効・定額枠消費なし"
+        } else if let alt = autoFallbackList.first {
+            badgeColor = .teal
+            labelText = "未登録（実行時に \(alt.rawValue) へ自動切替）"
+        } else {
+            badgeColor = .orange
+            labelText = "APIキー未登録（「APIキー管理」で設定）"
         }
 
-        return HStack(spacing: 4) {
+        return HStack(spacing: 5) {
             Circle()
-                .fill(isConfigured ? Color.green : Color.blue)
+                .fill(badgeColor)
                 .frame(width: 7, height: 7)
             Text(labelText)
                 .font(.caption2)
                 .bold()
-                .foregroundColor(isConfigured ? .primary : .secondary)
+                .foregroundColor(badgeColor)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(Color.secondary.opacity(0.08))
+        .background(badgeColor.opacity(0.1))
         .cornerRadius(6)
     }
 
     // MARK: - Left Control Panel
     private var leftControlPanel: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                // タイトル
+            VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles.rectangle.stack")
                         .font(.title2)
                         .foregroundColor(.blue)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("本格AI画像・動画ジェネレーター")
+                        Text("AI画像・動画ジェネレーター")
                             .font(.headline)
-                        Text("プロンプト1つで高精細AIイラストやMP4アニメ動画を生成")
+                        Text("登録済みの外部AI APIから画像・動画の専用モデルを呼び出し")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
@@ -160,10 +161,7 @@ public struct AIImageGeneratorProgramView: View {
 
                 Divider()
 
-                // Google Colab GPU Bridge 設定・状態カード
-                colabBridgeCard
-
-                // 出力メディア種別 (画像 / アニメーション動画)
+                // 出力メディア種別 (画像 / AI動画)
                 VStack(alignment: .leading, spacing: 6) {
                     Text("出力メディア種別:")
                         .font(.caption)
@@ -175,40 +173,31 @@ public struct AIImageGeneratorProgramView: View {
                         }
                     }
                     .pickerStyle(.segmented)
-
-                    if imageService.selectedOutputType == .video {
-                        HStack(spacing: 4) {
-                            Image(systemName: "bolt.fill")
-                                .foregroundColor(.yellow)
-                            Text("Google Colab GPU (AnimateDiff) による16フレームループMP4動画")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.top, 2)
-                    }
                 }
 
-                // プロンプト入力エリア (メイン)
+                // 専用APIモデル状態カード
+                externalMediaModelCard
+
+                // プロンプト入力エリア
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text("生成プロンプト:")
                             .font(.caption)
                             .bold()
                         Spacer()
-                        Text("自由記述（被写体・構図・照明・雰囲気）")
+                        Text("日本語・英語両対応")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
 
                     TextEditor(text: $imageService.prompt)
                         .font(.system(.body, design: .default))
-                        .frame(height: 120)
+                        .frame(height: 115)
                         .padding(6)
                         .background(Color(NSColor.textBackgroundColor))
                         .cornerRadius(6)
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
 
-                    // クイック入力サジェストタグ
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 6) {
                             promptTagButton("古明地こいし 笑顔 サードアイ 帽子")
@@ -236,17 +225,18 @@ public struct AIImageGeneratorProgramView: View {
                     .pickerStyle(.menu)
                 }
 
-                // 生成モード選択
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("生成モード:")
-                        .font(.caption)
-                        .bold()
-                    Picker("", selection: $imageService.generationSourceMode) {
-                        ForEach(AIImageGeneratorService.GenerationSourceMode.allCases) { mode in
-                            Text(mode.rawValue).tag(mode)
+                if imageService.selectedOutputType == .image {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("生成ソース優先度:")
+                            .font(.caption)
+                            .bold()
+                        Picker("", selection: $imageService.generationSourceMode) {
+                            ForEach(AIImageGeneratorService.GenerationSourceMode.allCases) { mode in
+                                Text(mode.rawValue).tag(mode)
+                            }
                         }
+                        .pickerStyle(.menu)
                     }
-                    .pickerStyle(.menu)
                 }
 
                 // ネガティブプロンプト
@@ -259,37 +249,28 @@ public struct AIImageGeneratorProgramView: View {
                         .font(.caption)
                 }
 
-                // シード値（ランダム設定）
-                HStack {
-                    Text("シード値:")
-                        .font(.caption)
-                    Spacer()
-                    TextField("-1", value: $imageService.seed, formatter: NumberFormatter())
-                        .frame(width: 80)
-                        .textFieldStyle(.roundedBorder)
-                    Button("ランダム") {
-                        imageService.seed = -1
+                if imageService.selectedOutputType == .image {
+                    HStack {
+                        Text("シード値:")
+                            .font(.caption)
+                        Spacer()
+                        TextField("-1", value: $imageService.seed, formatter: NumberFormatter())
+                            .frame(width: 80)
+                            .textFieldStyle(.roundedBorder)
+                        Button("ランダム") {
+                            imageService.seed = -1
+                        }
+                        .font(.caption2)
+                        .buttonStyle(.bordered)
                     }
-                    .font(.caption2)
-                    .buttonStyle(.bordered)
                 }
 
                 Divider()
 
-                // プロンプト消費と生成ボタン
+                // 生成アクションセクション
                 VStack(spacing: 8) {
-                    HStack {
-                        Text("残プロンプト:")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Text("\(cloudLinuxService.remainingPrompts) / \(cloudLinuxService.totalPromptsMonthly)")
-                            .font(.caption)
-                            .bold()
-                    }
-
-                    // 公式参考資料が検出された場合のスマート適用カード
-                    if let refMatch = imageService.detectReferenceAsset(for: imageService.prompt) {
+                    if imageService.selectedOutputType == .image,
+                       let refMatch = imageService.detectReferenceAsset(for: imageService.prompt) {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 6) {
                                 Image(systemName: "folder.fill")
@@ -325,35 +306,27 @@ public struct AIImageGeneratorProgramView: View {
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.blue.opacity(0.2), lineWidth: 1))
                     }
 
-                    // ⚡️ GPU経由の統合生成ボタン (Colab SDXL / AnimateDiff)
                     Button(action: {
-                        if imageService.generationSourceMode == .referenceAsset {
-                            imageService.generateImage()
-                        } else if !cloudLinuxService.colabBridge.isOnline || cloudLinuxService.colabBridge.endpoint.isEmpty {
-                            // 未接続時はアプリ内Colabブラウザを自動起動してGPU接続へ誘導
-                            showColabBrowser = true
-                        } else {
-                            imageService.useColabGPUIfAvailable = true
-                            imageService.generateImage(forceAI: imageService.generationSourceMode == .aiGeneration)
-                        }
+                        imageService.generateImage(forceAI: imageService.generationSourceMode == .aiGeneration)
                     }) {
+                        let currentProv = currentProviderBinding.wrappedValue
+                        let modelTitle = currentProv.displayName(forModelId: currentModelBinding.wrappedValue, modality: activeModality)
                         HStack(spacing: 8) {
                             if imageService.isGenerating {
                                 ProgressView().controlSize(.small)
-                                Text("生成処理中...")
+                                Text("専用モデル呼び出し中...")
                                     .bold()
-                            } else if imageService.generationSourceMode == .referenceAsset {
+                            } else if imageService.selectedOutputType == .image && imageService.generationSourceMode == .referenceAsset {
                                 Image(systemName: "folder.fill")
-                                    .foregroundColor(.white)
-                                Text("📁 公式参考資料の原画を適用 (エフェクトなし)")
+                                Text("公式参考資料の原画を適用")
                                     .bold()
                             } else {
-                                Image(systemName: "bolt.fill")
-                                    .foregroundColor(.yellow)
+                                Image(systemName: imageService.selectedOutputType == .video ? "film.stack.fill" : "sparkles")
                                 Text(imageService.selectedOutputType == .video
-                                     ? "⚡️ GPU経由でアニメ動画を生成 (Colab AnimateDiff)"
-                                     : "⚡️ GPU経由で自然なイラストを生成 (Colab SDXL 1.0)")
+                                     ? "AI動画を生成 (\(modelTitle))"
+                                     : "AI画像を生成 (\(modelTitle))")
                                     .bold()
+                                    .lineLimit(1)
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -363,9 +336,9 @@ public struct AIImageGeneratorProgramView: View {
                             RoundedRectangle(cornerRadius: 8)
                                 .fill(
                                     LinearGradient(
-                                        colors: imageService.generationSourceMode == .referenceAsset
-                                            ? [Color.blue, Color.teal]
-                                            : [Color.indigo, Color.purple],
+                                        colors: imageService.selectedOutputType == .video
+                                            ? [Color.pink, Color.purple]
+                                            : [Color.indigo, Color.blue],
                                         startPoint: .leading,
                                         endPoint: .trailing
                                     )
@@ -374,16 +347,6 @@ public struct AIImageGeneratorProgramView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(imageService.isGenerating)
-
-                    // 接続状況およびローカルLLM連携の補足情報
-                    HStack(spacing: 4) {
-                        Image(systemName: "brain.head.profile")
-                            .font(.system(size: 10))
-                            .foregroundColor(.blue)
-                        Text("日本語入力時はローカルLLM (Qwen 2.5) が英語化してからGPUへ送信")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                    }
                 }
 
                 Spacer()
@@ -393,127 +356,73 @@ public struct AIImageGeneratorProgramView: View {
         .background(Color(NSColor.controlBackgroundColor))
     }
 
-    // MARK: - Colab GPU Bridge Control Card
-    private var colabBridgeCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+    // MARK: - Dedicated External API Model Card
+    private var externalMediaModelCard: some View {
+        let configuredList = tohoAIService.configuredMediaProviders(for: activeModality)
+        let currentProv = currentProviderBinding.wrappedValue
+        let currentModName = currentProv.displayName(forModelId: currentModelBinding.wrappedValue, modality: activeModality)
+
+        return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(systemName: "bolt.badge.automatic.fill")
-                    .foregroundColor(.yellow)
-                Text("Google Colab GPU Bridge")
+                Image(systemName: "key.radiowaves.forward.fill")
+                    .foregroundColor(.indigo)
+                Text(activeModality == .video ? "動画生成 専用AIモデル連携" : "画像生成 専用AIモデル連携")
                     .font(.caption)
                     .bold()
                 Spacer()
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(cloudLinuxService.colabBridge.isOnline ? Color.green : Color.orange)
-                        .frame(width: 7, height: 7)
-                    Text(cloudLinuxService.colabBridge.isOnline ? "オンライン" : "未接続/待機中")
-                        .font(.caption2)
-                        .bold()
-                        .foregroundColor(cloudLinuxService.colabBridge.isOnline ? .green : .orange)
-                }
+                Text("登録済API: \(configuredList.count)社")
+                    .font(.caption2)
+                    .bold()
+                    .foregroundColor(configuredList.isEmpty ? .orange : .green)
             }
 
-            Text("NVIDIA L4/T4 (16-24GB VRAM): SDXL 1.0(高精細画像) ＆ AnimateDiff(MP4アニメ動画)")
+            Text("選択中: \(currentProv.rawValue) / \(currentModName)")
                 .font(.caption2)
                 .foregroundColor(.secondary)
+                .lineLimit(2)
 
-            // アプリ内Colab起動 ＆ 自動検出トリガーボタン
-            Button(action: {
-                showColabBrowser = true
-            }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "sparkles.tv.fill")
-                        .font(.caption)
-                    Text(cloudLinuxService.colabBridge.isOnline ? "アプリ内Colabブラウザを表示 (接続中)" : "🌸 アプリ内Colabで起動 ＆ GPU自動接続")
-                        .font(.caption)
-                        .bold()
-                    Spacer()
-                    Image(systemName: "arrow.right.circle.fill")
-                        .font(.caption)
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(cloudLinuxService.colabBridge.isOnline ? Color.green : Color.blue)
-                )
-            }
-            .buttonStyle(.plain)
-            .help("アプリ内WebKitブラウザでColabを開き、セル実行後にURLを全自動挿入します")
+            Toggle("API未登録時にローカル参考資料・演出動画へフォールバック", isOn: $imageService.allowOfflineFallback)
+                .font(.caption2)
 
-            // エンドポイント入力欄
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text("Colab 一時URL (trycloudflare.com):")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    if cloudLinuxService.colabBridge.isOnline {
-                        Text("自動挿入・接続済み")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.green)
-                    }
-                }
-                HStack {
-                    TextField("https://xxxx.trycloudflare.com", text: $cloudLinuxService.colabBridge.endpoint)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.caption)
-
-                    Button(action: {
-                        cloudLinuxService.testColabBridgeConnection { success, message in
-                            alertMessage = message
-                            showSaveAlert = true
-                        }
-                    }) {
-                        Label("接続テスト", systemImage: "arrow.triangle.2.circlepath")
+            if configuredList.isEmpty && currentProv != .localBuiltIn {
+                Button(action: {
+                    tohoAIService.activeProgramTab = .externalAPI
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus.circle.fill")
+                        Text("外部APIキーを登録して専用モデルを有効化...")
+                            .font(.caption2)
+                            .bold()
+                        Spacer()
+                        Image(systemName: "chevron.right")
                             .font(.caption2)
                     }
-                    .buttonStyle(.bordered)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.indigo))
                 }
-            }
-
-            HStack(spacing: 8) {
-                Toggle("Colab GPU を優先使用", isOn: $imageService.useColabGPUIfAvailable)
-                    .font(.caption)
-
-                Spacer()
-
-                if let url = URL(string: cloudLinuxService.colabBridge.notebookUrl) {
-                    Button(action: {
-                        NSWorkspace.shared.open(url)
-                    }) {
-                        Label("外部Safariで開く", systemImage: "safari")
-                            .font(.caption2)
-                    }
-                    .buttonStyle(.link)
-                }
+                .buttonStyle(.plain)
             }
         }
         .padding(10)
-        .background(Color.yellow.opacity(0.08))
+        .background(Color.indigo.opacity(0.07))
         .cornerRadius(8)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.yellow.opacity(0.3), lineWidth: 1))
-    }
-
-    private func triggerColabGPUDirectGeneration() {
-        imageService.useColabGPUIfAvailable = true
-        imageService.generateImage()
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.indigo.opacity(0.25), lineWidth: 1))
     }
 
     // MARK: - Right Preview Panel
     private var rightPreviewPanel: some View {
         VStack(spacing: 0) {
-            // ステータスヘッダー
             HStack {
                 HStack(spacing: 8) {
                     Circle()
-                        .fill(imageService.isGenerating ? Color.orange : Color.green)
+                        .fill(imageService.isGenerating ? Color.orange : (imageService.currentStatusMessage.hasPrefix("⚠️") ? Color.red : Color.green))
                         .frame(width: 8, height: 8)
                     Text(imageService.currentStatusMessage)
                         .font(.caption)
                         .foregroundColor(.secondary)
+                        .lineLimit(2)
                 }
 
                 Spacer()
@@ -521,28 +430,30 @@ public struct AIImageGeneratorProgramView: View {
                 if let current = imageService.generatedImagesHistory.first {
                     HStack(spacing: 6) {
                         Menu {
-                            Button(action: {
-                                imageService.sendToCharacterMakerAsPart(item: current)
-                                alertMessage = "『\(current.title)』をキャラクターメーカーの立ち絵パーツとして登録しました！"
-                                showSaveAlert = true
-                            }) {
-                                Label("立ち絵パーツとして転送", systemImage: "person.crop.rectangle.badge.plus")
-                            }
+                            if !current.isVideo {
+                                Button(action: {
+                                    imageService.sendToCharacterMakerAsPart(item: current)
+                                    alertMessage = "『\(current.title)』をキャラクターメーカーの立ち絵パーツとして登録しました！"
+                                    showSaveAlert = true
+                                }) {
+                                    Label("立ち絵パーツとして転送", systemImage: "person.crop.rectangle.badge.plus")
+                                }
 
-                            Button(action: {
-                                imageService.sendToCharacterMakerAsBackground(item: current)
-                                alertMessage = "『\(current.title)』をキャラクターメーカーの背景に設定しました！"
-                                showSaveAlert = true
-                            }) {
-                                Label("立ち絵の背景に設定", systemImage: "photo.stack")
-                            }
+                                Button(action: {
+                                    imageService.sendToCharacterMakerAsBackground(item: current)
+                                    alertMessage = "『\(current.title)』をキャラクターメーカーの背景に設定しました！"
+                                    showSaveAlert = true
+                                }) {
+                                    Label("立ち絵の背景に設定", systemImage: "photo.stack")
+                                }
 
-                            Button(action: {
-                                imageService.sendToSlideScenarioMaker(item: current)
-                                alertMessage = "『\(current.title)』をスライドシナリオメーカーに挿入しました！"
-                                showSaveAlert = true
-                            }) {
-                                Label("スライドへ挿入", systemImage: "rectangle.inset.filled.and.person.filled")
+                                Button(action: {
+                                    imageService.sendToSlideScenarioMaker(item: current)
+                                    alertMessage = "『\(current.title)』をスライドシナリオメーカーに挿入しました！"
+                                    showSaveAlert = true
+                                }) {
+                                    Label("スライドへ挿入", systemImage: "rectangle.inset.filled.and.person.filled")
+                                }
                             }
 
                             Button(action: {
@@ -568,15 +479,25 @@ public struct AIImageGeneratorProgramView: View {
                         }
                         .menuStyle(.borderedButton)
 
-                        Button(action: {
-                            imageService.sendToCharacterMakerAsPart(item: current)
-                            alertMessage = "『\(current.title)』をキャラクターメーカーの立ち絵パーツに追加しました！"
-                            showSaveAlert = true
-                        }) {
-                            Label("立ち絵パーツ化", systemImage: "person.crop.rectangle.badge.plus")
-                                .font(.caption)
+                        if !current.isVideo {
+                            Button(action: {
+                                imageService.sendToCharacterMakerAsPart(item: current)
+                                alertMessage = "『\(current.title)』をキャラクターメーカーの立ち絵パーツに追加しました！"
+                                showSaveAlert = true
+                            }) {
+                                Label("立ち絵パーツ化", systemImage: "person.crop.rectangle.badge.plus")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderedProminent)
+                        } else {
+                            Button(action: {
+                                NSWorkspace.shared.open(current.fileURL)
+                            }) {
+                                Label("動画を開く", systemImage: "play.rectangle.fill")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderedProminent)
                         }
-                        .buttonStyle(.borderedProminent)
 
                         Button(action: {
                             NSWorkspace.shared.activateFileViewerSelecting([current.fileURL])
@@ -601,40 +522,39 @@ public struct AIImageGeneratorProgramView: View {
                         Spacer()
                         ProgressView(value: imageService.generationProgress)
                             .progressViewStyle(.linear)
-                            .frame(width: 280)
+                            .frame(width: 300)
                         Text(imageService.currentStatusMessage)
                             .font(.headline)
-                        Text(imageService.selectedOutputType == .video ? "Google Colab GPU (AnimateDiff) によるアニメーション動画生成中..." : "最新AI拡散モデル（Colab GPU / Gemini / Imagen 3 / DALL-E）による高精細ピクセル生成中...")
+                            .multilineTextAlignment(.center)
+                        Text(imageService.selectedOutputType == .video
+                             ? "外部AI動画専用モデル（Veo / Sora / Wan / Kling / Runway / Luma）でMP4動画をレンダリング中..."
+                             : "外部AI画像専用モデル（Imagen 3/4 / GPT Image 1 / Stable Image / FLUX / Grok）で高精細画像を生成中...")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Spacer()
                     }
+                    .padding()
+                } else if let first = imageService.generatedImagesHistory.first,
+                          first.isVideo,
+                          first.fileURL == imageService.generatedVideoURL,
+                          let player = activeVideoPlayer {
+                    VStack(spacing: 10) {
+                        VideoPlayer(player: player)
+                            .cornerRadius(12)
+                            .padding(20)
+                            .onAppear {
+                                player.play()
+                            }
+                    }
                 } else if let img = imageService.generatedImage {
                     VStack(spacing: 12) {
                         Spacer()
-                        ZStack(alignment: .topTrailing) {
-                            Image(nsImage: img)
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .cornerRadius(12)
-                                .shadow(color: Color.black.opacity(0.3), radius: 10, x: 0, y: 5)
-                                .padding(20)
-
-                            if let first = imageService.generatedImagesHistory.first, first.isVideo {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "film.fill")
-                                    Text("MP4アニメ動画")
-                                }
-                                .font(.caption2)
-                                .bold()
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(Color.red.opacity(0.85))
-                                .cornerRadius(8)
-                                .padding(30)
-                            }
-                        }
+                        Image(nsImage: img)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .cornerRadius(12)
+                            .shadow(color: Color.black.opacity(0.3), radius: 10, x: 0, y: 5)
+                            .padding(20)
                         Spacer()
                     }
                 } else {
@@ -643,12 +563,13 @@ public struct AIImageGeneratorProgramView: View {
                         Image(systemName: "sparkles.rectangle.stack")
                             .font(.system(size: 64))
                             .foregroundColor(.secondary.opacity(0.5))
-                        Text("Google Geminiアプリ同様、自由なプロンプト1つで高精細イラストやアニメ動画を生成できます。\nGoogle Colab GPUブリッジ接続時は最先端SDXL 1.0 / AnimateDiffにより高精細な画像・動画が手元に届きます。")
+                        Text("事前に登録した外部AI APIキーから、画像生成モデル（Imagen 3/4・GPT Image 1・Stable Image・FLUX・Grok）や\n動画生成モデル（Veo 2/3・Sora 2・Wan 2.1・Kling・Runway Gen-4・Luma Ray 2）を直接呼び出して生成できます。")
                             .font(.caption)
                             .multilineTextAlignment(.center)
                             .foregroundColor(.secondary)
                         Spacer()
                     }
+                    .padding()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -656,7 +577,6 @@ public struct AIImageGeneratorProgramView: View {
 
             Divider()
 
-            // 下部生成履歴サムネイル
             bottomHistoryBar
         }
     }
@@ -693,17 +613,34 @@ public struct AIImageGeneratorProgramView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Button(action: {
                                 imageService.generatedImage = item.image
-                                imageService.generatedImageURL = item.fileURL
+                                if item.isVideo {
+                                    imageService.generatedVideoURL = item.fileURL
+                                    activeVideoPlayer = AVPlayer(url: item.fileURL)
+                                } else {
+                                    imageService.generatedImageURL = item.fileURL
+                                    imageService.generatedVideoURL = nil
+                                }
                             }) {
-                                Image(nsImage: item.image)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: 100, height: 60)
-                                    .cornerRadius(6)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .stroke(imageService.generatedImageURL == item.fileURL ? Color.blue : Color.clear, lineWidth: 2)
-                                    )
+                                ZStack(alignment: .bottomTrailing) {
+                                    Image(nsImage: item.image)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                        .frame(width: 100, height: 60)
+                                        .cornerRadius(6)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke((imageService.generatedImageURL == item.fileURL || imageService.generatedVideoURL == item.fileURL) ? Color.blue : Color.clear, lineWidth: 2)
+                                        )
+                                    if item.isVideo {
+                                        Image(systemName: "film.fill")
+                                            .font(.system(size: 9))
+                                            .foregroundColor(.white)
+                                            .padding(3)
+                                            .background(Color.black.opacity(0.7))
+                                            .cornerRadius(4)
+                                            .padding(3)
+                                    }
+                                }
                             }
                             .buttonStyle(.plain)
 

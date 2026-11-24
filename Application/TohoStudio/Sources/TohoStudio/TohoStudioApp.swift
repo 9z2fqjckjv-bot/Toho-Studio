@@ -17,7 +17,12 @@ struct TohoStudioApp: App {
             runSoundMakerDuoSpeakerSelfTest()
             runSoundMakerMovieMakerSyncSelfTest()
             runAIImagePromptSelfTest()
+            runExternalMediaModelRegistrySelfTest()
             print("\n🎉 ALL TOHOSTUDIO SELF-TESTS PASSED SUCCESSFULLY! 🎉\n")
+            exit(0)
+        }
+        if CommandLine.arguments.contains("--test-ai-media-models") {
+            runExternalMediaModelRegistrySelfTest()
             exit(0)
         }
         if CommandLine.arguments.contains("--test-sound-movie-sync") {
@@ -265,6 +270,47 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         print("   Successfully verified local reference asset match for exact prompt!")
 
         print("=== [TEST] AI Image Generator Prompt Self-Test PASSED SUCCESSFULLY! ===")
+    }
+
+    private func runExternalMediaModelRegistrySelfTest() {
+        print("=== [TEST] External Media AI Provider & Dedicated Model Self-Test Started ===")
+        for modality in AIMediaModality.allCases {
+            let providers = AIMediaProviderType.providers(for: modality)
+            let externalProviders = providers.filter { $0 != .localBuiltIn }
+            assert(!externalProviders.isEmpty, "Each modality (\(modality.rawValue)) MUST have external AI providers")
+            for p in providers {
+                let models = p.models(for: modality)
+                assert(!models.isEmpty, "Provider \(p.rawValue) MUST define dedicated models for \(modality.rawValue)")
+                assert(!p.defaultModelId(for: modality).isEmpty, "Default model ID MUST be non-empty")
+            }
+            print("   Modality [\(modality.rawValue)] -> \(externalProviders.count) external providers verified.")
+        }
+
+        // Verify temporary key routing without polluting persisted user keys
+        let svc = TohoAIService.shared
+        let prevEleven = svc.elevenLabsConfig
+        let prevGemini = svc.geminiConfig
+        defer {
+            svc.elevenLabsConfig = prevEleven
+            svc.geminiConfig = prevGemini
+        }
+
+        svc.elevenLabsConfig.apiKey = "sk_test_dummy_elevenlabs"
+        svc.elevenLabsConfig.isEnabled = true
+        let resolvedSE = svc.resolveActiveMediaTarget(modality: .se, selectedProvider: .elevenLabs, selectedModelId: "eleven_text_to_sound_v3")
+        assert(resolvedSE.isConfiguredExternal && resolvedSE.provider == .elevenLabs, "Configured ElevenLabs key MUST route SE to ElevenLabs")
+
+        let resolvedBGMFallback = svc.resolveActiveMediaTarget(modality: .bgm, selectedProvider: .stabilityAI, selectedModelId: "stable-audio-2")
+        if !svc.isMediaProviderConfigured(.stabilityAI) {
+            assert(resolvedBGMFallback.isConfiguredExternal && resolvedBGMFallback.provider == .elevenLabs, "Unconfigured Stability AI MUST auto-route BGM to configured ElevenLabs")
+        }
+
+        svc.geminiConfig.apiKey = "AIzaSyDummyTestKey"
+        svc.geminiConfig.isEnabled = true
+        let resolvedVideo = svc.resolveActiveMediaTarget(modality: .video, selectedProvider: .gemini, selectedModelId: "veo-3.0-generate-preview")
+        assert(resolvedVideo.isConfiguredExternal && resolvedVideo.provider == .gemini && resolvedVideo.modelId == "veo-3.0-generate-preview", "Configured Gemini key MUST route Video to Veo 3")
+
+        print("=== [TEST] External Media AI Provider & Dedicated Model Self-Test PASSED! ===")
     }
 
     private func runSoundMakerExportSelfTest() {

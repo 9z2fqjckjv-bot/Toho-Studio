@@ -80,7 +80,7 @@ public final class MusicTranscriptionClient {
     /// - Parameters:
     ///   - audioFileURL: 入力オーディオファイルのローカルURL
     ///   - customLyrics: 楽譜に織り込む歌詞テキスト（任意）
-    ///   - separateStems: Colab GPU での音源分離（ボーカル抽出）を行うか
+    ///   - separateStems: 音源分離（ボーカル抽出）を行うか
     ///   - withLyrics: 歌詞の自動抽出・織り込みを行うか
     /// - Returns: 生成されたPDFのバイナリデータ
     public func transcribe(
@@ -108,20 +108,13 @@ public final class MusicTranscriptionClient {
         }
 
         let baseURLString: String
-        let colabBridge = CloudVirtualLinuxService.shared.colabBridge
-        if colabBridge.isOnline && !colabBridge.endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            let colabURL = colabBridge.endpoint.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-            baseURLString = "\(colabURL)/v1/audio/transcribe-to-sheet"
-            AppState.shared.addSystemLog(level: "INFO", message: "⚡️ Colab L4 GPU 音源分離・歌詞自動採譜エンジンに直接接続します: \(colabURL)")
+        let host = effectiveHostIP.trimmingCharacters(in: .whitespacesAndNewlines)
+        if host.starts(with: "http://") || host.starts(with: "https://") {
+            baseURLString = "\(host)/v1/audio/transcribe-to-sheet"
         } else {
-            let host = effectiveHostIP.trimmingCharacters(in: .whitespacesAndNewlines)
-            if host.starts(with: "http://") || host.starts(with: "https://") {
-                baseURLString = "\(host)/v1/audio/transcribe-to-sheet"
-            } else {
-                baseURLString = "http://\(host):\(port)/v1/audio/transcribe-to-sheet"
-            }
-            AppState.shared.addSystemLog(level: "INFO", message: "ℹ️ ローカル VM 採譜エンジンを使用します: \(baseURLString)")
+            baseURLString = "http://\(host):\(port)/v1/audio/transcribe-to-sheet"
         }
+        AppState.shared.addSystemLog(level: "INFO", message: "ℹ️ 自動採譜エンジンへ接続します: \(baseURLString)")
 
         guard let endpointURL = URL(string: baseURLString) else {
             throw TranscriptionError.invalidURL

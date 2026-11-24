@@ -208,14 +208,6 @@ public struct VirtualLinuxMachineStatus: Codable {
     public var activeLocalAccountsCount: Int = 1
 }
 
-public struct ColabGPUBridgeInfo: Codable {
-    public var notebookUrl: String = "https://colab.research.google.com/drive/1OCq2X8eLWBe6asIWuaC5RR_TFsUhFKiY?usp=sharing"
-    public var endpoint: String = ""
-    public var isOnline: Bool = false
-    public var gpuName: String = "NVIDIA L4 (24GB VRAM)"
-    public var capabilities: [String] = ["image", "video", "bgm", "se"]
-}
-
 public struct ChatCompletionResponse: Codable {
     public var response: String
     public var thinking: String?
@@ -223,7 +215,6 @@ public struct ChatCompletionResponse: Codable {
     public var media_type: String?
     public var media_url: String?
     public var local_filename: String?
-    public var colab_online: Bool?
     public var remaining_prompts: Int?
 }
 
@@ -246,7 +237,6 @@ public final class CloudVirtualLinuxService: ObservableObject {
     @Published public var isConnected: Bool = false
 
     @Published public var machineStatus: VirtualLinuxMachineStatus = VirtualLinuxMachineStatus()
-    @Published public var colabBridge: ColabGPUBridgeInfo = ColabGPUBridgeInfo()
     @Published public var connectionStatus: ServerConnectionStatus = .connected
     @Published public var lastHeartbeatAt: Date = Date()
     @Published public var latencyMs: Int = 3
@@ -265,7 +255,6 @@ public final class CloudVirtualLinuxService: ObservableObject {
     @Published public var isMusicTranscriptionSupported: Bool = false
 
     private var heartbeatTimer: Timer? = nil
-    private var colabCheckCounter: Int = 0
 
     private init() {
         let savedURL = UserDefaults.standard.string(forKey: Self.serverURLDefaultsKey) ?? "http://debian.local:8095"
@@ -703,91 +692,7 @@ public final class CloudVirtualLinuxService: ObservableObject {
     }
 
     public func performHeartbeat() {
-        colabCheckCounter += 1
-        if colabCheckCounter % 3 == 0 && !colabBridge.endpoint.isEmpty && colabBridge.isOnline {
-            performDirectColabHeartbeat()
-        }
-
         checkHealth { _ in }
-    }
-
-    // MARK: - Colab GPU Bridge Helpers
-    public static func sanitizeColabEndpoint(_ raw: String) -> String {
-        var str = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if str.isEmpty { return "" }
-        if !str.hasPrefix("http://") && !str.hasPrefix("https://") {
-            str = "https://" + str
-        }
-        if !str.contains(".trycloudflare.com") && !str.contains("localhost") && !str.contains("127.0.0.1") && !str.contains("ngrok") && !str.contains("loca.lt") {
-            str = str + ".trycloudflare.com"
-        }
-        if str.hasSuffix("/") {
-            str.removeLast()
-        }
-        return str
-    }
-
-    public func syncColabEndpointToLocalVM(endpoint: String) {
-        guard !endpoint.isEmpty, let url = URL(string: "\(serverBaseURL)/v1/colab/endpoint") else { return }
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.timeoutInterval = 3.0
-        let body = ["colab_url": endpoint]
-        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        URLSession.shared.dataTask(with: req).resume()
-    }
-
-    public func performDirectColabHeartbeat() {
-        guard !colabBridge.endpoint.isEmpty else { return }
-        let cleanEndpoint = Self.sanitizeColabEndpoint(colabBridge.endpoint)
-        guard let url = URL(string: "\(cleanEndpoint)/health") else { return }
-
-        var req = URLRequest(url: url)
-        req.timeoutInterval = 8.0
-
-        URLSession.shared.dataTask(with: req) { [weak self] data, response, _ in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                if let http = response as? HTTPURLResponse, http.statusCode == 200, let data = data {
-                    self.colabBridge.isOnline = true
-                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let gpu = json["gpu"] as? String {
-                        self.colabBridge.gpuName = gpu
-                    }
-                }
-            }
-        }.resume()
-    }
-
-    public func testColabBridgeConnection(completion: @escaping (Bool, String) -> Void) {
-        let cleanEndpoint = Self.sanitizeColabEndpoint(colabBridge.endpoint)
-        self.colabBridge.endpoint = cleanEndpoint
-        guard let url = URL(string: "\(cleanEndpoint)/health") else {
-            completion(false, "無効なURL形式です")
-            return
-        }
-
-        var req = URLRequest(url: url)
-        req.timeoutInterval = 10.0
-
-        URLSession.shared.dataTask(with: req) { [weak self] data, response, error in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                if let http = response as? HTTPURLResponse, http.statusCode == 200, let data = data {
-                    self.colabBridge.isOnline = true
-                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let gpu = json["gpu"] as? String {
-                        self.colabBridge.gpuName = gpu
-                    }
-                    self.syncColabEndpointToLocalVM(endpoint: cleanEndpoint)
-                    completion(true, "Colab GPUオンライン (\(self.colabBridge.gpuName))")
-                } else {
-                    self.colabBridge.isOnline = false
-                    completion(false, error?.localizedDescription ?? "サーバー応答なし (Colabのすべてのセルを実行してURLを入力してください)")
-                }
-            }
-        }.resume()
     }
 
     /// クライアント側事前チェック (オンライン時はサーバー側で厳密減算・バースト検証)
