@@ -1,0 +1,13 @@
+{
+  "version": "1.3.0",
+  "files": {
+    "renai_client.py": "89c93182d2372173518a14c8f0cabf8d86842ccfcc854c869a4bdc0efbc7d6d3",
+    "standalone_engine.py": "f176332f639273cf6842618839e80c420dcb970fda4b8e335346484aef57e457",
+    "web/index.html": "e1bd0f7616b4a839c3b5ecb825d3c06c7635de7f4d44ba91fb92cf731a1415c1",
+    "web/styles.css": "b65e9c8f6ca35ff63ac53e68f243c96904340d908ecea2881278343d211adfda",
+    "web/stage_fx.css": "59e08565640ad347162527c3e6ccbd6d78541a4eafeb50e117240a892a8fbce2",
+    "web/stage_fx.js": "e51eb00d36cc870f4f3c17d48a69b162aeee0ca5df06810038161df62d2efbf2",
+    "web/tachie_color_live.js": "81b72732f5b75802b70775e15dcbc31998bd26958c287504e6c39ef0fb94d1db",
+    "web/app.js": "92ea9f4294f51ff092c514d9d169095d44d8f655e6eb4f544c01beb7f479b222"
+  }
+}

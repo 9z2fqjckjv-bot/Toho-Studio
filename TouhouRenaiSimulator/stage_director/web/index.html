@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>キャラステージ演出メーカー — プレゼン風拡大縮小・モーション・SEスタジオ</title>
+  <link rel="stylesheet" href="stage_fx.css">
+  <link rel="stylesheet" href="studio.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon">🎬</span>
+      <div>
+        <h1>キャラステージ演出メーカー</h1>
+        <p>Keynote / PowerPoint 風 立ち絵拡大縮小・アニメーション・効果音スタジオ（東方Project恋愛シミュレーター連携）</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="eco-pill" title="Python標準ライブラリ単体・アイドル時CPU 0%・終了後メモリ0MB解放">🌿 省メモリ・アイドルCPU 0%</span>
+      <button id="btn-open-se-dir" class="btn secondary">📁 効果音フォルダを開く</button>
+      <button id="btn-rescan" class="btn secondary">🔄 素材再走査</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <!-- 左ペイン: スライド（セーブデータ読込）・素材選択 -->
+    <aside class="left-pane">
+      <section class="panel-section">
+        <h3>💾 恋愛シミュレーター セーブ読込</h3>
+        <select id="sel-save-session"></select>
+        <div id="save-turns-strip" class="slides-strip"></div>
+      </section>
+
+      <section class="panel-section">
+        <h3>🧍‍♀️ キャラクター ＆ 表情差分</h3>
+        <label>キャラクター</label>
+        <select id="sel-char"></select>
+        <label>表情</label>
+        <select id="sel-face"></select>
+        <label>背景シーン</label>
+        <select id="sel-bg"></select>
+      </section>
+
+      <section class="panel-section">
+        <h3>⭐ Gemini連携カスタムプリセット</h3>
+        <div class="preset-save-row">
+          <input id="inp-preset-name" type="text" placeholder="例: ドキドキ急接近ハグ">
+          <button id="btn-save-preset" class="btn primary">登録</button>
+        </div>
+        <div id="custom-preset-list" class="preset-list"></div>
+      </section>
+    </aside>
+
+    <!-- 中央ペイン: 16:9 ライブプレゼンステージ -->
+    <section class="center-pane">
+      <div class="stage-toolbar">
+        <button id="btn-step-narration" class="btn tab-btn active">① 地の文ステップ (Narration)</button>
+        <button id="btn-step-dialogue" class="btn tab-btn">② セリフステップ (Dialogue)</button>
+        <button id="btn-play-sequence" class="btn accent">▶ 2段階マジックムーブ通し再生</button>
+        <button id="btn-save-back-turn" class="btn primary hidden">💾 このターンの演出をセーブ上書き</button>
+      </div>
+
+      <div id="studio-viewport" class="studio-viewport">
+        <div id="studio-bg" class="studio-bg stage-bg-layer"></div>
+        <div id="studio-fx-overlay" class="stage-fx-overlay"></div>
+        <div id="studio-badge" class="stage-live-badge">🎬 100% ・ 静止</div>
+
+        <div class="studio-actor-wrap">
+          <div id="studio-rig" class="stage-camera-rig">
+            <div id="studio-motion" class="stage-motion-layer">
+              <img id="studio-portrait" class="studio-portrait" alt="立ち絵" src="">
+            </div>
+          </div>
+        </div>
+
+        <div id="studio-textbox" class="studio-textbox">
+          <p id="studio-caption">ここに地の文・セリフのプレビューが表示されます。</p>
+        </div>
+      </div>
+
+      <div class="caption-inputs">
+        <input id="inp-narration" type="text" value="少女がトコトコとこちらへ歩み寄り、そっと袖を掴んだ。" placeholder="地の文プレビューテキスト">
+        <input id="inp-dialogue" type="text" value="「ねえ……もう少しだけ、近くに行ってもいい？」" placeholder="セリフプレビューテキスト">
+      </div>
+    </section>
+
+    <!-- 右ペイン: Keynote風 インスペクタ（拡大縮小・動き・SE） -->
+    <aside class="right-pane">
+      <section class="panel-section">
+        <h3>🔍 距離プリセット ＆ 拡大縮小</h3>
+        <div id="distance-grid" class="chip-grid"></div>
+
+        <div class="slider-row">
+          <label>① 地の文 拡大率: <strong id="lbl-n-scale">100%</strong></label>
+          <input id="rng-n-scale" type="range" min="55" max="175" value="100">
+        </div>
+        <div class="slider-row">
+          <label>② セリフ 拡大率: <strong id="lbl-d-scale">118%</strong></label>
+          <input id="rng-d-scale" type="range" min="55" max="175" value="118">
+        </div>
+        <div class="slider-row">
+          <label>左右位置 (X): <strong id="lbl-off-x">0vw</strong></label>
+          <input id="rng-off-x" type="range" min="-28" max="28" value="0">
+        </div>
+        <div class="slider-row">
+          <label>上下位置 (Y): <strong id="lbl-off-y">3.5vh</strong></label>
+          <input id="rng-off-y" type="range" min="-10" max="18" step="0.5" value="3.5">
+        </div>
+        <div class="slider-row">
+          <label>補間時間: <strong id="lbl-trans-ms">640ms</strong></label>
+          <input id="rng-trans-ms" type="range" min="200" max="1500" step="20" value="640">
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <h3>✨ アニメーション（動きの付与）</h3>
+        <label>① 地の文モーション</label>
+        <select id="sel-n-motion"></select>
+        <label>② セリフモーション</label>
+        <select id="sel-d-motion"></select>
+        <label>画面エフェクト</label>
+        <select id="sel-screen-fx"></select>
+      </section>
+
+      <section class="panel-section">
+        <h3>🔔 効果音（内蔵20種 ＋ ローカルSE）</h3>
+        <div class="cue-add-row">
+          <select id="sel-se-picker"></select>
+          <select id="sel-se-trig">
+            <option value="narration">①地の文で再生</option>
+            <option value="dialogue" selected>②セリフで再生</option>
+          </select>
+        </div>
+        <div class="cue-add-row">
+          <button id="btn-test-se" class="btn secondary">🔊 試聴</button>
+          <button id="btn-add-cue" class="btn primary">＋ キューに追加</button>
+        </div>
+        <div id="se-cues-list" class="cues-list"></div>
+      </section>
+    </aside>
+  </main>
+
+  <audio id="studio-voice-player"></audio>
+  <script src="stage_fx.js"></script>
+  <script src="studio.js"></script>
+</body>
+</html>

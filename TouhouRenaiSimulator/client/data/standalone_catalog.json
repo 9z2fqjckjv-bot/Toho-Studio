@@ -1,0 +1,3520 @@
+{
+  "asset_mode": "client_local_folder_only",
+  "categories": [
+    {
+      "category": "主人公",
+      "characters": [
+        {
+          "char_id": "reimu",
+          "name": "博麗霊夢",
+          "kana": "はくれい れいむ",
+          "category": "主人公",
+          "category_order": 0,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 100,
+          "default_bg_keyword": "博麗神社",
+          "canon_profile": "博麗神社の巫女。一人称は「私」。裏表がなくマイペースで少し素っ気ないが面倒見が良く、外来人に対しても分け隔てなく接する。口調は「〜ね」「〜わ」「〜かしら？」。",
+          "aliases": [
+            "博麗霊夢",
+            "霊夢",
+            "れいむ"
+          ]
+        },
+        {
+          "char_id": "marisa",
+          "name": "霧雨魔理沙",
+          "kana": "きりさめ まりさ",
+          "category": "主人公",
+          "category_order": 0,
+          "aq1_voice": "f2",
+          "aq1_spd": 100,
+          "aq1_fsc": 100,
+          "default_bg_keyword": "神社",
+          "canon_profile": "普通の魔法使い。一人称は「私」。明るく快活で努力家、語尾に「〜だぜ」「〜だな」「〜のぜ」を使う竹を割ったような性格。",
+          "aliases": [
+            "霧雨魔理沙",
+            "魔理沙",
+            "まりさ"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "紅魔郷",
+      "characters": [
+        {
+          "char_id": "cirno",
+          "name": "チルノ",
+          "kana": "ちるの",
+          "category": "紅魔郷",
+          "category_order": 1,
+          "aq1_voice": "f2",
+          "aq1_spd": 115,
+          "aq1_fsc": 120,
+          "default_bg_keyword": "紅魔館",
+          "canon_profile": "霧の湖の氷の妖精。一人称は「あたい」。元気いっぱいで自信家（「あたいったら最強ね！」）。",
+          "aliases": [
+            "チルノ",
+            "ちるの"
+          ]
+        },
+        {
+          "char_id": "patchouli",
+          "name": "パチュリー・ノーレッジ",
+          "kana": "ぱちゅりー のーれっじ",
+          "category": "紅魔郷",
+          "category_order": 1,
+          "aq1_voice": "f2",
+          "aq1_spd": 120,
+          "aq1_fsc": 115,
+          "default_bg_keyword": "紅魔館",
+          "canon_profile": "紅魔館の大図書館に籠もる知識と日陰の少女。一人称は「私」。物静かで落ち着いた知的な話し方。",
+          "aliases": [
+            "パチュリー・ノーレッジ",
+            "パチュリー",
+            "ぱちゅりー"
+          ]
+        },
+        {
+          "char_id": "flandre",
+          "name": "フランドール・スカーレット",
+          "kana": "ふらんどーる すかーれっと",
+          "category": "紅魔郷",
+          "category_order": 1,
+          "aq1_voice": "jgr",
+          "aq1_spd": 100,
+          "aq1_fsc": 100,
+          "default_bg_keyword": "紅魔館",
+          "canon_profile": "レミリアの妹。一人称は「私」。純粋無垢で好奇心旺盛、少し危うい可愛らしさがある。",
+          "aliases": [
+            "フランドール・スカーレット",
+            "フランドール",
+            "フラン",
+            "ふらん"
+          ]
+        },
+        {
+          "char_id": "rumia",
+          "name": "ルーミア",
+          "kana": "るーみあ",
+          "category": "紅魔郷",
+          "category_order": 1,
+          "aq1_voice": "f1",
+          "aq1_spd": 63,
+          "aq1_fsc": 165,
+          "default_bg_keyword": "紅魔館",
+          "canon_profile": "東方Project『紅魔郷』に登場する「ルーミア」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "ルーミア",
+            "EXルーミア",
+            "るーみあ"
+          ]
+        },
+        {
+          "char_id": "remilia",
+          "name": "レミリア・スカーレット",
+          "kana": "れみりあ すかーれっと",
+          "category": "紅魔郷",
+          "category_order": 1,
+          "aq1_voice": "f1",
+          "aq1_spd": 80,
+          "aq1_fsc": 150,
+          "default_bg_keyword": "紅魔館",
+          "canon_profile": "紅魔館の主である吸血鬼。一人称は「私」。カリスマ性と気品あるお嬢様口調と子供っぽい無邪気さを併せ持つ。",
+          "aliases": [
+            "レミリア・スカーレット",
+            "レミリア",
+            "れみりあ"
+          ]
+        },
+        {
+          "char_id": "sakuya",
+          "name": "十六夜咲夜",
+          "kana": "いざよい さくや",
+          "category": "紅魔郷",
+          "category_order": 1,
+          "aq1_voice": "f1",
+          "aq1_spd": 105,
+          "aq1_fsc": 125,
+          "default_bg_keyword": "紅魔館",
+          "canon_profile": "紅魔館の完璧で瀟洒なメイド長。一人称は「私」。丁寧かつ凛とした落ち着きのある口調。",
+          "aliases": [
+            "十六夜咲夜",
+            "咲夜",
+            "さくや"
+          ]
+        },
+        {
+          "char_id": "th_extra_028",
+          "name": "大図書館擬人化",
+          "kana": "大図書館擬人化",
+          "category": "紅魔郷",
+          "category_order": 1,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "紅魔館",
+          "canon_profile": "東方Project『紅魔郷』に登場する「大図書館擬人化」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "大図書館擬人化"
+          ]
+        },
+        {
+          "char_id": "daiyousei",
+          "name": "大妖精",
+          "kana": "だいようせい",
+          "category": "紅魔郷",
+          "category_order": 1,
+          "aq1_voice": "f1",
+          "aq1_spd": 96,
+          "aq1_fsc": 138,
+          "default_bg_keyword": "紅魔館",
+          "canon_profile": "東方Project『紅魔郷』に登場する「大妖精」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "大妖精",
+            "だいようせい"
+          ]
+        },
+        {
+          "char_id": "koakuma",
+          "name": "小悪魔",
+          "kana": "こあくま",
+          "category": "紅魔郷",
+          "category_order": 1,
+          "aq1_voice": "f1",
+          "aq1_spd": 95,
+          "aq1_fsc": 165,
+          "default_bg_keyword": "紅魔館",
+          "canon_profile": "東方Project『紅魔郷』に登場する「小悪魔」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "小悪魔",
+            "こあくま",
+            "ここぁ"
+          ]
+        },
+        {
+          "char_id": "meiling",
+          "name": "紅美鈴",
+          "kana": "ほん めいりん",
+          "category": "紅魔郷",
+          "category_order": 1,
+          "aq1_voice": "imd1",
+          "aq1_spd": 110,
+          "aq1_fsc": 155,
+          "default_bg_keyword": "紅魔館",
+          "canon_profile": "東方Project『紅魔郷』に登場する「紅美鈴」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "紅美鈴",
+            "美鈴",
+            "めーりん"
+          ]
+        },
+        {
+          "char_id": "th_extra_029",
+          "name": "紅魔館擬人化",
+          "kana": "紅魔館擬人化",
+          "category": "紅魔郷",
+          "category_order": 1,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "紅魔館",
+          "canon_profile": "東方Project『紅魔郷』に登場する「紅魔館擬人化」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "紅魔館擬人化"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "妖々夢",
+      "characters": [
+        {
+          "char_id": "alice",
+          "name": "アリス・マーガトロイド",
+          "kana": "ありす まーがとろいど",
+          "category": "妖々夢",
+          "category_order": 2,
+          "aq1_voice": "f1",
+          "aq1_spd": 110,
+          "aq1_fsc": 130,
+          "default_bg_keyword": "神社",
+          "canon_profile": "魔法の森に住む七色の人形遣い。一人称は「私」。上品で落ち着いた都会的な話し方（「〜わ」「〜かしら」）をするが、親しくなると世話焼き。",
+          "aliases": [
+            "アリス・マーガトロイド",
+            "アリス・マーガトロイド&上海蓬莱",
+            "アリス",
+            "ありす"
+          ]
+        },
+        {
+          "char_id": "lyrica",
+          "name": "リリカ・プリズムリバー",
+          "kana": "りりか ぷりずむりばー",
+          "category": "妖々夢",
+          "category_order": 2,
+          "aq1_voice": "f1",
+          "aq1_spd": 95,
+          "aq1_fsc": 135,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『妖々夢』に登場する「リリカ・プリズムリバー」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "リリカ・プリズムリバー",
+            "メルラン・プリズムリバー",
+            "ルナサ・プリズムリバー",
+            "りりか"
+          ]
+        },
+        {
+          "char_id": "lilywhite",
+          "name": "リリーホワイト",
+          "kana": "りりーほわいと",
+          "category": "妖々夢",
+          "category_order": 2,
+          "aq1_voice": "f1",
+          "aq1_spd": 110,
+          "aq1_fsc": 115,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『妖々夢』に登場する「リリーホワイト」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "リリーホワイト",
+            "リリーブラック",
+            "りりーほわいと"
+          ]
+        },
+        {
+          "char_id": "letty",
+          "name": "レティ・ホワイトロック",
+          "kana": "れてぃ ほわいとろっく",
+          "category": "妖々夢",
+          "category_order": 2,
+          "aq1_voice": "f2",
+          "aq1_spd": 92,
+          "aq1_fsc": 112,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『妖々夢』に登場する「レティ・ホワイトロック」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "レティ・ホワイトロック",
+            "レティ"
+          ]
+        },
+        {
+          "char_id": "yukari",
+          "name": "八雲紫",
+          "kana": "やくも ゆかり",
+          "category": "妖々夢",
+          "category_order": 2,
+          "aq1_voice": "f2",
+          "aq1_spd": 96,
+          "aq1_fsc": 127,
+          "default_bg_keyword": "神社",
+          "canon_profile": "境界を操る大妖怪。一人称は「私」。妖艶で謎めいた大人の余裕を漂わせる丁寧語・お姉さん口調。",
+          "aliases": [
+            "八雲紫",
+            "紫",
+            "ゆかり"
+          ]
+        },
+        {
+          "char_id": "ran",
+          "name": "八雲藍",
+          "kana": "やくも らん",
+          "category": "妖々夢",
+          "category_order": 2,
+          "aq1_voice": "f2",
+          "aq1_spd": 115,
+          "aq1_fsc": 113,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『妖々夢』に登場する「八雲藍」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "八雲藍",
+            "藍",
+            "らん"
+          ]
+        },
+        {
+          "char_id": "chen",
+          "name": "橙",
+          "kana": "ちぇん",
+          "category": "妖々夢",
+          "category_order": 2,
+          "aq1_voice": "f1",
+          "aq1_spd": 80,
+          "aq1_fsc": 160,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『妖々夢』に登場する「橙」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "橙",
+            "ちぇん"
+          ]
+        },
+        {
+          "char_id": "yuyuko",
+          "name": "西行寺幽々子",
+          "kana": "さいぎょうじ ゆゆこ",
+          "category": "妖々夢",
+          "category_order": 2,
+          "aq1_voice": "f2",
+          "aq1_spd": 96,
+          "aq1_fsc": 127,
+          "default_bg_keyword": "神社",
+          "canon_profile": "白玉楼の亡霊の姫。一人称は「私」。おっとりマイペースで食通、掴みどころのない優雅な包容力がある。",
+          "aliases": [
+            "西行寺幽々子",
+            "幽々子",
+            "ゆゆこ"
+          ]
+        },
+        {
+          "char_id": "youmu",
+          "name": "魂魄妖夢",
+          "kana": "こんぱく ようむ",
+          "category": "妖々夢",
+          "category_order": 2,
+          "aq1_voice": "f2",
+          "aq1_spd": 115,
+          "aq1_fsc": 120,
+          "default_bg_keyword": "神社",
+          "canon_profile": "白玉楼の半人半霊の庭師兼剣術指南役。一人称は「私」（または「みょん」）。真面目で一生懸命、少し天然でお化けが苦手。",
+          "aliases": [
+            "魂魄妖夢",
+            "妖夢",
+            "ようむ"
+          ]
+        },
+        {
+          "char_id": "th_extra_007",
+          "name": "魂魄妖忌",
+          "kana": "魂魄妖忌",
+          "category": "妖々夢",
+          "category_order": 2,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『妖々夢』に登場する「魂魄妖忌」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "魂魄妖忌"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "永夜抄",
+      "characters": [
+        {
+          "char_id": "mystia",
+          "name": "ミスティア・ローレライ",
+          "kana": "みすてぃあ ろーれらい",
+          "category": "永夜抄",
+          "category_order": 3,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 105,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『永夜抄』に登場する「ミスティア・ローレライ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "ミスティア・ローレライ",
+            "ミスティア",
+            "ミスチー",
+            "みすちー"
+          ]
+        },
+        {
+          "char_id": "wriggle",
+          "name": "リグル・ナイトバグ",
+          "kana": "りぐる ないとばぐ",
+          "category": "永夜抄",
+          "category_order": 3,
+          "aq1_voice": "m1",
+          "aq1_spd": 110,
+          "aq1_fsc": 140,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『永夜抄』に登場する「リグル・ナイトバグ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "リグル・ナイトバグ",
+            "リグル",
+            "りぐる"
+          ]
+        },
+        {
+          "char_id": "keine",
+          "name": "上白沢慧音",
+          "kana": "かみしらさわ けいね",
+          "category": "永夜抄",
+          "category_order": 3,
+          "aq1_voice": "imd1",
+          "aq1_spd": 95,
+          "aq1_fsc": 145,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『永夜抄』に登場する「上白沢慧音」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "上白沢慧音",
+            "慧音",
+            "けいね"
+          ]
+        },
+        {
+          "char_id": "eirin",
+          "name": "八意永琳",
+          "kana": "やごころ えいりん",
+          "category": "永夜抄",
+          "category_order": 3,
+          "aq1_voice": "imd1",
+          "aq1_spd": 90,
+          "aq1_fsc": 130,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『永夜抄』に登場する「八意永琳」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "八意永琳",
+            "永琳",
+            "えーりん"
+          ]
+        },
+        {
+          "char_id": "tewi",
+          "name": "因幡てゐ",
+          "kana": "いなば てゐ",
+          "category": "永夜抄",
+          "category_order": 3,
+          "aq1_voice": "imd1",
+          "aq1_spd": 110,
+          "aq1_fsc": 120,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『永夜抄』に登場する「因幡てゐ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "因幡てゐ",
+            "てゐ"
+          ]
+        },
+        {
+          "char_id": "kaguya",
+          "name": "蓬莱山輝夜",
+          "kana": "ほうらいさん かぐや",
+          "category": "永夜抄",
+          "category_order": 3,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 120,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『永夜抄』に登場する「蓬莱山輝夜」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "蓬莱山輝夜",
+            "輝夜",
+            "かぐや"
+          ]
+        },
+        {
+          "char_id": "mokou",
+          "name": "藤原妹紅",
+          "kana": "ふじわら の もこう",
+          "category": "永夜抄",
+          "category_order": 3,
+          "aq1_voice": "f2",
+          "aq1_spd": 100,
+          "aq1_fsc": 120,
+          "default_bg_keyword": "神社",
+          "canon_profile": "迷いの竹林の蓬莱人。一人称は「私」または「俺」。ぶっきらぼうでサバサバしているが情に厚く義理堅い。",
+          "aliases": [
+            "藤原妹紅",
+            "妹紅",
+            "もこう"
+          ]
+        },
+        {
+          "char_id": "reisen",
+          "name": "鈴仙・優曇華院・イナバ",
+          "kana": "れいせん うどんげいん いなば",
+          "category": "永夜抄",
+          "category_order": 3,
+          "aq1_voice": "f1",
+          "aq1_spd": 80,
+          "aq1_fsc": 120,
+          "default_bg_keyword": "神社",
+          "canon_profile": "永遠亭の月の兎。一人称は「私」。真面目で常識人、周囲に振り回されやすい苦労人。",
+          "aliases": [
+            "鈴仙・優曇華院・イナバ",
+            "鈴仙",
+            "優曇華",
+            "うどんげ"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "風神録",
+      "characters": [
+        {
+          "char_id": "kanako",
+          "name": "八坂神奈子",
+          "kana": "やさか かなこ",
+          "category": "風神録",
+          "category_order": 5,
+          "aq1_voice": "f1",
+          "aq1_spd": 115,
+          "aq1_fsc": 90,
+          "default_bg_keyword": "守矢神社",
+          "canon_profile": "東方Project『風神録』に登場する「八坂神奈子」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "八坂神奈子",
+            "神奈子",
+            "かなこ"
+          ]
+        },
+        {
+          "char_id": "sanae",
+          "name": "東風谷早苗",
+          "kana": "こちや さなえ",
+          "category": "風神録",
+          "category_order": 5,
+          "aq1_voice": "f1",
+          "aq1_spd": 130,
+          "aq1_fsc": 95,
+          "default_bg_keyword": "守矢神社",
+          "canon_profile": "守矢神社の風祝（外の世界出身の現人神）。一人称は「私」。礼儀正しく明るい常識人だが、奇跡やロボの話になると熱くなる。",
+          "aliases": [
+            "東風谷早苗",
+            "早苗",
+            "さなえ"
+          ]
+        },
+        {
+          "char_id": "nitori",
+          "name": "河城にとり",
+          "kana": "かわしろ にとり",
+          "category": "風神録",
+          "category_order": 5,
+          "aq1_voice": "jgr",
+          "aq1_spd": 105,
+          "aq1_fsc": 105,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『風神録』に登場する「河城にとり」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "河城にとり",
+            "にとり",
+            "ニトリ"
+          ]
+        },
+        {
+          "char_id": "suwako",
+          "name": "洩矢諏訪子",
+          "kana": "もりや すわこ",
+          "category": "風神録",
+          "category_order": 5,
+          "aq1_voice": "f1",
+          "aq1_spd": 80,
+          "aq1_fsc": 175,
+          "default_bg_keyword": "守矢神社",
+          "canon_profile": "東方Project『風神録』に登場する「洩矢諏訪子」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "洩矢諏訪子",
+            "諏訪子",
+            "すわこ"
+          ]
+        },
+        {
+          "char_id": "momiji",
+          "name": "犬走椛",
+          "kana": "いぬばしり もみじ",
+          "category": "風神録",
+          "category_order": 5,
+          "aq1_voice": "f1",
+          "aq1_spd": 120,
+          "aq1_fsc": 110,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『風神録』に登場する「犬走椛」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "犬走椛",
+            "椛",
+            "もみじ"
+          ]
+        },
+        {
+          "char_id": "hina",
+          "name": "鍵山雛",
+          "kana": "かぎやま ひな",
+          "category": "風神録",
+          "category_order": 5,
+          "aq1_voice": "f2",
+          "aq1_spd": 90,
+          "aq1_fsc": 118,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『風神録』に登場する「鍵山雛」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "鍵山雛",
+            "雛",
+            "秋静葉",
+            "秋穣子"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "地霊殿",
+      "characters": [
+        {
+          "char_id": "koishi",
+          "name": "古明地こいし",
+          "kana": "こめいじ こいし",
+          "category": "地霊殿",
+          "category_order": 6,
+          "aq1_voice": "f2",
+          "aq1_spd": 75,
+          "aq1_fsc": 181,
+          "default_bg_keyword": "神社",
+          "canon_profile": "無意識を操るさとりの妹。一人称は「私」。無邪気で自由奔放、予測不能な明るさを持つ。",
+          "aliases": [
+            "古明地こいし",
+            "こいし"
+          ]
+        },
+        {
+          "char_id": "satori",
+          "name": "古明地さとり",
+          "kana": "こめいじ さとり",
+          "category": "地霊殿",
+          "category_order": 6,
+          "aq1_voice": "jgr",
+          "aq1_spd": 115,
+          "aq1_fsc": 125,
+          "default_bg_keyword": "神社",
+          "canon_profile": "地霊殿の主で心を読む覚（さとり）。一人称は「私」。穏やかで落ち着いた丁寧な口調、動物好き。",
+          "aliases": [
+            "古明地さとり",
+            "さとり",
+            "サトリ"
+          ]
+        },
+        {
+          "char_id": "yuugi",
+          "name": "星熊勇儀",
+          "kana": "ほしぐま ゆうぎ",
+          "category": "地霊殿",
+          "category_order": 6,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 105,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『地霊殿』に登場する「星熊勇儀」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "星熊勇儀",
+            "勇儀"
+          ]
+        },
+        {
+          "char_id": "parsee",
+          "name": "水橋パルスィ",
+          "kana": "みずはし ぱるすぃ",
+          "category": "地霊殿",
+          "category_order": 6,
+          "aq1_voice": "f2",
+          "aq1_spd": 80,
+          "aq1_fsc": 130,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『地霊殿』に登場する「水橋パルスィ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "水橋パルスィ",
+            "パルスィ",
+            "パルスィー",
+            "ぱるすぃ"
+          ]
+        },
+        {
+          "char_id": "orin",
+          "name": "火焔猫燐",
+          "kana": "かえんびょう りん",
+          "category": "地霊殿",
+          "category_order": 6,
+          "aq1_voice": "f2",
+          "aq1_spd": 130,
+          "aq1_fsc": 125,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『地霊殿』に登場する「火焔猫燐」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "火焔猫燐",
+            "お燐",
+            "燐",
+            "おりん"
+          ]
+        },
+        {
+          "char_id": "utsuho",
+          "name": "霊烏路空",
+          "kana": "れいうじ うつほ",
+          "category": "地霊殿",
+          "category_order": 6,
+          "aq1_voice": "imd1",
+          "aq1_spd": 80,
+          "aq1_fsc": 170,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『地霊殿』に登場する「霊烏路空」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "霊烏路空",
+            "お空",
+            "空",
+            "おくう"
+          ]
+        },
+        {
+          "char_id": "yamame",
+          "name": "黒谷ヤマメ",
+          "kana": "くろだに やまめ",
+          "category": "地霊殿",
+          "category_order": 6,
+          "aq1_voice": "f2",
+          "aq1_spd": 110,
+          "aq1_fsc": 115,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『地霊殿』に登場する「黒谷ヤマメ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "黒谷ヤマメ",
+            "ヤマメ",
+            "やまめ",
+            "キスメ"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "星蓮船",
+      "characters": [
+        {
+          "char_id": "nazrin",
+          "name": "ナズーリン",
+          "kana": "なずーりん",
+          "category": "星蓮船",
+          "category_order": 7,
+          "aq1_voice": "f1",
+          "aq1_spd": 90,
+          "aq1_fsc": 115,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『星蓮船』に登場する「ナズーリン」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "ナズーリン",
+            "なずーりん"
+          ]
+        },
+        {
+          "char_id": "kogasa",
+          "name": "多々良小傘",
+          "kana": "たたら こがさ",
+          "category": "星蓮船",
+          "category_order": 7,
+          "aq1_voice": "imd1",
+          "aq1_spd": 110,
+          "aq1_fsc": 130,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『星蓮船』に登場する「多々良小傘」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "多々良小傘",
+            "小傘",
+            "こがさ"
+          ]
+        },
+        {
+          "char_id": "shou",
+          "name": "寅丸星",
+          "kana": "とらまる しょう",
+          "category": "星蓮船",
+          "category_order": 7,
+          "aq1_voice": "f2",
+          "aq1_spd": 120,
+          "aq1_fsc": 110,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『星蓮船』に登場する「寅丸星」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "寅丸星",
+            "星",
+            "とらまる"
+          ]
+        },
+        {
+          "char_id": "nue",
+          "name": "封獣ぬえ",
+          "kana": "ほうじゅう ぬえ",
+          "category": "星蓮船",
+          "category_order": 7,
+          "aq1_voice": "f2",
+          "aq1_spd": 100,
+          "aq1_fsc": 180,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『星蓮船』に登場する「封獣ぬえ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "封獣ぬえ",
+            "ぬえ"
+          ]
+        },
+        {
+          "char_id": "murasa",
+          "name": "村紗水蜜",
+          "kana": "むらさ みなみつ",
+          "category": "星蓮船",
+          "category_order": 7,
+          "aq1_voice": "f2",
+          "aq1_spd": 100,
+          "aq1_fsc": 132,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『星蓮船』に登場する「村紗水蜜」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "村紗水蜜",
+            "村紗",
+            "むらさ"
+          ]
+        },
+        {
+          "char_id": "byakuren",
+          "name": "聖白蓮",
+          "kana": "ひじり びゃくれん",
+          "category": "星蓮船",
+          "category_order": 7,
+          "aq1_voice": "imd1",
+          "aq1_spd": 102,
+          "aq1_fsc": 97,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『星蓮船』に登場する「聖白蓮」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "聖白蓮",
+            "聖",
+            "ひじり"
+          ]
+        },
+        {
+          "char_id": "ichirin",
+          "name": "雲居一輪",
+          "kana": "くもい いちりん",
+          "category": "星蓮船",
+          "category_order": 7,
+          "aq1_voice": "f2",
+          "aq1_spd": 65,
+          "aq1_fsc": 145,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『星蓮船』に登場する「雲居一輪」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "雲居一輪",
+            "雲居一輪&雲山",
+            "一輪",
+            "いちりん"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "神霊廟",
+      "characters": [
+        {
+          "char_id": "mamizou",
+          "name": "二ッ岩マミゾウ",
+          "kana": "ふたついわ まみぞう",
+          "category": "神霊廟",
+          "category_order": 8,
+          "aq1_voice": "imd1",
+          "aq1_spd": 93,
+          "aq1_fsc": 112,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『神霊廟』に登場する「二ッ岩マミゾウ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "二ッ岩マミゾウ",
+            "マミゾウ",
+            "まみぞう"
+          ]
+        },
+        {
+          "char_id": "kyouko",
+          "name": "幽谷響子",
+          "kana": "かそだに きょうこ",
+          "category": "神霊廟",
+          "category_order": 8,
+          "aq1_voice": "f1",
+          "aq1_spd": 70,
+          "aq1_fsc": 165,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『神霊廟』に登場する「幽谷響子」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "幽谷響子",
+            "響子"
+          ]
+        },
+        {
+          "char_id": "futo",
+          "name": "物部布都",
+          "kana": "もののべ の ふと",
+          "category": "神霊廟",
+          "category_order": 8,
+          "aq1_voice": "f1",
+          "aq1_spd": 110,
+          "aq1_fsc": 123,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『神霊廟』に登場する「物部布都」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "物部布都",
+            "布都",
+            "蘇我屠自古",
+            "宮古芳香",
+            "霍青娥"
+          ]
+        },
+        {
+          "char_id": "miko",
+          "name": "豊聡耳神子",
+          "kana": "とよさとみみ の みこ",
+          "category": "神霊廟",
+          "category_order": 8,
+          "aq1_voice": "f1",
+          "aq1_spd": 130,
+          "aq1_fsc": 103,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『神霊廟』に登場する「豊聡耳神子」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "豊聡耳神子",
+            "神子"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "輝針城",
+      "characters": [
+        {
+          "char_id": "th_extra_032",
+          "name": "九十九八橋",
+          "kana": "九十九八橋",
+          "category": "輝針城",
+          "category_order": 9,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『輝針城』に登場する「九十九八橋」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "九十九八橋"
+          ]
+        },
+        {
+          "char_id": "th_extra_033",
+          "name": "九十九弁々",
+          "kana": "九十九弁々",
+          "category": "輝針城",
+          "category_order": 9,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『輝針城』に登場する「九十九弁々」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "九十九弁々"
+          ]
+        },
+        {
+          "char_id": "shinmyoumaru",
+          "name": "少名針妙丸",
+          "kana": "すくな しんみょうまる",
+          "category": "輝針城",
+          "category_order": 9,
+          "aq1_voice": "f1",
+          "aq1_spd": 92,
+          "aq1_fsc": 158,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『輝針城』に登場する「少名針妙丸」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "少名針妙丸",
+            "針妙丸",
+            "わかさぎ姫",
+            "赤蛮奇",
+            "今泉影狼",
+            "堀川雷鼓"
+          ]
+        },
+        {
+          "char_id": "seija",
+          "name": "鬼人正邪",
+          "kana": "きじん せいじゃ",
+          "category": "輝針城",
+          "category_order": 9,
+          "aq1_voice": "imd1",
+          "aq1_spd": 110,
+          "aq1_fsc": 133,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『輝針城』に登場する「鬼人正邪」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "鬼人正邪",
+            "正邪",
+            "せいじゃ"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "紺珠伝",
+      "characters": [
+        {
+          "char_id": "clownpiece",
+          "name": "クラウンピース",
+          "kana": "くらうんぴーす",
+          "category": "紺珠伝",
+          "category_order": 10,
+          "aq1_voice": "f1",
+          "aq1_spd": 105,
+          "aq1_fsc": 155,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『紺珠伝』に登場する「クラウンピース」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "クラウンピース",
+            "清蘭",
+            "鈴瑚",
+            "ドレミー・スイート",
+            "稀神サグメ",
+            "純狐",
+            "ヘカーティア・ラピスラズリ"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "天空璋",
+      "characters": [
+        {
+          "char_id": "aunn",
+          "name": "高麗野あうん",
+          "kana": "こまの あうん",
+          "category": "天空璋",
+          "category_order": 11,
+          "aq1_voice": "f1",
+          "aq1_spd": 83,
+          "aq1_fsc": 140,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『天空璋』に登場する「高麗野あうん」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "高麗野あうん",
+            "あうん",
+            "摩多羅隠岐奈",
+            "エタニティラルバ",
+            "坂田ネムノ",
+            "矢田寺成美",
+            "爾子田里乃",
+            "丁礼田舞"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "鬼形獣",
+      "characters": [
+        {
+          "char_id": "yachie",
+          "name": "吉弔八千慧",
+          "kana": "きっちょう やちえ",
+          "category": "鬼形獣",
+          "category_order": 12,
+          "aq1_voice": "imd1",
+          "aq1_spd": 115,
+          "aq1_fsc": 120,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『鬼形獣』に登場する「吉弔八千慧」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "吉弔八千慧",
+            "八千慧"
+          ]
+        },
+        {
+          "char_id": "keiki",
+          "name": "埴安神袿姫",
+          "kana": "はにやすしん けいき",
+          "category": "鬼形獣",
+          "category_order": 12,
+          "aq1_voice": "imd1",
+          "aq1_spd": 110,
+          "aq1_fsc": 140,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『鬼形獣』に登場する「埴安神袿姫」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "埴安神袿姫",
+            "袿姫"
+          ]
+        },
+        {
+          "char_id": "kutaka",
+          "name": "庭渡久侘歌",
+          "kana": "にわたり くたか",
+          "category": "鬼形獣",
+          "category_order": 12,
+          "aq1_voice": "f1",
+          "aq1_spd": 90,
+          "aq1_fsc": 160,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『鬼形獣』に登場する「庭渡久侘歌」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "庭渡久侘歌",
+            "久侘歌"
+          ]
+        },
+        {
+          "char_id": "eika",
+          "name": "戎瓔花",
+          "kana": "えびす えいか",
+          "category": "鬼形獣",
+          "category_order": 12,
+          "aq1_voice": "f1",
+          "aq1_spd": 90,
+          "aq1_fsc": 160,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『鬼形獣』に登場する「戎瓔花」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "戎瓔花",
+            "戎櫻花",
+            "瓔花"
+          ]
+        },
+        {
+          "char_id": "mayumi",
+          "name": "杖刀偶磨弓",
+          "kana": "じょうとうぐう まゆみ",
+          "category": "鬼形獣",
+          "category_order": 12,
+          "aq1_voice": "jgr",
+          "aq1_spd": 80,
+          "aq1_fsc": 160,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『鬼形獣』に登場する「杖刀偶磨弓」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "杖刀偶磨弓",
+            "磨弓"
+          ]
+        },
+        {
+          "char_id": "urumi",
+          "name": "牛崎潤美",
+          "kana": "うしざき うるみ",
+          "category": "鬼形獣",
+          "category_order": 12,
+          "aq1_voice": "f2",
+          "aq1_spd": 110,
+          "aq1_fsc": 120,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『鬼形獣』に登場する「牛崎潤美」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "牛崎潤美",
+            "潤美"
+          ]
+        },
+        {
+          "char_id": "saki",
+          "name": "驪駒早鬼",
+          "kana": "くろこま さき",
+          "category": "鬼形獣",
+          "category_order": 12,
+          "aq1_voice": "imd1",
+          "aq1_spd": 70,
+          "aq1_fsc": 180,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『鬼形獣』に登場する「驪駒早鬼」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "驪駒早鬼",
+            "早鬼"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "虹龍洞",
+      "characters": [
+        {
+          "char_id": "chimata",
+          "name": "天弓千亦",
+          "kana": "てんきゅう ちまた",
+          "category": "虹龍洞",
+          "category_order": 13,
+          "aq1_voice": "f1",
+          "aq1_spd": 85,
+          "aq1_fsc": 140,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『虹龍洞』に登場する「天弓千亦」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "天弓千亦",
+            "千亦"
+          ]
+        },
+        {
+          "char_id": "momoyo",
+          "name": "姫虫百々世",
+          "kana": "ひめむし ももよ",
+          "category": "虹龍洞",
+          "category_order": 13,
+          "aq1_voice": "imd1",
+          "aq1_spd": 80,
+          "aq1_fsc": 160,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『虹龍洞』に登場する「姫虫百々世」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "姫虫百々世",
+            "百々世"
+          ]
+        },
+        {
+          "char_id": "takane",
+          "name": "山城たかね",
+          "kana": "やましろ たかね",
+          "category": "虹龍洞",
+          "category_order": 13,
+          "aq1_voice": "f2",
+          "aq1_spd": 90,
+          "aq1_fsc": 150,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『虹龍洞』に登場する「山城たかね」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "山城たかね",
+            "たかね"
+          ]
+        },
+        {
+          "char_id": "misumaru",
+          "name": "玉造魅須丸",
+          "kana": "たまつくり みすまる",
+          "category": "虹龍洞",
+          "category_order": 13,
+          "aq1_voice": "jgr",
+          "aq1_spd": 90,
+          "aq1_fsc": 150,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『虹龍洞』に登場する「玉造魅須丸」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "玉造魅須丸",
+            "魅須丸"
+          ]
+        },
+        {
+          "char_id": "tsukasa",
+          "name": "菅牧典",
+          "kana": "くだまき つかさ",
+          "category": "虹龍洞",
+          "category_order": 13,
+          "aq1_voice": "f1",
+          "aq1_spd": 90,
+          "aq1_fsc": 130,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『虹龍洞』に登場する「菅牧典」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "菅牧典",
+            "典"
+          ]
+        },
+        {
+          "char_id": "mike",
+          "name": "豪徳寺ミケ",
+          "kana": "ごうとくじ みけ",
+          "category": "虹龍洞",
+          "category_order": 13,
+          "aq1_voice": "f1",
+          "aq1_spd": 80,
+          "aq1_fsc": 180,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『虹龍洞』に登場する「豪徳寺ミケ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "豪徳寺ミケ",
+            "ミケ"
+          ]
+        },
+        {
+          "char_id": "megumu",
+          "name": "飯綱丸龍",
+          "kana": "いいずなまる めぐむ",
+          "category": "虹龍洞",
+          "category_order": 13,
+          "aq1_voice": "f2",
+          "aq1_spd": 93,
+          "aq1_fsc": 116,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『虹龍洞』に登場する「飯綱丸龍」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "飯綱丸龍",
+            "龍"
+          ]
+        },
+        {
+          "char_id": "sannyo",
+          "name": "駒草山如",
+          "kana": "こまくさ さんにょ",
+          "category": "虹龍洞",
+          "category_order": 13,
+          "aq1_voice": "f2",
+          "aq1_spd": 110,
+          "aq1_fsc": 110,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『虹龍洞』に登場する「駒草山如」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "駒草山如",
+            "駒草太夫",
+            "山如"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "獣王園",
+      "characters": [
+        {
+          "char_id": "enoko",
+          "name": "三頭慧ノ子",
+          "kana": "みつがしら えのこ",
+          "category": "獣王園",
+          "category_order": 14,
+          "aq1_voice": "f2",
+          "aq1_spd": 85,
+          "aq1_fsc": 140,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『獣王園』に登場する「三頭慧ノ子」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "三頭慧ノ子",
+            "慧ノ子",
+            "孫美天",
+            "天火人ちやり",
+            "豫母都日狭美",
+            "日白残無"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "錦上京",
+      "characters": [
+        {
+          "char_id": "th_extra_036",
+          "name": "ユイマン・浅間",
+          "kana": "ユイマン・浅間",
+          "category": "錦上京",
+          "category_order": 15,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『錦上京』に登場する「ユイマン・浅間」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "ユイマン・浅間"
+          ]
+        },
+        {
+          "char_id": "th_extra_037",
+          "name": "塵塚ウバメ",
+          "kana": "塵塚ウバメ",
+          "category": "錦上京",
+          "category_order": 15,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『錦上京』に登場する「塵塚ウバメ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "塵塚ウバメ"
+          ]
+        },
+        {
+          "char_id": "th_extra_038",
+          "name": "封獣チミ",
+          "kana": "封獣チミ",
+          "category": "錦上京",
+          "category_order": 15,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『錦上京』に登場する「封獣チミ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "封獣チミ"
+          ]
+        },
+        {
+          "char_id": "th_extra_039",
+          "name": "渡里ニナ",
+          "kana": "渡里ニナ",
+          "category": "錦上京",
+          "category_order": 15,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『錦上京』に登場する「渡里ニナ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "渡里ニナ"
+          ]
+        },
+        {
+          "char_id": "th_extra_040",
+          "name": "磐永阿梨夜",
+          "kana": "磐永阿梨夜",
+          "category": "錦上京",
+          "category_order": 15,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『錦上京』に登場する「磐永阿梨夜」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "磐永阿梨夜"
+          ]
+        },
+        {
+          "char_id": "th_extra_041",
+          "name": "道神馴子",
+          "kana": "道神馴子",
+          "category": "錦上京",
+          "category_order": 15,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『錦上京』に登場する「道神馴子」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "道神馴子"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "萃夢想、緋想天、心綺楼、深秘録、憑依華、剛欲異聞",
+      "characters": [
+        {
+          "char_id": "th_extra_030",
+          "name": "ヒソウテンソク",
+          "kana": "ヒソウテンソク",
+          "category": "萃夢想、緋想天、心綺楼、深秘録、憑依華、剛欲異聞",
+          "category_order": 16,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『萃夢想、緋想天、心綺楼、深秘録、憑依華、剛欲異聞』に登場する「ヒソウテンソク」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "ヒソウテンソク"
+          ]
+        },
+        {
+          "char_id": "th_extra_031",
+          "name": "大ナマズ",
+          "kana": "大ナマズ",
+          "category": "萃夢想、緋想天、心綺楼、深秘録、憑依華、剛欲異聞",
+          "category_order": 16,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『萃夢想、緋想天、心綺楼、深秘録、憑依華、剛欲異聞』に登場する「大ナマズ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "大ナマズ"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "三月精",
+      "characters": [
+        {
+          "char_id": "sunnymilk",
+          "name": "サニーミルク",
+          "kana": "さにーみるく",
+          "category": "三月精",
+          "category_order": 17,
+          "aq1_voice": "jgr",
+          "aq1_spd": 125,
+          "aq1_fsc": 120,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『三月精』に登場する「サニーミルク」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "サニーミルク",
+            "さにーみるく"
+          ]
+        },
+        {
+          "char_id": "starsapphire",
+          "name": "スターサファイア",
+          "kana": "すたーさふぁいあ",
+          "category": "三月精",
+          "category_order": 17,
+          "aq1_voice": "f2",
+          "aq1_spd": 60,
+          "aq1_fsc": 150,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『三月精』に登場する「スターサファイア」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "スターサファイア",
+            "すたーさふぁいあ"
+          ]
+        },
+        {
+          "char_id": "lunachild",
+          "name": "ルナチャイルド",
+          "kana": "るなちゃいるど",
+          "category": "三月精",
+          "category_order": 17,
+          "aq1_voice": "f2",
+          "aq1_spd": 120,
+          "aq1_fsc": 125,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『三月精』に登場する「ルナチャイルド」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "ルナチャイルド",
+            "るなちゃいるど"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "儚月抄",
+      "characters": [
+        {
+          "char_id": "th_extra_001",
+          "name": "モブ玉兎",
+          "kana": "モブ玉兎",
+          "category": "儚月抄",
+          "category_order": 18,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『儚月抄』に登場する「モブ玉兎」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "モブ玉兎"
+          ]
+        },
+        {
+          "char_id": "th_extra_002",
+          "name": "雨の妖精",
+          "kana": "雨の妖精",
+          "category": "儚月抄",
+          "category_order": 18,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『儚月抄』に登場する「雨の妖精」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "雨の妖精"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "鈴奈庵",
+      "characters": [
+        {
+          "char_id": "th_extra_034",
+          "name": "易者",
+          "kana": "易者",
+          "category": "鈴奈庵",
+          "category_order": 19,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『鈴奈庵』に登場する「易者」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "易者"
+          ]
+        },
+        {
+          "char_id": "th_extra_035",
+          "name": "蟒蛇",
+          "kana": "蟒蛇",
+          "category": "鈴奈庵",
+          "category_order": 19,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『鈴奈庵』に登場する「蟒蛇」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "蟒蛇"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "未分類",
+      "characters": [
+        {
+          "char_id": "th_extra_019",
+          "name": "テレワーク座敷童",
+          "kana": "テレワーク座敷童",
+          "category": "未分類",
+          "category_order": 21,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『未分類』に登場する「テレワーク座敷童」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "テレワーク座敷童"
+          ]
+        },
+        {
+          "char_id": "th_extra_020",
+          "name": "モブ狸",
+          "kana": "モブ狸",
+          "category": "未分類",
+          "category_order": 21,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『未分類』に登場する「モブ狸」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "モブ狸"
+          ]
+        },
+        {
+          "char_id": "th_extra_021",
+          "name": "ヴィンカワーズ",
+          "kana": "ヴィンカワーズ",
+          "category": "未分類",
+          "category_order": 21,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『未分類』に登場する「ヴィンカワーズ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "ヴィンカワーズ"
+          ]
+        },
+        {
+          "char_id": "th_extra_022",
+          "name": "冴月麟",
+          "kana": "冴月麟",
+          "category": "未分類",
+          "category_order": 21,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『未分類』に登場する「冴月麟」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "冴月麟"
+          ]
+        },
+        {
+          "char_id": "th_extra_023",
+          "name": "名無しの本読み妖怪",
+          "kana": "名無しの本読み妖怪",
+          "category": "未分類",
+          "category_order": 21,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『未分類』に登場する「名無しの本読み妖怪」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "名無しの本読み妖怪"
+          ]
+        },
+        {
+          "char_id": "th_extra_024",
+          "name": "奥野田美宵",
+          "kana": "奥野田美宵",
+          "category": "未分類",
+          "category_order": 21,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『未分類』に登場する「奥野田美宵」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "奥野田美宵"
+          ]
+        },
+        {
+          "char_id": "th_extra_025",
+          "name": "宮出口瑞霊",
+          "kana": "宮出口瑞霊",
+          "category": "未分類",
+          "category_order": 21,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『未分類』に登場する「宮出口瑞霊」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "宮出口瑞霊"
+          ]
+        },
+        {
+          "char_id": "th_extra_026",
+          "name": "河城みとり",
+          "kana": "河城みとり",
+          "category": "未分類",
+          "category_order": 21,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『未分類』に登場する「河城みとり」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "河城みとり"
+          ]
+        },
+        {
+          "char_id": "th_extra_027",
+          "name": "瀬笈葉",
+          "kana": "瀬笈葉",
+          "category": "未分類",
+          "category_order": 21,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『未分類』に登場する「瀬笈葉」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "瀬笈葉"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "靈異伝",
+      "characters": [
+        {
+          "char_id": "th_extra_042",
+          "name": "Elis",
+          "kana": "Elis",
+          "category": "靈異伝",
+          "category_order": 22,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『靈異伝』に登場する「Elis」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "Elis"
+          ]
+        },
+        {
+          "char_id": "th_extra_043",
+          "name": "Konngara",
+          "kana": "Konngara",
+          "category": "靈異伝",
+          "category_order": 22,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『靈異伝』に登場する「Konngara」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "Konngara"
+          ]
+        },
+        {
+          "char_id": "th_extra_044",
+          "name": "SinGyoku",
+          "kana": "SinGyoku",
+          "category": "靈異伝",
+          "category_order": 22,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『靈異伝』に登場する「SinGyoku」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "SinGyoku"
+          ]
+        },
+        {
+          "char_id": "th_extra_045",
+          "name": "YuugenMagan",
+          "kana": "YuugenMagan",
+          "category": "靈異伝",
+          "category_order": 22,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『靈異伝』に登場する「YuugenMagan」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "YuugenMagan"
+          ]
+        },
+        {
+          "char_id": "th_extra_046",
+          "name": "kikuri",
+          "kana": "kikuri",
+          "category": "靈異伝",
+          "category_order": 22,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『靈異伝』に登場する「kikuri」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "kikuri"
+          ]
+        },
+        {
+          "char_id": "th_extra_047",
+          "name": "sariel",
+          "kana": "sariel",
+          "category": "靈異伝",
+          "category_order": 22,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『靈異伝』に登場する「sariel」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "sariel"
+          ]
+        },
+        {
+          "char_id": "th_extra_048",
+          "name": "博麗靈夢",
+          "kana": "博麗靈夢",
+          "category": "靈異伝",
+          "category_order": 22,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『靈異伝』に登場する「博麗靈夢」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "博麗靈夢"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "封魔録",
+      "characters": [
+        {
+          "char_id": "th_extra_008",
+          "name": "明羅",
+          "kana": "明羅",
+          "category": "封魔録",
+          "category_order": 23,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『封魔録』に登場する「明羅」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "明羅"
+          ]
+        },
+        {
+          "char_id": "th_extra_009",
+          "name": "玄爺",
+          "kana": "玄爺",
+          "category": "封魔録",
+          "category_order": 23,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『封魔録』に登場する「玄爺」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "玄爺"
+          ]
+        },
+        {
+          "char_id": "th_extra_010",
+          "name": "里香",
+          "kana": "里香",
+          "category": "封魔録",
+          "category_order": 23,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『封魔録』に登場する「里香」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "里香"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "夢時空",
+      "characters": [
+        {
+          "char_id": "th_extra_003",
+          "name": "エレン",
+          "kana": "エレン",
+          "category": "夢時空",
+          "category_order": 24,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『夢時空』に登場する「エレン」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "エレン"
+          ]
+        },
+        {
+          "char_id": "th_extra_004",
+          "name": "カナ・アナベラル",
+          "kana": "カナ・アナベラル",
+          "category": "夢時空",
+          "category_order": 24,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『夢時空』に登場する「カナ・アナベラル」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "カナ・アナベラル"
+          ]
+        },
+        {
+          "char_id": "th_extra_005",
+          "name": "小兎姫",
+          "kana": "小兎姫",
+          "category": "夢時空",
+          "category_order": 24,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『夢時空』に登場する「小兎姫」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "小兎姫"
+          ]
+        },
+        {
+          "char_id": "th_extra_006",
+          "name": "朝倉理香子",
+          "kana": "朝倉理香子",
+          "category": "夢時空",
+          "category_order": 24,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『夢時空』に登場する「朝倉理香子」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "朝倉理香子"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "幻想郷",
+      "characters": [
+        {
+          "char_id": "th_extra_011",
+          "name": "くるみ",
+          "kana": "くるみ",
+          "category": "幻想郷",
+          "category_order": 25,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『幻想郷』に登場する「くるみ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "くるみ"
+          ]
+        },
+        {
+          "char_id": "th_extra_012",
+          "name": "エリー",
+          "kana": "エリー",
+          "category": "幻想郷",
+          "category_order": 25,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『幻想郷』に登場する「エリー」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "エリー"
+          ]
+        },
+        {
+          "char_id": "th_extra_013",
+          "name": "オレンジ",
+          "kana": "オレンジ",
+          "category": "幻想郷",
+          "category_order": 25,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『幻想郷』に登場する「オレンジ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "オレンジ"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "怪綺談",
+      "characters": [
+        {
+          "char_id": "th_extra_014",
+          "name": "サラ",
+          "kana": "サラ",
+          "category": "怪綺談",
+          "category_order": 26,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『怪綺談』に登場する「サラ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "サラ"
+          ]
+        },
+        {
+          "char_id": "th_extra_015",
+          "name": "マイ",
+          "kana": "マイ",
+          "category": "怪綺談",
+          "category_order": 26,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『怪綺談』に登場する「マイ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "マイ"
+          ]
+        },
+        {
+          "char_id": "th_extra_016",
+          "name": "ユキ",
+          "kana": "ユキ",
+          "category": "怪綺談",
+          "category_order": 26,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『怪綺談』に登場する「ユキ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "ユキ"
+          ]
+        },
+        {
+          "char_id": "th_extra_017",
+          "name": "ルイズ",
+          "kana": "ルイズ",
+          "category": "怪綺談",
+          "category_order": 26,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『怪綺談』に登場する「ルイズ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "ルイズ"
+          ]
+        },
+        {
+          "char_id": "th_extra_018",
+          "name": "夢子",
+          "kana": "夢子",
+          "category": "怪綺談",
+          "category_order": 26,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 108,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『怪綺談』に登場する「夢子」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "夢子"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "旧作",
+      "characters": [
+        {
+          "char_id": "pc98_cast",
+          "name": "神綺・魅魔・夢美(旧作組)",
+          "kana": "しんき みま ゆめみ",
+          "category": "旧作",
+          "category_order": 99,
+          "aq1_voice": "f2",
+          "aq1_spd": 90,
+          "aq1_fsc": 125,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『旧作』に登場する「神綺・魅魔・夢美(旧作組)」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "神綺・魅魔・夢美(旧作組)",
+            "神綺",
+            "魅魔",
+            "岡崎夢美",
+            "夢美",
+            "北白河ちゆり",
+            "る~こと",
+            "アリス旧作",
+            "幻月",
+            "夢月"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "書籍・未分類",
+      "characters": [
+        {
+          "char_id": "kosuzu",
+          "name": "本居小鈴",
+          "kana": "もとおり こすず",
+          "category": "書籍・未分類",
+          "category_order": 99,
+          "aq1_voice": "f1",
+          "aq1_spd": 99,
+          "aq1_fsc": 130,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『書籍・未分類』に登場する「本居小鈴」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "本居小鈴",
+            "小鈴",
+            "稗田阿求"
+          ]
+        },
+        {
+          "char_id": "rinnosuke",
+          "name": "森近霖之助",
+          "kana": "もりちか りんのすけ",
+          "category": "書籍・未分類",
+          "category_order": 99,
+          "aq1_voice": "m1",
+          "aq1_spd": 100,
+          "aq1_fsc": 105,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『書籍・未分類』に登場する「森近霖之助」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "森近霖之助",
+            "霖之助",
+            "こーりん"
+          ]
+        },
+        {
+          "char_id": "tsumibukuro",
+          "name": "罪袋",
+          "kana": "つみぶくろ",
+          "category": "書籍・未分類",
+          "category_order": 99,
+          "aq1_voice": "m2",
+          "aq1_spd": 110,
+          "aq1_fsc": 130,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『書籍・未分類』に登場する「罪袋」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "罪袋",
+            "モブ河童",
+            "モブイナバ",
+            "妖精メイド"
+          ]
+        },
+        {
+          "char_id": "kasen",
+          "name": "茨木華扇",
+          "kana": "いばらき かせん",
+          "category": "書籍・未分類",
+          "category_order": 99,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 140,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『書籍・未分類』に登場する「茨木華扇」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "茨木華扇",
+            "華扇",
+            "かせん"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "秘封・儚月抄",
+      "characters": [
+        {
+          "char_id": "renko_merry",
+          "name": "宇佐見蓮子&マエリベリー・ハーン",
+          "kana": "うさみ れんこ めりー",
+          "category": "秘封・儚月抄",
+          "category_order": 99,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 105,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『秘封・儚月抄』に登場する「宇佐見蓮子&マエリベリー・ハーン」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "宇佐見蓮子&マエリベリー・ハーン",
+            "宇佐見蓮子",
+            "蓮子",
+            "マエリベリー・ハーン",
+            "メリー",
+            "綿月依姫",
+            "綿月豊姫",
+            "レイセン"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "花映塚・文花帖",
+      "characters": [
+        {
+          "char_id": "medicine",
+          "name": "メディスン・メランコリー",
+          "kana": "めでぃすん めらんこりー",
+          "category": "花映塚・文花帖",
+          "category_order": 99,
+          "aq1_voice": "f1",
+          "aq1_spd": 100,
+          "aq1_fsc": 105,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『花映塚・文花帖』に登場する「メディスン・メランコリー」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "メディスン・メランコリー",
+            "メディスン"
+          ]
+        },
+        {
+          "char_id": "eiki",
+          "name": "四季映姫・ヤマザナドゥ",
+          "kana": "しきえいき やまざなどぅ",
+          "category": "花映塚・文花帖",
+          "category_order": 99,
+          "aq1_voice": "f2",
+          "aq1_spd": 87,
+          "aq1_fsc": 117,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『花映塚・文花帖』に登場する「四季映姫・ヤマザナドゥ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "四季映姫・ヤマザナドゥ",
+            "四季映姫",
+            "映姫",
+            "えいき"
+          ]
+        },
+        {
+          "char_id": "hatate",
+          "name": "姫海棠はたて",
+          "kana": "ひめかいどう はたて",
+          "category": "花映塚・文花帖",
+          "category_order": 99,
+          "aq1_voice": "f2",
+          "aq1_spd": 84,
+          "aq1_fsc": 121,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『花映塚・文花帖』に登場する「姫海棠はたて」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "姫海棠はたて",
+            "はたて",
+            "ハタテ"
+          ]
+        },
+        {
+          "char_id": "aya",
+          "name": "射命丸文",
+          "kana": "しゃめいまる あや",
+          "category": "花映塚・文花帖",
+          "category_order": 99,
+          "aq1_voice": "f2",
+          "aq1_spd": 100,
+          "aq1_fsc": 125,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『花映塚・文花帖』に登場する「射命丸文」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "射命丸文",
+            "射命丸",
+            "文",
+            "しゃめいまる",
+            "あや"
+          ]
+        },
+        {
+          "char_id": "komachi",
+          "name": "小野塚小町",
+          "kana": "おのづか こまち",
+          "category": "花映塚・文花帖",
+          "category_order": 99,
+          "aq1_voice": "f2",
+          "aq1_spd": 100,
+          "aq1_fsc": 129,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『花映塚・文花帖』に登場する「小野塚小町」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "小野塚小町",
+            "小町",
+            "こまち"
+          ]
+        },
+        {
+          "char_id": "yuuka",
+          "name": "風見幽香",
+          "kana": "かざみ ゆうか",
+          "category": "花映塚・文花帖",
+          "category_order": 99,
+          "aq1_voice": "imd1",
+          "aq1_spd": 100,
+          "aq1_fsc": 160,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『花映塚・文花帖』に登場する「風見幽香」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "風見幽香",
+            "幽香",
+            "ゆうか"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "黄昏作品",
+      "characters": [
+        {
+          "char_id": "suika",
+          "name": "伊吹萃香",
+          "kana": "いぶき すいか",
+          "category": "黄昏作品",
+          "category_order": 99,
+          "aq1_voice": "imd1",
+          "aq1_spd": 100,
+          "aq1_fsc": 150,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『黄昏作品』に登場する「伊吹萃香」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "伊吹萃香",
+            "萃香",
+            "すいか"
+          ]
+        },
+        {
+          "char_id": "joon",
+          "name": "依神女苑",
+          "kana": "よりがみ じょおん",
+          "category": "黄昏作品",
+          "category_order": 99,
+          "aq1_voice": "f1",
+          "aq1_spd": 80,
+          "aq1_fsc": 150,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『黄昏作品』に登場する「依神女苑」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "依神女苑",
+            "女苑",
+            "宇佐見菫子",
+            "饕餮尤魔"
+          ]
+        },
+        {
+          "char_id": "shion",
+          "name": "依神紫苑",
+          "kana": "よりがみ しおん",
+          "category": "黄昏作品",
+          "category_order": 99,
+          "aq1_voice": "f2",
+          "aq1_spd": 70,
+          "aq1_fsc": 140,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『黄昏作品』に登場する「依神紫苑」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "依神紫苑",
+            "紫苑"
+          ]
+        },
+        {
+          "char_id": "tenshi",
+          "name": "比那名居天子",
+          "kana": "ひなない てんし",
+          "category": "黄昏作品",
+          "category_order": 99,
+          "aq1_voice": "f2",
+          "aq1_spd": 75,
+          "aq1_fsc": 134,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『黄昏作品』に登場する「比那名居天子」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "比那名居天子",
+            "天子",
+            "てんこ",
+            "永江衣玖"
+          ]
+        },
+        {
+          "char_id": "kokoro",
+          "name": "秦こころ",
+          "kana": "はた の こころ",
+          "category": "黄昏作品",
+          "category_order": 99,
+          "aq1_voice": "f1",
+          "aq1_spd": 70,
+          "aq1_fsc": 130,
+          "default_bg_keyword": "神社",
+          "canon_profile": "東方Project『黄昏作品』に登場する「秦こころ」。原作の世界観・口調・一人称に忠実に振る舞う。",
+          "aliases": [
+            "秦こころ",
+            "こころ"
+          ]
+        }
+      ]
+    }
+  ],
+  "personalities": [
+    {
+      "id": 1,
+      "name": "ツンデレ",
+      "kana": "つんでれ",
+      "category": "恋愛・好意の表現系",
+      "description": "普段はツンツン・素っ気ないが、好意が強まると照れてデレる。",
+      "sample_line": "「べ、別にあんたのためじゃないんだからね！」",
+      "behavior_pattern": "普段は強気で素っ気ない（ツン）が、特定の相手や二人きりの時に甘える（デレ）。",
+      "source": "両方"
+    },
+    {
+      "id": 2,
+      "name": "ヤンデレ",
+      "kana": "やんでれ",
+      "category": "恋愛・好意の表現系",
+      "description": "好意が強すぎて独占欲・執着が暴走し、病的な愛情表現になる。",
+      "sample_line": "「ずっと一緒だよ…誰にも渡さない」",
+      "behavior_pattern": "相手への愛情が深すぎるあまり精神が病み、束縛・監視・排他的な行動に出る。",
+      "source": "両方"
+    },
+    {
+      "id": 3,
+      "name": "クーデレ",
+      "kana": "くーでれ",
+      "category": "恋愛・好意の表現系",
+      "description": "普段はクールで無表情だが、親しい相手にだけ静かにデレる。",
+      "sample_line": "「…あなたの隣、落ち着く」",
+      "behavior_pattern": "普段は無表情・冷静沈着（クール）だが、心を許した相手にはデレデレになる。",
+      "source": "両方"
+    },
+    {
+      "id": 4,
+      "name": "デレデレ",
+      "kana": "でれでれ",
+      "category": "恋愛・好意の表現系",
+      "description": "好意を隠さず、終始べったり甘える。",
+      "sample_line": "「大好き！ずっとそばにいたい！」",
+      "behavior_pattern": "最初から好意全開で、隠すことなく常に甘えてくる。",
+      "source": "両方"
+    },
+    {
+      "id": 5,
+      "name": "ツンギレ",
+      "kana": "つんぎれ",
+      "category": "恋愛・好意の表現系",
+      "description": "ツンツンが強く、怒りや暴力的な反応が出やすいタイプ。",
+      "sample_line": "「うるさい！いいから黙ってなさいよ！」",
+      "behavior_pattern": "ツンデレの「デレ」がなく、常に怒っている・攻撃的な状態（後にデレる場合もある）。",
+      "source": "両方"
+    },
+    {
+      "id": 6,
+      "name": "ヤンツン",
+      "kana": "やんつん",
+      "category": "恋愛・好意の表現系",
+      "description": "ヤンデレとツンデレの混合。照れ隠しと執着が同居する。",
+      "sample_line": "「他の子と話さないで…って言ってるでしょ！」",
+      "behavior_pattern": "ヤンデレとツンデレの混合。照れ隠しと執着が同居する。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 7,
+      "name": "素直クール",
+      "kana": "すなおくーる",
+      "category": "恋愛・好意の表現系",
+      "description": "落ち着いた雰囲気で、好意をストレートに伝える。",
+      "sample_line": "「君のことが好きだ。それだけだ」",
+      "behavior_pattern": "落ち着いた雰囲気で、好意をストレートに伝える。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 8,
+      "name": "一途系",
+      "kana": "いちずけい",
+      "category": "恋愛・好意の表現系",
+      "description": "ひとりの相手を長く想い続け、ブレない。",
+      "sample_line": "「私はずっとあなただけを見てるよ」",
+      "behavior_pattern": "ひとりの相手を長く想い続け、ブレない。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 9,
+      "name": "オラデレ",
+      "kana": "おらでれ",
+      "category": "恋愛・好意の表現系",
+      "description": "普段は俺様気質で威圧的・乱暴だが、実は一途で甘い一面を持つ。",
+      "sample_line": "",
+      "behavior_pattern": "普段は俺様気質で威圧的・乱暴だが、実は一途で甘い一面を持つ。",
+      "source": "Geminiのみ"
+    },
+    {
+      "id": 10,
+      "name": "サドデレ",
+      "kana": "さどでれ",
+      "category": "恋愛・好意の表現系",
+      "description": "相手をいじめたり罵倒したり（サディスティック）しつつ、愛情表現をする。",
+      "sample_line": "",
+      "behavior_pattern": "相手をいじめたり罵倒したり（サディスティック）しつつ、愛情表現をする。",
+      "source": "Geminiのみ"
+    },
+    {
+      "id": 11,
+      "name": "マゾデレ",
+      "kana": "まぞでれ",
+      "category": "恋愛・好意の表現系",
+      "description": "相手に冷たくされたりいじめられたりすることに喜びを感じて懐く。",
+      "sample_line": "",
+      "behavior_pattern": "相手に冷たくされたりいじめられたりすることに喜びを感じて懐く。",
+      "source": "Geminiのみ"
+    },
+    {
+      "id": 12,
+      "name": "ウザデレ",
+      "kana": "うざでれ",
+      "category": "恋愛・好意の表現系",
+      "description": "馴れ馴れしくからかったり煽ったりしてくるが、根底に好意がある（メスガキ系など）。",
+      "sample_line": "",
+      "behavior_pattern": "馴れ馴れしくからかったり煽ったりしてくるが、根底に好意がある（メスガキ系など）。",
+      "source": "Geminiのみ"
+    },
+    {
+      "id": 13,
+      "name": "姫デレ",
+      "kana": "ひめでれ",
+      "category": "恋愛・好意の表現系",
+      "description": "お姫様のように高飛車でワガママだが、特定の相手には甘える。",
+      "sample_line": "",
+      "behavior_pattern": "お姫様のように高飛車でワガママだが、特定の相手には甘える。",
+      "source": "Geminiのみ"
+    },
+    {
+      "id": 14,
+      "name": "神デレ",
+      "kana": "かみでれ",
+      "category": "恋愛・好意の表現系",
+      "description": "普段は神々しく慈愛に満ちている（または見下している）が、特定個人にだけ特別な甘さを見せる。",
+      "sample_line": "",
+      "behavior_pattern": "普段は神々しく慈愛に満ちている（または見下している）が、特定個人にだけ特別な甘さを見せる。",
+      "source": "Geminiのみ"
+    },
+    {
+      "id": 15,
+      "name": "メンヘラ",
+      "kana": "めんへら",
+      "category": "感情・メンタル系",
+      "description": "ネットスラング。感情の浮き沈みが激しく、不安から依存や「かまってほしい」行動が出やすい人を指す俗称。実際の精神疾患を指す正式用語ではなく、揶揄に使うと失礼になる点に注意。",
+      "sample_line": "「私のこと、ちゃんと好き？ねえ返事して」",
+      "behavior_pattern": "精神的に不安定で承認欲求や依存心が強く、相手からの愛情を常に確認したがる。",
+      "source": "両方"
+    },
+    {
+      "id": 16,
+      "name": "依存系",
+      "kana": "いぞんけい",
+      "category": "感情・メンタル系",
+      "description": "特定の人に精神的に頼り切り、離れると不安になる。",
+      "sample_line": "「あなたがいないと何もできないの」",
+      "behavior_pattern": "特定の人に精神的に頼り切り、離れると不安になる。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 17,
+      "name": "ダウナー系",
+      "kana": "だうなーけい",
+      "category": "感情・メンタル系",
+      "description": "テンションが低く、気だるげ・やる気なさげ。",
+      "sample_line": "「…まあ、どうでもいいけど」",
+      "behavior_pattern": "常に気だるげでテンションが低いが、特定の相手には世話を焼いたり甘えたりする。",
+      "source": "両方"
+    },
+    {
+      "id": 18,
+      "name": "繊細さん（HSP気質系）",
+      "kana": "せんさいさん",
+      "category": "感情・メンタル系",
+      "description": "刺激や他人の感情に敏感で、気疲れしやすい。",
+      "sample_line": "「周りの空気が気になって疲れちゃう」",
+      "behavior_pattern": "刺激や他人の感情に敏感で、気疲れしやすい。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 19,
+      "name": "引っ込み思案",
+      "kana": "ひっこみじあん",
+      "category": "感情・メンタル系",
+      "description": "内気で人見知り。自分から前に出るのが苦手。",
+      "sample_line": "「あ、あの…えっと…」",
+      "behavior_pattern": "内気で人見知り。自分から前に出るのが苦手。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 20,
+      "name": "ぼっち系",
+      "kana": "ぼっちけい",
+      "category": "感情・メンタル系",
+      "description": "ひとりを好む、または孤立しがち。",
+      "sample_line": "「ひとりのほうが気楽だから」",
+      "behavior_pattern": "ひとりを好む、または孤立しがち。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 21,
+      "name": "重たい（重愛）",
+      "kana": "おもたい（じゅうあい）",
+      "category": "感情・メンタル系",
+      "description": "ヤンデレほど狂気的ではないが、愛情表現や見返りを求める熱量が圧倒的に重い。",
+      "sample_line": "",
+      "behavior_pattern": "ヤンデレほど狂気的ではないが、愛情表現や見返りを求める熱量が圧倒的に重い。",
+      "source": "Geminiのみ"
+    },
+    {
+      "id": 22,
+      "name": "共依存",
+      "kana": "きょういぞん",
+      "category": "感情・メンタル系",
+      "description": "お互いが相手なしでは生きられない状態になり、ズブズブの関係に陥る。",
+      "sample_line": "",
+      "behavior_pattern": "お互いが相手なしでは生きられない状態になり、ズブズブの関係に陥る。",
+      "source": "Geminiのみ"
+    },
+    {
+      "id": 23,
+      "name": "地雷系",
+      "kana": "じらいけい",
+      "category": "感情・メンタル系",
+      "description": "ファッションや雰囲気は可愛らしいが、内面に強い執着・不安定さ・攻撃性を秘めている。",
+      "sample_line": "",
+      "behavior_pattern": "ファッションや雰囲気は可愛らしいが、内面に強い執着・不安定さ・攻撃性を秘めている。",
+      "source": "Geminiのみ"
+    },
+    {
+      "id": 24,
+      "name": "独占欲強め",
+      "kana": "どくせんよくつよめ",
+      "category": "感情・メンタル系",
+      "description": "相手が他の人と話すだけで強い嫉妬心を抱き、自分だけのものにしようとする。",
+      "sample_line": "",
+      "behavior_pattern": "相手が他の人と話すだけで強い嫉妬心を抱き、自分だけのものにしようとする。",
+      "source": "Geminiのみ"
+    },
+    {
+      "id": 25,
+      "name": "アッパー系",
+      "kana": "あっぱーけい",
+      "category": "感情・メンタル系",
+      "description": "常にハイテンションで明るく、距離感ゼロでグイグイ距離を詰めてくる。",
+      "sample_line": "",
+      "behavior_pattern": "常にハイテンションで明るく、距離感ゼロでグイグイ距離を詰めてくる。",
+      "source": "Geminiのみ"
+    },
+    {
+      "id": 26,
+      "name": "天然",
+      "kana": "てんねん",
+      "category": "言動・口調系",
+      "description": "悪気なく的外れ・無自覚な言動をして周囲を和ませる。",
+      "sample_line": "「えっ？私、何か変なこと言った？」",
+      "behavior_pattern": "悪気なくズレた言動をし、無自覚に相手をドキッとさせる言動をとる。",
+      "source": "両方"
+    },
+    {
+      "id": 27,
+      "name": "ドジっ子",
+      "kana": "どじっこ",
+      "category": "言動・口調系",
+      "description": "うっかりミスや転倒が多いが憎めない。",
+      "sample_line": "「きゃっ！ご、ごめんなさい！」",
+      "behavior_pattern": "うっかりミスや転倒が多いが憎めない。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 28,
+      "name": "おバカ（アホの子）",
+      "kana": "おばか",
+      "category": "言動・口調系",
+      "description": "勉強や常識は苦手だが、明るく素直。",
+      "sample_line": "「えーっと、1+1は…3？」",
+      "behavior_pattern": "勉強や常識は苦手だが、明るく素直。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 29,
+      "name": "毒舌系",
+      "kana": "どくぜつけい",
+      "category": "言動・口調系",
+      "description": "歯に衣着せぬ辛辣な物言い。",
+      "sample_line": "「それ、本気で言ってるなら正気を疑うわ」",
+      "behavior_pattern": "歯に衣着せぬ辛辣な物言い。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 30,
+      "name": "ボクっ娘",
+      "kana": "ぼくっこ",
+      "category": "言動・口調系",
+      "description": "女性キャラが一人称に「ボク」を使う。",
+      "sample_line": "「ボクだって負けないよ！」",
+      "behavior_pattern": "一人称が「ボク」「俺」で、ボーイッシュ・活発、あるいは少しミステリアスな雰囲気を持つ。",
+      "source": "両方"
+    },
+    {
+      "id": 31,
+      "name": "お嬢様口調",
+      "kana": "おじょうさまくちょう",
+      "category": "言動・口調系",
+      "description": "上品で丁寧、時に高飛車な話し方。",
+      "sample_line": "「おーほっほっほ！ごきげんよう」",
+      "behavior_pattern": "上品で丁寧、時に高飛車な話し方。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 32,
+      "name": "厨二病",
+      "kana": "ちゅうにびょう",
+      "category": "言動・口調系",
+      "description": "中二の頃にありがちな、自意識過剰・背伸びした言動や設定を好む。",
+      "sample_line": "「我が右腕に封印されし力が…！」",
+      "behavior_pattern": "中二の頃にありがちな、自意識過剰・背伸びした言動や設定を好む。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 33,
+      "name": "無口・無表情",
+      "kana": "むくち・むひょうじょう",
+      "category": "言動・口調系",
+      "description": "口数が少なく、感情が表に出にくい。",
+      "sample_line": "「…そう」",
+      "behavior_pattern": "感情が顔や言葉に出にくいが、行動や視線で好意を示している。",
+      "source": "両方"
+    },
+    {
+      "id": 34,
+      "name": "天邪鬼（あまのじゃく）",
+      "kana": "あまのじゃく",
+      "category": "言動・口調系",
+      "description": "本心とは真逆の言葉や態度をとってしまう（ツンデレの言語面に近い）。",
+      "sample_line": "",
+      "behavior_pattern": "本心とは真逆の言葉や態度をとってしまう（ツンデレの言語面に近い）。",
+      "source": "Geminiのみ"
+    },
+    {
+      "id": 35,
+      "name": "真面目・委員長系",
+      "kana": "まじめ・いいんちょうけい",
+      "category": "性格・態度系",
+      "description": "規律や責任を重んじ、堅物でしっかり者。",
+      "sample_line": "「校則違反は見過ごせません」",
+      "behavior_pattern": "規律や責任を重んじ、堅物でしっかり者。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 36,
+      "name": "腹黒",
+      "kana": "はらぐろ",
+      "category": "性格・態度系",
+      "description": "表向きは親切・無害だが、内面では計算高い。",
+      "sample_line": "「ふふ、全部計算どおりですよ」",
+      "behavior_pattern": "表向きはニコニコして優等生・聖人だが、裏では計算高く黒い本音を持っている。",
+      "source": "両方"
+    },
+    {
+      "id": 37,
+      "name": "サバサバ系",
+      "kana": "さばさばけい",
+      "category": "性格・態度系",
+      "description": "さっぱりして気取らず、細かいことにこだわらない。",
+      "sample_line": "「まあいいんじゃない？気にしない気にしない」",
+      "behavior_pattern": "さっぱりして気取らず、細かいことにこだわらない。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 38,
+      "name": "ポジティブ元気系",
+      "kana": "ぽじてぃぶげんきけい",
+      "category": "性格・態度系",
+      "description": "常に明るく前向きで、周囲を引っ張る。",
+      "sample_line": "「大丈夫！なんとかなるって！」",
+      "behavior_pattern": "常に明るく前向きで、周囲を引っ張る。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 39,
+      "name": "おっとり系",
+      "kana": "おっとりけい",
+      "category": "性格・態度系",
+      "description": "穏やかでマイペース、のんびりした雰囲気。",
+      "sample_line": "「あらあら、ゆっくりでいいのよ」",
+      "behavior_pattern": "穏やかでマイペース、のんびりした雰囲気。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 40,
+      "name": "俺様系",
+      "kana": "おれさまけい",
+      "category": "性格・態度系",
+      "description": "自信家で強引、周囲を引っ張るリーダー気質。",
+      "sample_line": "「黙って俺についてこい」",
+      "behavior_pattern": "自信家で強引、周囲を引っ張るリーダー気質。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 41,
+      "name": "小悪魔系",
+      "kana": "こあくまけい",
+      "category": "性格・態度系",
+      "description": "相手を翻弄する可愛い駆け引き上手。",
+      "sample_line": "「ふふ、どうしようかなぁ？」",
+      "behavior_pattern": "思わせぶりな言動やボディタッチで相手を翻弄し、反応を楽しむ。",
+      "source": "両方"
+    },
+    {
+      "id": 42,
+      "name": "ポンコツ",
+      "kana": "ぽんこつ",
+      "category": "性格・態度系",
+      "description": "能力は高そうなのに、肝心なところで抜けている。",
+      "sample_line": "「あれ？また鍵かけ忘れた…」",
+      "behavior_pattern": "悪気なくズレた言動をし、無自覚に相手をドキッとさせる言動をとる。",
+      "source": "両方"
+    },
+    {
+      "id": 43,
+      "name": "クズ系（ダメ人間）",
+      "kana": "くずけい",
+      "category": "性格・態度系",
+      "description": "だらしなく怠惰・無責任だが、どこか憎めない。",
+      "sample_line": "「明日からやる。たぶん」",
+      "behavior_pattern": "だらしなく怠惰・無責任だが、どこか憎めない。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 44,
+      "name": "ギャップ萌え",
+      "kana": "ぎゃっぷもえ",
+      "category": "ギャップ・役割系",
+      "description": "普段の印象と意外な一面との落差で魅力が際立つ。",
+      "sample_line": "「実は甘いもの大好きなんだ…」",
+      "behavior_pattern": "普段の印象と意外な一面との落差で魅力が際立つ。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 45,
+      "name": "ミステリアス系",
+      "kana": "みすてりあすけい",
+      "category": "ギャップ・役割系",
+      "description": "過去や本心が見えず、掴みどころがない。",
+      "sample_line": "「…さあ、どうでしょうね」",
+      "behavior_pattern": "過去や本心が見えず、掴みどころがない。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 46,
+      "name": "世話焼き系",
+      "kana": "せわやきけい",
+      "category": "ギャップ・役割系",
+      "description": "面倒見が良く、つい人の世話を焼いてしまう。",
+      "sample_line": "「ちゃんとご飯食べた？ほら、ネクタイ曲がってる」",
+      "behavior_pattern": "面倒見が良く、つい人の世話を焼いてしまう。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 47,
+      "name": "お姉さん系",
+      "kana": "おねえさんけい",
+      "category": "ギャップ・役割系",
+      "description": "包容力があり、年上らしく甘やかしてくれる。",
+      "sample_line": "「大丈夫、お姉さんに任せなさい」",
+      "behavior_pattern": "包容力があり、相手を甘やかしてダメにする（バブみ・ママみを感じさせる）。",
+      "source": "両方"
+    },
+    {
+      "id": 48,
+      "name": "妹系",
+      "kana": "いもうとけい",
+      "category": "ギャップ・役割系",
+      "description": "甘え上手で守ってあげたくなる雰囲気。",
+      "sample_line": "「お兄ちゃん、助けて〜！」",
+      "behavior_pattern": "年下気質で人懐っこく、庇護欲をかき立てる言動が多い。",
+      "source": "両方"
+    },
+    {
+      "id": 49,
+      "name": "ブラコン／シスコン",
+      "kana": "ぶらこん／しすこん",
+      "category": "ギャップ・役割系",
+      "description": "兄弟姉妹への愛情が非常に強い。",
+      "sample_line": "「お兄ちゃんは私が守るんだから！」",
+      "behavior_pattern": "兄弟姉妹への愛情が非常に強い。",
+      "source": "Copilotのみ"
+    },
+    {
+      "id": 50,
+      "name": "不良（ヤンキー）系",
+      "kana": "ふりょう（やんきー）けい",
+      "category": "ギャップ・役割系",
+      "description": "荒っぽい見た目や口調だが、根は仁義に厚い。",
+      "sample_line": "「別に…ほっとけねえだけだ」",
+      "behavior_pattern": "荒っぽい見た目や口調だが、根は仁義に厚い。",
+      "source": "Copilotのみ"
+    }
+  ],
+  "stage_catalog": {
+    "distance_presets": [
+      {
+        "id": "far",
+        "label": "遠景（遠くにいる）",
+        "scale": 0.72,
+        "origin_y_pct": 86,
+        "offset_y_vh": 2.0,
+        "bg_zoom": 1.0,
+        "bg_blur_px": 0.0,
+        "desc": "離れた場所から声をかける・見送る距離感（72%縮小）"
+      },
+      {
+        "id": "slightly_far",
+        "label": "やや遠め（控えめな距離）",
+        "scale": 0.86,
+        "origin_y_pct": 78,
+        "offset_y_vh": 1.0,
+        "bg_zoom": 1.01,
+        "bg_blur_px": 0.0,
+        "desc": "初対面や警戒中・少し距離を置いた立ち位置（86%）"
+      },
+      {
+        "id": "normal",
+        "label": "標準（通常の会話距離）",
+        "scale": 1.0,
+        "origin_y_pct": 55,
+        "offset_y_vh": 0.0,
+        "bg_zoom": 1.02,
+        "bg_blur_px": 0.0,
+        "desc": "自然な立ち話・日常会話の標準サイズ（100%）"
+      },
+      {
+        "id": "close",
+        "label": "接近（一歩歩み寄る）",
+        "scale": 1.18,
+        "origin_y_pct": 26,
+        "offset_y_vh": 3.5,
+        "bg_zoom": 1.05,
+        "bg_blur_px": 0.8,
+        "desc": "親しくなって一歩近づく・袖を掴む距離感（118%拡大）"
+      },
+      {
+        "id": "very_close",
+        "label": "急接近（顔を近づける・覗き込み）",
+        "scale": 1.38,
+        "origin_y_pct": 23,
+        "offset_y_vh": 6.0,
+        "bg_zoom": 1.08,
+        "bg_blur_px": 1.8,
+        "desc": "耳元で囁く・じっと瞳を見つめるアップ演出（138%拡大＋背景ボケ）"
+      },
+      {
+        "id": "hug_closeup",
+        "label": "至近距離（抱擁・ゼロ距離アップ）",
+        "scale": 1.56,
+        "origin_y_pct": 22,
+        "offset_y_vh": 8.0,
+        "bg_zoom": 1.12,
+        "bg_blur_px": 2.8,
+        "desc": "ぎゅっと抱きしめる・キス寸前の超至近距離（156%拡大＋背景ボケ）"
+      }
+    ],
+    "motion_presets": [
+      {
+        "id": "none",
+        "category": "基本",
+        "label": "静止（トランジションのみ）",
+        "duration_ms": 450,
+        "desc": "拡大縮小・移動のみを滑らかに補間"
+      },
+      {
+        "id": "slide_in_left",
+        "category": "登場・移動",
+        "label": "左からスライドイン",
+        "duration_ms": 680,
+        "desc": "画面左側からすっと歩み出て登場"
+      },
+      {
+        "id": "slide_in_right",
+        "category": "登場・移動",
+        "label": "右からスライドイン",
+        "duration_ms": 680,
+        "desc": "画面右側からすっと歩み出て登場"
+      },
+      {
+        "id": "fade_zoom_in",
+        "category": "登場・移動",
+        "label": "フェード＆ズーム登場",
+        "duration_ms": 700,
+        "desc": "奥からふわりと浮かび上がるように登場"
+      },
+      {
+        "id": "float_in",
+        "category": "登場・移動",
+        "label": "ふわりと舞い降りる",
+        "duration_ms": 820,
+        "desc": "幻想郷らしく宙から軽やかに着地"
+      },
+      {
+        "id": "step_closer",
+        "category": "登場・移動",
+        "label": "歩み寄る（歩行ステップ）",
+        "duration_ms": 720,
+        "desc": "トコトコと上下に揺れながら距離を詰める"
+      },
+      {
+        "id": "step_back",
+        "category": "登場・移動",
+        "label": "一歩後ずさる",
+        "duration_ms": 580,
+        "desc": "照れや驚きで少し後ろへ下がる"
+      },
+      {
+        "id": "nod",
+        "category": "感情・強調",
+        "label": "頷く（うんうん）",
+        "duration_ms": 560,
+        "desc": "肯定・納得して優しく縦に頷く"
+      },
+      {
+        "id": "head_tilt",
+        "category": "感情・強調",
+        "label": "小首をかしげる",
+        "duration_ms": 620,
+        "desc": "「？」と不思議そう・あざと可愛く傾く"
+      },
+      {
+        "id": "jump_happy",
+        "category": "感情・強調",
+        "label": "喜びジャンプ（ぴょんっ）",
+        "duration_ms": 600,
+        "desc": "嬉しくて弾むように跳ねる"
+      },
+      {
+        "id": "double_bounce",
+        "category": "感情・強調",
+        "label": "2回はずむ（ワクワク）",
+        "duration_ms": 680,
+        "desc": "楽しそうにトントンと2回弾む"
+      },
+      {
+        "id": "tremble",
+        "category": "感情・強調",
+        "label": "プルプル震える（照れ・涙・緊張）",
+        "duration_ms": 700,
+        "desc": "羞恥や感極まりで小刻みに震える"
+      },
+      {
+        "id": "shake_angry",
+        "category": "感情・強調",
+        "label": "ムッと揺れる（怒り・ツッコミ）",
+        "duration_ms": 540,
+        "desc": "怒りや焦りで左右に強く揺れる"
+      },
+      {
+        "id": "sway_gentle",
+        "category": "感情・強調",
+        "label": "ゆったり揺れる（甘え・リラックス）",
+        "duration_ms": 950,
+        "desc": "安心しきって左右にふわりと体を揺らす"
+      },
+      {
+        "id": "lean_in",
+        "category": "親密・特殊",
+        "label": "グッと身を乗り出す（覗き込み）",
+        "duration_ms": 680,
+        "desc": "いたずらっぽく、または甘えて顔を近づける"
+      },
+      {
+        "id": "hug_surge",
+        "category": "親密・特殊",
+        "label": "ぎゅっと抱きつく",
+        "duration_ms": 760,
+        "desc": "一気に胸元へ飛び込んで密着する"
+      },
+      {
+        "id": "surprised_jolt",
+        "category": "感情・強調",
+        "label": "ビクッと跳ねる（驚き）",
+        "duration_ms": 480,
+        "desc": "不意を突かれてビクッと反応する"
+      },
+      {
+        "id": "spin_turn",
+        "category": "親密・特殊",
+        "label": "くるっと華麗にターン",
+        "duration_ms": 780,
+        "desc": "プレゼンのスピン演出のように一回転して見せる"
+      }
+    ],
+    "screen_effects": [
+      {
+        "id": "none",
+        "label": "なし（標準）"
+      },
+      {
+        "id": "warm_bloom",
+        "label": "暖色ブルーム（甘い雰囲気・夕暮れ・親密）"
+      },
+      {
+        "id": "sparkle_glow",
+        "label": "ときめき発光（好感度アップ・笑顔・祝福）"
+      },
+      {
+        "id": "heartbeat_pulse",
+        "label": "鼓動ビネット（ドキドキ・急接近・告白）"
+      },
+      {
+        "id": "screen_shake",
+        "label": "画面シェイク（衝撃・ツッコミ・大驚き）"
+      },
+      {
+        "id": "dark_vignette",
+        "label": "シリアス・ヤンデレ暗転縁取り（独占欲・緊迫）"
+      }
+    ],
+    "builtin_sound_effects": [
+      {
+        "se_id": "footsteps_walk",
+        "name": "歩み寄る足音（コツコツ）",
+        "category": "移動・日常",
+        "keywords": "足音,歩く,近づく,歩み寄る,登場"
+      },
+      {
+        "se_id": "footsteps_run",
+        "name": "駆け寄る足音（タタタッ）",
+        "category": "移動・日常",
+        "keywords": "走る,駆け寄る,急ぐ"
+      },
+      {
+        "se_id": "cloth_rustle",
+        "name": "衣擦れ・袖を掴む音（サッ）",
+        "category": "距離・スキンシップ",
+        "keywords": "衣擦れ,服,袖,近づく,隣に座る,手を繋ぐ"
+      },
+      {
+        "se_id": "hug_embrace",
+        "name": "抱きしめる音（ギュッ）",
+        "category": "距離・スキンシップ",
+        "keywords": "ハグ,抱きつく,抱きしめる,ぎゅー,密着"
+      },
+      {
+        "se_id": "heartbeat",
+        "name": "心臓の鼓動（ドキッ…ドキッ…）",
+        "category": "感情・恋愛",
+        "keywords": "鼓動,ドキッ,胸が高鳴る,緊張,見つめる"
+      },
+      {
+        "se_id": "heartbeat_fast",
+        "name": "早鐘の鼓動（ドキドキッ！）",
+        "category": "感情・恋愛",
+        "keywords": "ドキドキ,急接近,告白,キス,限界"
+      },
+      {
+        "se_id": "sparkle_twinkle",
+        "name": "きらめき・好感度UP（キラリーン✨）",
+        "category": "感情・恋愛",
+        "keywords": "きらめき,笑顔,嬉しい,ときめき,好印象"
+      },
+      {
+        "se_id": "blush_pop",
+        "name": "赤面・照れポップ（ポッ…）",
+        "category": "感情・恋愛",
+        "keywords": "赤面,照れる,頬を染める,恥ずかしい"
+      },
+      {
+        "se_id": "question_pon",
+        "name": "疑問・小首かしげ（ぽんっ？）",
+        "category": "感情・リアクション",
+        "keywords": "疑問,はてな,きょとん,首をかしげる"
+      },
+      {
+        "se_id": "surprised_biku",
+        "name": "驚き・ひらめき（ビクッ！／ピコーン）",
+        "category": "感情・リアクション",
+        "keywords": "驚く,びっくり,ハッとする,目を丸くする"
+      },
+      {
+        "se_id": "angry_boom",
+        "name": "ムッ・怒りアクセント（ドンッ）",
+        "category": "感情・リアクション",
+        "keywords": "怒る,ムッとする,睨む,不満"
+      },
+      {
+        "se_id": "slap_tsukkomi",
+        "name": "軽いツッコミ・手拍子（パシッ！）",
+        "category": "感情・リアクション",
+        "keywords": "ツッコミ,叩く,パシッ,手を叩く"
+      },
+      {
+        "se_id": "dark_yandere",
+        "name": "不穏・独占欲ゾクッ（低音残響）",
+        "category": "シリアス・特殊",
+        "keywords": "ヤンデレ,独占,逃がさない,狂気,ゾクッ,影"
+      },
+      {
+        "se_id": "sigh_soft",
+        "name": "吐息・安堵のため息（ふぅ…）",
+        "category": "距離・スキンシップ",
+        "keywords": "吐息,ため息,呼吸,耳元,落ち着く"
+      },
+      {
+        "se_id": "door_knock",
+        "name": "ドアノック（コンコン）",
+        "category": "移動・日常",
+        "keywords": "ノック,扉,部屋,訪問"
+      },
+      {
+        "se_id": "door_open",
+        "name": "扉が開く音（ガチャ…）",
+        "category": "移動・日常",
+        "keywords": "ドアを開ける,扉,入室,室内"
+      },
+      {
+        "se_id": "tea_pour",
+        "name": "お茶を注ぐ音（トクトク…）",
+        "category": "移動・日常",
+        "keywords": "お茶,紅茶,注ぐ,湯呑み,ティータイム,休憩"
+      },
+      {
+        "se_id": "wind_breeze",
+        "name": "幻想郷のそよ風（サーッ…）",
+        "category": "環境・幻想郷",
+        "keywords": "風,そよ風,境内,森,空,舞い降りる,桜"
+      },
+      {
+        "se_id": "magic_chime",
+        "name": "魔法・神秘チャイム（シャラン✨）",
+        "category": "環境・幻想郷",
+        "keywords": "魔法,幻想的,弾幕,紅魔館,妖気,奇跡"
+      },
+      {
+        "se_id": "wedding_bell",
+        "name": "祝福のウェディングベル（カランコロン🔔）",
+        "category": "感情・恋愛",
+        "keywords": "結婚式,プロポーズ,永遠,誓い,祝福"
+      }
+    ],
+    "custom_presets": []
+  },
+  "prompt_plans": [
+    {
+      "id": "p10",
+      "prompts": 10,
+      "price_yen": 100,
+      "unit_yen": 10.0,
+      "monthly_limit": null,
+      "page": 1,
+      "tagline": "お試し利用に最適"
+    },
+    {
+      "id": "p20",
+      "prompts": 20,
+      "price_yen": 200,
+      "unit_yen": 10.0,
+      "monthly_limit": null,
+      "page": 1,
+      "tagline": "短時間利用なら"
+    },
+    {
+      "id": "p50",
+      "prompts": 50,
+      "price_yen": 400,
+      "unit_yen": 8.0,
+      "monthly_limit": null,
+      "page": 1,
+      "tagline": "10prompt分お得"
+    },
+    {
+      "id": "p100",
+      "prompts": 100,
+      "price_yen": 800,
+      "unit_yen": 8.0,
+      "monthly_limit": null,
+      "page": 1,
+      "tagline": "ボリューミー"
+    },
+    {
+      "id": "p200",
+      "prompts": 200,
+      "price_yen": 1200,
+      "unit_yen": 6.0,
+      "monthly_limit": null,
+      "page": 2,
+      "tagline": "さらにコスパアップ"
+    },
+    {
+      "id": "p500",
+      "prompts": 500,
+      "price_yen": 1500,
+      "unit_yen": 3.0,
+      "monthly_limit": null,
+      "page": 2,
+      "tagline": "一番人気の高コスパ"
+    },
+    {
+      "id": "p1000",
+      "prompts": 1000,
+      "price_yen": 2000,
+      "unit_yen": 2.0,
+      "monthly_limit": 3,
+      "page": 2,
+      "tagline": "毎日たっぷり話せる"
+    },
+    {
+      "id": "p2000",
+      "prompts": 2000,
+      "price_yen": 3000,
+      "unit_yen": 1.5,
+      "monthly_limit": 2,
+      "page": 2,
+      "tagline": "長期間の相棒に"
+    },
+    {
+      "id": "p5000",
+      "prompts": 5000,
+      "price_yen": 4000,
+      "unit_yen": 0.8,
+      "monthly_limit": 1,
+      "page": 3,
+      "tagline": "限界突破の大容量"
+    },
+    {
+      "id": "p10000",
+      "prompts": 10000,
+      "price_yen": 5000,
+      "unit_yen": 0.5,
+      "monthly_limit": 1,
+      "page": 3,
+      "tagline": "最安値・究極のまとめ買い"
+    }
+  ],
+  "auto_charge_plans": [
+    {
+      "id": "ac1",
+      "prompts": 1,
+      "price_yen": 10,
+      "label": "1prompt : ¥10"
+    },
+    {
+      "id": "ac10",
+      "prompts": 10,
+      "price_yen": 100,
+      "label": "10prompt : ¥100"
+    },
+    {
+      "id": "ac20",
+      "prompts": 20,
+      "price_yen": 200,
+      "label": "20prompt : ¥200"
+    },
+    {
+      "id": "ac50",
+      "prompts": 50,
+      "price_yen": 400,
+      "label": "50prompt : ¥400"
+    },
+    {
+      "id": "ac100",
+      "prompts": 100,
+      "price_yen": 800,
+      "label": "100prompt : ¥800"
+    },
+    {
+      "id": "ac200",
+      "prompts": 200,
+      "price_yen": 800,
+      "label": "200prompt : ¥800"
+    },
+    {
+      "id": "ac500",
+      "prompts": 500,
+      "price_yen": 800,
+      "label": "500prompt : ¥800"
+    },
+    {
+      "id": "none",
+      "prompts": 0,
+      "price_yen": 0,
+      "label": "オートチャージなし"
+    }
+  ],
+  "voice_plans": [
+    {
+      "id": "vp_30d",
+      "kind": "pass",
+      "days": 30,
+      "credits": 0,
+      "price_yen": 200,
+      "label": "30日間フルボイスパス : ¥200",
+      "desc": "30日間回数無制限でAquesTalk1ボイス再生"
+    },
+    {
+      "id": "vp_365d",
+      "kind": "pass",
+      "days": 365,
+      "credits": 0,
+      "price_yen": 1200,
+      "label": "1年間フルボイスパス : ¥1,200",
+      "desc": "365日間回数無制限（年間サーバー維持費の約90分の1を分担）"
+    },
+    {
+      "id": "vt_100",
+      "kind": "ticket",
+      "days": 0,
+      "credits": 100,
+      "price_yen": 100,
+      "label": "ボイス100セリフ枠 : ¥100",
+      "desc": "使った分だけ消費（1セリフ再生＝1消費・期限なし）"
+    },
+    {
+      "id": "vt_300",
+      "kind": "ticket",
+      "days": 0,
+      "credits": 300,
+      "price_yen": 250,
+      "label": "ボイス300セリフ枠 : ¥250",
+      "desc": "まとめ買いでお得な従量ボイス枠（期限なし）"
+    }
+  ],
+  "voice_pool": {
+    "period": "standalone",
+    "target_yen": 157300,
+    "collected_yen": 0,
+    "remaining_yen": 157300,
+    "progress_pct": 0.0,
+    "is_goal_reached": false
+  },
+  "deposit_options": [
+    {
+      "gross_yen": 500,
+      "fee_yen": 58,
+      "net_yen": 442
+    },
+    {
+      "gross_yen": 1000,
+      "fee_yen": 76,
+      "net_yen": 924
+    },
+    {
+      "gross_yen": 2000,
+      "fee_yen": 112,
+      "net_yen": 1888
+    },
+    {
+      "gross_yen": 3000,
+      "fee_yen": 148,
+      "net_yen": 2852
+    },
+    {
+      "gross_yen": 5000,
+      "fee_yen": 220,
+      "net_yen": 4780
+    },
+    {
+      "gross_yen": 10000,
+      "fee_yen": 400,
+      "net_yen": 9600
+    }
+  ],
+  "monthly_purchase_counts": {},
+  "bg_generation_cost_yen": 100
+}

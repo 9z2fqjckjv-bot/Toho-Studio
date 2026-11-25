@@ -1,0 +1,1063 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+html, body, #app {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans CJK JP", "Yu Gothic", sans-serif;
+  background: #4db8ff;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.screen {
+  display: none;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.screen.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sky-bg {
+  background: #4db8ff;
+  color: #ffffff;
+}
+
+.center-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  max-width: 820px;
+  width: 100%;
+}
+
+.center-stack.wide {
+  max-width: 1060px;
+}
+
+.sky-title {
+  font-size: clamp(30px, 4.2vw, 52px);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  margin-bottom: 26px;
+  text-shadow: 0 2px 6px rgba(0, 56, 108, 0.12);
+}
+
+.sky-sub {
+  margin-top: 12px;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.sky-note {
+  font-size: 18px;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 18px 28px;
+  border-radius: 12px;
+}
+
+.bottom-notice {
+  position: absolute;
+  bottom: 36px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 22px;
+  color: #081c2c;
+}
+
+.dotted-spinner {
+  width: 96px;
+  height: 96px;
+  border: 4px dotted #061826;
+  border-radius: 50%;
+  animation: spin 3.2s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.action-btn {
+  background: #0099ff;
+  color: #071928;
+  border: none;
+  padding: 16px 38px;
+  min-width: 210px;
+  font-size: 22px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.15s ease;
+  box-shadow: 0 4px 12px rgba(0, 50, 100, 0.16);
+}
+
+.action-btn:hover:not(:disabled) {
+  background: #1aa6ff;
+  transform: translateY(-2px);
+}
+
+.action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.action-btn.wide-btn {
+  min-width: 360px;
+  padding: 18px 42px;
+}
+
+.action-btn.small {
+  min-width: 160px;
+  padding: 10px 20px;
+  font-size: 15px;
+}
+
+.sky-input {
+  width: min(680px, 88vw);
+  padding: 20px 24px;
+  font-size: 20px;
+  border: none;
+  border-radius: 10px;
+  background: #d6d8db;
+  color: #111827;
+  text-align: center;
+  margin-bottom: 24px;
+  user-select: text;
+}
+
+.sky-input:focus {
+  outline: 3px solid #0077cc;
+  background: #ffffff;
+}
+
+.back-corner-btn {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  background: #0099ff;
+  color: #071928;
+  border: none;
+  padding: 16px 46px;
+  font-size: 22px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.back-corner-btn:hover {
+  background: #1aa6ff;
+}
+
+.err-msg {
+  margin-top: 14px;
+  color: #7f1d1d;
+  background: rgba(254, 226, 226, 0.92);
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.err-msg:empty {
+  display: none;
+}
+
+/* ローカル素材フォルダ設定パネル */
+.local-assets-card {
+  margin-top: 20px;
+  width: min(760px, 92vw);
+  background: rgba(6, 36, 68, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 14px 18px;
+  border-radius: 12px;
+  text-align: left;
+  font-size: 13px;
+}
+
+.assets-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.assets-badge {
+  background: rgba(255, 255, 255, 0.22);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.assets-badge.ok {
+  background: rgba(16, 185, 129, 0.85);
+  color: #fff;
+}
+
+.assets-badge.warn {
+  background: rgba(245, 158, 11, 0.9);
+  color: #0f172a;
+}
+
+.assets-input-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.assets-input-row input {
+  flex: 1;
+  min-width: 240px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: none;
+  user-select: text;
+}
+
+.assets-advanced {
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.92;
+}
+
+.assets-advanced summary {
+  cursor: pointer;
+}
+
+.assets-sub-grid {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 6px 10px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.assets-sub-grid input {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: none;
+  user-select: text;
+}
+
+.resume-card {
+  margin-top: 16px;
+  background: rgba(255, 255, 255, 0.25);
+  padding: 14px 22px;
+  border-radius: 12px;
+}
+
+.row-btns {
+  display: flex;
+  gap: 18px;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.server-cfg-bar {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  opacity: 0.88;
+}
+
+.server-cfg-bar input {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: none;
+  width: 230px;
+  user-select: text;
+}
+
+.mini-btn {
+  padding: 7px 12px;
+  border: none;
+  border-radius: 6px;
+  background: #0284c7;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.mini-btn.secondary {
+  background: #334155;
+}
+
+.mini-btn:hover {
+  filter: brightness(1.08);
+}
+
+/* Slide 17: キャラクターと性別選択 */
+.char-select-layout {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  width: min(1200px, 94vw);
+  height: 88vh;
+  align-items: center;
+}
+
+.char-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #054472;
+}
+
+.char-heading {
+  font-size: clamp(28px, 3.4vw, 44px);
+  line-height: 1.35;
+  margin-bottom: 32px;
+  color: #044a7c;
+}
+
+.selector-cross {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: #061826;
+}
+
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.sel-label {
+  min-width: 220px;
+  text-align: center;
+}
+
+.sel-char-name {
+  font-size: 32px;
+  font-weight: 800;
+  padding: 4px 16px;
+}
+
+.arrow-btn {
+  background: transparent;
+  border: 2px solid rgba(6, 24, 38, 0.25);
+  border-radius: 8px;
+  font-size: 24px;
+  padding: 4px 12px;
+  cursor: pointer;
+  color: #061826;
+}
+
+.arrow-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.gender-row {
+  display: flex;
+  gap: 24px;
+  margin-top: 12px;
+}
+
+.gender-opt {
+  background: rgba(255, 255, 255, 0.32);
+  border: 2px solid transparent;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 26px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #061826;
+}
+
+.gender-opt.active {
+  background: #0099ff;
+  border-color: #04395e;
+}
+
+.char-right {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+#img-char-preview {
+  max-height: 82vh;
+  max-width: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 22px rgba(0, 35, 70, 0.25));
+}
+
+.char-missing-hint {
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+  padding: 18px 24px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.apikey-box {
+  margin-top: 22px;
+  background: rgba(0, 48, 92, 0.22);
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.apikey-note {
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.plan-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(440px, 86vw);
+}
+
+.plan-stack.compact {
+  gap: 10px;
+  width: min(360px, 84vw);
+}
+
+.plan-stack .action-btn {
+  width: 100%;
+  padding: 14px 20px;
+  font-size: 22px;
+}
+
+.plan-stack.compact .action-btn {
+  padding: 10px 18px;
+  font-size: 19px;
+}
+
+.pager-row {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  margin-top: 24px;
+  color: #061826;
+}
+
+.pager-arrow {
+  background: transparent;
+  border: none;
+  font-size: 44px;
+  color: #0088ee;
+  cursor: pointer;
+  text-shadow: 0 2px 4px rgba(255,255,255,0.5);
+}
+
+.pager-text {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.confirm-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-size: 28px;
+  color: #061826;
+  font-weight: 600;
+}
+
+.conf-sub {
+  font-size: 15px;
+  color: #0f3a5d;
+  font-weight: 500;
+}
+
+/* ==================== Slide 27-32: ノベルゲーム本編画面 ==================== */
+.novel-screen.active {
+  display: block;
+}
+
+.novel-bg {
+  position: absolute;
+  inset: 0;
+  background-color: #1e3a5f;
+  background-image: linear-gradient(180deg, #38bdf8 0%, #bae6fd 100%);
+  background-size: cover;
+  background-position: center;
+  transition: background-image 0.45s ease;
+}
+
+.novel-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.novel-portrait {
+  height: 92vh;
+  max-width: 78vw;
+  object-fit: contain;
+  transform-origin: bottom center;
+  transition: transform 0.2s ease, opacity 0.25s ease;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.32));
+}
+
+.novel-portrait.speaking {
+  animation: talkBounce 0.36s ease-in-out infinite alternate;
+}
+
+@keyframes talkBounce {
+  from { transform: translateY(0px); }
+  to { transform: translateY(-6px); }
+}
+
+.novel-hud {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  z-index: 20;
+  flex-wrap: wrap;
+}
+
+.hud-pill {
+  background: rgba(15, 23, 42, 0.68);
+  color: #f8fafc;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  backdrop-filter: blur(6px);
+}
+
+.hud-btn {
+  background: rgba(2, 132, 199, 0.88);
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.hud-btn:hover {
+  background: #0ea5e9;
+}
+
+.novel-textbox {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-height: 22vh;
+  background: rgba(196, 204, 212, 0.78);
+  border-top: 2px solid #111827;
+  padding: 26px 48px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  backdrop-filter: blur(3px);
+}
+
+.novel-text {
+  font-size: clamp(22px, 2.5vw, 34px);
+  line-height: 1.55;
+  font-weight: 500;
+  max-width: 1240px;
+  width: 100%;
+}
+
+.novel-text.is-narration {
+  color: #f1f5f9;
+  text-shadow: 0 1px 4px rgba(15, 23, 42, 0.55);
+}
+
+.novel-text.is-dialogue {
+  color: #c93b3b;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.55);
+}
+
+.novel-next-hint {
+  position: absolute;
+  right: 24px;
+  bottom: 10px;
+  font-size: 13px;
+  color: #1e293b;
+  opacity: 0.75;
+}
+
+.novel-choices-wrap {
+  position: absolute;
+  left: 2.5vw;
+  right: 2.5vw;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 15;
+}
+
+.novel-choices {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2.0vw;
+}
+
+.free-talk-bar {
+  display: flex;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.80);
+  padding: 8px 12px;
+  border-radius: 12px;
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.free-talk-bar input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 14px;
+  user-select: text;
+}
+
+.choice-btn {
+  background: #0099ff;
+  color: #061826;
+  border: none;
+  border-radius: 14px;
+  padding: 22px 18px;
+  font-size: clamp(16px, 1.5vw, 22px);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(0, 30, 60, 0.28);
+  transition: transform 0.12s ease, background 0.15s ease;
+}
+
+.choice-btn:hover:not(:disabled) {
+  background: #22adff;
+  transform: translateY(-3px);
+}
+
+.wedding-banner {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.72);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  color: #fff;
+  z-index: 30;
+  text-align: center;
+  padding: 32px;
+}
+
+.wedding-banner h2 {
+  font-size: 38px;
+  color: #fde047;
+}
+
+.saves-drawer {
+  position: absolute;
+  top: 56px;
+  right: 18px;
+  bottom: 24px;
+  width: min(420px, 90vw);
+  background: rgba(15, 23, 42, 0.92);
+  color: #f8fafc;
+  border-radius: 14px;
+  padding: 16px;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.saves-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.save-item {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.save-item:hover {
+  background: rgba(14, 165, 233, 0.35);
+}
+
+/* AquesTalk1 ライセンス実費回収メーター & ボイスプランUI */
+.voice-meter-card {
+  width: min(760px, 92vw);
+  background: rgba(6, 36, 68, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  padding: 16px 20px;
+  border-radius: 14px;
+  text-align: left;
+}
+
+.vm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.vm-bar-bg {
+  width: 100%;
+  height: 12px;
+  background: rgba(15, 23, 42, 0.45);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.vm-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #34d399 0%, #38bdf8 100%);
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+
+.vm-caption {
+  font-size: 12px;
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.vm-controls {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vm-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vm-plan-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.vm-plan-row select {
+  flex: 1;
+  min-width: 240px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+
+/* ==================== セーブ読込モーダル & 性格変更ドロワー追加スタイル ==================== */
+.action-btn.secondary-action {
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+.action-btn.secondary-action:hover:not(:disabled) {
+  background: rgba(30, 41, 59, 0.88);
+}
+
+.hud-btn.pers-btn {
+  background: rgba(139, 92, 246, 0.88);
+}
+
+.hud-btn.pers-btn:hover {
+  background: #8b5cf6;
+}
+
+.personality-toast {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(88, 28, 135, 0.90);
+  color: #fdf4ff;
+  border: 1px solid rgba(232, 121, 249, 0.55);
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 24;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.pers-drawer {
+  width: min(460px, 92vw);
+}
+
+.drawer-caption {
+  font-size: 12px;
+  color: #cbd5e1;
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+
+.pers-mode-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.pers-mode-box label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.pers-custom-row input,
+.pers-filter-row input {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid #475569;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 12px;
+  margin-bottom: 8px;
+  user-select: text;
+}
+
+.pers-selected-bar {
+  font-size: 12px;
+  color: #e879f9;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.pers-chip-list {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  align-content: start;
+}
+
+.pers-chip {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #f1f5f9;
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pers-chip:hover {
+  background: rgba(139, 92, 246, 0.30);
+}
+
+.pers-chip.selected {
+  background: rgba(168, 85, 247, 0.55);
+  border-color: #f0abfc;
+  font-weight: 700;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.76);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  padding: 18px;
+  backdrop-filter: blur(4px);
+}
+
+.save-modal-card {
+  width: min(1040px, 95vw);
+  height: min(680px, 88vh);
+  background: #0f172a;
+  color: #f8fafc;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+}
+
+.save-modal-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 14px;
+  min-height: 0;
+  margin-top: 6px;
+}
+
+.save-sessions-col,
+.save-turns-col {
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid #293548;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.save-sessions-col h4,
+.save-turns-col h4 {
+  font-size: 13px;
+  color: #38bdf8;
+  margin-bottom: 8px;
+}
+
+.save-card-active {
+  border: 1px solid #38bdf8;
+  background: rgba(14, 165, 233, 0.22) !important;
+}
+
+.save-item-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.save-mini-btn {
+  padding: 4px 9px;
+  border-radius: 5px;
+  border: none;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #0284c7;
+  color: #fff;
+}
+
+.save-mini-btn.alt {
+  background: #475569;
+}
+
+.save-mini-btn.danger {
+  background: #991b1b;
+}
+
+/* ==================== 東方キャラ立絵スタジオ統合モーダル & スポイト色変えUI ==================== */
+.hud-btn.tachie-btn {
+  background: linear-gradient(135deg, #db2777, #7c3aed);
+}
+
+.hud-btn.tachie-btn:hover {
+  filter: brightness(1.1);
+}
+
+.tachie-modal-card {
+  width: 97vw;
+  height: 94vh;
+  background: #0f172a;
+  border: 1px solid #475569;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+}
+
+.tachie-modal-head {
+  height: 44px;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #f8fafc;
+  font-size: 13px;
+}
+
+.tachie-studio-iframe {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #0f172a;
+}
+
+.eyedropper-mini-canvas {
+  width: 100%;
+  max-height: 210px;
+  object-fit: contain;
+  background: repeating-conic-gradient(#1e293b 0% 25%, #0f172a 0% 50%) 50% / 16px 16px;
+  border: 2px dashed #38bdf8;
+  border-radius: 8px;
+  cursor: crosshair;
+  margin-bottom: 6px;
+}
+
+.color-rule-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #334155;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+}

@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>東方Project恋愛シミュレーター</title>
+  <link rel="stylesheet" href="stage_fx.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- ==================== 共通スピナー画面 (Slide 11, 12, 16, 23, 24, 25) ==================== -->
+    <section id="screen-loading" class="screen sky-bg active">
+      <div class="center-stack">
+        <h1 id="loading-title" class="sky-title">検証中…</h1>
+        <div class="dotted-spinner" aria-hidden="true"></div>
+        <p id="loading-sub" class="sky-sub"></p>
+      </div>
+    </section>
+
+    <!-- ==================== ブロック画面 (Slide 11 不正検知時) ==================== -->
+    <section id="screen-blocked" class="screen sky-bg">
+      <div class="center-stack">
+        <h1 class="sky-title">起動がブロックされました</h1>
+        <p id="blocked-reason" class="sky-note"></p>
+      </div>
+    </section>
+
+    <!-- ==================== Slide 13: Google 認証 ＆ ローカル素材・セーブ読込画面 ==================== -->
+    <section id="screen-auth" class="screen sky-bg">
+      <div class="center-stack wide">
+        <h1 class="sky-title">以下のボタンを押し、認証をしてください。</h1>
+        <div class="row-btns" style="margin-top:0;flex-wrap:wrap">
+          <button id="btn-auth-start" class="action-btn">認証開始（サーバー連携） ↗</button>
+          <button id="btn-standalone-quick" class="action-btn secondary-action">⚡ APIキー・単体モードで始める</button>
+          <button id="btn-open-load-modal-auth" class="action-btn secondary-action">📂 セーブデータを読み込む</button>
+        </div>
+        <p id="auth-status-msg" class="sky-sub"></p>
+
+        <!-- 利用者PC上のローカル素材フォルダ設定パネル -->
+        <div class="local-assets-card">
+          <div class="assets-card-head">
+            <strong>📁 ローカル素材フォルダ設定（PC内の立ち絵・背景・効果音を直接参照）</strong>
+            <span id="assets-detect-badge" class="assets-badge">確認中…</span>
+          </div>
+          <div class="assets-input-row">
+            <input id="input-assets-root" type="text" placeholder="立ち絵・背景・効果音を配置した親フォルダパス">
+            <button id="btn-browse-assets" class="mini-btn" title="フォルダ選択ダイアログを開く">参照…</button>
+            <button id="btn-save-assets" class="mini-btn">適用・再読込</button>
+            <button id="btn-open-assets" class="mini-btn secondary" title="配置先フォルダをファイルマネージャーで開く">フォルダを開く</button>
+          </div>
+          <details class="assets-advanced">
+            <summary>立ち絵・背景・効果音フォルダを別々に指定する場合</summary>
+            <div class="assets-sub-grid">
+              <label>立ち絵フォルダ:</label>
+              <input id="input-portraits-override" type="text" placeholder="未入力時は親フォルダ内の「はるか式立ち絵」「立ち絵」を自動参照">
+              <label>背景フォルダ:</label>
+              <input id="input-bgs-override" type="text" placeholder="未入力時は親フォルダ内の「背景」を自動参照">
+              <label>効果音フォルダ:</label>
+              <input id="input-se-override" type="text" placeholder="未入力時は「効果音」フォルダ自動参照（内蔵シンセSE 20種も常時有効）">
+            </div>
+          </details>
+        </div>
+
+        <div id="resume-banner" class="resume-card hidden">
+          <p id="resume-summary"></p>
+          <div class="row-btns">
+            <button id="btn-resume-save" class="action-btn small">直近のセーブから即再開</button>
+            <button id="btn-resume-all-saves" class="action-btn small secondary-action">全セーブ一覧から選ぶ</button>
+            <button id="btn-resume-purchase" class="action-btn small hidden">保留中の購入確認から再開</button>
+          </div>
+        </div>
+
+        <div class="server-cfg-bar">
+          <label>接続先サーバー:</label>
+          <input id="input-server-url" type="text" placeholder="http://127.0.0.1:8096">
+          <button id="btn-save-server" class="mini-btn">保存</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== Slide 14: プレイヤー名入力 ==================== -->
+    <section id="screen-name" class="screen sky-bg">
+      <div class="center-stack">
+        <h1 class="sky-title">プレイヤー名を入力</h1>
+        <input id="input-player-name" class="sky-input" type="text" maxlength="16" placeholder="ここにプレイヤー名を入力">
+        <button id="btn-name-next" class="action-btn">次へ</button>
+      </div>
+      <p class="bottom-notice">※本ゲームに共有機能はありません。</p>
+    </section>
+
+    <!-- ==================== Slide 15: 読み方入力 ==================== -->
+    <section id="screen-kana" class="screen sky-bg">
+      <div class="center-stack">
+        <h1 class="sky-title">読み方を入力</h1>
+        <input id="input-player-kana" class="sky-input" type="text" maxlength="24" placeholder="読み方を入力（ひらがな・カタカナ）">
+        <button id="btn-kana-next" class="action-btn">次へ</button>
+        <p id="name-validation-err" class="err-msg"></p>
+      </div>
+    </section>
+
+    <!-- ==================== Slide 17: キャラクターと性別選択 ==================== -->
+    <section id="screen-char-select" class="screen sky-bg">
+      <div class="char-select-layout">
+        <div class="char-left">
+          <h2 class="char-heading">キャラクターと<br>あなたの性別を選ぶ</h2>
+
+          <div class="selector-cross">
+            <div class="cat-row">
+              <button id="btn-cat-prev" class="arrow-btn" title="左矢印キー">←</button>
+              <span id="label-category" class="sel-label">主人公</span>
+              <button id="btn-cat-next" class="arrow-btn" title="右矢印キー">→</button>
+            </div>
+            <div class="arrow-v">
+              <button id="btn-char-prev" class="arrow-btn" title="上矢印キー">↑</button>
+            </div>
+            <div id="label-char-name" class="sel-char-name">博麗霊夢</div>
+            <div class="arrow-v">
+              <button id="btn-char-next" class="arrow-btn" title="下矢印キー">↓</button>
+            </div>
+            <div class="gender-row">
+              <button id="btn-gender-m" class="gender-opt active">M：男</button>
+              <button id="btn-gender-w" class="gender-opt">W：女</button>
+            </div>
+          </div>
+
+          <div class="row-btns" style="margin-top:24px;flex-wrap:wrap">
+            <button id="btn-char-confirm" class="action-btn">決定して次へ</button>
+            <button id="btn-open-tachie-char" class="action-btn small secondary-action">🌸 立ち絵スタジオ・色変え</button>
+            <button id="btn-open-load-modal-char" class="action-btn small secondary-action">📂 セーブ読込</button>
+          </div>
+        </div>
+
+        <div class="char-right">
+          <img id="img-char-preview" alt="キャラクター立ち絵プレビュー" src="">
+          <div id="char-missing-hint" class="char-missing-hint hidden">
+            このキャラクターの立ち絵がローカル素材フォルダ内に見つかりません。<br>
+            事前にPCの「はるか式立ち絵」フォルダへ配置すると表示されます。
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== Slide 18: AIの導入方法 ＆ AquesTalkボイス設定 ==================== -->
+    <section id="screen-ai-mode" class="screen sky-bg">
+      <div class="center-stack wide">
+        <h1 class="sky-title" style="margin-bottom:18px">AIの導入方法とボイス設定</h1>
+
+        <div class="voice-meter-card">
+          <div class="vm-header">
+            <strong>🎙️ AquesTalk1 ボイスライセンス実費回収メーター（利益0円上限ストッパー付）</strong>
+            <span id="vm-status-badge" class="assets-badge ok">読込中…</span>
+          </div>
+          <div class="vm-bar-bg"><div id="vm-bar-fill" class="vm-bar-fill" style="width:0%"></div></div>
+          <p id="vm-caption" class="vm-caption"></p>
+
+          <div class="vm-controls">
+            <label class="vm-toggle">
+              <input id="chk-voice-enabled" type="checkbox" checked>
+              <span>AquesTalk1 ボイスを有効にする（初回5セリフ無料お試し／OFFなら¥0）</span>
+            </label>
+            <div id="vm-plan-selector-row" class="vm-plan-row">
+              <label>同時購入ボイスプラン（任意）:</label>
+              <select id="select-initial-voice-plan"></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="row-btns" style="margin-top:20px;flex-wrap:wrap">
+          <button id="btn-mode-purchase" class="action-btn wide-btn">プロンプト購入で進む</button>
+          <button id="btn-mode-apikey" class="action-btn wide-btn">GeminiAPIキーで指定</button>
+        </div>
+
+        <div id="apikey-panel" class="apikey-box hidden">
+          <p class="apikey-note">APIキーはあなたのPC内にのみローカル保存されます（※会話の自由入力 ＆ 会話連動の自動背景AI生成はAPIキー利用時のみ有効）。</p>
+          <input id="input-gemini-key" class="sky-input" type="password" placeholder="AIza... (入力すると自由入力＆高精度AI背景・対話が有効)">
+          <label style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px;font-size:14px;cursor:pointer">
+            <input id="chk-auto-bg-gen" type="checkbox" checked>
+            <span>🖼️ 会話の場面に合うローカル背景がない時、会話内容に忠実な背景をAI自動生成する</span>
+          </label>
+          <div class="row-btns">
+            <button id="btn-apikey-start" class="action-btn">保存して次へ進む</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== Slide 19: プロンプトを購入 (3ページ切替) ==================== -->
+    <section id="screen-prompt-plan" class="screen sky-bg">
+      <div class="center-stack">
+        <h1 class="sky-title">プロンプトを購入</h1>
+        <div id="prompt-plan-list" class="plan-stack"></div>
+        <div class="pager-row">
+          <button id="btn-plan-prev" class="pager-arrow">←</button>
+          <span id="label-plan-page" class="pager-text">1 / 3</span>
+          <button id="btn-plan-next" class="pager-arrow">→</button>
+        </div>
+      </div>
+      <button id="btn-plan-back" class="back-corner-btn">前に戻る</button>
+    </section>
+
+    <!-- ==================== Slide 20: オートチャージプランを選択 ==================== -->
+    <section id="screen-autocharge" class="screen sky-bg">
+      <div class="center-stack">
+        <h1 class="sky-title">オートチャージプランを選択</h1>
+        <div id="autocharge-list" class="plan-stack compact"></div>
+      </div>
+      <button id="btn-ac-back" class="back-corner-btn">前に戻る</button>
+    </section>
+
+    <!-- ==================== Slide 21: デジポット代金を選択 ==================== -->
+    <section id="screen-deposit" class="screen sky-bg">
+      <div class="center-stack">
+        <h1 class="sky-title">デジポット代金を選択</h1>
+        <div id="deposit-list" class="plan-stack compact"></div>
+        <p class="sky-sub">※実際にプロンプト購入に使える残高は決済手数料を差し引いた金額になります。</p>
+      </div>
+      <button id="btn-dep-back" class="back-corner-btn">前に戻る</button>
+    </section>
+
+    <!-- ==================== Slide 22: 購入内容を確認 ==================== -->
+    <section id="screen-confirm" class="screen sky-bg">
+      <div class="center-stack">
+        <h1 class="sky-title">購入内容を確認</h1>
+        <div class="confirm-summary">
+          <p id="conf-prompt"></p>
+          <p id="conf-voice-plan"></p>
+          <p id="conf-autocharge"></p>
+          <p id="conf-deposit"></p>
+          <p id="conf-net-note" class="conf-sub"></p>
+        </div>
+        <div class="row-btns" style="margin-top:28px">
+          <button id="btn-conf-back" class="action-btn">前に戻る</button>
+          <button id="btn-conf-paypal" class="action-btn">PayPalで支払う ↗</button>
+        </div>
+        <p id="conf-err" class="err-msg"></p>
+      </div>
+    </section>
+
+    <!-- ==================== Slide 27-32: メイン恋愛シミュレーション画面（プレゼン演出統合） ==================== -->
+    <section id="screen-novel" class="screen novel-screen">
+      <div id="novel-bg" class="novel-bg stage-bg-layer"></div>
+      <div id="novel-fx-overlay" class="stage-fx-overlay"></div>
+
+      <!-- 左上ライブ演出インジケーター -->
+      <div id="novel-stage-badge" class="stage-live-badge">🎬 100% ・ 静止</div>
+
+      <!-- 性格変化トースト通知 -->
+      <div id="personality-toast" class="personality-toast hidden"></div>
+
+      <!-- 3層GPUコンポジタ立ち絵ステージ（拡大縮小 × 有限モーション × 発話リップバウンスが干渉せず合成） -->
+      <div class="novel-stage">
+        <div id="novel-rig" class="stage-camera-rig">
+          <div id="novel-motion" class="stage-motion-layer">
+            <img id="novel-portrait" class="novel-portrait hidden" alt="ヒロイン立ち絵" src="">
+          </div>
+        </div>
+      </div>
+
+      <!-- 上部ミニHUD -->
+      <header class="novel-hud">
+        <div class="hud-pill" id="hud-char-stage">出会い (♥ 5%)</div>
+        <button class="hud-btn pers-btn" id="btn-open-personality" title="会話に合わせた性格変化の設定・手動変更">🎭 <span id="hud-personality">性格: 原作準拠</span></button>
+        <div class="hud-pill" id="hud-voice-status" title="AquesTalk1 ボイス利用状態">🔊 ボイス</div>
+        <div class="hud-pill" id="hud-balance">Gemini Local</div>
+        <button id="btn-replay-voice" class="hud-btn" title="現在のセリフ音声と演出を再生">🔊 再生</button>
+        <button id="btn-toggle-se" class="hud-btn" title="効果音(SE)のON/OFF切替">🔔 SE:ON</button>
+        <button id="btn-open-tachie-drawer" class="hud-btn tachie-btn" title="東方キャラ立絵スタジオ（作成・パーツ組替・リアルタイム色変え・スポイト置換）">👗 立ち絵・色変え</button>
+        <button id="btn-open-stage-studio" class="hud-btn hidden" title="『キャラステージ演出メーカー』単体スタジオを開く">🎬 演出スタジオ</button>
+        <button id="btn-open-voice-panel" class="hud-btn" title="ボイスON/OFF・AquesTalk実費分担パス/枠購入">🎙️ ボイス設定</button>
+        <button id="btn-open-saves" class="hud-btn" title="セーブデータ一覧読込・途中ターン巻き戻し・書出">💾 セーブ/ロード</button>
+        <button id="btn-new-bg" class="hud-btn" title="現在の会話内容に忠実な背景画像をAI生成">🎨 背景AI生成</button>
+      </header>
+
+      <!-- 半透明メッセージボックス -->
+      <div id="novel-textbox" class="novel-textbox" title="クリックまたはSpace/Enterで進む">
+        <p id="novel-text-content" class="novel-text"></p>
+        <span id="novel-next-hint" class="novel-next-hint">▼ クリックして次へ</span>
+      </div>
+
+      <!-- 3択の選択肢ボタン ＋ 会話自由入力バー（性格や距離感を自分の言葉で自在に誘導可能） -->
+      <div id="novel-choices-wrap" class="novel-choices-wrap hidden">
+        <div id="novel-choices" class="novel-choices"></div>
+        <form id="free-talk-form" class="free-talk-bar">
+          <input id="input-free-talk" type="text" maxlength="80" placeholder="💬 自分の言葉で自由に話しかける（例：頭を撫でる／もっと甘えていいよ 等）">
+          <button id="btn-free-talk-send" type="submit" class="mini-btn">話しかける</button>
+        </form>
+      </div>
+
+      <!-- 結婚式ゴール祝福オーバーレイ -->
+      <div id="wedding-banner" class="wedding-banner hidden">
+        <h2>💍 HAPPY WEDDING — ゴール到達！ 💍</h2>
+        <p id="wedding-msg"></p>
+        <button id="btn-wedding-restart" class="action-btn">タイトルへ戻る</button>
+      </div>
+
+      <!-- ==================== 性格変更・会話適応設定ドロワー ==================== -->
+      <aside id="personality-drawer" class="saves-drawer pers-drawer hidden">
+        <div class="drawer-head">
+          <h3>🎭 性格変更 ＆ 会話適応モード</h3>
+          <button id="btn-close-personality" class="mini-btn">閉じる</button>
+        </div>
+        <p class="drawer-caption">会話の接し方に合わせてAIが毎ターン性格を変化させるほか、好きな性格（最大2つ）やニュアンスを手動指定・固定できます。</p>
+
+        <div class="pers-mode-box">
+          <label><input type="radio" name="pers-mode" value="auto" checked> 🔄 会話に合わせて自動変化（推奨）</label>
+          <label><input type="radio" name="pers-mode" value="hybrid"> 📌 1つ目をベース固定＋2つ目は会話で変化</label>
+          <label><input type="radio" name="pers-mode" value="locked"> 🔒 選んだ性格で完全固定</label>
+        </div>
+
+        <div class="pers-custom-row">
+          <input id="input-custom-pers-note" type="text" maxlength="60" placeholder="自由ニュアンス追記（例: 素直になれない照れ屋のお嬢様）">
+        </div>
+
+        <div class="pers-selected-bar" id="pers-selected-bar">現在: 原作準拠</div>
+
+        <div class="pers-filter-row">
+          <input id="input-pers-search" type="text" placeholder="性格を検索（ツンデレ・甘えん坊・妹系…）">
+        </div>
+        <div id="personality-chip-list" class="pers-chip-list"></div>
+      </aside>
+
+      <!-- ゲーム内 AquesTalk1 ボイス設定・実費分担プラン購入ドロワー -->
+      <aside id="voice-drawer" class="saves-drawer hidden">
+        <div class="drawer-head">
+          <h3>🎙️ ボイス・効果音管理</h3>
+          <button id="btn-close-voice-drawer" class="mini-btn">閉じる</button>
+        </div>
+        <p id="vd-pool-text" style="font-size:12px;line-height:1.5;margin-bottom:8px;color:#cbd5e1"></p>
+        <div class="vm-bar-bg" style="margin-bottom:12px"><div id="vd-bar-fill" class="vm-bar-fill" style="width:0%"></div></div>
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;cursor:pointer">
+          <input id="chk-hud-voice-enabled" type="checkbox" checked>
+          <span>AquesTalkボイス再生を有効にする（OFF時は消費ゼロ）</span>
+        </label>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input id="chk-hud-se-enabled" type="checkbox" checked>
+            <span>効果音(SE)</span>
+          </label>
+          <input id="rng-se-volume" type="range" min="10" max="100" value="80" style="flex:1">
+          <button id="btn-test-se-hud" class="mini-btn secondary">試聴</button>
+        </div>
+        <p id="vd-user-entitlement" style="font-size:13px;color:#38bdf8;margin-bottom:10px"></p>
+        <div id="vd-plan-buttons" class="saves-list"></div>
+      </aside>
+
+      <!-- ==================== 👗 リアルタイム色変え・スポイト置換 ＆ 立ち絵スタジオ起動ドロワー ==================== -->
+      <aside id="color-custom-drawer" class="saves-drawer pers-drawer hidden">
+        <div class="drawer-head">
+          <h3>👗 立ち絵作成・色変えスタジオ</h3>
+          <button id="btn-close-color-drawer" class="mini-btn">閉じる</button>
+        </div>
+        <button id="btn-launch-full-tachie-studio" class="mini-btn" style="width:100%;padding:10px;margin-bottom:10px;background:linear-gradient(135deg,#ec4899,#8b5cf6);font-size:13px">
+          🌸 フル機能『東方キャラ立絵スタジオ』を開く（PSDパーツ組替・部位別色変え・全表情出力）
+        </button>
+
+        <div class="saves-list" style="padding-right:4px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <strong style="font-size:12px;color:#f472b6">🎨 リアルタイム雰囲気フィルター（PNG/PSD共通）</strong>
+            <button id="btn-reset-live-color" class="save-mini-btn alt">リセット</button>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+            <input id="chk-auto-time-tint" type="checkbox" checked>
+            <span>背景の夕暮れ・夜に合わせて立ち絵の光色を自動なじませ</span>
+          </label>
+          <select id="sel-live-filter" style="background:#0f172a;color:#fff;border:1px solid #475569;padding:6px;border-radius:6px;font-size:12px">
+            <option value="normal">通常 (Normal)</option>
+            <option value="sunset">夕暮れ (黄昏)</option>
+            <option value="moonlight">夜・月光</option>
+            <option value="darkness">闇落ち・妖気</option>
+            <option value="suntan">日焼け・小麦肌</option>
+            <option value="sepia">セピア (回想)</option>
+            <option value="monochrome">モノクロ</option>
+            <option value="cyber">サイバーネオン</option>
+            <option value="pastel">パステルドリーム</option>
+            <option value="horror">ホラー・怨霊</option>
+          </select>
+
+          <div style="font-size:11px;display:grid;gap:5px;margin-top:4px">
+            <label>色相 (Hue): <span id="lbl-c-hue">0°</span> <input id="rng-c-hue" type="range" min="-180" max="180" value="0" style="width:100%"></label>
+            <label>彩度 (Saturation): <span id="lbl-c-sat">100%</span> <input id="rng-c-sat" type="range" min="0" max="200" value="100" style="width:100%"></label>
+            <label>明度 (Brightness): <span id="lbl-c-bri">0%</span> <input id="rng-c-bri" type="range" min="-60" max="60" value="0" style="width:100%"></label>
+            <label>コントラスト: <span id="lbl-c-con">0%</span> <input id="rng-c-con" type="range" min="-50" max="60" value="0" style="width:100%"></label>
+            <label>色温度 (暖色/寒色): <span id="lbl-c-temp">0</span> <input id="rng-c-temp" type="range" min="-80" max="80" value="0" style="width:100%"></label>
+          </div>
+
+          <div style="margin-top:8px;border-top:1px solid #334155;padding-top:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <strong style="font-size:12px;color:#38bdf8">💧 スポイト特定色置換（陰影保持・衣装/髪/瞳色変え）</strong>
+              <button id="btn-pick-sprite-color" class="save-mini-btn">💧 立ち絵から色を取得</button>
+            </div>
+            <canvas id="sprite-eyedropper-canvas" class="eyedropper-mini-canvas hidden" title="色を変えたい箇所（服・髪・リボン等）をクリックしてください"></canvas>
+            <div id="live-color-rules-list" style="display:flex;flex-direction:column;gap:6px"></div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- ==================== 🌸 フル機能『東方キャラ立絵スタジオ』埋め込みモーダル ==================== -->
+    <div id="tachie-studio-modal" class="modal-backdrop hidden">
+      <div class="tachie-modal-card">
+        <div class="tachie-modal-head">
+          <strong>🌸 東方キャラ立絵スタジオ — 立ち絵作成・表情パーツ組替・部位別色変え・全表情出力</strong>
+          <button id="btn-close-tachie-modal" class="mini-btn secondary">✕ ゲーム画面へ戻る</button>
+        </div>
+        <iframe id="tachie-studio-iframe" class="tachie-studio-iframe" src="about:blank"></iframe>
+      </div>
+    </div>
+
+    <!-- ==================== 全画面共通 セーブデータ読込・管理モーダル ==================== -->
+    <div id="save-load-modal" class="modal-backdrop hidden">
+      <div class="save-modal-card">
+        <div class="drawer-head">
+          <h3>📂 セーブデータの読み込み・管理（PCローカル保存）</h3>
+          <div style="display:flex;gap:8px;align-items:center">
+            <label class="mini-btn" style="cursor:pointer">
+              📥 外部セーブ読込 (.zip/.json)
+              <input id="input-import-save-file" type="file" accept=".zip,.json" class="hidden">
+            </label>
+            <button id="btn-close-save-modal" class="mini-btn secondary">閉じる</button>
+          </div>
+        </div>
+        <div class="save-modal-grid">
+          <div class="save-sessions-col">
+            <h4>保存済みセッション一覧</h4>
+            <div id="save-sessions-list" class="saves-list"></div>
+          </div>
+          <div class="save-turns-col">
+            <h4 id="save-turns-heading">会話ターン詳細（セッションを選択してください）</h4>
+            <div id="save-turns-detail-list" class="saves-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <audio id="voice-player"></audio>
+  <script src="stage_fx.js"></script>
+  <script src="tachie_color_live.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

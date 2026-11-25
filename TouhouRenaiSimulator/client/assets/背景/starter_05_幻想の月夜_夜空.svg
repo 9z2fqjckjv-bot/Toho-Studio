@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#090d26"/>
+      <stop offset="100%" stop-color="#1e2959"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#sky)"/>
+  <circle cx="1020" cy="150" r="56" fill="#fef08a" opacity="0.88"/>
+  <path d="M0 540 Q320 410 660 510 T1280 470 L1280 720 L0 720 Z" fill="#0b132b" opacity="0.65"/>
+  <path d="M0 590 Q440 520 880 585 T1280 560 L1280 720 L0 720 Z" fill="#0f172a" opacity="0.78"/>
+  
+  <text x="32" y="692" font-family="sans-serif" font-size="16" fill="rgba(255,255,255,0.45)">Scene: 幻想郷の満月と夜空</text>
+</svg>

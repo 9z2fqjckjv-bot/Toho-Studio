@@ -1,0 +1,286 @@
+/* =========================================================================
+ * キャラステージ演出メーカー 共通GPUコンポジタ演出スタイル (stage_fx.css)
+ * 設計:
+ *   1. 外側 .stage-camera-rig  : プレゼンソフトのマジックムーブ風 拡大縮小・XY移動
+ *   2. 中間 .stage-motion-layer: 登場・感情モーション（全て有限回数で完了しアイドルCPU 0%）
+ *   3. 内側 img                : ボイス発話中のみの微細バウンス（再生終了と同時に停止）
+ * ========================================================================= */
+
+.stage-bg-layer {
+  will-change: auto;
+  transition: transform 0.68s cubic-bezier(0.22, 1, 0.36, 1), filter 0.68s ease, background-image 0.45s ease;
+  transform: scale(var(--bg-zoom, 1.02));
+  filter: blur(var(--bg-blur, 0px));
+}
+
+.stage-camera-rig {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  pointer-events: none;
+  transform-origin: 50% var(--stage-origin-y, 55%);
+  transform: translate3d(var(--stage-off-x, 0vw), var(--stage-off-y, 0vh), 0) scale(var(--stage-scale, 1));
+  transition: transform var(--stage-trans-ms, 620ms) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.stage-camera-rig.animating {
+  will-change: transform;
+}
+
+.stage-motion-layer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 100%;
+  transform-origin: 50% 65%;
+}
+
+/* ==================== 画面エフェクトオーバーレイ（軽量GPU合成・有限再生） ==================== */
+.stage-fx-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  opacity: 0;
+  transition: opacity 0.55s ease;
+}
+
+.stage-fx-overlay.fx-warm_bloom {
+  opacity: 1;
+  background:
+    radial-gradient(circle at 50% 34%, rgba(255, 224, 178, 0.22) 0%, rgba(251, 146, 60, 0.14) 55%, rgba(251, 113, 133, 0.22) 100%);
+}
+
+.stage-fx-overlay.fx-sparkle_glow {
+  opacity: 1;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(255, 255, 255, 0.30) 0%, rgba(253, 224, 71, 0.14) 42%, rgba(56, 189, 248, 0.12) 100%);
+  animation: fxSparklePulse 1.1s ease-out 1 forwards;
+}
+
+.stage-fx-overlay.fx-heartbeat_pulse {
+  opacity: 1;
+  background:
+    radial-gradient(circle at 50% 42%, transparent 42%, rgba(244, 63, 94, 0.34) 100%);
+  animation: fxHeartbeatVignette 0.85s ease-in-out 2 forwards;
+}
+
+.stage-fx-overlay.fx-dark_vignette {
+  opacity: 1;
+  background:
+    radial-gradient(circle at 50% 38%, transparent 32%, rgba(15, 10, 28, 0.72) 100%);
+}
+
+.stage-screen-shake {
+  animation: fxScreenShake 0.44s cubic-bezier(0.36, 0.07, 0.19, 0.97) 1;
+}
+
+@keyframes fxSparklePulse {
+  0% { opacity: 0.2; }
+  45% { opacity: 1; }
+  100% { opacity: 0.72; }
+}
+
+@keyframes fxHeartbeatVignette {
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  25% { opacity: 0.95; transform: scale(1.015); }
+  45% { opacity: 0.55; transform: scale(1); }
+  65% { opacity: 0.88; transform: scale(1.01); }
+}
+
+@keyframes fxScreenShake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  15% { transform: translate3d(-8px, 4px, 0); }
+  30% { transform: translate3d(8px, -5px, 0); }
+  45% { transform: translate3d(-6px, 3px, 0); }
+  60% { transform: translate3d(6px, -2px, 0); }
+  75% { transform: translate3d(-3px, 1px, 0); }
+}
+
+/* ==================== 全18種プレゼン風キャラクターモーション（有限回数） ==================== */
+
+.mot-slide_in_left {
+  animation: motSlideInLeft 0.68s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+@keyframes motSlideInLeft {
+  0% { opacity: 0; transform: translate3d(-16vw, 1.2vh, 0); }
+  60% { opacity: 1; transform: translate3d(0.8vw, -0.4vh, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.mot-slide_in_right {
+  animation: motSlideInRight 0.68s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+@keyframes motSlideInRight {
+  0% { opacity: 0; transform: translate3d(16vw, 1.2vh, 0); }
+  60% { opacity: 1; transform: translate3d(-0.8vw, -0.4vh, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.mot-fade_zoom_in {
+  animation: motFadeZoomIn 0.70s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+@keyframes motFadeZoomIn {
+  0% { opacity: 0; transform: scale(0.88) translate3d(0, 2vh, 0); }
+  100% { opacity: 1; transform: scale(1) translate3d(0, 0, 0); }
+}
+
+.mot-float_in {
+  animation: motFloatIn 0.84s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+@keyframes motFloatIn {
+  0% { opacity: 0; transform: translate3d(0, -9vh, 0) rotate(-1.5deg); }
+  65% { opacity: 1; transform: translate3d(0, 0.9vh, 0) rotate(0.6deg); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg); }
+}
+
+.mot-step_closer {
+  animation: motStepCloser 0.72s ease-out 1;
+}
+@keyframes motStepCloser {
+  0% { transform: translate3d(0, 0, 0) scale(0.95); }
+  28% { transform: translate3d(-0.4vw, -1.4vh, 0) scale(0.975); }
+  55% { transform: translate3d(0.3vw, 0.2vh, 0) scale(0.99); }
+  80% { transform: translate3d(0, -1.0vh, 0) scale(1.005); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+.mot-step_back {
+  animation: motStepBack 0.58s ease-out 1;
+}
+@keyframes motStepBack {
+  0% { transform: translate3d(0, 0, 0) scale(1.05); }
+  45% { transform: translate3d(0.6vw, -0.8vh, 0) scale(0.98); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+.mot-nod {
+  animation: motNod 0.56s ease-in-out 1;
+}
+@keyframes motNod {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  30% { transform: translate3d(0, 1.4vh, 0); }
+  60% { transform: translate3d(0, -0.3vh, 0); }
+  82% { transform: translate3d(0, 0.8vh, 0); }
+}
+
+.mot-head_tilt {
+  animation: motHeadTilt 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) 1;
+}
+@keyframes motHeadTilt {
+  0% { transform: rotate(0deg) translate3d(0, 0, 0); }
+  45% { transform: rotate(3.2deg) translate3d(0.7vw, 0.3vh, 0); }
+  80% { transform: rotate(2.2deg) translate3d(0.4vw, 0.1vh, 0); }
+  100% { transform: rotate(0deg) translate3d(0, 0, 0); }
+}
+
+.mot-jump_happy {
+  animation: motJumpHappy 0.60s cubic-bezier(0.28, 0.84, 0.42, 1) 1;
+}
+@keyframes motJumpHappy {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  18% { transform: translate3d(0, 0.8vh, 0) scale(1.02, 0.97); }
+  50% { transform: translate3d(0, -3.6vh, 0) scale(0.99, 1.03); }
+  78% { transform: translate3d(0, 0.4vh, 0) scale(1.01, 0.99); }
+}
+
+.mot-double_bounce {
+  animation: motDoubleBounce 0.68s ease-out 1;
+}
+@keyframes motDoubleBounce {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  25% { transform: translate3d(0, -2.2vh, 0); }
+  50% { transform: translate3d(0, 0, 0); }
+  75% { transform: translate3d(0, -1.5vh, 0); }
+}
+
+.mot-tremble {
+  animation: motTremble 0.68s linear 1;
+}
+@keyframes motTremble {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  15% { transform: translate3d(-3px, 1px, 0); }
+  30% { transform: translate3d(3px, -1px, 0); }
+  45% { transform: translate3d(-3px, 0px, 0); }
+  60% { transform: translate3d(3px, 1px, 0); }
+  75% { transform: translate3d(-2px, -1px, 0); }
+  90% { transform: translate3d(2px, 0px, 0); }
+}
+
+.mot-shake_angry {
+  animation: motShakeAngry 0.54s ease-in-out 1;
+}
+@keyframes motShakeAngry {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  20% { transform: translate3d(-10px, -2px, 0) rotate(-1.5deg); }
+  40% { transform: translate3d(10px, 0, 0) rotate(1.5deg); }
+  60% { transform: translate3d(-7px, -1px, 0) rotate(-1deg); }
+  80% { transform: translate3d(6px, 0, 0) rotate(0.8deg); }
+}
+
+.mot-sway_gentle {
+  animation: motSwayGentle 0.96s ease-in-out 1;
+}
+@keyframes motSwayGentle {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  35% { transform: translate3d(-0.8vw, 0.2vh, 0) rotate(-1.6deg); }
+  70% { transform: translate3d(0.8vw, 0.2vh, 0) rotate(1.6deg); }
+}
+
+.mot-lean_in {
+  animation: motLeanIn 0.68s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+@keyframes motLeanIn {
+  0% { transform: scale(0.93) translate3d(0, 1.5vh, 0); }
+  65% { transform: scale(1.035) translate3d(0, -0.5vh, 0) rotate(1deg); }
+  100% { transform: scale(1) translate3d(0, 0, 0) rotate(0deg); }
+}
+
+.mot-hug_surge {
+  animation: motHugSurge 0.76s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+@keyframes motHugSurge {
+  0% { transform: scale(0.88) translate3d(0, 2.5vh, 0); }
+  48% { transform: scale(1.06) translate3d(0, -1.2vh, 0); }
+  75% { transform: scale(0.99) translate3d(0, 0.3vh, 0); }
+  100% { transform: scale(1) translate3d(0, 0, 0); }
+}
+
+.mot-surprised_jolt {
+  animation: motSurprisedJolt 0.46s cubic-bezier(0.18, 0.89, 0.32, 1.28) 1;
+}
+@keyframes motSurprisedJolt {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  32% { transform: translate3d(0, -2.8vh, 0) scale(1.04); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+.mot-spin_turn {
+  animation: motSpinTurn 0.78s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+@keyframes motSpinTurn {
+  0% { transform: scaleX(1) translate3d(0, 0, 0); }
+  45% { transform: scaleX(0.06) translate3d(0, -1.5vh, 0); }
+  100% { transform: scaleX(1) translate3d(0, 0, 0); }
+}
+
+/* 演出インジケーターバッジ（プレゼンソフト風ステータス表示） */
+.stage-live-badge {
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  z-index: 20;
+  background: rgba(15, 23, 42, 0.66);
+  color: #e2e8f0;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
